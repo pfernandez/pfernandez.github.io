@@ -1,5 +1,5 @@
 {
-  "name": "elements-template",
+  "name": "pfernandex.github.io",
   "version": "0.0.1",
   "description": "An elements.js app.",
   "main": "./src/index.js",
@@ -13,10 +13,10 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git@github.com:pfernandez/pfernandez.github.io.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Paul Fernandez",
+  "license": "MIT",
   "devDependencies": {
     "eslint": "^9.39.2",
     "vite": "^7.3.1"
