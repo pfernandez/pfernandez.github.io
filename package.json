@@ -1,0 +1,28 @@
+{
+  "name": "elements-template",
+  "version": "0.0.1",
+  "description": "An elements.js app.",
+  "main": "./src/index.js",
+  "type": "module",
+  "keywords": [],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.* --test-reporter spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^9.39.2",
+    "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "@pfern/elements": "file:../elements",
+    "@picocss/pico": "^2.1.1"
+  }
+}
