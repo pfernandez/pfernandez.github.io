@@ -3,50 +3,105 @@
  * Reset & base theme
  ******************************************************************************/
 
-@import '@picocss/pico/css/pico.sand.css';
+@import '@picocss/pico/css/pico.grey.min.css';
 
 :root {
   --pico-font-family-sans-serif: 'Arial', sans-serif;
   --pico-border-radius: 0;
 }
 
-/* Light color scheme (Default) */
-/* Can be forced with data-theme="light" */
-[data-theme="light"],
-:root:not([data-theme="dark"]) {
-  --pico-primary-background: #ccc;
-  --pico-primary-border: #ccc;
-  --pico-primary-hover-color: var(--pico-primary-inverse);
-  --pico-primary-hover-background: transparent;
-  --pico-primary-hover-border: var(--pico-primary-hover-color);
-  --pico-button-hover-box-shadow: var(--pico-primary-hover-background);
-}
-
-input:not([type=checkbox],[type=radio],[type=range]) {
-  height: auto;
-}
-
 /*******************************************************************************
  * Layout
  ******************************************************************************/
 
-body {
-  padding: 20px;
-}
-
-body>main, main {
+body > header {
   border-bottom: 1px solid #ddd;
-  padding-top: 0;
 }
 
-body>header, header {
+body > header, header {
   padding-bottom: 0;
 }
 
-section {
-  border-top: 1px solid #ddd;
+body > main, main {
+  padding-top: 0;
+}
+
+aside {
+  font-size: smaller;
   padding-top: 1em;
+  padding-bottom: 2em;
+}
+
+aside nav summary {
+  font-weight: bold;
+}
+
+aside nav ul {
+  padding-left: 1.5em;
+}
+
+aside nav ul li {
+  padding: 0;
+}
+
+aside nav ul li a {
+  padding-top: 1em;
+  padding-bottom: 0;
+}
+
+article {
+  box-shadow: none;
+}
+
+section {
+  border-bottom: 1px solid #ddd;
+  padding-top: 1em;
+  padding-bottom: 1em;
   margin: 0;
+}
+
+/* Narrow width only */
+@media (max-width: 768px) {
+  main.grid {
+    row-gap: 0;
+  }
+
+  section.grid > :not(:last-child) {
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 1em;
+  }
+
+  aside {
+    border-bottom: 1px solid #ddd;
+  }
+}
+
+/* Wide widths only */
+@media (min-width: 769px) {
+  main.grid {
+    grid-template-columns: max-content 1fr;
+    column-gap: 4em;
+  }
+
+  main > aside {
+    grid-column: 1 / 2;
+  }
+
+  main > article {
+    grid-column: 2 / -1;
+    border-left: 1px solid #ddd;
+    margin: 1em 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  section.grid > :not(:last-child) {
+    padding-bottom: 1em;
+  }
+
+  section.grid > :not(:last-child) {
+    border-right: 1px solid #ddd;
+  }
 }
 
 /*******************************************************************************
@@ -58,14 +113,6 @@ output {
   font-weight: bold;
   font-family: monospace;
   padding: 1em;
-}
-
-li > span:hover {
-  opacity: 0.8;
-}
-
-form > * {
-  display: inline-block;
 }
 
 li > button {
