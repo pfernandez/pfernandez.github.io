@@ -4,12 +4,8 @@ import { markdown } from './markdown.js'
 
 const pages = [
   'home.md',
+  'test.md',
 ]
-
-// TODO:
-// `onclick` handles vdom arrays, but `.then` does not. It would be best to
-// reload the component automatically wherever it is called when on the client
-// side, if that's possible. It can still return vdom.
 
 export const page = component(
   (name = 'home.md', text = '') => {
@@ -17,7 +13,6 @@ export const page = component(
       ...pages.map(s => li(
         a({ class: s === name ? 'active': '',
           onclick: () => page(s) },
-          // onclick: () => page(s, 'foo') },  // Works: component DOM shows foo
           s.split('.')[0]))))
 
     const content = (name, text) =>
@@ -30,9 +25,6 @@ export const page = component(
 
     !text.length && fetch('md/' + name)
       .then(res => res.text())
-      .then(res => page(name, res))  // FIXME: Does not reload component DOM.
-
-    console.log(text);  // Fetches md/home.md correctly
+      .then(res => page(name, res))
 
     return content(name, text || 'Loading...')})
-
