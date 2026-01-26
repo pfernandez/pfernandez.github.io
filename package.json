@@ -22,7 +22,9 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
+    "@mdit/plugin-mathjax": "^0.24.1",
     "@pfern/elements": "file:../elements",
-    "@picocss/pico": "^2.1.1"
+    "@picocss/pico": "^2.1.1",
+    "markdown-it": "^14.1.0"
   }
 }
