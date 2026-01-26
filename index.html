@@ -1,4 +1,7 @@
 <!doctype html>
 <link rel="icon" href="data:x-icon">
+<script>
+  const redirect = new URLSearchParams(window.location.search).get('redirect')
+  redirect && window.history.replaceState({}, '', redirect)
+</script>
 <script type="module" src="src/index.js"></script>
-

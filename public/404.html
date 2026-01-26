@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Redirecting…</title>
+<script>
+  // GitHub Pages doesn't support History API fallback routing. This redirects
+  // unknown routes back to `/` so the SPA can render based on
+  // `location.pathname`.
+  const redirect = '/?redirect=' + encodeURIComponent(
+    window.location.pathname + window.location.search + window.location.hash)
+  window.location.replace(redirect)
+</script>
