@@ -1,5 +1,5 @@
 import { a, article, aside,
-         component, li, main, nav, summary, ul } from '@pfern/elements'
+         component, li, main, navigate, nav, summary, ul } from '@pfern/elements'
 import { markdown } from './markdown.js'
 
 const pages = [
@@ -7,34 +7,26 @@ const pages = [
   'test.md',
 ]
 
-const slugFromName = name => name.replace(/\.md$/, '')
-
-const pathFromName = name => {
-  const slug = slugFromName(name)
-  return `/md/${slug}`
-}
+const pathFromName = name =>
+  `/md/${ name.replace(/\.md$/, '')}`
 
 const nameFromPath = (path = '/') => {
   if (path === '/' || path === '') return 'home.md'
-  const match = path.match(/^\/md\/([^/?#]+)\/?$/)
-  if (!match) return null
-  const slug = match[1]
+  const slug = path.match(/^\/md\/([^/?#]+)\/?$/)?.[1]
+  if (!slug) return null
   const name = `${slug}.md`
   return pages.includes(name) ? name : null
 }
 
-const currentName = () => {
-  if (typeof window === 'undefined') return 'home.md'
-  return nameFromPath(window.location.pathname) || 'home.md'
-}
+const currentName = () =>
+  (typeof window === 'undefined')
+    ? 'home.md'
+    : nameFromPath(window.location.pathname) || 'home.md'
 
-const navigate = (name, { force = false } = {}) => {
+const syncUrl = (name, { force = false } = {}) => {
   if (typeof window === 'undefined') return
   if (!force && window.location.pathname === '/' && name === 'home.md') return
-  const nextPath = pathFromName(name)
-  if (window.location.pathname !== nextPath) {
-    window.history.pushState({}, '', nextPath)
-  }
+  navigate(pathFromName(name), { force })
 }
 
 export const page = component(
@@ -46,7 +38,7 @@ export const page = component(
           class: s === name ? 'active': '',
           onclick: event => {
             event?.preventDefault?.()
-            navigate(s, { force: true })
+            syncUrl(s, { force: true })
             return page(s)
           } },
           s.split('.')[0]))))
@@ -59,13 +51,15 @@ export const page = component(
             links(name))),     // expand/collapse with pico.css.
         article(markdown(text)))
 
+    // @ts-ignore
     !text.length && fetch(`${import.meta.env.BASE_URL}md/${name}`)
       .then(res => res.text())
       .then(res => page(name, res))
 
-    navigate(name)
+    syncUrl(name)
 
-    return content(name, text || 'Loading...')})
+    return content(name, text || 'Loading...')
+  })
 
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => page(currentName()))
