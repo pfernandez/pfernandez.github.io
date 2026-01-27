@@ -29,13 +29,35 @@ const syncUrl = (name, { force = false } = {}) => {
   navigate(pathFromName(name), { force })
 }
 
+let lastFetchToken = 0
+
+const mdUrl = name =>
+  `${import.meta.env.BASE_URL}md/${name}`
+
+const loadMarkdown = name => {
+  const token = ++lastFetchToken
+
+  fetch(mdUrl(name))
+    .then(res => {
+      const contentType = res.headers?.get?.('content-type') || ''
+      const isHtml = contentType.includes('text/html')
+      if (!res.ok || isHtml) throw new Error(`Failed to load ${name}`)
+      return res.text()
+    })
+    .then(text => (token === lastFetchToken) && page(name, text))
+    .catch(() => (token === lastFetchToken) && page(
+      name,
+      `# Not found\n\nMissing: \`${name}\`\n`
+    ))
+}
+
 export const page = component(
   (name = currentName(), text = '') => {
     const links = name => ul(
       ...pages.map(s => li(
         a({
           href: pathFromName(s),
-          class: s === name ? 'active': '',
+          class: s === name ? 'active' : '',
           onclick: event => {
             event?.preventDefault?.()
             syncUrl(s, { force: true })
@@ -47,14 +69,11 @@ export const page = component(
       main({ class: 'grid' },
         aside(
           nav(
-            summary('Posts'),  // Wrap with `details()` to
-            links(name))),     // expand/collapse with pico.css.
+            summary('Posts'),
+            links(name))),
         article(markdown(text)))
 
-    // @ts-ignore
-    !text.length && fetch(`${import.meta.env.BASE_URL}md/${name}`)
-      .then(res => res.text())
-      .then(res => page(name, res))
+    !text.length && loadMarkdown(name)
 
     syncUrl(name)
 
