@@ -1,0 +1,1 @@
+import{C as n,a as i}from"./index-qNrukWGA.js";import"./index-DkSxGWYw.js";function a(r,o,c,t){const e=r.create("token","mtext",{},t.replace(/\n/g," "));return r.create("node","merror",[e],{"data-mjx-error":o,title:o})}const u=n.create("noerrors",{[i.NODES]:{error:a}});export{u as NoErrorsConfiguration};

@@ -1,0 +1,1 @@
+import{C as t,a as s,H as a,b as f,B as d}from"./index-qNrukWGA.js";import"./index-DkSxGWYw.js";function e(o,n){d.MathFont(o,n,o.options.dsfont.sans?"-ds-ss":"-ds-rm")}new f("dsfont",{mathds:e});const m=t.create("dsfont",{[s.HANDLER]:{[a.MACRO]:["dsfont"]},[s.OPTIONS]:{dsfont:{sans:!1}}});export{m as DsfontConfiguration};
