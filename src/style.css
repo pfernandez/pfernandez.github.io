@@ -50,6 +50,7 @@ aside nav ul li a {
 }
 
 article {
+  background: inherit;
   box-shadow: none;
 }
 
