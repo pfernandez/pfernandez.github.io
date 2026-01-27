@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@mdit/plugin-mathjax": "^0.24.1",
-    "@pfern/elements": "latest",
+    "@pfern/elements": "^0.1.10",
     "@picocss/pico": "^2.1.1",
     "markdown-it": "^14.1.0"
   }
