@@ -5,11 +5,6 @@
 
 @import '@picocss/pico/css/pico.grey.min.css';
 
-:root {
-  --pico-font-family-sans-serif: 'Arial', sans-serif;
-  --pico-border-radius: 0;
-}
-
 /*******************************************************************************
  * Layout
  ******************************************************************************/
@@ -28,8 +23,8 @@ body > main, main {
 
 aside {
   font-size: smaller;
-  padding-top: 1em;
-  padding-bottom: 2em;
+  padding-top: 15px;
+  padding-bottom: 23px;
 }
 
 aside nav summary {
@@ -61,12 +56,25 @@ section {
   margin: 0;
 }
 
+.x3d-wrapper {
+  margin-top: 1rem;
+}
+
+.x3d-wrapper x3d {
+  width: 640px;
+  height: 400px;
+  max-width: 100%;
+}
+
 /* Narrow width only */
 @media (max-width: 768px) {
   main.grid {
     row-gap: 0;
   }
 
+  main > article {
+    padding: 15px 0;
+  }
   section.grid > :not(:last-child) {
     border-bottom: 1px solid #ddd;
     padding-bottom: 1em;
@@ -86,14 +94,13 @@ section {
 
   main > aside {
     grid-column: 1 / 2;
+    padding-top: 30px;
   }
 
   main > article {
     grid-column: 2 / -1;
     border-left: 1px solid #ddd;
-    margin: 1em 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    padding: 30px;
   }
 
   section.grid > :not(:last-child) {
@@ -103,42 +110,6 @@ section {
   section.grid > :not(:last-child) {
     border-right: 1px solid #ddd;
   }
-}
-
-/*******************************************************************************
- * General
- ******************************************************************************/
-
-output {
-  font-size: xx-large;
-  font-weight: bold;
-  font-family: monospace;
-  padding: 1em;
-}
-
-li > button {
-  padding: 2px 8px 1px;
-  margin-left: 10px;
-}
-
-/*******************************************************************************
- * Apps
- ******************************************************************************/
-
-.todos form {
-  max-width: 600px;
-}
-
-.todos form input {
-  width: 75%;
-}
-
-.todos form button {
-  width: 25%;
-}
-
-.todos li {
-  cursor: pointer;
 }
 
 /*******************************************************************************

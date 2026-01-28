@@ -1,40 +1,17 @@
 import { a, article, aside,
-         component, li, main, navigate, nav, summary, ul } from '@pfern/elements'
+         component, li, main, nav, summary, ul } from '@pfern/elements'
+import { currentName, go, pages,
+         pathFromName, postsLabel, postsSegment } from '../router.js'
 import { markdown } from './markdown.js'
-
-const pages = [
-  'home.md',
-  'test.md',
-]
-
-const pathFromName = name =>
-  `/md/${ name.replace(/\.md$/, '')}`
-
-const nameFromPath = (path = '/') => {
-  if (path === '/' || path === '') return 'home.md'
-  const slug = path.match(/^\/md\/([^/?#]+)\/?$/)?.[1]
-  if (!slug) return null
-  const name = `${slug}.md`
-  return pages.includes(name) ? name : null
-}
-
-const currentName = () =>
-  (typeof window === 'undefined')
-    ? 'home.md'
-    : nameFromPath(window.location.pathname) || 'home.md'
-
-const syncUrl = (name, { force = false } = {}) => {
-  if (typeof window === 'undefined') return
-  if (!force && window.location.pathname === '/' && name === 'home.md') return
-  navigate(pathFromName(name), { force })
-}
+import { vis3d } from './vis3d.js'
 
 let lastFetchToken = 0
 
-const mdUrl = name =>
-  `${import.meta.env.BASE_URL}md/${name}`
+// @ts-ignore
+const mdUrl = name => `${import.meta.env.BASE_URL}${postsSegment}/${name}`
 
 const loadMarkdown = name => {
+  if (!name.endsWith('.md')) return
   const token = ++lastFetchToken
 
   fetch(mdUrl(name))
@@ -47,8 +24,7 @@ const loadMarkdown = name => {
     .then(text => (token === lastFetchToken) && page(name, text))
     .catch(() => (token === lastFetchToken) && page(
       name,
-      `# Not found\n\nMissing: \`${name}\`\n`
-    ))
+      `# Not found\n\nMissing: \`${name}\`\n`))
 }
 
 export const page = component(
@@ -60,7 +36,7 @@ export const page = component(
           class: s === name ? 'active' : '',
           onclick: event => {
             event?.preventDefault?.()
-            syncUrl(s, { force: true })
+            go(pathFromName(s), { force: true })
             return page(s)
           } },
           s.split('.')[0]))))
@@ -69,13 +45,18 @@ export const page = component(
       main({ class: 'grid' },
         aside(
           nav(
-            summary('Posts'),
+            summary(postsLabel),
             links(name))),
-        article(markdown(text)))
+        name === '3d'
+          ? vis3d()
+          : article(markdown(text)))
 
     !text.length && loadMarkdown(name)
 
-    syncUrl(name)
+    if (name === '3d' && typeof window !== 'undefined') {
+      // @ts-ignore
+      requestAnimationFrame(() => window?.x3dom?.reload?.())
+    }
 
     return content(name, text || 'Loading...')
   })

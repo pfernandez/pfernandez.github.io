@@ -1,7 +1,7 @@
 {
-  "name": "pfernandex.github.io",
+  "name": "pfernandez.github.io",
   "version": "0.0.1",
-  "description": "An elements.js app.",
+  "description": "The personal website of Paul Fernandez",
   "main": "./src/index.js",
   "type": "module",
   "keywords": [],
@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@mdit/plugin-mathjax": "^0.24.1",
-    "@pfern/elements": "^0.1.10",
+    "@pfern/elements": "../elements",
     "@picocss/pico": "^2.1.1",
     "markdown-it": "^14.1.0"
   }

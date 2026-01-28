@@ -14,4 +14,3 @@ render(
       header(
         h1('My Blog')),
       page())))
-
