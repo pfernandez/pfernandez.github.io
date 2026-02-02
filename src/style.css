@@ -1,4 +1,3 @@
-
 /*******************************************************************************
  * Reset & base theme
  ******************************************************************************/
@@ -61,9 +60,16 @@ section {
 }
 
 .x3d-wrapper x3d {
-  width: 640px;
-  height: 400px;
+  width: 100%;
   max-width: 100%;
+}
+
+.x3dom-states-item {
+  color: #ccc;
+}
+
+.x3dom-states-item::marker {
+  content: none;
 }
 
 /* Narrow width only */

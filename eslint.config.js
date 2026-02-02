@@ -1,8 +1,5 @@
-import wrap from '@seahax/eslint-plugin-wrap'
-
 export default
-[{ files: ['**/*.js'],
-   languageOptions: { ecmaVersion: 'latest',
+[{ languageOptions: { ecmaVersion: 'latest',
                       sourceType: 'module',
                       globals: { console: 'readonly',
                                  URL: 'readonly',
@@ -70,9 +67,5 @@ export default
      'spaced-comment': ['warn', 'always'],
      'space-in-parens': ['warn', 'never'],
      'space-infix-ops': 'warn'
-   }},
- wrap.config({ maxLen: 80,
-               tabWidth: 4,
-               autoFix: true,
-               severity: 'warn' })]
+   }}]
 

@@ -25,7 +25,6 @@
     "@mdit/plugin-mathjax": "^0.24.1",
     "@pfern/elements": "../elements",
     "@picocss/pico": "^2.1.1",
-    "@seahax/eslint-plugin-wrap": "^0.6.10",
     "markdown-it": "^14.1.0"
   }
 }
