@@ -56,11 +56,10 @@ export default
                                   argsIgnorePattern: '^_' }],
 
      'object-curly-newline': ['warn', { consistent: true }],
-     'object-curly-spacing': [
-       'warn',
-       'always',
-       { arraysInObjects: false, objectsInObjects: false }
-     ],
+     'object-curly-spacing': ['warn',
+                              'always',
+                              { arraysInObjects: false,
+                                objectsInObjects: false }],
      'operator-linebreak': ['warn',
                             'before',
                             { overrides: { '=': 'ignore' }}],
@@ -68,7 +67,7 @@ export default
      'quote-props': ['warn', 'as-needed'],
      quotes: ['warn', 'single'],
      semi: ['warn', 'never'],
-     'sort-imports': 'warn',
+     'sort-imports': ['warn', { ignoreDeclarationSort: true }],
      'space-before-function-paren': ['warn', { anonymous: 'never',
                                                asyncArrow: 'always',
                                                named: 'never' }],

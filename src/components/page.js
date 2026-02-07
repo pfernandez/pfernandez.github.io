@@ -1,8 +1,8 @@
+import { config } from '../config.js'
 import { a, article, aside, component, li,
          main, nav, navigate, summary, ul } from '@pfern/elements'
-import { config } from '../config.js'
-import { markdown } from './markdown.js'
 import { vis3d } from './vis3d.js'
+import { markdown } from './markdown.js'
 
 const toKebab = value =>
   value.toLowerCase()
@@ -23,8 +23,6 @@ export const pathFromName = name =>
 
 export const routes = pages.map(pathFromName)
 
-let lastFetchToken = 0
-
 // @ts-ignore
 const mdUrl = name => `${import.meta.env.BASE_URL}${postsSegment}/${name}`
 
@@ -42,21 +40,23 @@ export const currentName = (path = window.location.pathname) => {
   return pages.includes(direct) ? direct : 'home.md'
 }
 
-const loadMarkdown = name => {
-  if (!name.endsWith('.md')) return
-  const token = ++lastFetchToken
+let lastFetchToken = 0
 
-  fetch(mdUrl(name))
-    .then(res => {
-      const contentType = res.headers?.get?.('content-type') || ''
-      const isHtml = contentType.includes('text/html')
-      if (!res.ok || isHtml) throw new Error(`Failed to load ${name}`)
-      return res.text()
-    })
-    .then(text => token === lastFetchToken && page(name, text))
-    .catch(() => token === lastFetchToken
-      && page(name, `# Not found\n\nMissing: \`${name}\`\n`))
-}
+const loadMarkdown = name => {
+  if (name.endsWith('.md')) {
+    const token = ++lastFetchToken
+
+    fetch(mdUrl(name))
+      .then(res => {
+        const contentType = res.headers?.get?.('content-type') || ''
+        const isHtml = contentType.includes('text/html')
+        if (!res.ok || isHtml) throw new Error(`Failed to load ${name}`)
+        return res.text()
+      })
+      .then(text => token === lastFetchToken && page(name, text))
+      .catch(() => token === lastFetchToken
+        && page(name, `# Not found\n\nMissing: \`${name}\`\n`))
+  }}
 
 export const page = component(
   (name = currentName(), text = '') => {
@@ -78,9 +78,7 @@ export const page = component(
              nav(
                summary(postsLabel),
                links(name))),
-           name === '3d'
-             ? vis3d()
-             : article(markdown(text)))
+           article(name.endsWith('.md') ? markdown(text) : vis3d()))
 
     !text.length && loadMarkdown(name)
 
@@ -88,4 +86,3 @@ export const page = component(
   })
 
 window?.addEventListener('popstate', () => page(currentName()))
-
