@@ -8,6 +8,13 @@
  * Global styles
  ******************************************************************************/
 
+body {
+    display: grid;
+  /* Stretch vertically to fill window */
+  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+}
+
 body > header {
   border-bottom: 1px solid #ddd;
 }
@@ -35,14 +42,20 @@ aside {
 
 aside nav summary {
   font-weight: bold;
+  margin-bottom: 0.25rem;
 }
 
 aside nav ul {
-  padding: 0.5em 1.5em 0;
+  margin: 0 !important;
 }
 
 aside nav ul li {
+  display: inline-block;
   padding: 0;
+}
+
+aside nav ul li:not(:first-child) {
+  margin-left: 1rem;
 }
 
 article {
@@ -51,10 +64,12 @@ article {
 }
 
 x3d {
-  background: rgba(0, 0, 0, 0.1);
-  box-shadow: inset 0px 0px 8px -4px #000000;
+  box-shadow: inset 0px 0px 4px -2px #000000;
+  background-color: #fff;
+  height: 100%;
   width: 100%;
   max-width: 100%;
+  margin-bottom: 2em;
 }
 
 .x3dom-states-item {
@@ -96,17 +111,34 @@ x3d {
   }
 }
 
+/* Mid widths and narrower */
+@media (max-width: 1024px) {
+  .container {
+    max-width: 90%;
+  }
+}
+
 /* Wide widths only */
 @media (min-width: 769px) {
   main.grid {
     grid-template-columns: max-content 1fr;
-    gap: 2em;
+    gap: 0;
+  }
+
+  main > article {
+    padding-left: 2em;
   }
 
   main > aside {
     grid-column: 1 / 2;
     border-right: 1px solid #ddd;
     padding-right: 1.5em;
+  }
+
+  aside nav ul li {
+    display: block;
+    padding: 0;
+    margin-left: 0 !important;
   }
 
   main > article {

@@ -7,6 +7,7 @@ export default
                                  PopStateEvent: 'readonly',
                                  document: 'readonly',
                                  window: 'readonly',
+                                 process: 'readonly',
                                  fetch: 'readonly' }},
    rules: {
      'array-bracket-newline': ['warn', 'consistent'],

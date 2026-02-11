@@ -10,9 +10,9 @@ const toKebab = value =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-export const postsLabel = config.pages.posts.summary
+export const postsLabel = config.pages.md.summary
 export const postsSegment = toKebab(postsLabel)
-export const pages = [...config.pages.posts.links, ...config.pages.extras]
+export const pages = [...config.pages.md.links, ...config.pages.js]
 
 export const pathFromName = name =>
   name.endsWith('.md')
@@ -61,24 +61,25 @@ const loadMarkdown = name => {
 export const page = component(
   (name = currentName(), text = '') => {
 
-    const links = name => ul(
-      ...pages.map(s => li(
-        a({ href: pathFromName(s),
-            class: s === name ? 'active' : '',
-            onclick: event => {
-              event?.preventDefault?.()
-              navigate(pathFromName(s))
-              return page(s)
-            } },
-          s.split('.')[0]))))
+    const links = name =>
+      ul(...pages.map(s =>
+        li(
+          a({ href: pathFromName(s),
+              class: s === name ? 'active' : '',
+              onclick: event => {
+                event?.preventDefault?.()
+                navigate(pathFromName(s))
+                return page(s)
+              } },
+            s.split('.')[0]))))
 
     const content = (name, text) =>
       main({ class: 'grid' },
            aside(
              nav(
-               summary(postsLabel),
+               // summary(postsLabel),
                links(name))),
-           article(name.endsWith('.md') ? markdown(text) : vis3d()))
+           name.endsWith('.md') ? article(markdown(text)) : vis3d())
 
     !text.length && loadMarkdown(name)
 

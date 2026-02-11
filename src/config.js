@@ -1,13 +1,13 @@
 export const config = {
   pages: {
-    posts: {
+    md: {
       summary: 'Posts',
       links: [
         'home.md',
         'test.md'
       ]
     },
-    extras: [
+    js: [
       '3d'
     ]
   }
