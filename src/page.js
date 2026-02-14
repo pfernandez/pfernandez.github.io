@@ -6,12 +6,15 @@ import { markdown } from './markdown.js'
 const basePath = '/src/pages'
 const pageTypes = { MARKDOWN: 'markdown', JAVASCRIPT: 'javascript' }
 const cache = {}
+const inflight = {}
 
 const stripExtension = path => path.replace(/\.[^/.]+$/, '')
 const stripSlash = path => path.replace(/^\/+/, '').replace(/\/+$/, '')
 const commonPath = (path, file) => `/${stripSlash(path)}/${stripSlash(file)}`
 const publicPath = (path, file) => stripExtension(commonPath(path, file))
 const localPath = (path, file) => `${basePath}${commonPath(path, file)}`
+const normalizeRoute = route =>
+  route === '/' ? '/' : String(route || '').replace(/\/+$/, '')
 
 const content = config.pages.reduce((content, section) =>
   [...content,
@@ -21,62 +24,113 @@ const content = config.pages.reduce((content, section) =>
           publicPath: publicPath(section.path, item.file),
           localPath: localPath(section.path, item.file) })) }], [])
 
-const loadMarkdown = path =>
-  cache[path] ? null : fetch(path)
+const findItemByRoute = route => {
+  const normalized = normalizeRoute(route)
+  for (const group of content) {
+    for (const item of group.items) {
+      if (item.publicPath === normalized) return item
+    }
+  }
+  return null
+}
+
+const findDefaultItem = () => {
+  for (const group of content) {
+    for (const item of group.items) {
+      if (item.default) return item
+    }
+  }
+  return content?.[0]?.items?.[0] || null
+}
+
+const loadMarkdown = (route, path) => {
+  if (cache[path] || inflight[path]) return
+  inflight[path] = fetch(path)
     .then(res => {
       const contentType = res.headers?.get?.('content-type') || ''
       const isHtml = contentType.includes('text/html')
       if (!res.ok || isHtml) throw new Error(`Failed to load ${path}`)
       return res.text()
     }).then(text => {
-      cache[path] = markdown(text)
-      return page(path, { type: pageTypes.MARKDOWN, text: cache[path] })
+      cache[path] = text
+      return page(route, { type: pageTypes.MARKDOWN, text })
     })
-    .catch(error => page(path, { type: pageTypes.MARKDOWN, text: error }))
+    .catch(error =>
+      page(route, { type: pageTypes.MARKDOWN,
+                   text: String(error?.message || error) }))
+    .finally(() => delete inflight[path])
+}
 
-const loadScript = path =>
-  cache[path] ? null
-    : import(/* @vite-ignore */ path)
-      .then(module => (
-        cache[path] = module.default,
-        page(path, { type: pageTypes.JAVASCRIPT, js: cache[path] })))
-      .catch(err => console.error('Module loading failed:', err))
+const loadScript = (route, path) => {
+  if (cache[path] || inflight[path]) return
+  inflight[path] = import(/* @vite-ignore */ path)
+    .then(module => (
+      cache[path] = module.default,
+      page(route, { type: pageTypes.JAVASCRIPT, js: cache[path] })))
+    .catch(error =>
+      page(route, { type: pageTypes.JAVASCRIPT,
+                   text: String(error?.message || error) }))
+    .finally(() => delete inflight[path])
+}
 
-const loadContent = (route, text) => {
-  let path = '/'
-  content.some(section =>
-    section.items.some(item =>
-      item.publicPath === route && (path = item.localPath)))
+const loadContent = route => {
+  const normalized = normalizeRoute(route)
+  const item =
+    findItemByRoute(normalized)
+    || (normalized === '/' ? findDefaultItem() : null)
 
-  path.endsWith('.md') && !text
-    ? loadMarkdown(path)
-    : path.endsWith('.js') && loadScript(path) }
+  if (!item) return article('Not found.')
+
+  const path = item.localPath
+
+  return path.endsWith('.md')
+    ? (cache[path] ? article(markdown(cache[path]))
+      : (loadMarkdown(item.publicPath, path), article('Loading…')))
+    : path.endsWith('.js')
+      ? (cache[path] ? cache[path]()
+        : (loadScript(item.publicPath, path), article('Loading…')))
+      : article('Unsupported page type.')
+}
+
+const shouldHandleClick = event =>
+  event?.button === 0
+  && !event?.defaultPrevented
+  && !event?.metaKey
+  && !event?.ctrlKey
+  && !event?.shiftKey
+  && !event?.altKey
 
 export const page = component(
-  (path = window.location.pathname, { js, label, text, type } = {}) =>
-    main({ class: 'grid' },
+  (route = window.location.pathname, { js, text, type } = {}) => {
+    const currentRoute = normalizeRoute(window.location.pathname)
+    const activeRoute =
+      currentRoute === '/'
+        ? findDefaultItem()?.publicPath || '/'
+        : currentRoute
+
+         return main({ class: 'grid' },
          aside(
            nav(...content.map(group =>
              section(
                summary(group.summary),
 
                ul(...group.items.map(item => {
-                 const href = publicPath(group.path, item.file)
+                 const href = item.publicPath
+                 const isActive = href === activeRoute
                  return li(
-                   a({ href, class: label === item.label ? 'active' : '',
-                       onclick: () => {
-                         // navigate(href)
-                         // FIXME: Page reloads; page element should be replaced
-                         // instead. See `counter` example in elements package.
-                         return page(href, item.label)
+                   a({ href, class: isActive ? 'active' : '',
+                       onclick: event => {
+                         if (!shouldHandleClick(event)) return
+                         navigate(href)
+                         return page()
                        } },
                      item.label)) })))))),
 
-         text && type === pageTypes.MARKDOWN
-           ? article(text)
+         type === pageTypes.MARKDOWN
+           ? article(typeof text === 'string' ? markdown(text) : text)
            : type === pageTypes.JAVASCRIPT
-             ? js()
-             : text || loadContent(path)))
+             ? (typeof js === 'function' ? js() : article(text))
+             : loadContent(route))
+  })
 
 window?.addEventListener('popstate', () => page())
-
