@@ -1,4 +1,4 @@
-import { button, div, form, input } from '@pfern/elements'
+import { button, div, form, input, span } from '@pfern/elements'
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -9,9 +9,9 @@ describe('Elements.js example tests', () => {
   })
 
   test('button with onclick handler returns new vnode', () => {
-    const handler = () => ['span', {}, 'clicked']
+    const handler = () => span('clicked')
     const b = button({ onclick: handler }, 'Click Me')
-    const result = b[1].onclick()
+    const result = b[1].onclick(null)
     assert.deepEqual(result, ['span', {}, 'clicked'])
   })
 
@@ -20,17 +20,16 @@ describe('Elements.js example tests', () => {
     const handler = (elements, event) => {
       receivedElements = elements
       receivedEvent = event
-      return ['div', {}, 'submitted']
+      return div('submitted')
     }
 
-    const fakeElements = { task: { value: 'buy milk' } }
-    const fakeEvent = { type: 'submit', foo: 'bar' }
-
+    const fakeElements = { task: { value: 'buy milk' }}
+    const fakeEvent = /** @type {SubmitEvent} */ ({ type: 'submit' })
     const f = form({ onsubmit: handler }, input({ name: 'task' }))
     const result = f[1].onsubmit(fakeElements, fakeEvent)
 
-    assert.equal(receivedElements.task.value, 'buy milk')
-    assert.equal(receivedEvent.foo, 'bar')
+    assert.equal(receivedElements, fakeElements)
+    assert.equal(receivedEvent, fakeEvent)
     assert.deepEqual(result, ['div', {}, 'submitted'])
   })
 })

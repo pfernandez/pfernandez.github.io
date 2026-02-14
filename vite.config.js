@@ -11,6 +11,7 @@ export default defineConfig({
     fs: {
       allow: [searchForWorkspaceRoot(process.cwd()), elementsRoot]
     }
-  }
+  },
+  assetsInclude: ['**/*.md']
 })
 
