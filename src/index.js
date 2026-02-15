@@ -5,6 +5,9 @@ import { body, h1, head,
 import { page } from './page.js'
 import { getActiveItem } from './utils/site-content.js'
 import { scheduleX3DOMReload } from './utils/x3dom.js'
+import { validateConfig } from './utils/validate-config.js'
+
+validateConfig()
 
 const handleNavigate = () => {
   page()

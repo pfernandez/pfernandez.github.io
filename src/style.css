@@ -68,6 +68,12 @@ section.content {
   pointer-events: auto;
 }
 
+/* `inert` fallback for browsers without support (e.g. some Firefox builds). */
+[inert] {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
 aside nav summary {
   font-weight: bold;
   margin-bottom: 0.25rem;
