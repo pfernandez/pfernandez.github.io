@@ -21,6 +21,28 @@ import { fileURLToPath } from 'node:url'
 import MarkdownIt from 'markdown-it'
 import { createMathjaxInstance, mathjax } from '@mdit/plugin-mathjax'
 
+import {
+  a,
+  article,
+  aside,
+  body,
+  head,
+  header,
+  h1,
+  html,
+  li,
+  link,
+  main as mainTag,
+  meta,
+  nav,
+  script,
+  section,
+  summary,
+  title as titleTag,
+  toHtmlString,
+  ul
+} from '@pfern/elements'
+
 import config from '../src/pages/config.js'
 import { content } from '../src/utils/site-content.js'
 
@@ -64,13 +86,22 @@ const extractDescription = (markdown, fallback = '') => {
   return desc.length > 160 ? `${desc.slice(0, 157)}…` : desc
 }
 
-const escapeHtml = s =>
-  String(s)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
+const parseAttributes = tagText => {
+  const attrs = {}
+  const open = String(tagText || '').match(/^<\w+\s*([^>]*)>/i)?.[1] || ''
+
+  const re =
+    /([A-Za-z_:\-][A-Za-z0-9_:\-]*)\s*(?:=\s*("([^"]*)"|'([^']*)'))?/g
+
+  let match
+  while (match = re.exec(open)) {
+    const key = match[1]
+    const value = match[3] ?? match[4]
+    attrs[key] = value == null ? true : value
+  }
+
+  return attrs
+}
 
 const readDistIndexAssets = async () => {
   const indexPath = path.join(distDir, 'index.html')
@@ -94,83 +125,63 @@ const readDistIndexAssets = async () => {
     throw new Error('No module script found in dist/index.html.')
   }
 
-  return { cssLinks, moduleScript }
+  const moduleScriptOpen =
+    moduleScript.match(/<script\b[^>]*>/i)?.[0] || moduleScript
+
+  return {
+    cssLinks: cssLinks.map(parseAttributes),
+    moduleScript: parseAttributes(moduleScriptOpen)
+  }
 }
 
-const renderNavHtml = activeRoute =>
-  `<aside>
-  <nav>
-    ${content.map(group =>
-    `<section>
-      <summary>${escapeHtml(group.summary || '')}</summary>
-      <ul>
-        ${group.items.map(item => {
-    const href = item.publicPath
-    const isActive = href === activeRoute
-    const klass = isActive ? 'active' : ''
-    const ariaCurrent = isActive ? ' aria-current="page"' : ''
-    return `<li><a href="${href}" class="${klass}"${ariaCurrent}>${escapeHtml(item.label || '')}</a></li>`
-  }).join('\n        ')}
-      </ul>
-    </section>`).join('\n    ')}
-  </nav>
-</aside>`
+const renderNavVNode = activeRoute =>
+  aside(
+    nav(...content.map(group =>
+      section(
+        summary(group.summary || ''),
+        ul(...group.items.map(item => {
+          const href = item.publicPath
+          const isActive = href === activeRoute
+          const props = {
+            href,
+            class: isActive ? 'active' : ''
+          }
+          isActive && (props['aria-current'] = 'page')
+          return li(a(props, item.label || ''))
+        }))
+      )
+    ))
+  )
 
-const renderMarkdownPageHtml = ({ cssLinks, route, title, description, bodyHtml }) => {
+const renderDocument = ({
+  route,
+  title,
+  description,
+  cssLinks,
+  moduleScript,
+  bodyVNode
+}) => {
   const pageTitle = `${title} · ${config.title}`
-  const metaDescription =
-    description ? `<meta name="description" content="${escapeHtml(description)}">` : ''
 
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
-    <link rel="icon" href="data:x-icon">
-    <title>${escapeHtml(pageTitle)}</title>
-    ${metaDescription}
-    ${cssLinks.join('\n    ')}
-  </head>
-  <body class="container">
-    <header>
-      <h1>${escapeHtml(config.title || '')}</h1>
-    </header>
-    <main class="grid">
-      ${renderNavHtml(route)}
-      <section class="content">
-        <article>
-${bodyHtml}
-        </article>
-      </section>
-    </main>
-  </body>
-</html>
-`
-}
+  const headVNode = head(
+    meta({ charset: 'utf-8' }),
+    meta({ name: 'viewport', content: 'width=device-width, initial-scale=1' }),
+    meta({ name: 'color-scheme', content: 'light dark' }),
+    link({ rel: 'icon', href: 'data:x-icon' }),
+    titleTag(pageTitle),
+    description ? meta({ name: 'description', content: description }) : null,
+    ...cssLinks.map(props => link(props)),
+    moduleScript ? script(moduleScript) : null
+  )
 
-const renderJsShellHtml = ({ cssLinks, moduleScript, title, description }) => {
-  const pageTitle = `${title} · ${config.title}`
-  const metaDescription =
-    description ? `<meta name="description" content="${escapeHtml(description)}">` : ''
-
-  // Keep body empty: the SPA mounts here. This avoids duplicate DOM without
-  // requiring hydration support in the library.
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
-    <link rel="icon" href="data:x-icon">
-    <title>${escapeHtml(pageTitle)}</title>
-    ${metaDescription}
-    ${cssLinks.join('\n    ')}
-    ${moduleScript}
-  </head>
-  <body></body>
-</html>
-`
+  return toHtmlString(
+    html(
+      { lang: 'en' },
+      headVNode,
+      bodyVNode
+    ),
+    { doctype: true }
+  ) + '\n'
 }
 
 const writeHtml = async (route, html) => {
@@ -231,23 +242,37 @@ const main = async () => {
 
       await writeHtml(
         entry.route,
-        renderMarkdownPageHtml({
+        renderDocument({
           cssLinks,
           route: entry.route,
           title,
           description,
-          bodyHtml
+          moduleScript: null,
+          bodyVNode: body(
+            { class: 'container' },
+            header(h1(config.title || '')),
+            mainTag(
+              { class: 'grid' },
+              renderNavVNode(entry.route),
+              section(
+                { class: 'content' },
+                article({ innerHTML: bodyHtml })
+              )
+            )
+          )
         })
       )
     } else {
       // Lightweight JS route shell so deep links don't require a 404 fallback.
       await writeHtml(
         entry.route,
-        renderJsShellHtml({
+        renderDocument({
           cssLinks,
           moduleScript,
           title: entry.label,
-          description: ''
+          description: '',
+          route: entry.route,
+          bodyVNode: body()
         })
       )
     }
@@ -258,4 +283,3 @@ main().catch(err => {
   console.error(err)
   process.exitCode = 1
 })
-
