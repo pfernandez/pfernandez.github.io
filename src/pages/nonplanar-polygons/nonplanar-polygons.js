@@ -3,8 +3,8 @@ import { appearance, coordinate, group,
          scene, shape, sphere, transform, worldInfo, x3d,
          x3dswitch }
   from '@pfern/elements-3d'
-import { coordinateAxes } from './util/coordinate-axes.js'
-import { gridXY } from './util/grid-xy.js'
+import { coordinateAxes } from './utils/coordinate-axes.js'
+import { gridXY } from './utils/grid-xy.js'
 
 // Instantiate shared objects without rendering.
 const x3defs = (...defs) => x3dswitch({ whichChoice: -1 }, ...defs)
@@ -56,4 +56,3 @@ export default () =>
 
         transform({ translation: '0 0 0' },
                   shape({ use: 'faces' }))))
-
