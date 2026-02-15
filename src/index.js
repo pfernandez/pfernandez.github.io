@@ -1,8 +1,10 @@
 import config from './pages/config.js'
 import './style.css'
 import { body, h1, head,
-         header, html, meta, render, title } from '@pfern/elements'
+         header, html, meta, onNavigate, render, title } from '@pfern/elements'
 import { page } from './page.js'
+
+onNavigate(() => page())
 
 render(
   html(
@@ -16,4 +18,3 @@ render(
          header(
            h1(config.title)),
          page())))
-

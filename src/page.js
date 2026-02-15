@@ -1,6 +1,6 @@
 import config from './pages/config.js'
 import { a, article, aside, component, li, main, nav,
-         navigate, section, summary, ul } from '@pfern/elements'
+         section, summary, ul } from '@pfern/elements'
 import { markdown } from './markdown.js'
 
 const basePath = '/src/pages'
@@ -92,14 +92,6 @@ const loadContent = route => {
       : article('Unsupported page type.')
 }
 
-const shouldHandleClick = event =>
-  event?.button === 0
-  && !event?.defaultPrevented
-  && !event?.metaKey
-  && !event?.ctrlKey
-  && !event?.shiftKey
-  && !event?.altKey
-
 export const page = component(
   (route = window.location.pathname, { js, text, type } = {}) => {
     const currentRoute = normalizeRoute(window.location.pathname)
@@ -119,11 +111,7 @@ export const page = component(
                  const isActive = href === activeRoute
                  return li(
                    a({ href, class: isActive ? 'active' : '',
-                       onclick: event => {
-                         if (!shouldHandleClick(event)) return
-                         navigate(href)
-                         return page()
-                       } },
+                     },
                      item.label)) })))))),
 
          type === pageTypes.MARKDOWN
@@ -132,5 +120,3 @@ export const page = component(
              ? (typeof js === 'function' ? js() : article(text))
              : loadContent(route))
   })
-
-window?.addEventListener('popstate', () => page())
