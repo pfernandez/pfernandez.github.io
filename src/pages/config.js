@@ -4,7 +4,7 @@ export default
             summary: 'Nonplanar Polygons',
             items: [{ label: 'Visualization',
                       file: 'nonplanar-polygons.js',
+                      keepAlive: true,
                       default: true },
                     { label: 'About',
                       file: 'about.md' }]}]}
-

@@ -36,6 +36,38 @@ section {
   margin: 0;
 }
 
+section.content {
+  position: relative;
+}
+
+/* Keep-alive stack:
+   - Absolutely positioned so it doesn't push markdown below.
+   - Uses visibility (not display:none) so X3DOM doesn't lose its layout size
+     while inactive (helps preserve correct canvas sizing when returning). */
+.keep-alive {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.keep-alive[data-active="true"] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.keep-alive > section {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.keep-alive > section[data-active="true"] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
 aside nav summary {
   font-weight: bold;
   margin-bottom: 0.25rem;
@@ -67,6 +99,10 @@ x3d {
   width: 100%;
   max-width: 100%;
   margin-bottom: 2em;
+}
+
+.keep-alive x3d {
+  margin-bottom: 0;
 }
 
 .x3dom-states-item {

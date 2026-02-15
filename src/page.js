@@ -4,9 +4,10 @@ import { a, article, aside, component, li, main, nav,
 import { markdown } from './markdown.js'
 
 const basePath = '/src/pages'
-const pageTypes = { MARKDOWN: 'markdown', JAVASCRIPT: 'javascript' }
 const cache = {}
 const inflight = {}
+const keepAliveVisited = {}
+const keepAliveVNodes = {}
 
 const stripExtension = path => path.replace(/\.[^/.]+$/, '')
 const stripSlash = path => path.replace(/^\/+/, '').replace(/\/+$/, '')
@@ -53,11 +54,10 @@ const loadMarkdown = (route, path) => {
       return res.text()
     }).then(text => {
       cache[path] = text
-      return page(route, { type: pageTypes.MARKDOWN, text })
+      return page(route)
     })
     .catch(error =>
-      page(route, { type: pageTypes.MARKDOWN,
-                   text: String(error?.message || error) }))
+      (cache[path] = String(error?.message || error), page(route)))
     .finally(() => delete inflight[path])
 }
 
@@ -66,41 +66,88 @@ const loadScript = (route, path) => {
   inflight[path] = import(/* @vite-ignore */ path)
     .then(module => (
       cache[path] = module.default,
-      page(route, { type: pageTypes.JAVASCRIPT, js: cache[path] })))
+      keepAliveVisited[path]
+        && (keepAliveVNodes[path] ||= cache[path]()),
+      page(route)))
     .catch(error =>
-      page(route, { type: pageTypes.JAVASCRIPT,
-                   text: String(error?.message || error) }))
+      (cache[path] = () => article(String(error?.message || error)), page(route)))
     .finally(() => delete inflight[path])
 }
 
-const loadContent = route => {
-  const normalized = normalizeRoute(route)
-  const item =
-    findItemByRoute(normalized)
-    || (normalized === '/' ? findDefaultItem() : null)
-
-  if (!item) return article('Not found.')
-
+const renderMarkdownItem = item => {
   const path = item.localPath
+  return cache[path]
+    ? article(markdown(cache[path]))
+    : (loadMarkdown(item.publicPath, path), article('Loading…'))
+}
 
-  return path.endsWith('.md')
-    ? (cache[path] ? article(markdown(cache[path]))
-      : (loadMarkdown(item.publicPath, path), article('Loading…')))
-    : path.endsWith('.js')
-      ? (cache[path] ? cache[path]()
-        : (loadScript(item.publicPath, path), article('Loading…')))
-      : article('Unsupported page type.')
+const renderJsItem = item => {
+  const path = item.localPath
+  return cache[path]
+    ? cache[path]()
+    : (loadScript(item.publicPath, path), article('Loading…'))
+}
+
+const renderKeepAliveItems = (activeRoute, { active = false } = {}) => {
+  /** @type {any[]} */
+  const nodes = []
+  for (const group of content) {
+    for (const item of group.items) {
+      if (!item.keepAlive) continue
+      if (!item.localPath.endsWith('.js')) continue
+      if (!keepAliveVisited[item.localPath]) continue
+
+      const vnode = keepAliveVNodes[item.localPath]
+        || (cache[item.localPath]
+          ? (keepAliveVNodes[item.localPath] ||= cache[item.localPath]())
+          : (loadScript(item.publicPath, item.localPath), article('Loading…')))
+
+      const isActive = item.publicPath === activeRoute
+      nodes.push(
+        section(
+          { 'data-active': isActive ? 'true' : 'false',
+            'aria-hidden': isActive ? 'false' : 'true' },
+          vnode
+        )
+      )
+    }
+  }
+  return nodes.length
+    ? section(
+      { class: 'keep-alive',
+        'data-active': active ? 'true' : 'false',
+        'aria-hidden': active ? 'false' : 'true' },
+      ...nodes
+    )
+    : null
 }
 
 export const page = component(
-  (route = window.location.pathname, { js, text, type } = {}) => {
+  (route = window.location.pathname) => {
     const currentRoute = normalizeRoute(window.location.pathname)
     const activeRoute =
       currentRoute === '/'
         ? findDefaultItem()?.publicPath || '/'
         : currentRoute
 
-         return main({ class: 'grid' },
+    const activeItem = findItemByRoute(activeRoute) || findDefaultItem()
+    const isKeepAliveActive =
+      !!activeItem?.keepAlive && activeItem.localPath?.endsWith('.js')
+
+    isKeepAliveActive && (keepAliveVisited[activeItem.localPath] = true)
+
+    const keepAlive = renderKeepAliveItems(activeRoute, { active: isKeepAliveActive })
+
+    const activeNode =
+      activeItem?.localPath?.endsWith('.md')
+        ? renderMarkdownItem(activeItem)
+        : activeItem?.localPath?.endsWith('.js')
+          ? activeItem.keepAlive
+            ? null
+            : renderJsItem(activeItem)
+          : article('Not found.')
+
+    return main({ class: 'grid' },
          aside(
            nav(...content.map(group =>
              section(
@@ -114,9 +161,5 @@ export const page = component(
                      },
                      item.label)) })))))),
 
-         type === pageTypes.MARKDOWN
-           ? article(typeof text === 'string' ? markdown(text) : text)
-           : type === pageTypes.JAVASCRIPT
-             ? (typeof js === 'function' ? js() : article(text))
-             : loadContent(route))
+         section({ class: 'content' }, activeNode, keepAlive))
   })
