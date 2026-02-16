@@ -9,7 +9,7 @@
  ******************************************************************************/
 
 body {
-    display: grid;
+  display: grid;
   /* Stretch vertically to fill window */
   grid-template-rows: auto 1fr;
   min-height: 100dvh;
@@ -17,6 +17,17 @@ body {
 
 body > header {
   border-bottom: 1px solid #ddd;
+}
+
+body > header > h1 {
+  font-size: 1em;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+body > header > h1::before {
+  content: '🧪';
+  margin-right: 0.1em;
 }
 
 body > header, header {
@@ -74,8 +85,12 @@ section {
   user-select: none !important;
 }
 
+aside nav > section {
+  margin-bottom: 1.5em;
+}
+
 aside nav summary {
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
@@ -164,7 +179,7 @@ x3d {
     gap: 0;
   }
 
-  .content > article {
+  .content article {
     padding-left: 2em;
   }
 

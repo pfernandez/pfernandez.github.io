@@ -2,7 +2,7 @@ import { appearance, coordinate, group, indexedFaceSet, indexedLineSet,
          material, pointSet, scene, shape, sphere, transform, worldInfo, x3d }
   from '@pfern/elements-x3dom'
 import { coordinateAxes, generateLineIndices, generateTriangleIndices, gridXY,
-         x3defs } from './utils'
+         x3defs } from '../utils'
 
 const options = {
   latticeColor: [0, 0, 0],

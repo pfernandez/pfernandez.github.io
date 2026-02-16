@@ -5,7 +5,7 @@ import { body, h1, head, header, html,
 import { page } from './page.js'
 import { validateConfig } from './utils/validate-config.js'
 
-import.meta?.env?.DEV && validateConfig()
+import.meta.env?.DEV && validateConfig(config)
 onNavigate(page)
 
 render(
@@ -20,4 +20,3 @@ render(
          header(
            h1(config.title)),
          page())))
-

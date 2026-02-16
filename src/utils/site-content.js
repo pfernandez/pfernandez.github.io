@@ -51,6 +51,9 @@ export const getActiveRoute = route => {
     : currentRoute
 }
 
-export const getActiveItem = route =>
-  findItemByRoute(getActiveRoute(route)) || findDefaultItem()
-
+export const getActiveItem = route => {
+  const currentRoute = normalizeRoute(route)
+  return currentRoute === '/'
+    ? findDefaultItem()
+    : findItemByRoute(currentRoute)
+}

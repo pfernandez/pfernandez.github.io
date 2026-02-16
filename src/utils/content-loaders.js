@@ -15,13 +15,8 @@ const scriptModules = import.meta.glob('/src/pages/**/*.js')
 
 export const loadMarkdownText = async path => {
   const loader = markdownModules[path]
-  if (loader) return /** @type {Promise<string>} */ (loader())
-
-  // Fallback for environments that don't support `import.meta.glob` (or if a
-  // file is missing from the glob for any reason).
-  const res = await fetch(path)
-  if (!res.ok) throw new Error(`Failed to load ${path}`)
-  return await res.text()
+  if (!loader) throw new Error(`Missing markdown module: ${path}`)
+  return /** @type {Promise<string>} */ (loader())
 }
 
 export const loadScriptDefault = async path => {
@@ -37,4 +32,3 @@ export const loadScriptDefault = async path => {
   // @ts-ignore
   return module.default
 }
-

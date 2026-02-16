@@ -31,7 +31,12 @@ const loadMarkdown = path => {
   loadMarkdownText(path)
     .then(text => cache[path] = text)
     .catch(error =>
-      cache[path] = String(error?.message || error))
+      cache[path] = (() => {
+        const msg = String(error?.message || error)
+        return msg.startsWith('Missing markdown module:')
+          ? `# Not found\n\n${msg}`
+          : msg
+      })())
     .finally(() => {
       const notify = inflight[path]?.notify || new Set()
       delete inflight[path]
@@ -155,4 +160,3 @@ export const page = component(
 
                 div({ class: 'content' }, activeNode, keepAlive))
   })
-

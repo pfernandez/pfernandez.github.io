@@ -10,9 +10,9 @@ IndexedTriangleFanSet, IndexedTriangleStripSet, QuadSet and IndexedQuadSet.
 Special definition rules apply to each node in order to best match underlying
 graphics hardware requirements. Each is placed individually inside a Shape node.
 
-See the [visualization](/nonplanar-polygons/visualization).
+See the [visualization](/nonplanar-polygons/visualization)
 
-## Features
+# Features
 
 **This section is to verify that the markdown is processed correctly.**
 
