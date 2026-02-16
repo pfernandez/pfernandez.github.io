@@ -11,8 +11,7 @@
 const markdownModules =
   import.meta.glob('/src/pages/**/*.md', { query: '?raw', import: 'default' })
 
-const scriptModules =
-  import.meta.glob('/src/pages/**/*.js')
+const scriptModules = import.meta.glob('/src/pages/**/*.js')
 
 export const loadMarkdownText = async path => {
   const loader = markdownModules[path]
@@ -30,10 +29,12 @@ export const loadScriptDefault = async path => {
   if (!loader) throw new Error(`Missing script module: ${path}`)
 
   const module = await loader()
+  // @ts-ignore
   if (!module || typeof module.default !== 'function') {
     throw new Error(`Expected default export function in: ${path}`)
   }
 
+  // @ts-ignore
   return module.default
 }
 

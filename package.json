@@ -25,7 +25,7 @@
   "dependencies": {
     "@mdit/plugin-mathjax": "^0.24.1",
     "@pfern/elements": "../elements/packages/elements",
-    "@pfern/elements-3d": "../elements/packages/elements-3d",
+    "@pfern/elements-x3dom": "../elements/packages/elements-x3dom",
     "@picocss/pico": "^2.1.1",
     "markdown-it": "^14.1.0"
   }

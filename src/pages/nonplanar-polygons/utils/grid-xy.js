@@ -1,5 +1,5 @@
 import { color, coordinate, group, indexedLineSet, shape, transform }
-  from '@pfern/elements-3d'
+  from '@pfern/elements-x3dom'
 
 
 /**
@@ -34,7 +34,7 @@ const coordinates = (s, d) => {
 }
 
 
-const { coordIndex, colorIndex, point } = coordinates(.5, 15)
+const { coordIndex, colorIndex, point } = coordinates(1, 10)
 
 export const gridXY = () =>
   group(

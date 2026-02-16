@@ -1,6 +1,6 @@
 import { appearance, billboard, collision, cone, cylinder, fontStyle, group,
          material, shape, transform, x3dtext }
-  from '@pfern/elements-3d'
+  from '@pfern/elements-x3dom'
 
 export const coordinateAxes = () =>
   collision(

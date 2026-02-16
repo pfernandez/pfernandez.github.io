@@ -11,11 +11,9 @@ export const markdown = component(string =>
 
 const needsMath = text =>
   typeof text === 'string'
-  && (
-    /\$[^$\n]+\$/.test(text)
-    || /\\\(/.test(text)
-    || /\\\[/.test(text)
-  )
+  && (/\$[^$\n]+\$/.test(text)
+      || /\\\(/.test(text)
+      || /\\\[/.test(text))
 
 const initMath = () => {
   mathInit ||= (async () => {
@@ -40,3 +38,4 @@ const render = text => {
   initMath().then(() => markdown(text))
   return md.render(text)
 }
+

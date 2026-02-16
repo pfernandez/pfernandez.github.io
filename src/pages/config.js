@@ -3,8 +3,9 @@ export default
   pages: [{ path: 'nonplanar-polygons',
             summary: 'Nonplanar Polygons',
             items: [{ label: 'Visualization',
-                      file: 'nonplanar-polygons.js',
+                      file: 'visualization.js',
                       keepAlive: true,
                       default: true },
-                    { label: 'About',
-                      file: 'about.md' }]}]}
+                    { label: 'Description',
+                      file: 'description.md' }]}]}
+

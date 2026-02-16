@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "noImplicitAny": false,
-    "checkJs": true
+    "checkJs": true,
+    "types": ["vite/client"]
   },
   "exclude": ["node_modules"]
 }

@@ -36,7 +36,7 @@ section {
   margin: 0;
 }
 
-section.content {
+.content {
   position: relative;
 }
 
@@ -164,7 +164,7 @@ x3d {
     gap: 0;
   }
 
-  main > article {
+  .content > article {
     padding-left: 2em;
   }
 

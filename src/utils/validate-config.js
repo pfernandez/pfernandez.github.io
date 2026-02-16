@@ -3,19 +3,10 @@
 // This keeps routing issues obvious early (duplicate routes, multiple defaults)
 // without adding runtime complexity in production.
 
-import config from '../pages/config.js'
-
-const isDev =
-  typeof import.meta !== 'undefined'
-  && !!import.meta.env
-  && import.meta.env.DEV
-
 const summarize = item =>
   `${item?.label || '(unlabeled)'} (${item?.file || 'no file'})`
 
-export const validateConfig = () => {
-  if (!isDev) return
-
+export const validateConfig = config => {
   const pages = config?.pages || []
   const routes = new Map()
   let defaultCount = 0
@@ -44,8 +35,7 @@ export const validateConfig = () => {
         console.warn(
           `Duplicate route "${route}" in config:\n`
             + `- ${summarize(prev)}\n`
-            + `- ${summarize(item)}`
-        )
+            + `- ${summarize(item)}`)
       } else {
         routes.set(route, item)
       }

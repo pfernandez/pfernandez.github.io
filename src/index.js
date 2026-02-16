@@ -1,26 +1,12 @@
 import config from './pages/config.js'
 import './style.css'
-import { body, h1, head,
-	         header, html, meta, onNavigate, render, title } from '@pfern/elements'
+import { body, h1, head, header, html,
+         meta, onNavigate, render, title } from '@pfern/elements'
 import { page } from './page.js'
-import { getActiveItem } from './utils/site-content.js'
-import { scheduleX3DOMReload } from './utils/x3dom.js'
 import { validateConfig } from './utils/validate-config.js'
 
-validateConfig()
-
-const handleNavigate = () => {
-  page()
-
-  // If we’re switching back to an X3DOM keep-alive view, nudge X3DOM to
-  // recalculate canvas sizing after any layout/visibility changes.
-  const item = getActiveItem(window.location.pathname)
-  item?.keepAlive
-    && item.localPath?.endsWith('.js')
-    && scheduleX3DOMReload()
-}
-
-onNavigate(handleNavigate)
+import.meta?.env?.DEV && validateConfig()
+onNavigate(page)
 
 render(
   html(
@@ -34,3 +20,4 @@ render(
          header(
            h1(config.title)),
          page())))
+
