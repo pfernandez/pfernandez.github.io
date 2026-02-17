@@ -11,7 +11,11 @@
 const markdownModules =
   import.meta.glob('/src/pages/**/*.md', { query: '?raw', import: 'default' })
 
-const scriptModules = import.meta.glob('/src/pages/**/*.js')
+// Exclude dev-only helpers. These are meant for local development and may
+// reference sibling repos or local-only paths that should not be part of a
+// production build.
+const scriptModules =
+  import.meta.glob(['/src/pages/**/*.js', '!/src/pages/**/*.dev.js'])
 
 export const loadMarkdownText = async path => {
   const loader = markdownModules[path]

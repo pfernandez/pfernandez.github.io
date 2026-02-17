@@ -47,7 +47,8 @@ const reduceOnce = (expr, nextIdStart) => {
     if (!isApp(e)) return { expr: e, changed: false }
 
     const left = step(e.fn)
-    if (left.changed) return { expr: app(e.id, left.expr, e.arg), changed: true }
+    if (left.changed) return { expr: app(e.id, left.expr, e.arg),
+                               changed: true }
 
     const right = step(e.arg)
     return right.changed

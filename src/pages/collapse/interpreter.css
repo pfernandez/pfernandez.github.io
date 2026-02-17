@@ -1,0 +1,89 @@
+/* Collapse interpreter page styling (scoped). */
+
+.collapse-demo {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.collapse-demo .panel {
+  border: 1px solid color-mix(in oklab, CanvasText 15%, transparent);
+  border-radius: 10px;
+  padding: 12px;
+  background: color-mix(in oklab, Canvas 92%, transparent);
+}
+
+.collapse-demo textarea {
+  width: 100%;
+  min-height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.collapse-demo .row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.collapse-demo .hint {
+  opacity: 0.8;
+  font-size: 13px;
+}
+
+.collapse-demo .expr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.collapse-demo svg {
+  width: 100%;
+  height: min(70vh, 720px);
+  border-radius: 10px;
+  background: color-mix(in oklab, Canvas 98%, transparent);
+  border: 1px solid color-mix(in oklab, CanvasText 12%, transparent);
+}
+
+.collapse-demo .node circle {
+  fill: color-mix(in oklab, Canvas 70%, transparent);
+  stroke: color-mix(in oklab, CanvasText 30%, transparent);
+  stroke-width: 1.2;
+}
+
+.collapse-demo .node text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  dominant-baseline: middle;
+  text-anchor: middle;
+  user-select: none;
+  pointer-events: none;
+}
+
+.collapse-demo .edge {
+  stroke: color-mix(in oklab, CanvasText 25%, transparent);
+  stroke-width: 1;
+}
+
+.collapse-demo .focus circle {
+  stroke: #d97706;
+  stroke-width: 2.4;
+}
+
+@media (max-width: 980px) {
+  .collapse-demo {
+    grid-template-columns: 1fr;
+  }
+  .collapse-demo svg {
+    height: min(60vh, 560px);
+  }
+}
+

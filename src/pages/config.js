@@ -6,6 +6,18 @@ export default
                       file: 'demo.js',
                       keepAlive: true,
                       default: true }]},
+          { path: 'collapse',
+            summary: 'Collapse',
+            items: [{ label: 'Interpreter',
+                      file: 'interpreter.js',
+                      keepAlive: true }]},
+          { path: 'basis',
+            summary: 'Basis',
+            items: [{ label: 'Visualizer',
+                      file: 'visualizer.js',
+                      keepAlive: true },
+                    { label: 'Overview',
+                      file: 'overview.md' }]},
           { path: 'nonplanar-polygons',
             summary: 'Nonplanar Polygons',
             items: [{ label: 'Visualization',
@@ -13,4 +25,3 @@ export default
                       keepAlive: true },
                     { label: 'Description',
                       file: 'description.md' }]}]}
-

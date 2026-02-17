@@ -1,0 +1,234 @@
+/**
+ * Collapse interpreter page (keep-alive).
+ *
+ * This is the “small core” staging artifact:
+ * - One binary pairs syntax.
+ * - One local rewrite rule: `(() x) → x`.
+ * - A deterministic schedule (leftmost-outermost).
+ *
+ * The point is to watch collapse happen on-screen without any heavy rendering
+ * stack. This should stay small enough to port to WASM later.
+ */
+
+import {
+  article,
+  button,
+  component,
+  div,
+  h2,
+  label,
+  p,
+  pre,
+  section,
+  textarea,
+} from '@pfern/elements'
+import { g, line, svg, text as svgText, circle as svgCircle } from '@pfern/elements'
+import {
+  applyCollapse,
+  compileSource,
+  findNextCollapse,
+  serializeGraph,
+  snapshotFromGraph,
+} from '../../collapse/index.js'
+import { layoutSnapshotTree } from '../../collapse/layout.js'
+
+import './interpreter.css'
+
+const DEFAULT_SOURCE = `; Binary pairs only: () or (a b)
+; Collapse rule: (() x) -> x
+
+((() ()) (() (a b)))`
+
+const initialCompiled = (() => {
+  try {
+    return compileSource(DEFAULT_SOURCE)
+  } catch {
+    return null
+  }
+})()
+
+const View = component(
+  ({
+    source = DEFAULT_SOURCE,
+    compiled = initialCompiled,
+    error = null,
+    history = [],
+  } = {}) => {
+    const ensureCompiled = () => {
+      if (compiled) return compiled
+      const built = compileSource(source)
+      return built
+    }
+
+    const recompile = nextSource => {
+      try {
+        const built = compileSource(nextSource)
+        return View({
+          source: nextSource,
+          compiled: built,
+          error: null,
+          history: [],
+        })
+      } catch (e) {
+        return View({
+          source: nextSource,
+          compiled: null,
+          error: String(e?.message || e),
+          history: [],
+        })
+      }
+    }
+
+    const stepOnce = () => {
+      let built
+      try {
+        built = ensureCompiled()
+      } catch (e) {
+        return View({
+          source,
+          compiled: null,
+          error: String(e?.message || e),
+          history,
+        })
+      }
+
+      const next = findNextCollapse(built.graph, built.rootId)
+      if (!next) {
+        return View({ source, compiled: built, error: null, history })
+      }
+
+      const stepped = applyCollapse(built.graph, built.rootId, next)
+      return View({
+        source,
+        compiled: stepped,
+        error: null,
+        history: [...history, { graph: built.graph, rootId: built.rootId }],
+      })
+    }
+
+    const undo = () => {
+      if (!history.length) return undefined
+      const prev = history[history.length - 1]
+      return View({
+        source,
+        compiled: prev,
+        error: null,
+        history: history.slice(0, -1),
+      })
+    }
+
+    const nextFocusId =
+      compiled?.graph && compiled?.rootId
+        ? findNextCollapse(compiled.graph, compiled.rootId)?.nodeId ?? null
+        : null
+
+    const renderedExpr =
+      compiled?.graph && compiled?.rootId
+        ? serializeGraph(compiled.graph, compiled.rootId)
+        : null
+
+    const snapshot =
+      compiled?.graph && compiled?.rootId
+        ? snapshotFromGraph(compiled.graph, compiled.rootId, {
+            focusId: nextFocusId,
+          })
+        : null
+
+    const layout =
+      snapshot ? layoutSnapshotTree(snapshot.graph, snapshot.rootId) : null
+
+    const scaleX = layout ? 120 : 1
+    const scaleY = layout ? 80 : 1
+    const padding = 40
+    const viewW = layout ? layout.width * scaleX + padding * 2 : 800
+    const viewH = layout ? layout.height * scaleY + padding * 2 : 420
+
+    const nodePos = layout
+      ? new Map(layout.nodes.map(n => [n.id, n]))
+      : new Map()
+
+    const svgTree =
+      layout
+        ? svg(
+            {
+              viewBox: `0 0 ${viewW} ${viewH}`,
+              role: 'img',
+              'aria-label': 'Collapse tree',
+            },
+            // edges
+            ...layout.edges.map(e => {
+              const from = nodePos.get(e.from)
+              const to = nodePos.get(e.to)
+              if (!from || !to) return null
+              return line({
+                class: 'edge',
+                x1: padding + from.x * scaleX,
+                y1: padding + from.y * scaleY,
+                x2: padding + to.x * scaleX,
+                y2: padding + to.y * scaleY,
+              })
+            }),
+            // nodes
+            ...layout.nodes.map(n =>
+              g(
+                { class: `node${n.id === nextFocusId ? ' focus' : ''}` },
+                svgCircle({
+                  cx: padding + n.x * scaleX,
+                  cy: padding + n.y * scaleY,
+                  r: n.kind === 'pair' ? 12 : 16,
+                }),
+                svgText(
+                  {
+                    x: padding + n.x * scaleX,
+                    y: padding + n.y * scaleY,
+                  },
+                  n.kind === 'pair' ? '·' : n.label,
+                ),
+              ),
+            ),
+          )
+        : null
+
+    return article(
+      section(
+        { class: 'collapse-demo' },
+        div(
+          { class: 'panel' },
+          h2('Collapse interpreter'),
+          p(
+            { class: 'hint' },
+            'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.',
+          ),
+          label('Program / term'),
+          textarea({
+            value: source,
+            oninput: value => recompile(String(value ?? '')),
+            spellcheck: 'false',
+          }),
+          div(
+            { class: 'row' },
+            button({ onclick: () => recompile(DEFAULT_SOURCE) }, 'Reset'),
+            button({ onclick: stepOnce, disabled: !!error }, 'Step'),
+            button({ onclick: undo, disabled: history.length === 0 }, 'Undo'),
+          ),
+          div(
+            { class: 'hint', style: { marginTop: '8px' } },
+            `Steps: ${history.length}`,
+            nextFocusId ? ' · Next: highlighted' : ' · Stuck',
+          ),
+          error ? pre({ class: 'expr' }, error) : null,
+          renderedExpr
+            ? div(
+                div({ class: 'hint', style: { marginTop: '10px' } }, 'Current'),
+                pre({ class: 'expr' }, renderedExpr),
+              )
+            : null,
+        ),
+        div({ class: 'panel' }, svgTree ?? pre('Compile an expression to view it.')),
+      ),
+    )
+  },
+)
+
+export default () =>
+  div({ class: 'collapse-demo-root' }, View())
