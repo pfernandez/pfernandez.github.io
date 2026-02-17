@@ -39,6 +39,8 @@ const DEFAULT_SOURCE = `; Binary pairs only: () or (a b)
 
 ((() ()) (() (a b)))`
 
+const SOURCE_TEXTAREA_ID = 'collapse-source'
+
 const initialCompiled = (() => {
   try {
     return compileSource(DEFAULT_SOURCE)
@@ -60,6 +62,30 @@ const View = component(
       return built
     }
 
+    const afterUpdate = fn => {
+      if (typeof queueMicrotask === 'function') queueMicrotask(fn)
+      else setTimeout(fn, 0)
+    }
+
+    const restoreTextareaFocus = (event, selection) => {
+      if (!event?.target) return
+      if (document.activeElement !== event.target) return
+      if (!selection) return
+
+      afterUpdate(() => {
+        requestAnimationFrame(() => {
+          const el = document.getElementById(SOURCE_TEXTAREA_ID)
+          if (!(el instanceof HTMLTextAreaElement)) return
+          el.focus()
+          try {
+            el.setSelectionRange(selection.start, selection.end)
+          } catch {
+            // Ignore selection restore failures (e.g. unsupported input types).
+          }
+        })
+      })
+    }
+
     const recompile = nextSource => {
       try {
         const built = compileSource(nextSource)
@@ -77,6 +103,18 @@ const View = component(
           history: [],
         })
       }
+    }
+
+    const recompilePreservingFocus = (nextSource, event) => {
+      const target = event?.target
+      const selection =
+        target && typeof target.selectionStart === 'number'
+          ? { start: target.selectionStart, end: target.selectionEnd }
+          : null
+
+      const vnode = recompile(nextSource)
+      restoreTextareaFocus(event, selection)
+      return vnode
     }
 
     const stepOnce = () => {
@@ -201,8 +239,10 @@ const View = component(
           ),
           label('Program / term'),
           textarea({
+            id: SOURCE_TEXTAREA_ID,
             value: source,
-            oninput: value => recompile(String(value ?? '')),
+            oninput: (value, event) =>
+              recompilePreservingFocus(String(value ?? ''), event),
             spellcheck: 'false',
           }),
           div(

@@ -47,6 +47,10 @@ section {
   margin: 0;
 }
 
+pre {
+  padding: 1em;
+}
+
 .content {
   position: relative;
 }
