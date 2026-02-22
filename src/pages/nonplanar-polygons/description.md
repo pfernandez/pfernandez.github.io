@@ -26,5 +26,10 @@ Code block:
 console.log('foo')
 ```
 
+Inline script:
+<script>
+alert('hello')
+</script>
+
 Back to [home](/) using the sidebar link.
 
