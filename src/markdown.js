@@ -228,9 +228,40 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
     import: spec => mdImport(spec, { basePath: basePath || null })
   })
 
+  const cssEscape = s => {
+    const esc = globalThis?.CSS?.escape
+    return typeof esc === 'function'
+      ? esc(String(s))
+      : String(s).replace(/[^a-zA-Z0-9_-]/g, ch =>
+        `\\${ch.codePointAt(0).toString(16)} `)
+  }
+
+  const makeScopedDocument = (doc, root) =>
+    new Proxy(doc, {
+      get(target, prop, receiver) {
+        if (prop === 'getElementById') {
+          return id => {
+            const local =
+              root?.querySelector?.(`#${cssEscape(id)}`) || null
+            return local || target.getElementById(String(id))
+          }
+        }
+        const value = Reflect.get(target, prop, receiver)
+        return typeof value === 'function' ? value.bind(target) : value
+      }
+    })
+
   try {
-    const fn = new Function('md', `return (async () => {\n${code}\n})()`)
-    await fn(md)
+    const doc = container?.ownerDocument || globalThis.document
+    const scopedDocument =
+      doc ? makeScopedDocument(doc, container) : undefined
+
+    const fn = new Function(
+      'md',
+      'document',
+      `return (async () => {\n${code}\n})()`)
+
+    await fn(md, scopedDocument)
   } catch (err) {
     console.error('Markdown script error:', err)
   }

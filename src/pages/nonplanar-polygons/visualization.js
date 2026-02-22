@@ -2,7 +2,9 @@ import { appearance, coordinate, group, indexedFaceSet, indexedLineSet,
          material, pointSet, scene, shape, sphere, transform, worldInfo, x3d }
   from '@pfern/elements-x3dom'
 import { coordinateAxes, generateLineIndices, generateTriangleIndices, gridXY,
-         x3defs } from '../utils'
+         scopeX3Defs, x3defs } from '../utils'
+
+let instanceSeq = 0
 
 const options = {
   latticeColor: [0, 0, 0],
@@ -42,17 +44,23 @@ const defs = (
                            solid: 'false' },
                          coordinate({ use: 'points' }))))
 
-export default () =>
-  x3d({ profile: 'Interchange', version: '3.3' },
+export default () => {
+  const prefix = `nonplanar-${++instanceSeq}-`
+  return scopeX3Defs(
+    prefix,
+    x3d(
+      { profile: 'Interchange', version: '3.3' },
       scene(
         worldInfo({ title: 'NonplanarPolygons.x3d' }),
         gridXY(),
         coordinateAxes(),
         defs(),
 
-        transform({ translation: '0 0 0' },
-                  group({ use: 'lattice' })),
+        transform(
+          { translation: '0 0 0' },
+          group({ use: 'lattice' })),
 
-        transform({ translation: '0 0 0' },
-                  shape({ use: 'faces' }))))
-
+        transform(
+          { translation: '0 0 0' },
+          shape({ use: 'faces' })))))
+}

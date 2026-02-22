@@ -6,6 +6,59 @@ export { coordinateAxes } from './coordinate-axes'
 // Instantiate shared objects without rendering.
 export const x3defs = (...defs) => x3dswitch({ whichChoice: -1 }, ...defs)
 
+const isPlainObject = x =>
+  typeof x === 'object' && x !== null && !Array.isArray(x)
+
+const prefixIfNeeded = (prefix, value) => {
+  if (typeof value !== 'string') return value
+  if (!value) return value
+  return value.startsWith(prefix) ? value : `${prefix}${value}`
+}
+
+// X3DOM's DEF/USE values are effectively global in the document. If you render
+// multiple copies of the same X3D graph (e.g. keep-alive routes + markdown
+// embeds), duplicate DEF names can cause cross-scene collisions. This helper
+// scopes DEF/USE (and related ROUTE node refs) under a unique prefix.
+export const scopeX3Defs = (prefix, vnode) => {
+  const p = String(prefix || '')
+  if (!p) return vnode
+
+  const seen = new WeakMap()
+
+  const visit = node => {
+    if (!Array.isArray(node)) return node
+    const cached = seen.get(node)
+    if (cached) return cached
+
+    const tag = node[0]
+    const props = node[1]
+    const children = node.slice(2)
+
+    let nextProps = props
+    if (isPlainObject(props)) {
+      const next = { ...props }
+
+      'DEF' in next && (next.DEF = prefixIfNeeded(p, next.DEF))
+      'def' in next && (next.def = prefixIfNeeded(p, next.def))
+      'USE' in next && (next.USE = prefixIfNeeded(p, next.USE))
+      'use' in next && (next.use = prefixIfNeeded(p, next.use))
+
+      'fromNode' in next && (next.fromNode = prefixIfNeeded(p, next.fromNode))
+      'toNode' in next && (next.toNode = prefixIfNeeded(p, next.toNode))
+      'fromnode' in next && (next.fromnode = prefixIfNeeded(p, next.fromnode))
+      'tonode' in next && (next.tonode = prefixIfNeeded(p, next.tonode))
+
+      nextProps = next
+    }
+
+    const out = [tag, nextProps, ...children.map(visit)]
+    seen.set(node, out)
+    return out
+  }
+
+  return visit(vnode)
+}
+
 const range = n => [...Array(n).keys()]
 
 /**
@@ -59,4 +112,3 @@ export const generateLineIndices = (rows, cols) => {
   return [...lines, ...rightBoundary, ...bottomBoundary]
     .map(line => `${line} -1`) // Add the delimiter to every segment
 }
-

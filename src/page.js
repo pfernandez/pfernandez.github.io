@@ -94,21 +94,24 @@ const renderKeepAliveItems = (activeRoute, { active = false } = {}) => {
       const isJs = item.localPath.endsWith('.js')
       const isMd = item.localPath.endsWith('.md')
       if (!isJs && !isMd) continue
-      if (!keepAliveVisited[item.localPath]) continue
-
-      const vnode = keepAliveVNodes[item.localPath]
-        || (cache[item.localPath]
-          ? keepAliveVNodes[item.localPath] ||= (
-            isJs
-              ? cache[item.localPath]()
-              : article((markdownRenderers[item.localPath] ||= createMarkdown())(
-                cache[item.localPath], { basePath: item.localPath }))
-          )
-          : (isJs
-            ? (loadScript(item.localPath), article('Loading…'))
-            : (loadMarkdown(item.localPath), article('Loading…'))))
 
       const isActive = item.publicPath === activeRoute
+      const shouldRender = isActive || !!keepAliveVisited[item.localPath]
+
+      const vnode = !shouldRender
+        ? null
+        : keepAliveVNodes[item.localPath]
+          || (cache[item.localPath]
+            ? keepAliveVNodes[item.localPath] ||= (
+              isJs
+                ? cache[item.localPath]()
+                : article((markdownRenderers[item.localPath] ||= createMarkdown())(
+                  cache[item.localPath], { basePath: item.localPath }))
+            )
+            : (isJs
+              ? (loadScript(item.localPath), article('Loading…'))
+              : (loadMarkdown(item.localPath), article('Loading…'))))
+
       nodes.push(
         section(
           { 'data-active': isActive ? 'true' : 'false',
