@@ -65,13 +65,6 @@ const loadScript = path => {
     })
 }
 
-const prefetchItem = item =>
-  item?.localPath && item.localPath.endsWith('.md')
-    ? loadMarkdown(item.localPath)
-    : item.localPath.endsWith('.js')
-      ? loadScript(item.localPath)
-      : undefined
-
 const renderMarkdownItem = item => {
   const path = item.localPath
   return cache[path]
@@ -144,19 +137,13 @@ export const page = component(
                   nav(...content.map(group =>
                     section(
                       summary(group.summary),
-
-                      ul(...group.items.map(item => {
-                        const href = item.publicPath
+                      ul(...group.items.map(({ label, publicPath }) => {
+                        const href = publicPath
                         const isActive = href === activeRoute
-                        const props = {
-                          href,
-                          class: isActive ? 'active' : '',
-                          onmouseenter: () => prefetchItem(item),
-                          onfocus: () => prefetchItem(item)
-                        }
+                        const props = { href, class: isActive ? 'active' : '' }
                         isActive && (props['aria-current'] = 'page')
-                        return li(
-                          a(props, item.label)) })))))),
-
+                        return li(a(props, label))
+                      })))))),
                 div({ class: 'content' }, activeNode, keepAlive))
   })
+
