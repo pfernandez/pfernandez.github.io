@@ -16,6 +16,11 @@ export const validateConfig = config => {
       `Config has non-boolean keepAlive (${typeof config?.keepAlive}).`)
   }
 
+  if ('markdownGlobals' in (config || {}) && typeof config?.markdownGlobals !== 'function') {
+    console.warn(
+      `Config has non-function markdownGlobals (${typeof config?.markdownGlobals}).`)
+  }
+
   for (const section of pages) {
     const path = String(section?.path || '').replace(/^\/+|\/+$/g, '')
     const items = section?.items || []

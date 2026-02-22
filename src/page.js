@@ -106,15 +106,15 @@ const renderKeepAliveItems = (activeRoute, { active = false } = {}) => {
       ? null
       : keepAliveVNodes[item.localPath]
         || (cache[item.localPath]
-          ? keepAliveVNodes[item.localPath] ||= (
-            isJs
+          ? keepAliveVNodes[item.localPath]
+            ||= isJs
               ? cache[item.localPath]()
               : article((markdownRenderers[item.localPath] ||= createMarkdown())(
                 cache[item.localPath], { basePath: item.localPath }))
-          )
-          : (isJs
+
+          : isJs
             ? (loadScript(item.localPath), article('Loading…'))
-            : (loadMarkdown(item.localPath), article('Loading…'))))
+            : (loadMarkdown(item.localPath), article('Loading…')))
 
     nodes.push(
       section(

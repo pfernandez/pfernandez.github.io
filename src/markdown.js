@@ -1,5 +1,6 @@
 import { component, div } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
+import config from './pages/config.js'
 
 const md = MarkdownIt({ html: true })
 
@@ -12,12 +13,38 @@ const scriptsByBasePath = new Map()
 
 const pageJsModules = import.meta.glob('/src/pages/**/*.js')
 
-// Markdown scripts are executed via `new Function(...)`, so Vite can't rewrite
-// bare module specifiers inside them. Keep a small allowlist here so users can
-// `await md.import('@pfern/elements')` and have it resolve via real ESM.
-const bareImporters = {
-  '@pfern/elements': () => import('@pfern/elements'),
-  '@pfern/elements-x3dom': () => import('@pfern/elements-x3dom')
+let markdownGlobalsCache = null
+let markdownGlobalsCacheFn = null
+
+const isPlainObject = x =>
+  typeof x === 'object' && x !== null && !Array.isArray(x)
+
+const isValidIdentifier = name =>
+  typeof name === 'string' && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(name)
+
+const getMarkdownGlobals = async md => {
+  const fn = config?.markdownGlobals
+  if (typeof fn !== 'function') return {}
+
+  const canCache = fn.length === 0
+  if (canCache && fn === markdownGlobalsCacheFn && markdownGlobalsCache)
+    return markdownGlobalsCache
+
+  let globals
+  try {
+    globals = await fn({ md })
+  } catch (err) {
+    console.warn('markdownGlobals() failed:', err)
+    return {}
+  }
+
+  const out = isPlainObject(globals) ? globals : {}
+  if (canCache) {
+    markdownGlobalsCacheFn = fn
+    markdownGlobalsCache = Object.freeze(out)
+    return markdownGlobalsCache
+  }
+  return Object.freeze(out)
 }
 
 const hasScriptTag = html => /<script[\s>]/i.test(html)
@@ -252,12 +279,18 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
     const scopedDocument =
       doc ? makeScopedDocument(doc, container) : undefined
 
+    const globals = await getMarkdownGlobals(md)
+    const keys = Object.keys(globals).filter(k =>
+      isValidIdentifier(k) && k !== 'md' && k !== 'document')
+    const values = keys.map(k => globals[k])
+
     const fn = new Function(
       'md',
       'document',
+      ...keys,
       `return (async () => {\n${code}\n})()`)
 
-    await fn(md, scopedDocument)
+    await fn(md, scopedDocument, ...values)
   } catch (err) {
     console.error('Markdown script error:', err)
   }
@@ -285,16 +318,22 @@ const mdImport = async (spec, { basePath } = {}) => {
   if (typeof spec !== 'string' || !spec)
     throw new TypeError('md.import(spec) expects a non-empty string.')
 
-  if (spec in bareImporters) return bareImporters[spec]()
+  const isRelative = spec.startsWith('.')
+  const isAbsolutePage = spec.startsWith('/src/pages/')
 
-  if (spec.startsWith('.') && !basePath) {
+  if (!isRelative && !isAbsolutePage) {
+    throw new Error(
+      `Unsupported markdown import: ${spec} `
+      + '(only relative /src/pages imports are supported; '
+      + 'use config.markdownGlobals for shared libraries)')
+  }
+
+  if (isRelative && !basePath) {
     throw new Error(
       `Unsupported markdown import: ${spec} (relative imports require basePath)`)
   }
 
-  const resolved = spec.startsWith('.')
-    ? resolvePosix(dirname(basePath), spec)
-    : spec
+  const resolved = isRelative ? resolvePosix(dirname(basePath), spec) : spec
 
   const candidates = [resolved]
   if (!resolved.endsWith('.js')) {

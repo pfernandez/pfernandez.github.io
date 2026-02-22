@@ -1,5 +1,4 @@
 <script type="module">
-  const { render } = await md.import('@pfern/elements')
   const { default: vis } = await md.import('./visualization.js')
 </script>
 
@@ -33,11 +32,8 @@ console.log('foo')
 
 Inline script:
 <div id="demo" class="demo3d"></div>
-
 <script>
-
   render(vis(), document.getElementById('demo'))
-
 </script>
 
 Back to [home](/) using the sidebar link.

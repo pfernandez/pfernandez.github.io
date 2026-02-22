@@ -1,3 +1,5 @@
+import { render } from '@pfern/elements'
+
 export default
 { title: 'pfernandez.github.io',
   pages: [{ path: 'graph-reduction',
@@ -13,4 +15,5 @@ export default
                       file: 'visualization.js' },
                     { label: 'Description',
                       file: 'description.md' }]}],
+  markdownGlobals: () => ({ render }),
   keepAlive: true }
