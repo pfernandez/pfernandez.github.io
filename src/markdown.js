@@ -1,6 +1,6 @@
 import { component, div } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
-import { parse } from 'acorn'
+import * as acorn from 'acorn'
 
 const md = MarkdownIt({ html: true })
 
@@ -18,6 +18,110 @@ const bareImporters = {
 }
 
 const hasScriptTag = html => /<script[\s>]/i.test(html)
+
+const extractScriptsFromMarkdown = markdownText => {
+  const scripts = []
+
+  const fenceStart = line => line.match(/^ {0,3}(`{3,}|~{3,})/)?.[1] || null
+
+  const normalizeType = t => String(t || '').trim().toLowerCase()
+  const isExecutableType = t => {
+    const type = normalizeType(t)
+    return !type
+      || type === 'module'
+      || type === 'text/javascript'
+      || type === 'application/javascript'
+  }
+
+  const getAttrValue = (attrs, key) =>
+    attrs.match(new RegExp(`\\b${key}\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')`, 'i'))?.[1]
+    ?? attrs.match(new RegExp(`\\b${key}\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')`, 'i'))?.[2]
+    ?? null
+
+  const renderChunk = chunk => {
+    if (!chunk) return ''
+
+    const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi
+    let out = ''
+    let last = 0
+    for (const m of chunk.matchAll(re)) {
+      const attrs = m[1] || ''
+      const body = m[2] || ''
+
+      const type = (getAttrValue(attrs, 'type') || '').trim()
+      const src = (getAttrValue(attrs, 'src') || '').trim()
+
+      out += chunk.slice(last, m.index)
+
+      if (!isExecutableType(type)) {
+        out += m[0]
+      } else {
+        const idx = scripts.length
+        scripts.push({ type, body, src })
+        out += `<script data-md-script="${idx}"${type ? ` type="${type}"` : ''}></script>`
+      }
+
+      last = m.index + m[0].length
+    }
+    out += chunk.slice(last)
+    return out
+  }
+
+  const lines = String(markdownText || '').split(/\r?\n/)
+  const outLines = []
+  let chunkLines = []
+  let inFence = false
+  let fenceChar = null
+  let fenceLen = 0
+
+  const flushChunk = () => {
+    if (chunkLines.length === 0) return
+    const rendered = renderChunk(chunkLines.join('\n'))
+    outLines.push(...rendered.split('\n'))
+    chunkLines = []
+  }
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li]
+    const marker = fenceStart(line)
+
+    if (marker && !inFence) {
+      flushChunk()
+      inFence = true
+      fenceChar = marker[0]
+      fenceLen = marker.length
+      outLines.push(line)
+      continue
+    }
+
+    if (marker && inFence) {
+      const rest = line.slice(line.indexOf(marker) + marker.length)
+      const isCloser =
+        marker[0] === fenceChar
+        && marker.length >= fenceLen
+        && rest.trim() === ''
+
+      if (isCloser) {
+        inFence = false
+        fenceChar = null
+        fenceLen = 0
+        outLines.push(line)
+        continue
+      }
+    }
+
+    if (inFence) {
+      outLines.push(line)
+      continue
+    }
+
+    chunkLines.push(line)
+  }
+
+  flushChunk()
+
+  return { text: outLines.join('\n'), scripts }
+}
 
 const schedule = fn => {
   if (typeof window === 'undefined') return
@@ -95,8 +199,8 @@ const importDeclToJs = node => {
     if (defaultSpec) {
       const def = defaultSpec.local.name
       return (
-        `const ${ns} = await md.import(${JSON.stringify(source)});\n` +
-        `const ${def} = ${ns}.default;`
+        `const ${ns} = await md.import(${JSON.stringify(source)});\n`
+        + `const ${def} = ${ns}.default;`
       )
     }
     return `const ${ns} = await md.import(${JSON.stringify(source)});`
@@ -118,8 +222,20 @@ const importDeclToJs = node => {
 const transformModuleImports = code => {
   let ast
   try {
-    ast = parse(code, { ecmaVersion: 'latest', sourceType: 'module' })
-  } catch {
+    ast = acorn.parse(code, { ecmaVersion: 2024, sourceType: 'module' })
+  } catch (err) {
+    const line = err?.loc?.line
+    const col = err?.loc?.column
+    const srcLine = Number.isInteger(line)
+      ? String(code.split(/\r?\n/)[line - 1] || '')
+      : ''
+    const caret = Number.isInteger(col) ? ' '.repeat(col) + '^' : ''
+    const context =
+      Number.isInteger(line) && Number.isInteger(col)
+        ? `\n${line}:${col}\n${srcLine}\n${caret}`
+        : ''
+
+    console.warn('Markdown script parse failed; imports may not work.', err, context)
     return code
   }
 
@@ -160,6 +276,7 @@ const runScripts = async token => {
   const meta = tokenMeta.get(token)
   tokenMeta.delete(token)
   const basePath = meta?.basePath || null
+  const extracted = Array.isArray(meta?.scripts) ? meta.scripts : []
 
   const container =
     document.querySelector(`[data-md-render="${String(token)}"]`)
@@ -167,10 +284,22 @@ const runScripts = async token => {
   if (!container) return
 
   const scripts = Array.from(container.querySelectorAll('script'))
-  if (!scripts.length) return
+  const placeholders = scripts.filter(s => s.hasAttribute('data-md-script'))
+
+  // Only execute scripts that came from markdown extraction. Any other <script>
+  // tags inside rendered markdown are removed (and ignored) for safety and to
+  // avoid MarkdownIt-mangled script bodies.
+  for (const s of scripts) {
+    if (s.hasAttribute('data-md-script')) continue
+    const src = s.getAttribute('src')
+    console.warn('Ignoring markdown <script> tag. Use inline scripts only.', src ? { src } : {})
+    s.remove()
+  }
+
+  if (!placeholders.length) return
 
   const parts = []
-  for (const s of scripts) {
+  for (const s of placeholders) {
     const type = String(s.getAttribute('type') || '').trim().toLowerCase()
     if (type && type !== 'module'
       && type !== 'text/javascript'
@@ -182,7 +311,23 @@ const runScripts = async token => {
       s.remove()
       continue
     }
-    parts.push(String(s.textContent || ''))
+
+    const idxAttr = s.getAttribute('data-md-script')
+    if (idxAttr != null) {
+      const idx = Number(idxAttr)
+      const entry = extracted[idx]
+      if (entry?.src) {
+        console.warn('Markdown <script src> is not supported:', entry.src)
+        parts.push('')
+        s.remove()
+        continue
+      }
+      const body = entry?.body
+      parts.push(String(body || ''))
+      s.remove()
+      continue
+    }
+
     s.remove()
   }
 
@@ -198,6 +343,13 @@ const runScripts = async token => {
     return
   }
 
+  if (/^\s*import\b/m.test(code)) {
+    console.error(
+      'Markdown script contains ESM imports, but the import rewriter failed. ' +
+      'Make sure the script body is valid JavaScript (not HTML-wrapped by markdown).')
+    return
+  }
+
   const md = Object.freeze({
     basePath,
     root: container,
@@ -205,7 +357,7 @@ const runScripts = async token => {
   })
 
   try {
-    // eslint-disable-next-line no-new-func
+
     const fn = new Function('md', `return (async () => {\n${code}\n})()`)
     await fn(md)
   } catch (err) {
@@ -215,11 +367,12 @@ const runScripts = async token => {
 
 export const markdown = component((string, { basePath = null } = {}) => {
   const token = ++renderSeq
+  const extracted = extractScriptsFromMarkdown(string)
   const rerender = () => markdown(string, { basePath })
-  const { html, allowScripts } = render(string, rerender)
+  const { html, allowScripts } = render(extracted.text, rerender)
 
-  if (allowScripts && hasScriptTag(html)) {
-    tokenMeta.set(token, { basePath })
+  if (allowScripts && (extracted.scripts.length || hasScriptTag(html))) {
+    tokenMeta.set(token, { basePath, scripts: extracted.scripts })
     schedule(() => runScripts(token))
   }
 

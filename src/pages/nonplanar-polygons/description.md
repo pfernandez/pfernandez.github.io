@@ -1,3 +1,10 @@
+<script type="module">
+
+  import { render } from '@pfern/elements'
+  import vis from './visualization.js'
+
+</script>
+
 # Nonplanar Polygons
 
 Triangles and quadrilaterals are fundamental geometry representations that are
@@ -27,11 +34,9 @@ console.log('foo')
 ```
 
 Inline script:
-<pre id="demo"></pre>
-<script type="module">
+<div id="demo"></div>
 
-  import { render } from '@pfern/elements'
-  import vis from './visualization.js'
+<script type="module">
 
   render(vis(), document.getElementById('demo'))
 
