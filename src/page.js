@@ -68,7 +68,7 @@ const loadScript = path => {
 const renderMarkdownItem = item => {
   const path = item.localPath
   return cache[path]
-    ? article(markdown(cache[path]))
+    ? article(markdown(cache[path], { basePath: path }))
     : (loadMarkdown(path), article('Loading…'))
 }
 
@@ -146,4 +146,3 @@ export const page = component(
                       })))))),
                 div({ class: 'content' }, activeNode, keepAlive))
   })
-

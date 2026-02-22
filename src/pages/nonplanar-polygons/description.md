@@ -27,9 +27,14 @@ console.log('foo')
 ```
 
 Inline script:
-<script>
-alert('hello')
+<pre id="demo"></pre>
+<script type="module">
+
+  import { render } from '@pfern/elements'
+  import vis from './visualization.js'
+
+  render(vis(), document.getElementById('demo'))
+
 </script>
 
 Back to [home](/) using the sidebar link.
-
