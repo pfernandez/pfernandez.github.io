@@ -15,5 +15,5 @@ export default
                       file: 'visualization.js',
                       keepAlive: true },
                     { label: 'Description',
+                      keepAlive: true,
                       file: 'description.md' }]}]}
-

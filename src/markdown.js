@@ -9,9 +9,14 @@ let mathInit = null
 
 let renderSeq = 0
 const tokenMeta = new Map()
+const scriptsByBasePath = new Map()
 
 const pageJsModules = import.meta.glob('/src/pages/**/*.js')
 
+// Markdown scripts are executed via `new Function(...)`, so Vite can't rewrite
+// bare module specifiers inside them. Keep a small allowlist here so imports
+// like `import { render } from '@pfern/elements'` can be rewritten to
+// `await md.import('@pfern/elements')` and resolved from this real ESM module.
 const bareImporters = {
   '@pfern/elements': () => import('@pfern/elements'),
   '@pfern/elements-x3dom': () => import('@pfern/elements-x3dom')
@@ -125,8 +130,110 @@ const extractScriptsFromMarkdown = markdownText => {
 
 const schedule = fn => {
   if (typeof window === 'undefined') return
+  if (typeof requestAnimationFrame === 'function')
+    return requestAnimationFrame(() => fn())
   if (typeof queueMicrotask === 'function') return queueMicrotask(fn)
-  Promise.resolve().then(fn)
+  return setTimeout(fn, 0)
+}
+
+const escapeAttrValue = s =>
+  String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+
+const getContainerByTokenOrPath = (token, basePath) => {
+  if (typeof document === 'undefined') return null
+  const byToken =
+    document.querySelector(`[data-md-render="${String(token)}"]`)
+  if (byToken) return byToken
+  if (!basePath) return null
+  return document.querySelector(
+    `[data-md-base-path="${escapeAttrValue(basePath)}"]`)
+}
+
+const runScriptsInContainer = async (container, { basePath, extracted } = {}) => {
+  const scripts = Array.from(container.querySelectorAll('script'))
+  const placeholders = scripts.filter(s => s.hasAttribute('data-md-script'))
+
+  // Only execute scripts that came from markdown extraction. Any other <script>
+  // tags inside rendered markdown are removed (and ignored) for safety and to
+  // avoid MarkdownIt-mangled script bodies.
+  for (const s of scripts) {
+    if (s.hasAttribute('data-md-script')) continue
+    const src = s.getAttribute('src')
+    console.warn('Ignoring markdown <script> tag. Use inline scripts only.', src ? { src } : {})
+    s.remove()
+  }
+
+  if (!placeholders.length) return
+
+  const scriptsForPath =
+    basePath && scriptsByBasePath.get(basePath) || []
+  const resolvedExtracted =
+    Array.isArray(extracted) && extracted.length ? extracted : scriptsForPath
+
+  const parts = []
+  for (const s of placeholders) {
+    const type = String(s.getAttribute('type') || '').trim().toLowerCase()
+    if (type && type !== 'module'
+      && type !== 'text/javascript'
+      && type !== 'application/javascript') continue
+
+    const src = s.getAttribute('src')
+    if (src) {
+      console.warn('Markdown <script src> is not supported:', src)
+      s.remove()
+      continue
+    }
+
+    const idxAttr = s.getAttribute('data-md-script')
+    if (idxAttr != null) {
+      const idx = Number(idxAttr)
+      const entry = resolvedExtracted[idx]
+      if (entry?.src) {
+        console.warn('Markdown <script src> is not supported:', entry.src)
+        parts.push('')
+        s.remove()
+        continue
+      }
+      const body = entry?.body
+      parts.push(String(body || ''))
+      s.remove()
+      continue
+    }
+
+    s.remove()
+  }
+
+  const raw = parts
+    .map((code, idx) => `\n/* markdown script ${idx + 1}/${parts.length} */\n${code}\n`)
+    .join('\n')
+
+  let code
+  try {
+    code = transformModuleImports(raw)
+  } catch (err) {
+    console.error('Failed to transform markdown module imports:', err)
+    return
+  }
+
+  if (/^\s*import\b/m.test(code)) {
+    console.error(
+      'Markdown script contains ESM imports, but the import rewriter failed. '
+      + 'Make sure the script body is valid JavaScript (not HTML-wrapped by markdown).')
+    return
+  }
+
+  const md = Object.freeze({
+    basePath: basePath || null,
+    root: container,
+    import: spec => mdImport(spec, { basePath: basePath || null })
+  })
+
+  try {
+    const fn = new Function('md', `return (async () => {\n${code}\n})()`)
+    await fn(md)
+  } catch (err) {
+    console.error('Markdown script error:', err)
+  }
 }
 
 const dirname = path => {
@@ -188,7 +295,8 @@ const importDeclToJs = node => {
 
   const specifiers = Array.isArray(node.specifiers) ? node.specifiers : []
 
-  if (specifiers.length === 0) return `await md.import(${JSON.stringify(source)});`
+  if (specifiers.length === 0)
+    return `await md.import(${JSON.stringify(source)});`
 
   const namespace = specifiers.find(s => s.type === 'ImportNamespaceSpecifier')
   const defaultSpec = specifiers.find(s => s.type === 'ImportDefaultSpecifier')
@@ -273,113 +381,64 @@ const transformModuleImports = code => {
 const runScripts = async token => {
   if (typeof document === 'undefined') return
 
-  const meta = tokenMeta.get(token)
-  tokenMeta.delete(token)
+  const meta = tokenMeta.get(token) || null
   const basePath = meta?.basePath || null
   const extracted = Array.isArray(meta?.scripts) ? meta.scripts : []
 
-  const container =
-    document.querySelector(`[data-md-render="${String(token)}"]`)
+  const container = getContainerByTokenOrPath(token, basePath)
 
-  if (!container) return
-
-  const scripts = Array.from(container.querySelectorAll('script'))
-  const placeholders = scripts.filter(s => s.hasAttribute('data-md-script'))
-
-  // Only execute scripts that came from markdown extraction. Any other <script>
-  // tags inside rendered markdown are removed (and ignored) for safety and to
-  // avoid MarkdownIt-mangled script bodies.
-  for (const s of scripts) {
-    if (s.hasAttribute('data-md-script')) continue
-    const src = s.getAttribute('src')
-    console.warn('Ignoring markdown <script> tag. Use inline scripts only.', src ? { src } : {})
-    s.remove()
-  }
-
-  if (!placeholders.length) return
-
-  const parts = []
-  for (const s of placeholders) {
-    const type = String(s.getAttribute('type') || '').trim().toLowerCase()
-    if (type && type !== 'module'
-      && type !== 'text/javascript'
-      && type !== 'application/javascript') continue
-
-    const src = s.getAttribute('src')
-    if (src) {
-      console.warn('Markdown <script src> is not supported:', src)
-      s.remove()
-      continue
+  if (!container) {
+    // Navigation and async rerenders can re-tokenize markdown before the
+    // scheduled run occurs. Retry briefly using the more stable basePath
+    // selector when available.
+    const attempt = Number(meta?.attempt || 0)
+    if (attempt < 8) {
+      tokenMeta.set(token, { ...meta || {}, attempt: attempt + 1 })
+      schedule(() => runScripts(token))
+      return
     }
-
-    const idxAttr = s.getAttribute('data-md-script')
-    if (idxAttr != null) {
-      const idx = Number(idxAttr)
-      const entry = extracted[idx]
-      if (entry?.src) {
-        console.warn('Markdown <script src> is not supported:', entry.src)
-        parts.push('')
-        s.remove()
-        continue
-      }
-      const body = entry?.body
-      parts.push(String(body || ''))
-      s.remove()
-      continue
-    }
-
-    s.remove()
-  }
-
-  const raw = parts
-    .map((code, idx) => `\n/* markdown script ${idx + 1}/${parts.length} */\n${code}\n`)
-    .join('\n')
-
-  let code
-  try {
-    code = transformModuleImports(raw)
-  } catch (err) {
-    console.error('Failed to transform markdown module imports:', err)
+    tokenMeta.delete(token)
     return
   }
 
-  if (/^\s*import\b/m.test(code)) {
-    console.error(
-      'Markdown script contains ESM imports, but the import rewriter failed. ' +
-      'Make sure the script body is valid JavaScript (not HTML-wrapped by markdown).')
-    return
-  }
-
-  const md = Object.freeze({
-    basePath,
-    root: container,
-    import: spec => mdImport(spec, { basePath })
-  })
-
-  try {
-
-    const fn = new Function('md', `return (async () => {\n${code}\n})()`)
-    await fn(md)
-  } catch (err) {
-    console.error('Markdown script error:', err)
-  }
+  tokenMeta.delete(token)
+  await runScriptsInContainer(container, { basePath, extracted })
 }
 
-export const markdown = component((string, { basePath = null } = {}) => {
-  const token = ++renderSeq
-  const extracted = extractScriptsFromMarkdown(string)
-  const rerender = () => markdown(string, { basePath })
-  const { html, allowScripts } = render(extracted.text, rerender)
+export const runMarkdownScriptsForBasePath = basePath => {
+  if (typeof document === 'undefined') return
+  if (typeof basePath !== 'string' || !basePath) return
+  const container = document.querySelector(
+    `[data-md-base-path="${escapeAttrValue(basePath)}"]`)
+  if (!container) return
+  schedule(() => runScriptsInContainer(container, { basePath }))
+}
 
-  if (allowScripts && (extracted.scripts.length || hasScriptTag(html))) {
-    tokenMeta.set(token, { basePath, scripts: extracted.scripts })
-    schedule(() => runScripts(token))
-  }
+export const createMarkdown = () => {
+  const markdown = component((string, { basePath = null } = {}) => {
+    const token = ++renderSeq
+    const extracted = extractScriptsFromMarkdown(string)
+    const rerender = () => markdown(string, { basePath })
+    const { html, allowScripts } = render(extracted.text, rerender)
 
-  return div({ class: 'markdown',
-               'data-md-render': String(token),
-               innerHTML: html })
-})
+    if (basePath) scriptsByBasePath.set(basePath, extracted.scripts)
+
+    if (allowScripts && (extracted.scripts.length || hasScriptTag(html))) {
+      tokenMeta.set(token, { basePath, scripts: extracted.scripts })
+      schedule(() => runScripts(token))
+    }
+
+    const props = { class: 'markdown',
+                    'data-md-render': String(token),
+                    innerHTML: html }
+    basePath && (props['data-md-base-path'] = basePath)
+    return div(props)
+  })
+
+  return markdown
+}
+
+export const markdown = createMarkdown()
 
 const needsMath = text =>
   typeof text === 'string' && (/\$[^$\n]+\$/.test(text)

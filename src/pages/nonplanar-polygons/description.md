@@ -34,7 +34,7 @@ console.log('foo')
 ```
 
 Inline script:
-<div id="demo"></div>
+<div id="demo" class="demo3d"></div>
 
 <script type="module">
 

@@ -1,6 +1,6 @@
 import { a, article, aside, component, div, li, main, nav, section, summary,
          ul } from '@pfern/elements'
-import { markdown } from './markdown.js'
+import { createMarkdown, runMarkdownScriptsForBasePath } from './markdown.js'
 import { content, getActiveItem, getActiveRoute }
   from './utils/site-content.js'
 import { loadMarkdownText, loadScriptDefault } from './utils/content-loaders.js'
@@ -14,6 +14,12 @@ const cache = {}
 const inflight = {}
 const keepAliveVisited = {}
 const keepAliveVNodes = {}
+const markdownRenderers = {}
+let prevActiveRoute = null
+const defer =
+  typeof queueMicrotask === 'function'
+    ? queueMicrotask
+    : fn => Promise.resolve().then(fn)
 
 const subscribeInflight = (path, fn) => {
   const entry = inflight[path]
@@ -68,7 +74,8 @@ const loadScript = path => {
 const renderMarkdownItem = item => {
   const path = item.localPath
   return cache[path]
-    ? article(markdown(cache[path], { basePath: path }))
+    ? article((markdownRenderers[path] ||= createMarkdown())(
+      cache[path], { basePath: path }))
     : (loadMarkdown(path), article('Loading…'))
 }
 
@@ -84,13 +91,22 @@ const renderKeepAliveItems = (activeRoute, { active = false } = {}) => {
   for (const group of content) {
     for (const item of group.items) {
       if (!item.keepAlive) continue
-      if (!item.localPath.endsWith('.js')) continue
+      const isJs = item.localPath.endsWith('.js')
+      const isMd = item.localPath.endsWith('.md')
+      if (!isJs && !isMd) continue
       if (!keepAliveVisited[item.localPath]) continue
 
       const vnode = keepAliveVNodes[item.localPath]
         || (cache[item.localPath]
-          ? keepAliveVNodes[item.localPath] ||= cache[item.localPath]()
-          : (loadScript(item.localPath), article('Loading…')))
+          ? keepAliveVNodes[item.localPath] ||= (
+            isJs
+              ? cache[item.localPath]()
+              : article((markdownRenderers[item.localPath] ||= createMarkdown())(
+                cache[item.localPath], { basePath: item.localPath }))
+          )
+          : (isJs
+            ? (loadScript(item.localPath), article('Loading…'))
+            : (loadMarkdown(item.localPath), article('Loading…'))))
 
       const isActive = item.publicPath === activeRoute
       nodes.push(
@@ -116,16 +132,33 @@ export const page = component(
     const activeRoute = getActiveRoute(window.location.pathname)
     const activeItem = getActiveItem(window.location.pathname)
     const isKeepAliveActive =
-      !!activeItem?.keepAlive && activeItem.localPath?.endsWith('.js')
+      !!activeItem?.keepAlive
+      && (activeItem.localPath?.endsWith('.js')
+        || activeItem.localPath?.endsWith('.md'))
 
     isKeepAliveActive && (keepAliveVisited[activeItem.localPath] = true)
+
+    // When activating a keep-alive markdown route, make sure any extracted
+    // markdown scripts that didn't get a chance to run (e.g. due to rerenders)
+    // are executed, and nudge X3DOM/visualizations to resize.
+    if (activeRoute !== prevActiveRoute) {
+      prevActiveRoute = activeRoute
+      if (activeItem?.keepAlive && activeItem.localPath?.endsWith?.('.md')) {
+        defer(() => {
+          runMarkdownScriptsForBasePath(activeItem.localPath)
+          try { window.dispatchEvent(new Event('resize')) } catch {}
+        })
+      }
+    }
 
     const keepAlive = renderKeepAliveItems(
       activeRoute, { active: isKeepAliveActive })
 
     const activeNode =
       activeItem?.localPath?.endsWith('.md')
-        ? renderMarkdownItem(activeItem)
+        ? activeItem.keepAlive
+          ? null
+          : renderMarkdownItem(activeItem)
         : activeItem?.localPath?.endsWith('.js')
           ? activeItem.keepAlive
             ? null
