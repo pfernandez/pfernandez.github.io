@@ -1,6 +1,5 @@
 import { component, div } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
-import * as acorn from 'acorn'
 
 const md = MarkdownIt({ html: true })
 
@@ -14,9 +13,8 @@ const scriptsByBasePath = new Map()
 const pageJsModules = import.meta.glob('/src/pages/**/*.js')
 
 // Markdown scripts are executed via `new Function(...)`, so Vite can't rewrite
-// bare module specifiers inside them. Keep a small allowlist here so imports
-// like `import { render } from '@pfern/elements'` can be rewritten to
-// `await md.import('@pfern/elements')` and resolved from this real ESM module.
+// bare module specifiers inside them. Keep a small allowlist here so users can
+// `await md.import('@pfern/elements')` and have it resolve via real ESM.
 const bareImporters = {
   '@pfern/elements': () => import('@pfern/elements'),
   '@pfern/elements-x3dom': () => import('@pfern/elements-x3dom')
@@ -212,18 +210,16 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
     .map((code, idx) => `\n/* markdown script ${idx + 1}/${parts.length} */\n${code}\n`)
     .join('\n')
 
-  let code
-  try {
-    code = transformModuleImports(raw)
-  } catch (err) {
-    console.error('Failed to transform markdown module imports:', err)
-    return
-  }
+  const code = raw
 
-  if (/^\s*import\b/m.test(code)) {
+  // Markdown scripts run inside an async function, so ESM syntax is invalid.
+  // Use `await md.import('...')` instead.
+  const hasExport = /^\s*export\b/m.test(code)
+  const hasStaticImport = /^\s*import\b(?!\s*\()/m.test(code)
+  if (hasExport || hasStaticImport) {
     console.error(
-      'Markdown script contains ESM imports, but the import rewriter failed. '
-      + 'Make sure the script body is valid JavaScript (not HTML-wrapped by markdown).')
+      'Markdown scripts do not support `import ... from` or `export`. '
+      + 'Use `await md.import("...")` instead.')
     return
   }
 
@@ -317,96 +313,6 @@ const mdImport = async (spec, { basePath } = {}) => {
     ? ` (resolved to ${resolved} from ${basePath})`
     : ''
   throw new Error(`Unsupported markdown import: ${spec}${hint}`)
-}
-
-const importDeclToJs = node => {
-  const source = node.source?.value
-  if (typeof source !== 'string')
-    throw new Error('Unsupported import: non-string module specifier.')
-
-  const specifiers = Array.isArray(node.specifiers) ? node.specifiers : []
-
-  if (specifiers.length === 0)
-    return `await md.import(${JSON.stringify(source)});`
-
-  const namespace = specifiers.find(s => s.type === 'ImportNamespaceSpecifier')
-  const defaultSpec = specifiers.find(s => s.type === 'ImportDefaultSpecifier')
-  const namedSpecs = specifiers.filter(s => s.type === 'ImportSpecifier')
-
-  if (namespace) {
-    const ns = namespace.local.name
-    if (defaultSpec) {
-      const def = defaultSpec.local.name
-      return (
-        `const ${ns} = await md.import(${JSON.stringify(source)});\n`
-        + `const ${def} = ${ns}.default;`
-      )
-    }
-    return `const ${ns} = await md.import(${JSON.stringify(source)});`
-  }
-
-  const props = []
-  if (defaultSpec) props.push(`default: ${defaultSpec.local.name}`)
-
-  for (const s of namedSpecs) {
-    const imported = s.imported?.name
-    const local = s.local?.name
-    if (!imported || !local) continue
-    props.push(imported === local ? imported : `${imported}: ${local}`)
-  }
-
-  return `const { ${props.join(', ')} } = await md.import(${JSON.stringify(source)});`
-}
-
-const transformModuleImports = code => {
-  let ast
-  try {
-    ast = acorn.parse(code, { ecmaVersion: 2024, sourceType: 'module' })
-  } catch (err) {
-    const line = err?.loc?.line
-    const col = err?.loc?.column
-    const srcLine = Number.isInteger(line)
-      ? String(code.split(/\r?\n/)[line - 1] || '')
-      : ''
-    const caret = Number.isInteger(col) ? ' '.repeat(col) + '^' : ''
-    const context =
-      Number.isInteger(line) && Number.isInteger(col)
-        ? `\n${line}:${col}\n${srcLine}\n${caret}`
-        : ''
-
-    console.warn('Markdown script parse failed; imports may not work.', err, context)
-    return code
-  }
-
-  const body = Array.isArray(ast.body) ? ast.body : []
-  for (const node of body) {
-    if (node.type.startsWith('Export'))
-      throw new Error('Markdown scripts do not support `export`.')
-  }
-
-  const replacements = []
-  for (const node of body) {
-    if (node.type !== 'ImportDeclaration') continue
-    replacements.push({
-      start: node.start,
-      end: node.end,
-      text: importDeclToJs(node)
-    })
-  }
-
-  if (!replacements.length) return code
-
-  replacements.sort((a, b) => a.start - b.start)
-  let out = ''
-  let i = 0
-  for (const r of replacements) {
-    out += code.slice(i, r.start)
-    out += r.text
-    out += '\n'
-    i = r.end
-  }
-  out += code.slice(i)
-  return out
 }
 
 const runScripts = async token => {

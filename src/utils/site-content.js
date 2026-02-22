@@ -14,6 +14,13 @@ const commonPath = (path, file) => `/${stripSlash(path)}/${stripSlash(file)}`
 const publicPath = (path, file) => stripExtension(commonPath(path, file))
 const localPath = (path, file) => `${basePath}${commonPath(path, file)}`
 
+const inheritedBool = (...values) => {
+  for (const v of values) {
+    if (typeof v === 'boolean') return v
+  }
+  return false
+}
+
 export const normalizeRoute = route =>
   route === '/' ? '/' : String(route || '').replace(/\/+$/, '')
 
@@ -22,6 +29,10 @@ export const content = config.pages.reduce((acc, section) =>
    { ...section,
      items: section.items.map(item =>
        ({ ...item,
+          keepAlive: inheritedBool(
+            item.keepAlive,
+            section.keepAlive,
+            config.keepAlive),
           publicPath: publicPath(section.path, item.file),
           localPath: localPath(section.path, item.file) })) }], [])
 

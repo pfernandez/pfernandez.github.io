@@ -1,8 +1,6 @@
 <script type="module">
-
-  import { render } from '@pfern/elements'
-  import vis from './visualization.js'
-
+  const { render } = await md.import('@pfern/elements')
+  const { default: vis } = await md.import('./visualization.js')
 </script>
 
 # Nonplanar Polygons
@@ -36,7 +34,7 @@ console.log('foo')
 Inline script:
 <div id="demo" class="demo3d"></div>
 
-<script type="module">
+<script>
 
   render(vis(), document.getElementById('demo'))
 

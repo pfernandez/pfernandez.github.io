@@ -11,9 +11,20 @@ export const validateConfig = config => {
   const routes = new Map()
   let defaultCount = 0
 
+  if ('keepAlive' in (config || {}) && typeof config?.keepAlive !== 'boolean') {
+    console.warn(
+      `Config has non-boolean keepAlive (${typeof config?.keepAlive}).`)
+  }
+
   for (const section of pages) {
     const path = String(section?.path || '').replace(/^\/+|\/+$/g, '')
     const items = section?.items || []
+
+    if ('keepAlive' in (section || {}) && typeof section?.keepAlive !== 'boolean') {
+      console.warn(
+        `Config section has non-boolean keepAlive (${typeof section?.keepAlive}): `
+          + String(section?.summary || section?.path || '(unknown section)'))
+    }
 
     for (const item of items) {
       item?.default && defaultCount++
