@@ -86,39 +86,42 @@ const renderJsItem = item => {
     : (loadScript(path), article('Loading…'))
 }
 
+// Keep-alive slots must be rendered in a stable order from the start.
+// Elements.js diffs children by index; inserting new keep-alive sections later
+// would remount earlier ones (causing X3DOM canvases to "reload").
+const keepAliveItems = content
+  .flatMap(group => group.items)
+  .filter(item =>
+    !!item.keepAlive
+    && (item.localPath.endsWith('.js') || item.localPath.endsWith('.md')))
+
 const renderKeepAliveItems = (activeRoute, { active = false } = {}) => {
   const nodes = []
-  for (const group of content) {
-    for (const item of group.items) {
-      if (!item.keepAlive) continue
-      const isJs = item.localPath.endsWith('.js')
-      const isMd = item.localPath.endsWith('.md')
-      if (!isJs && !isMd) continue
+  for (const item of keepAliveItems) {
+    const isJs = item.localPath.endsWith('.js')
+    const isActive = item.publicPath === activeRoute
+    const shouldRender = isActive || !!keepAliveVisited[item.localPath]
 
-      const isActive = item.publicPath === activeRoute
-      const shouldRender = isActive || !!keepAliveVisited[item.localPath]
+    const vnode = !shouldRender
+      ? null
+      : keepAliveVNodes[item.localPath]
+        || (cache[item.localPath]
+          ? keepAliveVNodes[item.localPath] ||= (
+            isJs
+              ? cache[item.localPath]()
+              : article((markdownRenderers[item.localPath] ||= createMarkdown())(
+                cache[item.localPath], { basePath: item.localPath }))
+          )
+          : (isJs
+            ? (loadScript(item.localPath), article('Loading…'))
+            : (loadMarkdown(item.localPath), article('Loading…'))))
 
-      const vnode = !shouldRender
-        ? null
-        : keepAliveVNodes[item.localPath]
-          || (cache[item.localPath]
-            ? keepAliveVNodes[item.localPath] ||= (
-              isJs
-                ? cache[item.localPath]()
-                : article((markdownRenderers[item.localPath] ||= createMarkdown())(
-                  cache[item.localPath], { basePath: item.localPath }))
-            )
-            : (isJs
-              ? (loadScript(item.localPath), article('Loading…'))
-              : (loadMarkdown(item.localPath), article('Loading…'))))
-
-      nodes.push(
-        section(
-          { 'data-active': isActive ? 'true' : 'false',
-            'aria-hidden': isActive ? 'false' : 'true',
-            inert: !isActive },
-          vnode))
-    }
+    nodes.push(
+      section(
+        { 'data-active': isActive ? 'true' : 'false',
+          'aria-hidden': isActive ? 'false' : 'true',
+          inert: !isActive },
+        vnode))
   }
   return nodes.length
     ? section(

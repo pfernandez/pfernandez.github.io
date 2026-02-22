@@ -136,8 +136,13 @@ const schedule = fn => {
   return setTimeout(fn, 0)
 }
 
-const escapeAttrValue = s =>
-  String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+const cssEscape = s => {
+  const esc = globalThis?.CSS?.escape
+  return typeof esc === 'function'
+    ? esc(String(s))
+    : String(s).replace(/[^a-zA-Z0-9_-]/g, ch =>
+      `\\${ch.codePointAt(0).toString(16)} `)
+}
 
 const getContainerByTokenOrPath = (token, basePath) => {
   if (typeof document === 'undefined') return null
@@ -146,7 +151,7 @@ const getContainerByTokenOrPath = (token, basePath) => {
   if (byToken) return byToken
   if (!basePath) return null
   return document.querySelector(
-    `[data-md-base-path="${escapeAttrValue(basePath)}"]`)
+    `[data-md-base-path="${cssEscape(basePath)}"]`)
 }
 
 const runScriptsInContainer = async (container, { basePath, extracted } = {}) => {
@@ -228,18 +233,13 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
     import: spec => mdImport(spec, { basePath: basePath || null })
   })
 
-  const cssEscape = s => {
-    const esc = globalThis?.CSS?.escape
-    return typeof esc === 'function'
-      ? esc(String(s))
-      : String(s).replace(/[^a-zA-Z0-9_-]/g, ch =>
-        `\\${ch.codePointAt(0).toString(16)} `)
-  }
-
   const makeScopedDocument = (doc, root) =>
     new Proxy(doc, {
       get(target, prop, receiver) {
         if (prop === 'getElementById') {
+          // Prefer IDs within this markdown render root first. This prevents
+          // keep-alive pages from clobbering each other when multiple markdown
+          // routes (or demos) share the same `id=` values.
           return id => {
             const local =
               root?.querySelector?.(`#${cssEscape(id)}`) || null
@@ -440,7 +440,7 @@ export const runMarkdownScriptsForBasePath = basePath => {
   if (typeof document === 'undefined') return
   if (typeof basePath !== 'string' || !basePath) return
   const container = document.querySelector(
-    `[data-md-base-path="${escapeAttrValue(basePath)}"]`)
+    `[data-md-base-path="${cssEscape(basePath)}"]`)
   if (!container) return
   schedule(() => runScriptsInContainer(container, { basePath }))
 }

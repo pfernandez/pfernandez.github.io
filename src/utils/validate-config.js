@@ -18,6 +18,12 @@ export const validateConfig = config => {
     for (const item of items) {
       item?.default && defaultCount++
 
+      if ('keepAlive' in (item || {}) && typeof item?.keepAlive !== 'boolean') {
+        console.warn(
+          `Config item has non-boolean keepAlive (${typeof item?.keepAlive}): `
+            + summarize(item))
+      }
+
       const file = String(item?.file || '')
       if (!file) {
         console.warn(`Config item missing file: ${summarize(item)}`)
@@ -48,4 +54,3 @@ export const validateConfig = config => {
   defaultCount > 1
     && console.warn(`Multiple default items found (${defaultCount}).`)
 }
-
