@@ -10,29 +10,14 @@
  * stack. This should stay small enough to port to WASM later.
  */
 
-import {
-  article,
-  button,
-  component,
-  div,
-  h2,
-  label,
-  p,
-  pre,
-  section,
-  textarea,
-} from '@pfern/elements'
-import { g, line, svg, text as svgText, circle as svgCircle } from '@pfern/elements'
-import {
-  applyCollapse,
-  compileSource,
-  findNextCollapse,
-  serializeGraph,
-  snapshotFromGraph,
-} from '../../collapse/index.js'
+import { article, button, component, div, h2, label, p, pre, section, textarea } from '@pfern/elements'
+import { g, line, svg, circle as svgCircle, text as svgText }
+  from '@pfern/elements'
+import { applyCollapse, compileSource, findNextCollapse, serializeGraph,
+         snapshotFromGraph } from '../../collapse/index.js'
 import { layoutSnapshotTree } from '../../collapse/layout.js'
 
-import './interpreter.css'
+import './collapse-2d.css'
 
 const DEFAULT_SOURCE = `; Binary pairs only: () or (a b)
 ; Collapse rule: (() x) -> x
@@ -54,7 +39,7 @@ const View = component(
     source = DEFAULT_SOURCE,
     compiled = initialCompiled,
     error = null,
-    history = [],
+    history = []
   } = {}) => {
     const ensureCompiled = () => {
       if (compiled) return compiled
@@ -63,8 +48,8 @@ const View = component(
     }
 
     const afterUpdate = fn => {
-      if (typeof queueMicrotask === 'function') queueMicrotask(fn)
-      else setTimeout(fn, 0)
+      if (typeof queueMicrotask === 'function') window.queueMicrotask(fn)
+      else window.setTimeout(fn, 0)
     }
 
     const restoreTextareaFocus = (event, selection) => {
@@ -73,9 +58,9 @@ const View = component(
       if (!selection) return
 
       afterUpdate(() => {
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
           const el = document.getElementById(SOURCE_TEXTAREA_ID)
-          if (!(el instanceof HTMLTextAreaElement)) return
+          if (!(el instanceof window.HTMLTextAreaElement)) return
           el.focus()
           try {
             el.setSelectionRange(selection.start, selection.end)
@@ -93,14 +78,14 @@ const View = component(
           source: nextSource,
           compiled: built,
           error: null,
-          history: [],
+          history: []
         })
       } catch (e) {
         return View({
           source: nextSource,
           compiled: null,
           error: String(e?.message || e),
-          history: [],
+          history: []
         })
       }
     }
@@ -126,7 +111,7 @@ const View = component(
           source,
           compiled: null,
           error: String(e?.message || e),
-          history,
+          history
         })
       }
 
@@ -140,7 +125,7 @@ const View = component(
         source,
         compiled: stepped,
         error: null,
-        history: [...history, { graph: built.graph, rootId: built.rootId }],
+        history: [...history, { graph: built.graph, rootId: built.rootId }]
       })
     }
 
@@ -151,7 +136,7 @@ const View = component(
         source,
         compiled: prev,
         error: null,
-        history: history.slice(0, -1),
+        history: history.slice(0, -1)
       })
     }
 
@@ -168,8 +153,8 @@ const View = component(
     const snapshot =
       compiled?.graph && compiled?.rootId
         ? snapshotFromGraph(compiled.graph, compiled.rootId, {
-            focusId: nextFocusId,
-          })
+          focusId: nextFocusId
+        })
         : null
 
     const layout =
@@ -187,88 +172,65 @@ const View = component(
 
     const svgTree =
       layout
-        ? svg(
-            {
-              viewBox: `0 0 ${viewW} ${viewH}`,
-              role: 'img',
-              'aria-label': 'Collapse tree',
-            },
-            // edges
-            ...layout.edges.map(e => {
-              const from = nodePos.get(e.from)
-              const to = nodePos.get(e.to)
-              if (!from || !to) return null
-              return line({
-                class: 'edge',
-                x1: padding + from.x * scaleX,
-                y1: padding + from.y * scaleY,
-                x2: padding + to.x * scaleX,
-                y2: padding + to.y * scaleY,
-              })
-            }),
-            // nodes
-            ...layout.nodes.map(n =>
-              g(
-                { class: `node${n.id === nextFocusId ? ' focus' : ''}` },
-                svgCircle({
-                  cx: padding + n.x * scaleX,
-                  cy: padding + n.y * scaleY,
-                  r: n.kind === 'pair' ? 12 : 16,
-                }),
-                svgText(
-                  {
-                    x: padding + n.x * scaleX,
-                    y: padding + n.y * scaleY,
-                  },
-                  n.kind === 'pair' ? '·' : n.label,
-                ),
-              ),
-            ),
-          )
+        ? svg({ viewBox: `0 0 ${viewW} ${viewH}`,
+                role: 'img',
+                'aria-label': 'Collapse tree' },
+          // edges
+              ...layout.edges.map(e => {
+                const from = nodePos.get(e.from)
+                const to = nodePos.get(e.to)
+                if (!from || !to) return null
+                return line({
+                  class: 'edge',
+                  x1: padding + from.x * scaleX,
+                  y1: padding + from.y * scaleY,
+                  x2: padding + to.x * scaleX,
+                  y2: padding + to.y * scaleY
+                })
+              }),
+          // nodes
+              ...layout.nodes.map(n =>
+                g({ class: `node${n.id === nextFocusId ? ' focus' : ''}` },
+                  svgCircle({ cx: padding + n.x * scaleX,
+                              cy: padding + n.y * scaleY,
+                              r: n.kind === 'pair' ? 12 : 16 }),
+                  svgText({ x: padding + n.x * scaleX,
+                            y: padding + n.y * scaleY },
+                          n.kind === 'pair' ? '·' : n.label))))
         : null
 
     return article(
       section(
         { class: 'collapse-demo' },
-        div(
-          { class: 'panel' },
-          h2('Collapse interpreter'),
-          p(
-            { class: 'hint' },
-            'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.',
-          ),
-          label('Program / term'),
-          textarea({
-            id: SOURCE_TEXTAREA_ID,
-            value: source,
-            oninput: (value, event) =>
-              recompilePreservingFocus(String(value ?? ''), event),
-            spellcheck: 'false',
-          }),
-          div(
-            { class: 'row' },
-            button({ onclick: () => recompile(DEFAULT_SOURCE) }, 'Reset'),
-            button({ onclick: stepOnce, disabled: !!error }, 'Step'),
-            button({ onclick: undo, disabled: history.length === 0 }, 'Undo'),
-          ),
-          div(
-            { class: 'hint', style: { marginTop: '8px' } },
-            `Steps: ${history.length}`,
-            nextFocusId ? ' · Next: highlighted' : ' · Stuck',
-          ),
-          error ? pre({ class: 'expr' }, error) : null,
-          renderedExpr
-            ? div(
-                div({ class: 'hint', style: { marginTop: '10px' } }, 'Current'),
-                pre({ class: 'expr' }, renderedExpr),
-              )
-            : null,
-        ),
-        div({ class: 'panel' }, svgTree ?? pre('Compile an expression to view it.')),
-      ),
-    )
-  },
-)
+        div({ class: 'panel' },
+            h2('Collapse interpreter'),
+            p({ class: 'hint' },
+              'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.'),
+            label('Program / term'),
+            textarea({ id: SOURCE_TEXTAREA_ID,
+                       value: source,
+                       oninput: (value, event) =>
+                         recompilePreservingFocus(String(value ?? ''), event),
+                       spellcheck: false }),
+            div({ class: 'row' },
+                button({ onclick: () => recompile(DEFAULT_SOURCE) }, 'Reset'),
+                button({ onclick: stepOnce, disabled: !!error }, 'Step'),
+                button({ onclick: undo, disabled: history.length === 0 },
+                       'Undo')
+            ),
+            div({ class: 'hint', style: { marginTop: '8px' }},
+                `Steps: ${history.length}`,
+                nextFocusId ? ' · Next: highlighted' : ' · Stuck'
+            ),
+            error ? pre({ class: 'expr' }, error) : null,
+            renderedExpr
+              ? div(
+                div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
+                pre({ class: 'expr' }, renderedExpr))
+              : null),
+        div({ class: 'panel' },
+            svgTree ?? pre('Compile an expression to view it.'))))
+  })
 
-export default () =>
-  div({ class: 'collapse-demo-root' }, View())
+export default () => div({ class: 'collapse-demo-root' }, View())
+

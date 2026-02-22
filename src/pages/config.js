@@ -1,15 +1,13 @@
 export default
 { title: 'pfernandez.github.io',
-  pages: [{ path: 'ski-mathml-x3dom',
-            summary: 'SKI MathML + X3DOM',
-            items: [{ label: 'Demo',
-                      file: 'demo.js',
+  pages: [{ path: 'graph-reduction',
+            summary: 'Graph Reduction',
+            items: [{ label: 'SKI',
+                      file: 'ski.js',
                       keepAlive: true,
-                      default: true }]},
-          { path: 'collapse',
-            summary: 'Collapse',
-            items: [{ label: 'Interpreter',
-                      file: 'interpreter.js',
+                      default: true },
+                    { label: '2D Collapse',
+                      file: 'collapse-2d.js',
                       keepAlive: true }]},
           { path: 'nonplanar-polygons',
             summary: 'Nonplanar Polygons',
@@ -18,3 +16,4 @@ export default
                       keepAlive: true },
                     { label: 'Description',
                       file: 'description.md' }]}]}
+
