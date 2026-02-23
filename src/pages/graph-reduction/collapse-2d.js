@@ -206,12 +206,13 @@ const View = component(
             h2('Collapse interpreter'),
             p({ class: 'hint' },
               'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.'),
-            label('Program / term'),
-            textarea({ id: SOURCE_TEXTAREA_ID,
-                       value: source,
-                       oninput: (value, event) =>
-                         recompilePreservingFocus(String(value ?? ''), event),
-                       spellcheck: false }),
+            label('Program / term',
+                  textarea(
+                    { id: SOURCE_TEXTAREA_ID,
+                      value: source,
+                      oninput: (value, event) =>
+                        recompilePreservingFocus(String(value ?? ''), event),
+                      spellcheck: false })),
             div({ class: 'row' },
                 button({ onclick: () => recompile(DEFAULT_SOURCE) }, 'Reset'),
                 button({ onclick: stepOnce, disabled: !!error }, 'Step'),

@@ -18,7 +18,7 @@ const markdownRenderers = {}
 let prevActiveRoute = null
 const defer =
   typeof queueMicrotask === 'function'
-    ? queueMicrotask
+    ? window.queueMicrotask
     : fn => Promise.resolve().then(fn)
 
 const subscribeInflight = (path, fn) => {
@@ -109,27 +109,25 @@ const renderKeepAliveItems = (activeRoute, { active = false } = {}) => {
           ? keepAliveVNodes[item.localPath]
             ||= isJs
               ? cache[item.localPath]()
-              : article((markdownRenderers[item.localPath] ||= createMarkdown())(
-                cache[item.localPath], { basePath: item.localPath }))
-
+              : article(
+                (markdownRenderers[item.localPath] ||= createMarkdown())(
+                  cache[item.localPath], { basePath: item.localPath }))
           : isJs
             ? (loadScript(item.localPath), article('Loading…'))
             : (loadMarkdown(item.localPath), article('Loading…')))
 
     nodes.push(
-      section(
-        { 'data-active': isActive ? 'true' : 'false',
-          'aria-hidden': isActive ? 'false' : 'true',
-          inert: !isActive },
-        vnode))
+      section({ 'data-active': isActive ? 'true' : 'false',
+                'aria-hidden': isActive ? 'false' : 'true',
+                inert: !isActive },
+              vnode))
   }
   return nodes.length
-    ? section(
-      { class: 'keep-alive',
-        'data-active': active ? 'true' : 'false',
-        'aria-hidden': active ? 'false' : 'true',
-        inert: !active },
-      ...nodes)
+    ? section({ class: 'keep-alive',
+                'data-active': active ? 'true' : 'false',
+                'aria-hidden': active ? 'false' : 'true',
+                inert: !active },
+              ...nodes)
     : null
 }
 
@@ -157,8 +155,8 @@ export const page = component(
       }
     }
 
-    const keepAlive = renderKeepAliveItems(
-      activeRoute, { active: isKeepAliveActive })
+    const keepAlive = renderKeepAliveItems(activeRoute,
+                                           { active: isKeepAliveActive })
 
     const activeNode =
       activeItem?.localPath?.endsWith('.md')
@@ -171,17 +169,19 @@ export const page = component(
             : renderJsItem(activeItem)
           : article('Not found.')
 
-    return main({ class: 'grid' },
-                aside(
-                  nav(...content.map(group =>
-                    section(
-                      summary(group.summary),
-                      ul(...group.items.map(({ label, publicPath }) => {
-                        const href = publicPath
-                        const isActive = href === activeRoute
-                        const props = { href, class: isActive ? 'active' : '' }
-                        isActive && (props['aria-current'] = 'page')
-                        return li(a(props, label))
-                      })))))),
-                div({ class: 'content' }, activeNode, keepAlive))
+    return main(
+      { class: 'grid' },
+      aside(
+        nav(...content.map(group =>
+          section(
+            summary(group.summary),
+            ul(...group.items.map(({ label, publicPath }) => {
+              const href = publicPath
+              const isActive = href === activeRoute
+              const props = { href, class: isActive ? 'active' : '' }
+              isActive && (props['aria-current'] = 'page')
+              return li(a(props, label))
+            })))))),
+      div({ class: 'content' }, activeNode, keepAlive))
   })
+

@@ -22,7 +22,7 @@ const isPlainObject = x =>
 const isValidIdentifier = name =>
   typeof name === 'string' && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(name)
 
-const getMarkdownGlobals = async md => {
+const getMarkdownGlobals = async () => {
   const fn = config?.markdownGlobals
   if (typeof fn !== 'function') return {}
 
@@ -32,7 +32,7 @@ const getMarkdownGlobals = async md => {
 
   let globals
   try {
-    globals = await fn({ md })
+    globals = await fn()
   } catch (err) {
     console.warn('markdownGlobals() failed:', err)
     return {}
@@ -156,9 +156,9 @@ const extractScriptsFromMarkdown = markdownText => {
 const schedule = fn => {
   if (typeof window === 'undefined') return
   if (typeof requestAnimationFrame === 'function')
-    return requestAnimationFrame(() => fn())
-  if (typeof queueMicrotask === 'function') return queueMicrotask(fn)
-  return setTimeout(fn, 0)
+    return window.requestAnimationFrame(() => fn())
+  if (typeof queueMicrotask === 'function') return window.queueMicrotask(fn)
+  return window.setTimeout(fn, 0)
 }
 
 const cssEscape = s => {
@@ -179,7 +179,9 @@ const getContainerByTokenOrPath = (token, basePath) => {
     `[data-md-base-path="${cssEscape(basePath)}"]`)
 }
 
-const runScriptsInContainer = async (container, { basePath, extracted } = {}) => {
+const runScriptsInContainer = async (container, { basePath, extracted } = {
+  basePath: null, extracted: []
+}) => {
   const scripts = Array.from(container.querySelectorAll('script'))
   const placeholders = scripts.filter(s => s.hasAttribute('data-md-script'))
 
@@ -197,8 +199,7 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
 
   const scriptsForPath =
     basePath && scriptsByBasePath.get(basePath) || []
-  const resolvedExtracted =
-    Array.isArray(extracted) && extracted.length ? extracted : scriptsForPath
+  const resolvedExtracted = extracted.length ? extracted : scriptsForPath
 
   const parts = []
   for (const s of placeholders) {
@@ -240,7 +241,6 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
   const code = raw
 
   // Markdown scripts run inside an async function, so ESM syntax is invalid.
-  // Use `await md.import('...')` instead.
   const hasExport = /^\s*export\b/m.test(code)
   const hasStaticImport = /^\s*import\b(?!\s*\()/m.test(code)
   if (hasExport || hasStaticImport) {
@@ -251,7 +251,7 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
   }
 
   const md = Object.freeze({
-    basePath: basePath || null,
+    basePath,
     root: container,
     import: spec => mdImport(spec, { basePath: basePath || null })
   })
@@ -279,7 +279,7 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {}) =>
     const scopedDocument =
       doc ? makeScopedDocument(doc, container) : undefined
 
-    const globals = await getMarkdownGlobals(md)
+    const globals = await getMarkdownGlobals()
     const keys = Object.keys(globals).filter(k =>
       isValidIdentifier(k) && k !== 'md' && k !== 'document')
     const values = keys.map(k => globals[k])
@@ -314,7 +314,7 @@ const resolvePosix = (fromDir, rel) => {
   return `/${out.join('/')}`
 }
 
-const mdImport = async (spec, { basePath } = {}) => {
+const mdImport = async (spec, { basePath } = { basePath: null }) => {
   if (typeof spec !== 'string' || !spec)
     throw new TypeError('md.import(spec) expects a non-empty string.')
 
@@ -387,7 +387,7 @@ export const runMarkdownScriptsForBasePath = basePath => {
   const container = document.querySelector(
     `[data-md-base-path="${cssEscape(basePath)}"]`)
   if (!container) return
-  schedule(() => runScriptsInContainer(container, { basePath }))
+  schedule(() => runScriptsInContainer(container, { basePath, extracted: []}))
 }
 
 export const createMarkdown = () => {
