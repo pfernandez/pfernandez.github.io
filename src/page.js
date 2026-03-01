@@ -1,9 +1,10 @@
-import { a, article, aside, component, div, li, main, nav, section, summary,
-         ul } from '@pfern/elements'
+import { a, article, component, div, h1, h2, header, input, label, li, main, nav, section,
+         span,
+         summary, ul } from '@pfern/elements'
 import { createMarkdown, runMarkdownScriptsForBasePath } from './markdown.js'
-import { content, getActiveItem, getActiveRoute }
-  from './utils/site-content.js'
+import { content, getActiveItem, getActiveRoute } from './utils/site-content.js'
 import { loadMarkdownText, loadScriptDefault } from './utils/content-loaders.js'
+import config from './pages/config.js'
 
 // Route → content caches.
 //
@@ -170,18 +171,23 @@ export const page = component(
           : article('Not found.')
 
     return main(
-      { class: 'grid' },
-      aside(
-        nav(...content.map(group =>
-          section(
-            summary(group.summary),
-            ul(...group.items.map(({ label, publicPath }) => {
-              const href = publicPath
-              const isActive = href === activeRoute
-              const props = { href, class: isActive ? 'active' : '' }
-              isActive && (props['aria-current'] = 'page')
-              return li(a(props, label))
-            })))))),
-      div({ class: 'content' }, activeNode, keepAlive))
+      div({ id: 'sidebar' },
+          label({ class: 'toggle' },
+                input({ type: 'checkbox' }),
+                span({ class: 'icon' }, '☰'),
+                span({ class: 'hidden' }, 'Toggle Menu')),
+          header(
+            h1(config.title)),
+          nav(...content.map(group =>
+            section(
+              h2(group.summary),
+              ul(...group.items.map(({ label, publicPath }) => {
+                const href = publicPath
+                const isActive = href === activeRoute
+                const props = { href, class: isActive ? 'active' : '' }
+                isActive && (props['aria-current'] = 'page')
+                return li(a(props, label))
+              })))))),
+      div({ id: 'content' }, activeNode, keepAlive))
   })
 

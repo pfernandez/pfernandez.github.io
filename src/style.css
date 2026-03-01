@@ -2,44 +2,30 @@
  * Reset & base theme
  ******************************************************************************/
 
-@import '@picocss/pico/css/pico.grey.min.css';
+@import '@picocss/pico/css/pico.classless.grey.min.css';
 
 /*******************************************************************************
  * Global styles
  ******************************************************************************/
 
 body {
-  display: grid;
-  /* Stretch vertically to fill window */
-  grid-template-rows: auto 1fr;
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
-body > header {
-  border-bottom: 1px solid #ddd;
+main {
+  position: relative;
+  max-width: none !important;
+  height: 100%;
 }
 
-body > header > h1 {
-  font-size: 1em;
-  font-weight: 400;
-  opacity: 0.9;
+body > main {
+  padding: 0;
 }
 
-body > header > h1::before {
-  content: '🧪';
-  margin-right: 0.1em;
-}
-
-body > header, header {
-  padding-bottom: 0;
-}
-
-body > main, main {
-  padding-top: 0;
-}
-
-article, aside {
-  padding: 1.5rem 0;
+article,
+#sidebar {
+  background: #fff;
+  padding: 1.25rem;
   margin: 0;
 }
 
@@ -48,11 +34,200 @@ section {
 }
 
 pre {
-  padding: 1em;
+  padding: 1rem;
 }
 
-.content {
-  position: relative;
+article {
+  background: inherit;
+  box-shadow: none;
+}
+
+#content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 13rem;
+}
+
+#sidebar {
+  position: fixed;
+  z-index: 1;
+  height: 100%;
+  padding-top: 1rem;
+  box-shadow: 4px 0px 7px -8px #000000;
+}
+
+#sidebar header {
+  border-bottom: 1px solid;
+  margin-bottom: 1.5rem;
+  padding-right: 0.5rem;
+}
+
+#sidebar header > h1 {
+  font-size: 1rem;
+  font-weight: 100;
+}
+
+#sidebar header,
+#sidebar nav {
+  white-space: nowrap;
+}
+
+
+#sidebar header > h1::before {
+  content: '🧪';
+  margin-right: 0.25rem;
+}
+
+#sidebar nav {
+  display: block;
+}
+
+#sidebar nav h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+#sidebar nav > section {
+  margin-bottom: 1.5rem;
+}
+
+#sidebar nav ul {
+  display: block;
+  margin: 0 !important;
+}
+
+#sidebar nav ul li {
+  display: block;
+  font-size: smaller;
+  margin: 0.2rem 0;
+  padding: 0;
+}
+
+.hidden {
+  position: absolute;
+  visibility: hidden;
+  width: 0;
+  height: 0;
+}
+
+x3d {
+  background-color: #fff;
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
+.markdown x3d {
+  box-shadow: inset 0px 0px 4px -2px #000000;
+}
+
+.keep-alive x3d {
+  margin-bottom: 0;
+}
+
+.x3dom-states-item {
+  color: #ccc;
+}
+
+.x3dom-states-item::marker {
+  content: none;
+}
+
+.vis3d-controls {
+  font-size: smaller;
+}
+
+.vis3d-controls input[type="range"] {
+  width: 100%;
+}
+
+.vis3d-controls button {
+  font-size: smaller;
+  font-weight: bold;
+  width: 100%;
+  padding: 0.5rem;
+}
+
+/* Narrow width only */
+@media (max-width: 768px) {
+  body > main {
+    left: 0;
+  }
+
+  /* Visual indicator for keyboard users */
+  body > main:has(input:focus-visible) .toggle {
+    outline: 2px solid rgba(0, 0, 0, 0.3);
+    outline-offset: 2px;
+  }
+
+  #content article {
+    padding-top: 3.5rem;
+  }
+
+  #sidebar {
+    left: -15rem;
+    transition: left 0.3s ease;
+  }
+
+  #sidebar:has(input:checked) {
+    left: 0;
+    padding-right: 3rem;
+  }
+
+  .toggle {
+    background-color: #fff;
+    position: absolute;
+    display: block;
+    top: 1rem;
+    left: 16.25rem;
+    border: 2px solid;
+    margin-bottom: 1rem;
+  }
+
+  .toggle:has(input:checked) {
+    left: 13rem;
+  }
+
+  .toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    margin: 0;
+  }
+
+  .toggle .icon {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding-left: 3px;
+    line-height: 1.1;
+  }
+
+  #content {
+    left: 0;
+  }
+}
+
+/* Mid widths and narrower */
+@media (max-width: 1024px) {}
+
+/* Wide widths only */
+@media (min-width: 769px) {
+  .toggle {
+    display: none;
+  }
+
+  #content article {
+    padding-left: 2rem;
+  }
+
+  .vis3d-controls {
+    padding-top: 0.5rem;
+    padding-left: 1rem;
+  }
 }
 
 /* Keep-alive stack:
@@ -87,131 +262,6 @@ pre {
 [inert] {
   pointer-events: none !important;
   user-select: none !important;
-}
-
-aside nav > section {
-  margin-bottom: 1.5em;
-}
-
-aside nav summary {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-aside nav ul {
-  margin: 0 !important;
-}
-
-aside nav ul li {
-  display: inline-block;
-  font-size: smaller;
-  padding: 0;
-}
-
-aside nav ul li:not(:first-child) {
-  margin-left: 1rem;
-}
-
-article {
-  background: inherit;
-  box-shadow: none;
-}
-
-x3d {
-  box-shadow: inset 0px 0px 4px -2px #000000;
-  background-color: #fff;
-  height: 100%;
-  width: 100%;
-  max-width: 100%;
-  margin-bottom: 2em;
-}
-
-.keep-alive x3d {
-  margin-bottom: 0;
-}
-
-.x3dom-states-item {
-  color: #ccc;
-}
-
-.x3dom-states-item::marker {
-  content: none;
-}
-
-.vis3d-controls {
-  font-size: smaller;
-}
-
-.vis3d-controls input[type="range"] {
-  width: 100%;
-}
-
-.vis3d-controls button {
-  font-size: smaller;
-  font-weight: bold;
-  width: 100%;
-  padding: 0.5rem;
-}
-
-/* Narrow width only */
-@media (max-width: 768px) {
-  main.grid {
-    row-gap: 0;
-  }
-
-  section.grid > :not(:last-child) {
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 1em;
-  }
-
-  aside {
-    border-bottom: 1px solid #ddd;
-  }
-}
-
-/* Mid widths and narrower */
-@media (max-width: 1024px) {
-  .container {
-    max-width: 90%;
-  }
-}
-
-/* Wide widths only */
-@media (min-width: 769px) {
-  main.grid {
-    grid-template-columns: max-content 1fr;
-    gap: 0;
-  }
-
-  .content article {
-    padding-left: 2em;
-  }
-
-  main > aside {
-    grid-column: 1 / 2;
-    border-right: 1px solid #ddd;
-    padding-right: 1.5em;
-  }
-
-  aside nav ul li {
-    display: block;
-    padding: 0;
-    margin-left: 0 !important;
-  }
-
-  main > article {
-    grid-column: 2 / -1;
-  }
-
-  section.grid {
-    grid-template-columns: 1fr 25%;
-    gap: 2em;
-  }
-
-  .vis3d-controls {
-    padding-top: 0.5em;
-    padding-left: 1em;
-  }
 }
 
 /*******************************************************************************
