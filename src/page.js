@@ -171,9 +171,16 @@ export const page = component(
           : article('Not found.')
 
     return main(
-      div({ id: 'sidebar' },
+      div({ id: 'sidebar',
+            onclick: event => {
+              const anchor = event.target?.closest?.('a')
+              if (!anchor) return
+              const toggle =
+                event.currentTarget?.querySelector?.('input[type="checkbox"][data-sidebar-toggle]')
+              toggle && (toggle.checked = false)
+            } },
           label({ class: 'toggle' },
-                input({ type: 'checkbox' }),
+                input({ type: 'checkbox', 'data-sidebar-toggle': '1' }),
                 span({ class: 'icon' }, '☰'),
                 span({ class: 'hidden' }, 'Toggle Menu')),
           header(
@@ -190,4 +197,3 @@ export const page = component(
               })))))),
       div({ id: 'content' }, activeNode, keepAlive))
   })
-
