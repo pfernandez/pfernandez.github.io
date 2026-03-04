@@ -1,6 +1,5 @@
-import { a, article, component, div, h1, h2, header, input, label, li, main, nav, section,
-         span,
-         summary, ul } from '@pfern/elements'
+import { a, article, component, div, h1, h2, header, input, label, li, main,
+         nav, section, span, ul } from '@pfern/elements'
 import { createMarkdown, runMarkdownScriptsForBasePath } from './markdown.js'
 import { content, getActiveItem, getActiveRoute } from './utils/site-content.js'
 import { loadMarkdownText, loadScriptDefault } from './utils/content-loaders.js'
@@ -177,7 +176,9 @@ export const page = component(
               if (!anchor) return
               const toggle =
                 event.currentTarget?.querySelector?.('input[type="checkbox"][data-sidebar-toggle]')
-              toggle && (toggle.checked = false)
+              if (!toggle) return
+              toggle.checked = false
+              delete event.currentTarget.dataset.sidebarOpen
             } },
           label({ class: 'toggle' },
                 input({ type: 'checkbox', 'data-sidebar-toggle': '1' }),

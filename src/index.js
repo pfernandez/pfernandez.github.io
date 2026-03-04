@@ -4,6 +4,7 @@ import { body, head, html, meta, onNavigate, render, title }
   from '@pfern/elements'
 import { page } from './page.js'
 import { validateConfig } from './utils/validate-config.js'
+import './utils/sidebar.js'
 
 import.meta.env?.DEV && validateConfig(config)
 onNavigate(page)
