@@ -183,17 +183,18 @@ export const page = component(
                 input({ type: 'checkbox', 'data-sidebar-toggle': '1' }),
                 span({ class: 'icon' }, '☰'),
                 span({ class: 'hidden' }, 'Toggle Menu')),
-          header(
-            h1(config.title)),
-          nav(...content.map(group =>
-            section(
-              h2(group.summary),
-              ul(...group.items.map(({ label, publicPath }) => {
-                const href = publicPath
-                const isActive = href === activeRoute
-                const props = { href, class: isActive ? 'active' : '' }
-                isActive && (props['aria-current'] = 'page')
-                return li(a(props, label))
-              })))))),
+          div({ class: 'sidebar-panel' },
+              header(
+                h1(config.title)),
+              nav(...content.map(group =>
+                section(
+                  h2(group.summary),
+                  ul(...group.items.map(({ label, publicPath }) => {
+                    const href = publicPath
+                    const isActive = href === activeRoute
+                    const props = { href, class: isActive ? 'active' : '' }
+                    isActive && (props['aria-current'] = 'page')
+                    return li(a(props, label))
+                  }))))))),
       div({ id: 'content' }, activeNode, keepAlive))
   })

@@ -8,6 +8,12 @@
  * Global styles
  ******************************************************************************/
 
+:root {
+  --sidebar-w: 13rem;
+  --sidebar-mobile-offscreen: 15rem;
+  --toggle-viewport-left: 1.25rem;
+}
+
 body {
   height: 100dvh;
 }
@@ -47,7 +53,7 @@ article {
   top: 0;
   right: 0;
   bottom: 0;
-  left: 13rem;
+  left: var(--sidebar-w);
 }
 
 #sidebar {
@@ -58,48 +64,48 @@ article {
   box-shadow: 4px 0px 7px -8px #000000;
 }
 
-#sidebar header {
+#sidebar .sidebar-panel header {
   border-bottom: 1px solid;
   margin-bottom: 1.5rem;
   padding-right: 0.5rem;
 }
 
-#sidebar header > h1 {
+#sidebar .sidebar-panel header > h1 {
   font-size: 1rem;
   font-weight: 100;
 }
 
-#sidebar header,
-#sidebar nav {
+#sidebar .sidebar-panel header,
+#sidebar .sidebar-panel nav {
   white-space: nowrap;
 }
 
 
-#sidebar header > h1::before {
+#sidebar .sidebar-panel header > h1::before {
   content: '🧪';
   margin-right: 0.25rem;
 }
 
-#sidebar nav {
+#sidebar .sidebar-panel nav {
   display: block;
 }
 
-#sidebar nav h2 {
+#sidebar .sidebar-panel nav h2 {
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
-#sidebar nav > section {
+#sidebar .sidebar-panel nav > section {
   margin-bottom: 1.5rem;
 }
 
-#sidebar nav ul {
+#sidebar .sidebar-panel nav ul {
   display: block;
   margin: 0 !important;
 }
 
-#sidebar nav ul li {
+#sidebar .sidebar-panel nav ul li {
   display: block;
   font-size: smaller;
   margin: 0.2rem 0;
@@ -168,7 +174,7 @@ x3d {
   }
 
   #sidebar {
-    left: -15rem;
+    left: calc(-1 * var(--sidebar-mobile-offscreen));
     transition: left 0.3s ease;
   }
 
@@ -177,18 +183,29 @@ x3d {
     padding-right: 3rem;
   }
 
+  /* A11y: keep links out of the focus order when closed. */
+  #sidebar .sidebar-panel {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  #sidebar:has(input:checked) .sidebar-panel {
+    visibility: visible;
+    pointer-events: auto;
+  }
+
   .toggle {
     background-color: #fff;
     position: absolute;
     display: block;
     top: 1rem;
-    left: 16.25rem;
+    left: calc(var(--sidebar-mobile-offscreen) + var(--toggle-viewport-left));
     border: 2px solid;
     margin-bottom: 1rem;
   }
 
   .toggle:has(input:checked) {
-    left: 13rem;
+    left: var(--sidebar-w);
   }
 
   .toggle input {
@@ -208,6 +225,12 @@ x3d {
 
   #content {
     left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sidebar {
+    transition: none;
   }
 }
 
