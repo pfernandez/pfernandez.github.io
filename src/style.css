@@ -9,7 +9,7 @@
  ******************************************************************************/
 
 :root {
-  --sidebar-w: 13rem;
+  --sidebar-w: 14rem;
   --toggle-viewport-left: 1.25rem;
 }
 
@@ -48,7 +48,8 @@ article {
 }
 
 #content {
-  position: absolute;
+  position: fixed;
+  overflow: scroll;
   top: 0;
   right: 0;
   bottom: 0;
@@ -169,25 +170,26 @@ x3d {
   }
 
   /* Visual indicator for keyboard users */
-  body > main:has(input:focus-visible) .toggle {
+  .toggle:focus-visible {
     outline: 2px solid rgba(0, 0, 0, 0.3);
     outline-offset: 2px;
   }
 
   #content article {
-    padding-top: 3.5rem;
+    padding-top: 4rem;
   }
 
   #sidebar {
+    width: calc(var(--sidebar-w) + 3rem);
+
     left: 0;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
   }
 
-  #sidebar:has(input:checked),
-  #sidebar[data-sidebar-open="true"] {
+  #sidebar.open {
     transform: translateX(0);
-    padding-right: 3rem;
+    padding-right: 4.5rem;
   }
 
   /* A11y: keep links out of the focus order when closed. */
@@ -196,8 +198,7 @@ x3d {
     pointer-events: none;
   }
 
-  #sidebar:has(input:checked) .sidebar-panel,
-  #sidebar[data-sidebar-open="true"] .sidebar-panel {
+  #sidebar.open .sidebar-panel {
     visibility: visible;
     pointer-events: auto;
   }
@@ -210,26 +211,18 @@ x3d {
     left: calc(100% + var(--toggle-viewport-left));
     border: 2px solid;
     margin-bottom: 1rem;
+    padding: 0;
   }
 
-  #sidebar:has(input:checked) .toggle,
-  #sidebar[data-sidebar-open="true"] .toggle {
-    left: 100%;
-  }
-
-  .toggle input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-    margin: 0;
+  #sidebar.open .toggle {
+    left: calc(100% - 3.25rem);
   }
 
   .toggle .icon {
     display: block;
-    width: 1.25rem;
-    height: 1.25rem;
-    padding-left: 3px;
-    line-height: 1.1;
+    width: 2rem;
+    height: 2rem;
+    padding-top: 3px;
   }
 
   #content {

@@ -1,5 +1,5 @@
-import { a, article, component, div, h1, h2, header, input, label, li, main,
-         nav, section, span, ul } from '@pfern/elements'
+import { a, article, button, component, div, h1, h2, header, li, main, nav,
+         section, span, ul } from '@pfern/elements'
 import { createMarkdown, runMarkdownScriptsForBasePath } from './markdown.js'
 import { content, getActiveItem, getActiveRoute } from './utils/site-content.js'
 import { loadMarkdownText, loadScriptDefault } from './utils/content-loaders.js'
@@ -16,6 +16,7 @@ const keepAliveVisited = {}
 const keepAliveVNodes = {}
 const markdownRenderers = {}
 let prevActiveRoute = null
+let sidebarOpen = false
 const defer =
   typeof queueMicrotask === 'function'
     ? window.queueMicrotask
@@ -171,20 +172,25 @@ export const page = component(
 
     return main(
       div({ id: 'sidebar',
-            onclick: event => {
-              const anchor = event.target?.closest?.('a')
-              if (!anchor) return
-              const toggle =
-                event.currentTarget?.querySelector?.('input[type="checkbox"][data-sidebar-toggle]')
-              if (!toggle) return
-              toggle.checked = false
-              delete event.currentTarget.dataset.sidebarOpen
+            class: sidebarOpen ? 'open' : '',
+            onclick: ({ target }) => {
+              if (target instanceof window.Element && target.closest('a')) {
+                sidebarOpen = false
+                defer(page)
+              }
             } },
-          label({ class: 'toggle' },
-                input({ type: 'checkbox', 'data-sidebar-toggle': '1' }),
-                span({ class: 'icon' }, '☰'),
-                span({ class: 'hidden' }, 'Toggle Menu')),
-          div({ class: 'sidebar-panel' },
+          button({ class: 'toggle',
+                   type: 'button',
+                   'aria-expanded': sidebarOpen ? 'true' : 'false',
+                   'aria-controls': 'sidebar-panel',
+                   onclick: event => {
+                     event.preventDefault()
+                     sidebarOpen = !sidebarOpen
+                     defer(page)
+                   } },
+                 span({ class: 'icon' }, '☰'),
+                 span({ class: 'hidden' }, 'Toggle Menu')),
+          div({ id: 'sidebar-panel', class: 'sidebar-panel' },
               header(
                 h1(config.title)),
               nav(...content.map(group =>
