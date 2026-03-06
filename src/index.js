@@ -2,7 +2,7 @@ import config from './pages/config.js'
 import './style.css'
 import { body, head, html, meta, onNavigate, render, title }
   from '@pfern/elements'
-import { page } from './page.js'
+import { page } from './components/page.js'
 import { validateConfig } from './utils/validate-config.js'
 
 import.meta.env?.DEV && validateConfig(config)

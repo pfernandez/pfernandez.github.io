@@ -10,12 +10,13 @@
  * stack. This should stay small enough to port to WASM later.
  */
 
-import { article, button, component, div, h2, label, p, pre, section, textarea } from '@pfern/elements'
+import { article, button, component, div, h2, label, p, pre, section, textarea }
+  from '@pfern/elements'
 import { g, line, svg, circle as svgCircle, text as svgText }
   from '@pfern/elements'
 import { applyCollapse, compileSource, findNextCollapse, serializeGraph,
-         snapshotFromGraph } from '../../collapse/index.js'
-import { layoutSnapshotTree } from '../../collapse/layout.js'
+         snapshotFromGraph } from './collapse/index.js'
+import { layoutSnapshotTree } from './collapse/layout.js'
 
 import './collapse-2d.css'
 
@@ -234,4 +235,3 @@ const View = component(
   })
 
 export default () => div({ class: 'collapse-demo-root' }, View())
-

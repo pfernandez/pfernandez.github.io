@@ -1,6 +1,6 @@
 import { component, div } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
-import config from './pages/config.js'
+import config from '../pages/config.js'
 
 const md = MarkdownIt({ html: true })
 

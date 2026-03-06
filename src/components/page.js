@@ -1,9 +1,9 @@
 import { a, article, button, component, div, h1, h2, header, li, main, nav,
          section, span, ul } from '@pfern/elements'
 import { createMarkdown, runMarkdownScriptsForBasePath } from './markdown.js'
-import { content, getActiveItem, getActiveRoute } from './utils/site-content.js'
-import { loadMarkdownText, loadScriptDefault } from './utils/content-loaders.js'
-import config from './pages/config.js'
+import { content, getActiveItem, getActiveRoute } from '../utils/site-content.js'
+import { loadMarkdownText, loadScriptDefault } from '../utils/content-loaders.js'
+import config from '../pages/config.js'
 
 // Route → content caches.
 //
