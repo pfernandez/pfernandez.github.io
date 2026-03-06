@@ -37,7 +37,7 @@ function compileSymbol(graph, label) {
  * @returns {{ graph: Graph, nodeId: string }}
  */
 function compilePair(graph, leftId, rightId) {
-  const added = addNode(graph, { kind: 'pair', children: [leftId, rightId] })
+  const added = addNode(graph, { kind: 'pair', children: [leftId, rightId]})
   return { graph: added.graph, nodeId: added.id }
 }
 

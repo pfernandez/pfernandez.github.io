@@ -38,10 +38,15 @@ const treeLinksForNode = node =>
  * @returns {{ rootId: string, focusId: string | null, note: string,
  *             graph: { nodes: any[], edges: any[] } }}
  */
-export const snapshotFromGraph = (graph, rootId, meta = {}) => (
-  { graph: { nodes: graph.nodes.map(cloneNodeForSnapshot),
-             edges: graph.nodes.flatMap(treeLinksForNode) },
-    rootId,
-    focusId: meta.focusId ?? null,
-    note: meta.note ?? '' })
+export const snapshotFromGraph = (graph, rootId, meta = {}) => {
+  const snapshot = { graph: { nodes: graph.nodes.map(cloneNodeForSnapshot),
+                              edges: graph.nodes.flatMap(treeLinksForNode) },
+                     rootId,
+                     focusId: meta.focusId ?? null,
+                     note: meta.note ?? '' }
+
+  console.log('snapshotFromGraph', { rootId, graph, meta, snapshot })
+
+  return snapshot
+}
 

@@ -20,7 +20,7 @@ import { invariant } from './utils.js'
  * @param {any} expr
  * @returns {AtomAst}
  */
-export function toPairAst(expr) {
+export const toPairAst = expr => {
   if (expr == null) return []
   if (typeof expr === 'string' || typeof expr === 'number') return expr
 
@@ -28,7 +28,7 @@ export function toPairAst(expr) {
   if (expr.length === 0) return []
   invariant(
     expr.length === 2,
-    'Lists must have exactly 2 elements (binary pairs)',
+    'Lists must have exactly 2 elements (binary pairs)'
   )
   return [toPairAst(expr[0]), toPairAst(expr[1])]
 }

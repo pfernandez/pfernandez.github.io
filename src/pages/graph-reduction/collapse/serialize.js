@@ -15,10 +15,14 @@ import { getNode } from './graph.js'
  */
 const nodeToString = (graph, nodeId) => {
   const node = getNode(graph, nodeId)
-  if (node.kind === 'empty') return '()'
-  if (node.kind === 'symbol') return String(node.label ?? '#sym')
-  const [leftId, rightId] = node.children ?? []
-  return `(${nodeToString(graph, leftId)} ${nodeToString(graph, rightId)})`
+  if (node.kind === 'empty') {
+    return '()'
+  } else if (node.kind === 'symbol') {
+    return String(node.label ?? '#sym')
+  } else {
+    const [leftId, rightId] = node.children ?? []
+    return `(${nodeToString(graph, leftId)} ${nodeToString(graph, rightId)})`
+  }
 }
 
 /**
@@ -26,5 +30,11 @@ const nodeToString = (graph, nodeId) => {
  * @param {string} rootId
  * @returns {string}
  */
-export const serializeGraph = (graph, rootId) => nodeToString(graph, rootId)
+export const serializeGraph = (graph, rootId) => {
+  const serialized = nodeToString(graph, rootId)
+
+  console.log('serializeGraph', { rootId, graph, serialized })
+
+  return serialized
+}
 

@@ -94,7 +94,12 @@ export function findNextCollapse(graph, rootId) {
     // If the left child is empty, the pair will collapse, leaving the right
     // child in its place.
     if (left.kind === 'empty') {
-      return { nodeId: item.nodeId, replacementId: rightId, path: item.path }
+      const nextCollapse =
+        { nodeId: item.nodeId, replacementId: rightId, path: item.path }
+
+      console.log('findNextCollapse', { rootId, graph, nextCollapse })
+
+      return nextCollapse
     }
 
     // Pre-order: examine left child before right child.
@@ -120,6 +125,11 @@ export function findNextCollapse(graph, rootId) {
  */
 export function applyCollapse(graph, rootId, event) {
   invariant(event && typeof event === 'object', 'applyCollapse requires event')
-  return replaceAtPath(graph, rootId, event.path ?? [], event.replacementId)
+  const collapsed = replaceAtPath(
+    graph, rootId, event.path ?? [], event.replacementId)
+
+  console.log('applyCollapse', { rootId, graph, event, collapsed })
+
+  return collapsed
 }
 

@@ -17,30 +17,27 @@
  * @param {string} source
  * @returns {string}
  */
-function clean(source) {
-  return source.replace(/;.*$/gm, '')
-}
+const clean = source => source.replace(/;.*$/gm, '')
 
 /**
  * Tokenize an S-expression string into `(`, `)`, and atom tokens.
  * @param {string} source
  * @returns {string[]}
  */
-function tokenize(source) {
-  return clean(source)
+const tokenize = source =>
+  clean(source)
     .replace(/\(/g, ' ( ')
     .replace(/\)/g, ' ) ')
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-}
 
 /**
  * Read one expression from a token stream (mutates `tokens`).
  * @param {string[]} tokens
  * @returns {string | number | any[]}
  */
-function read(tokens) {
+const read = tokens => {
   if (!tokens.length) throw new Error('Unexpected EOF while reading')
   const token = tokens.shift()
   if (typeof token !== 'string') throw new Error('Unexpected EOF while reading')
@@ -65,10 +62,13 @@ function read(tokens) {
  * @param {string} source
  * @returns {string | number | any[] | null}
  */
-export function parseSexpr(source) {
+export const parseSexpr = source => {
   const tokens = tokenize(source)
   if (!tokens.length) return null
   const expr = read(tokens)
+
+  console.log('parseSexpr', { source, expr })
+
   if (tokens.length) throw new Error('Extra content after expression')
   return expr
 }

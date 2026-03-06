@@ -53,15 +53,19 @@ const restoreTextareaFocus = (event, selection) =>
 
 const recompile = nextSource => {
   try {
-    return View({ source: nextSource,
-                  compiled: compileSource(nextSource),
-                  error: null,
-                  history: []})
+    return View({
+      source: nextSource,
+      compiled: compileSource(nextSource),
+      error: null,
+      history: []
+    })
   } catch (e) {
-    return View({ source: nextSource,
-                  compiled: null,
-                  error: String(e?.message || e),
-                  history: []})
+    return View({
+      source: nextSource,
+      compiled: null,
+      error: String(e?.message || e),
+      history: []
+    })
   }
 }
 

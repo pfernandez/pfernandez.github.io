@@ -41,6 +41,9 @@ export function compileSource(source) {
   const parsed = parseSexpr(source)
   const ast = toPairAst(parsed)
   const compiled = buildGraphFromPairAst(createGraph(), ast)
+
+  console.log('compileSource', { source, parsed, ast, compiled })
+
   return { graph: compiled.graph, rootId: compiled.nodeId }
 }
 

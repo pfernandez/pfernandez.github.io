@@ -27,20 +27,18 @@ const nextNodeId = createIdGenerator('n')
 /**
  * @returns {Graph}
  */
-export function createGraph() {
-  return { nodes: [] }
-}
+export const createGraph = () => ({ nodes: []})
 
 /**
  * @param {Graph} graph
  * @param {Omit<GraphNode, 'id'> & { id?: string }} node
  * @returns {{ graph: Graph, id: string }}
  */
-export function addNode(graph, node) {
+export const addNode = (graph, node) => {
   const id = node.id ?? nextNodeId()
   const record = /** @type {GraphNode} */ ({ ...node, id })
   assertValidNode(record)
-  return { graph: { ...graph, nodes: [...graph.nodes, record] }, id }
+  return { graph: { ...graph, nodes: [...graph.nodes, record]}, id }
 }
 
 /**
@@ -48,7 +46,7 @@ export function addNode(graph, node) {
  * @param {string} id
  * @returns {GraphNode}
  */
-export function getNode(graph, id) {
+export const getNode = (graph, id) => {
   const node = graph.nodes.find(n => n.id === id)
   invariant(node, `Unknown node ${id}`)
   return node
@@ -60,32 +58,24 @@ export function getNode(graph, id) {
  * @param {(node: GraphNode) => GraphNode} updater
  * @returns {Graph}
  */
-export function updateNode(graph, id, updater) {
-  return { ...graph, nodes: replaceNode(graph.nodes, id, updater) }
-}
+export const updateNode = (graph, id, updater) =>
+  ({ ...graph, nodes: replaceNode(graph.nodes, id, updater) })
 
 /**
  * @param {any} node
  * @returns {void}
  */
-export function assertValidNode(node) {
+export const assertValidNode = node => {
   invariant(node && typeof node === 'object', 'Node must be an object')
   invariant(typeof node.id === 'string' && node.id.length, 'Node must have id')
   invariant(
     node.kind === 'pair' || node.kind === 'symbol' || node.kind === 'empty',
-    `Unknown node kind: ${String(node.kind)}`,
+    `Unknown node kind: ${String(node.kind)}`
   )
-
-  if (node.kind === 'pair') {
-    invariant(
-      Array.isArray(node.children) && node.children.length === 2,
-      `pair ${node.id} must have 2 children`,
-    )
-    return
-  }
-  if (node.kind === 'symbol') {
-    invariant(typeof node.label === 'string', `symbol ${node.id} needs label`)
-    return
-  }
+  node.kind === 'pair'
+    && invariant(Array.isArray(node.children) && node.children.length === 2,
+                 `pair ${node.id} must have 2 children`)
+  node.kind === 'symbol'
+  && invariant(typeof node.label === 'string', `symbol ${node.id} needs label`)
 }
 

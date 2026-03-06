@@ -13,7 +13,7 @@
  * @param {string} message
  * @returns {asserts condition}
  */
-export function invariant(condition, message) {
+export const invariant = (condition, message) => {
   if (!condition) throw new Error(message)
 }
 
@@ -22,7 +22,7 @@ export function invariant(condition, message) {
  * @param {string} prefix
  * @returns {() => string}
  */
-export function createIdGenerator(prefix = 'n') {
+export const createIdGenerator = (prefix = 'n') => {
   let counter = 0
   return () => `${prefix}${counter++}`
 }
@@ -35,7 +35,6 @@ export function createIdGenerator(prefix = 'n') {
  * @param {(node: T) => T} updater
  * @returns {T[]}
  */
-export function replaceNode(list, id, updater) {
-  return list.map(node => (node.id === id ? updater(node) : node))
-}
+export const replaceNode = (list, id, updater) =>
+  list.map(node => node.id === id ? updater(node) : node)
 
