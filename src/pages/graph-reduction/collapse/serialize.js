@@ -13,7 +13,7 @@ import { getNode } from './graph.js'
  * @param {string} nodeId
  * @returns {string}
  */
-function nodeToString(graph, nodeId) {
+const nodeToString = (graph, nodeId) => {
   const node = getNode(graph, nodeId)
   if (node.kind === 'empty') return '()'
   if (node.kind === 'symbol') return String(node.label ?? '#sym')
@@ -26,7 +26,5 @@ function nodeToString(graph, nodeId) {
  * @param {string} rootId
  * @returns {string}
  */
-export function serializeGraph(graph, rootId) {
-  return nodeToString(graph, rootId)
-}
+export const serializeGraph = (graph, rootId) => nodeToString(graph, rootId)
 

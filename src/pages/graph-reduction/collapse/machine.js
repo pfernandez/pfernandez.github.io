@@ -19,7 +19,8 @@ import { invariant } from './utils.js'
 
 /**
  * @typedef {{ kind: 'pair', parentId: string, index: 0 | 1 }} PairFrame
- * @typedef {{ nodeId: string, replacementId: string, path: PairFrame[] }} CollapseEvent
+ * @typedef {{ nodeId: string, replacementId: string, path: PairFrame[] }}
+ *          CollapseEvent
  */
 
 /**
@@ -28,11 +29,11 @@ import { invariant } from './utils.js'
  */
 function isPairNode(node) {
   return (
-    node?.kind === 'pair' &&
-    Array.isArray(node.children) &&
-    node.children.length === 2 &&
-    typeof node.children[0] === 'string' &&
-    typeof node.children[1] === 'string'
+    node?.kind === 'pair'
+    && Array.isArray(node.children)
+    && node.children.length === 2
+    && typeof node.children[0] === 'string'
+    && typeof node.children[1] === 'string'
   )
 }
 
@@ -66,7 +67,7 @@ function replaceAtPath(graph, rootId, path, replacementId) {
   const frame = path[path.length - 1]
   return {
     graph: replaceInPair(graph, frame.parentId, frame.index, replacementId),
-    rootId,
+    rootId
   }
 }
 
@@ -78,7 +79,7 @@ function replaceAtPath(graph, rootId, path, replacementId) {
  */
 export function findNextCollapse(graph, rootId) {
   /** @type {{ nodeId: string, path: PairFrame[] }[]} */
-  const stack = [{ nodeId: rootId, path: [] }]
+  const stack = [{ nodeId: rootId, path: []}]
 
   while (stack.length) {
     const item = stack.pop()
@@ -89,6 +90,9 @@ export function findNextCollapse(graph, rootId) {
 
     const [leftId, rightId] = node.children
     const left = getNode(graph, leftId)
+
+    // If the left child is empty, the pair will collapse, leaving the right
+    // child in its place.
     if (left.kind === 'empty') {
       return { nodeId: item.nodeId, replacementId: rightId, path: item.path }
     }
@@ -96,11 +100,11 @@ export function findNextCollapse(graph, rootId) {
     // Pre-order: examine left child before right child.
     stack.push({
       nodeId: rightId,
-      path: [...item.path, { kind: 'pair', parentId: item.nodeId, index: 1 }],
+      path: [...item.path, { kind: 'pair', parentId: item.nodeId, index: 1 }]
     })
     stack.push({
       nodeId: leftId,
-      path: [...item.path, { kind: 'pair', parentId: item.nodeId, index: 0 }],
+      path: [...item.path, { kind: 'pair', parentId: item.nodeId, index: 0 }]
     })
   }
 

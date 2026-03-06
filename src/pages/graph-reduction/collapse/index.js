@@ -17,7 +17,7 @@ import { parseSexpr } from './sexpr.js'
 import { toPairAst } from './ast.js'
 import { createGraph } from './graph.js'
 import { buildGraphFromPairAst } from './compile.js'
-import { findNextCollapse, applyCollapse } from './machine.js'
+import { applyCollapse, findNextCollapse } from './machine.js'
 import { serializeGraph } from './serialize.js'
 import { snapshotFromGraph } from './snapshot.js'
 
@@ -29,7 +29,7 @@ export {
   findNextCollapse,
   applyCollapse,
   serializeGraph,
-  snapshotFromGraph,
+  snapshotFromGraph
 }
 
 /**
