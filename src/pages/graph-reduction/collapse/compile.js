@@ -7,7 +7,7 @@
 import { addNode } from './graph.js'
 
 /**
- * @typedef {import('./ast.js').AtomAst} AtomAst
+ * @typedef {import('./ast-types').AtomAst} AtomAst
  * @typedef {import('./graph.js').Graph} Graph
  */
 
@@ -56,4 +56,3 @@ export function buildGraphFromPairAst(graph, ast) {
   }
   return compileSymbol(graph, String(ast))
 }
-

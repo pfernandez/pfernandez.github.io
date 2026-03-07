@@ -11,8 +11,8 @@
 import { invariant } from './utils.js'
 
 /**
- * @typedef {string | number | PairAst} AtomAst
- * @typedef {[] | [AtomAst, AtomAst]} PairAst
+ * @typedef {import('./ast-types').AtomAst} AtomAst
+ * @typedef {import('./ast-types').PairAst} PairAst
  */
 
 /**
@@ -21,15 +21,14 @@ import { invariant } from './utils.js'
  * @returns {AtomAst}
  */
 export const toPairAst = expr => {
-  if (expr == null) return []
+  if (expr == null) return /** @type {PairAst} */ ([])
   if (typeof expr === 'string' || typeof expr === 'number') return expr
 
   invariant(Array.isArray(expr), 'Expression must be an atom or list')
-  if (expr.length === 0) return []
+  if (expr.length === 0) return /** @type {PairAst} */ ([])
   invariant(
     expr.length === 2,
     'Lists must have exactly 2 elements (binary pairs)'
   )
-  return [toPairAst(expr[0]), toPairAst(expr[1])]
+  return /** @type {PairAst} */ ([toPairAst(expr[0]), toPairAst(expr[1])])
 }
-
