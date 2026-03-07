@@ -14,7 +14,6 @@
  */
 
 import { parseSexpr } from './sexpr.js'
-import { toPairAst } from './ast.js'
 import { createGraph } from './graph.js'
 import { buildGraphFromPairAst } from './compile.js'
 import { applyCollapse, findNextCollapse } from './machine.js'
@@ -23,7 +22,6 @@ import { snapshotFromGraph } from './snapshot.js'
 
 export {
   parseSexpr,
-  toPairAst,
   createGraph,
   buildGraphFromPairAst,
   findNextCollapse,
@@ -38,11 +36,10 @@ export {
  * @returns {{ graph: import('./graph.js').Graph, rootId: string }}
  */
 export function compileSource(source) {
-  const parsed = parseSexpr(source)
-  const ast = toPairAst(parsed)
+  const ast = parseSexpr(source)
   const compiled = buildGraphFromPairAst(createGraph(), ast)
 
-  console.log('compileSource', { source, parsed, ast, compiled })
+  console.log('compileSource', { source, ast, compiled })
 
   return { graph: compiled.graph, rootId: compiled.nodeId }
 }

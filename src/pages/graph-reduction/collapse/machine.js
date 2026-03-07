@@ -27,15 +27,13 @@ import { invariant } from './utils.js'
  * @param {any} node
  * @returns {node is { kind: 'pair', children: [string, string] }}
  */
-function isPairNode(node) {
-  return (
-    node?.kind === 'pair'
-    && Array.isArray(node.children)
-    && node.children.length === 2
-    && typeof node.children[0] === 'string'
-    && typeof node.children[1] === 'string'
-  )
-}
+const isPairNode = node =>
+  node?.kind === 'pair'
+  && Array.isArray(node.children)
+  && node.children.length === 2
+  && typeof node.children[0] === 'string'
+  && typeof node.children[1] === 'string'
+
 
 /**
  * Replace a child pointer in a pair node.
@@ -45,14 +43,14 @@ function isPairNode(node) {
  * @param {string} replacementId
  * @returns {import('./graph.js').Graph}
  */
-function replaceInPair(graph, pairId, index, replacementId) {
-  return updateNode(graph, pairId, node => {
+const replaceInPair = (graph, pairId, index, replacementId) =>
+  updateNode(graph, pairId, node => {
     invariant(isPairNode(node), 'replaceInPair expects a pair node')
     const children = /** @type {[string, string]} */ ([...node.children])
     children[index] = replacementId
     return { ...node, children }
   })
-}
+
 
 /**
  * Replace a node at `path`, preserving structural sharing elsewhere.
@@ -62,7 +60,7 @@ function replaceInPair(graph, pairId, index, replacementId) {
  * @param {string} replacementId
  * @returns {{ graph: import('./graph.js').Graph, rootId: string }}
  */
-function replaceAtPath(graph, rootId, path, replacementId) {
+const replaceAtPath = (graph, rootId, path, replacementId) => {
   if (!path.length) return { graph, rootId: replacementId }
   const frame = path[path.length - 1]
   return {
@@ -77,7 +75,7 @@ function replaceAtPath(graph, rootId, path, replacementId) {
  * @param {string} rootId
  * @returns {CollapseEvent | null}
  */
-export function findNextCollapse(graph, rootId) {
+export const findNextCollapse = (graph, rootId) => {
   /** @type {{ nodeId: string, path: PairFrame[] }[]} */
   const stack = [{ nodeId: rootId, path: []}]
 
@@ -123,7 +121,7 @@ export function findNextCollapse(graph, rootId) {
  * @param {CollapseEvent} event
  * @returns {{ graph: import('./graph.js').Graph, rootId: string }}
  */
-export function applyCollapse(graph, rootId, event) {
+export const applyCollapse = (graph, rootId, event) => {
   invariant(event && typeof event === 'object', 'applyCollapse requires event')
   const collapsed = replaceAtPath(
     graph, rootId, event.path ?? [], event.replacementId)
