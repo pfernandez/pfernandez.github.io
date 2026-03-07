@@ -1,7 +1,7 @@
 /**
  * @module collapse/sexpr
  *
- * Minimal S-expression parser.
+ * Minimal S-expression parser and serializer.
  *
  * We intentionally restrict surface S-expressions to a *binary* discipline:
  * every list must be either `()` or a 2-tuple `(a b)`. This keeps the output
@@ -15,6 +15,9 @@
  *
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
+
+import { getNode } from '../graph.js'
+
 /**
  * @typedef {import('./ast-types').AtomAst} AtomAst
  * @typedef {import('./ast-types').PairAst} PairAst
@@ -75,5 +78,35 @@ export const parseSexpr = source => {
   if (pos !== tokens.length) throw new Error('Extra content after expression')
 
   return expr
+}
+
+/**
+ * @param {import('../graph.js').Graph} graph
+ * @param {string} nodeId
+ * @returns {string}
+ */
+const nodeToString = (graph, nodeId) => {
+  const node = getNode(graph, nodeId)
+  if (node.kind === 'empty') {
+    return '()'
+  } else if (node.kind === 'symbol') {
+    return String(node.label ?? '#sym')
+  } else {
+    const [leftId, rightId] = node.children ?? []
+    return `(${nodeToString(graph, leftId)} ${nodeToString(graph, rightId)})`
+  }
+}
+
+/**
+ * Convert a collapse graph back into a Lisp-ish binary S-expression string for
+ * for display/debugging.
+ *
+ * @param {import('../graph.js').Graph} graph
+ * @param {string} rootId
+ * @returns {string}
+ */
+export const serializeGraph = (graph, rootId) => {
+  const serialized = nodeToString(graph, rootId)
+  return serialized
 }
 

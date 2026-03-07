@@ -15,7 +15,7 @@
  */
 
 import { getNode, updateNode } from './graph.js'
-import { invariant } from './utils.js'
+import { invariant } from './utils'
 
 /**
  * @typedef {{ kind: 'pair', parentId: string, index: 0 | 1 }} PairFrame

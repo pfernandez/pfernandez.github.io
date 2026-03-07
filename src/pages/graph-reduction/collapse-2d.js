@@ -11,9 +11,9 @@
  */
 import { article, button, circle, component, div, g, h2, label, line, p,
          pre, section, svg, text, textarea } from '@pfern/elements'
-import { applyCollapse, compileSource, findNextCollapse, serializeGraph,
-         snapshotFromGraph } from './collapse/index.js'
-import { layoutSnapshotTree } from './collapse/layout.js'
+import { applyCollapse, findNextCollapse } from './collapse'
+import { compileSource, layoutSnapshotTree, serializeGraph, snapshotFromGraph }
+  from './collapse/utils'
 import './collapse-2d.css'
 
 const DEFAULT_SOURCE =

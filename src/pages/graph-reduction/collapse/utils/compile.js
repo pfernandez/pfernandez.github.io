@@ -4,11 +4,11 @@
  * Compile the binary pair AST into the `collapse/graph` substrate.
  */
 
-import { addNode } from './graph.js'
+import { addNode } from '../graph.js'
 
 /**
  * @typedef {import('./ast-types').AtomAst} AtomAst
- * @typedef {import('./graph.js').Graph} Graph
+ * @typedef {import('../graph.js').Graph} Graph
  */
 
 /**

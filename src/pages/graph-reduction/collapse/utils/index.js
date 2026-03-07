@@ -1,0 +1,65 @@
+/**
+ * @module collapse/utils
+ *
+ * Helpers for the collapse interpreter.
+ */
+
+import { createGraph } from '../graph'
+import { buildGraphFromPairAst } from './compile'
+import { layoutSnapshotTree } from './layout'
+import { parseSexpr, serializeGraph } from './sexpr'
+import { snapshotFromGraph } from './snapshot'
+
+export {
+  parseSexpr,
+  buildGraphFromPairAst,
+  serializeGraph,
+  snapshotFromGraph,
+  layoutSnapshotTree
+}
+
+/**
+ * Ensure a condition holds, otherwise throw with a message.
+ * @param {unknown} condition
+ * @param {string} message
+ * @returns {asserts condition}
+ */
+export const invariant = (condition, message) => {
+  if (!condition) throw new Error(message)
+}
+
+/**
+ * Create a simple incremental ID generator.
+ * @param {string} prefix
+ * @returns {() => string}
+ */
+export const createIdGenerator = (prefix = 'n') => {
+  let counter = 0
+  return () => `${prefix}${counter++}`
+}
+
+/**
+ * Replace a node record immutably.
+ * @template {{ id: string }} T
+ * @param {T[]} list
+ * @param {string} id
+ * @param {(node: T) => T} updater
+ * @returns {T[]}
+ */
+export const replaceNode = (list, id, updater) =>
+  list.map(node => node.id === id ? updater(node) : node)
+
+/**
+ * Parse and compile a binary pair expression into a graph.
+ * @param {string} source
+ * @returns {{ graph: import('../graph.js').Graph, rootId: string }}
+ */
+export function compileSource(source) {
+  const ast = parseSexpr(source)
+  const compiled = buildGraphFromPairAst(createGraph(), ast)
+
+  console.log('compileSource', { source, ast, compiled })
+
+  return { graph: compiled.graph, rootId: compiled.nodeId }
+}
+

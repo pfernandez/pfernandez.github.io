@@ -8,7 +8,7 @@
  * the collapse rule `(() x) → x` as a local rewrite on a binary tree.
  */
 
-import { createIdGenerator, invariant, replaceNode } from './utils.js'
+import { createIdGenerator, invariant, replaceNode } from './utils'
 
 /**
  * @typedef {object} GraphNode

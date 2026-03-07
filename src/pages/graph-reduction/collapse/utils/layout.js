@@ -8,7 +8,7 @@
  * library.
  */
 
-import { invariant } from './utils.js'
+import { invariant } from '.'
 
 /**
  * @typedef {{
@@ -42,7 +42,8 @@ import { invariant } from './utils.js'
 /**
  * @param {{ nodes: SnapshotNode[], edges: SnapshotEdge[] }} snapshotGraph
  * @param {string} rootId
- * @returns {{ nodes: LayoutNode[], edges: LayoutEdge[], width: number, height: number }}
+ * @returns {{ nodes: LayoutNode[],
+ *             edges: LayoutEdge[], width: number, height: number }}
  */
 export function layoutSnapshotTree(snapshotGraph, rootId) {
   const byId = new Map(snapshotGraph.nodes.map(n => [n.id, n]))
@@ -73,7 +74,7 @@ export function layoutSnapshotTree(snapshotGraph, rootId) {
         kind: node.kind,
         label: node.kind === 'empty' ? '()' : String(node.label ?? ''),
         x,
-        y: depth,
+        y: depth
       })
       return x
     }
@@ -90,7 +91,7 @@ export function layoutSnapshotTree(snapshotGraph, rootId) {
       kind: node.kind,
       label: '·',
       x,
-      y: depth,
+      y: depth
     })
     return x
   }
@@ -101,7 +102,7 @@ export function layoutSnapshotTree(snapshotGraph, rootId) {
     nodes,
     edges,
     width: Math.max(1, leafX),
-    height: maxDepth + 1,
+    height: maxDepth + 1
   }
 }
 

@@ -32,7 +32,7 @@ const treeLinksForNode = node =>
     : []
 
 /**
- * @param {import('./graph.js').Graph} graph
+ * @param {import('../graph.js').Graph} graph
  * @param {string} rootId
  * @param {{ focusId?: string | null, note?: string }} [meta]
  * @returns {{ rootId: string, focusId: string | null, note: string,
