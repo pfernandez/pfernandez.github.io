@@ -8,7 +8,7 @@
  * the collapse rule `(() x) → x` as a local rewrite on a binary tree.
  */
 
-import { createIdGenerator, invariant, replaceNode } from './utils'
+import { createIdGenerator, invariant } from './utils'
 
 /**
  * @typedef {object} GraphNode
@@ -51,15 +51,6 @@ export const getNode = (graph, id) => {
   invariant(node, `Unknown node ${id}`)
   return node
 }
-
-/**
- * @param {Graph} graph
- * @param {string} id
- * @param {(node: GraphNode) => GraphNode} updater
- * @returns {Graph}
- */
-export const updateNode = (graph, id, updater) =>
-  ({ ...graph, nodes: replaceNode(graph.nodes, id, updater) })
 
 /**
  * @param {any} node

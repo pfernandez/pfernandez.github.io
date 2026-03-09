@@ -14,7 +14,7 @@
  * WASM “bare metal” pointer machine.
  */
 
-import { getNode, updateNode } from './graph.js'
+import { getNode } from './graph.js'
 import { invariant } from './utils'
 
 /**
@@ -33,40 +33,6 @@ const isPairNode = node =>
   && node.children.length === 2
   && typeof node.children[0] === 'string'
   && typeof node.children[1] === 'string'
-
-/**
- * Replace a child pointer in a pair node.
- * @param {import('./graph.js').Graph} graph
- * @param {string} pairId
- * @param {0 | 1} index
- * @param {string} replacementId
- * @returns {import('./graph.js').Graph}
- */
-const replaceInPair = (graph, pairId, index, replacementId) =>
-  updateNode(graph, pairId, node => {
-    invariant(isPairNode(node), 'replaceInPair expects a pair node')
-    const children = /** @type {[string, string]} */ ([...node.children])
-    children[index] = replacementId
-    return { ...node, children }
-  })
-
-
-/**
- * Replace a node at `path`, preserving structural sharing elsewhere.
- * @param {import('./graph.js').Graph} graph
- * @param {string} rootId
- * @param {PairFrame[]} path
- * @param {string} replacementId
- * @returns {{ graph: import('./graph.js').Graph, rootId: string }}
- */
-const replaceAtPath = (graph, rootId, path, replacementId) => {
-  if (!path.length) return { graph, rootId: replacementId }
-  const frame = path[path.length - 1]
-  return {
-    graph: replaceInPair(graph, frame.parentId, frame.index, replacementId),
-    rootId
-  }
-}
 
 /**
  * Find the next collapse redex using a leftmost-outermost traversal.
@@ -123,8 +89,36 @@ export const findNextCollapse = (graph, rootId) => {
  */
 export const applyCollapse = (graph, rootId, event) => {
   invariant(event && typeof event === 'object', 'applyCollapse requires event')
-  const collapsed = replaceAtPath(
-    graph, rootId, event.path ?? [], event.replacementId)
+
+  // Replace node at event path
+  const { path, replacementId } = event
+  const frame = path[path.length - 1]
+
+  //   const collapsed = path.length
+  //     ? { graph: { ...graph,
+  //                  nodes: graph.nodes.map(node =>
+  //                    node.id === frame.parentId
+  //                      ? { ...node, children: [replacementId, node.children[1]]}
+  //                      : node) },
+  //         rootId }
+  //     : { graph, rootId: replacementId }
+
+  const updateNode = updater =>
+    graph.nodes.map(node => {
+      if(node.id === frame.parentId) {
+        invariant(isPairNode(node), 'collapse requires a pair node')
+        return updater(node)
+      }
+      return node
+    })
+
+  const collapsed = path.length ? {
+    graph: { ...graph,
+             nodes: updateNode(node =>
+               ({ ...node, children: [replacementId, node.children[1]]})) },
+    rootId
+  } : { graph, rootId: replacementId }
+
 
   console.log(
     '%c6. applyCollapse', 'color: brown',

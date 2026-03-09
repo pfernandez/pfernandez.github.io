@@ -37,17 +37,6 @@ export const createIdGenerator = (prefix = 'n') => {
 }
 
 /**
- * Replace a node record immutably.
- * @template {{ id: string }} T
- * @param {T[]} list
- * @param {string} id
- * @param {(node: T) => T} updater
- * @returns {T[]}
- */
-export const replaceNode = (list, id, updater) =>
-  list.map(node => node.id === id ? updater(node) : node)
-
-/**
  * Parse and compile a binary pair expression into a graph.
  * @param {string} source
  * @returns {{ graph: import('../graph.js').Graph, rootId: string }}
