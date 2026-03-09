@@ -28,7 +28,13 @@ import { getNode } from '../graph.js'
  * @param {string} source
  * @returns {string}
  */
-const clean = source => source.replace(/;.*$/gm, '')
+const clean = source => {
+  const sexpr = source.replace(/;.*$/gm, '')
+
+  console.log('%c1. sexpr:', 'color: lightyellow', sexpr.trim())
+
+  return sexpr
+}
 
 /**
  * Tokenize an S-expression string into `(`, `)`, and atom tokens.

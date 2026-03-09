@@ -34,7 +34,6 @@ const isPairNode = node =>
   && typeof node.children[0] === 'string'
   && typeof node.children[1] === 'string'
 
-
 /**
  * Replace a child pointer in a pair node.
  * @param {import('./graph.js').Graph} graph
@@ -95,7 +94,8 @@ export const findNextCollapse = (graph, rootId) => {
       const nextCollapse =
         { nodeId: item.nodeId, replacementId: rightId, path: item.path }
 
-      console.log('findNextCollapse', { rootId, graph, nextCollapse })
+      console.log('%c4. next collapse:', 'color: darkorange',
+                  { ...nextCollapse, path: JSON.stringify(nextCollapse.path) })
 
       return nextCollapse
     }
@@ -126,7 +126,12 @@ export const applyCollapse = (graph, rootId, event) => {
   const collapsed = replaceAtPath(
     graph, rootId, event.path ?? [], event.replacementId)
 
-  console.log('applyCollapse', { rootId, graph, event, collapsed })
+  console.log(
+    '%c6. applyCollapse', 'color: brown',
+    { ...event, path: JSON.stringify(event.path),
+      diff: JSON.stringify(Object.fromEntries(
+        Object.entries(collapsed.graph.nodes).filter(
+          ([k, v]) => graph.nodes[k] !== v))) })
 
   return collapsed
 }

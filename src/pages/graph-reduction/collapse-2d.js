@@ -129,7 +129,10 @@ const View = component(({
         : null
 
   const layout =
-      snapshot ? layoutSnapshotTree(snapshot.graph, snapshot.rootId) : null
+      snapshot ? layoutSnapshotTree(compiled.graph, compiled.rootId) : null
+
+  console.log('%cedges:', 'color: saddlebrown')
+  console.table(layout.edges)
 
   const scaleX = layout ? 120 : 1
   const scaleY = layout ? 80 : 1

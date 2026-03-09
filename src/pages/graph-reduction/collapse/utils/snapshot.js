@@ -45,7 +45,9 @@ export const snapshotFromGraph = (graph, rootId, meta = {}) => {
                      focusId: meta.focusId ?? null,
                      note: meta.note ?? '' }
 
-  console.log('snapshotFromGraph', { rootId, graph, meta, snapshot })
+  console.log('%c5. snapshot:', 'color: chocolate',
+              { ...meta, edges: snapshot.graph.edges })
+  console.table(snapshot.graph.edges)  // Why are all `to` fields undefined?
 
   return snapshot
 }

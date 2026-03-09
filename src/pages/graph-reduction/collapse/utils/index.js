@@ -56,9 +56,17 @@ export const replaceNode = (list, id, updater) =>
  */
 export function compileSource(source) {
   const ast = parseSexpr(source)
+
+  console.log('%c2. ast:', 'color: yellow;', JSON.stringify(ast))
+
   const compiled = buildGraphFromPairAst(createGraph(), ast)
 
-  console.log('compileSource', { source, ast, compiled })
+  console.log('%c3. nodes:', 'color: orange;')
+  console.table(compiled.graph.nodes.map(node => ({
+    ...node,
+    id: node.id === compiled.nodeId ? `${node.id} (root)` : node.id,
+    children: node.children ? node.children.join(', ') : ''
+  })))
 
   return { graph: compiled.graph, rootId: compiled.nodeId }
 }
