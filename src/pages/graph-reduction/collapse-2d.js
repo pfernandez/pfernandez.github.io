@@ -12,7 +12,7 @@
 import { article, button, circle, component, div, g, h2, label, line, p,
          pre, section, svg, text, textarea } from '@pfern/elements'
 import { applyCollapse, findNextCollapse } from './collapse'
-import { compileSource, layoutSnapshotTree, serializeGraph, snapshotFromGraph }
+import { compileSource, layoutSnapshotTree, serializeGraph }
   from './collapse/utils'
 import './collapse-2d.css'
 
@@ -101,8 +101,8 @@ const View = component(({
       ? View({ source,
                compiled: applyCollapse(built.graph, built.rootId, next),
                error: null,
-               history: [...history, { graph: built.graph,
-                                       rootId: built.rootId }]})
+               history: [...history,
+                         { graph: built.graph, rootId: built.rootId }]})
       : View({ source, compiled: built, error: null, history })
   }
 
@@ -122,16 +122,9 @@ const View = component(({
         ? serializeGraph(compiled.graph, compiled.rootId)
         : null
 
-  const snapshot =
-      compiled?.graph && compiled?.rootId
-        ? snapshotFromGraph(
-          compiled.graph, compiled.rootId, { focusId: nextFocusId })
-        : null
+  const layout = layoutSnapshotTree(compiled.graph, compiled.rootId)
 
-  const layout =
-      snapshot ? layoutSnapshotTree(compiled.graph, compiled.rootId) : null
-
-  console.log('%cedges:', 'color: saddlebrown')
+  console.log('%c5. edges for layout:', 'color: chocolate')
   console.table(layout.edges)
 
   const scaleX = layout ? 120 : 1

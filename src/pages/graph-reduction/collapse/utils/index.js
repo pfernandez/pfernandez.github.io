@@ -8,13 +8,11 @@ import { createGraph } from '../graph'
 import { buildGraphFromPairAst } from './compile'
 import { layoutSnapshotTree } from './layout'
 import { parseSexpr, serializeGraph } from './sexpr'
-import { snapshotFromGraph } from './snapshot'
 
 export {
   parseSexpr,
   buildGraphFromPairAst,
   serializeGraph,
-  snapshotFromGraph,
   layoutSnapshotTree
 }
 
