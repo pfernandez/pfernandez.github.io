@@ -91,34 +91,34 @@ export const applyCollapse = (graph, rootId, event) => {
   invariant(event && typeof event === 'object', 'applyCollapse requires event')
 
   // Replace node at event path
-  const { path, replacementId } = event
-  const frame = path[path.length - 1]
+  const { path, replacementId } = event  // TODO: Find the target here instead?
+  const pair = path[path.length - 1]
 
-  //   const collapsed = path.length
-  //     ? { graph: { ...graph,
-  //                  nodes: graph.nodes.map(node =>
-  //                    node.id === frame.parentId
-  //                      ? { ...node, children: [replacementId, node.children[1]]}
-  //                      : node) },
-  //         rootId }
-  //     : { graph, rootId: replacementId }
-
-  const updateNode = updater =>
-    graph.nodes.map(node => {
-      if(node.id === frame.parentId) {
-        invariant(isPairNode(node), 'collapse requires a pair node')
-        return updater(node)
-      }
-      return node
-    })
-
-  const collapsed = path.length ? {
-    graph: { ...graph,
-             nodes: updateNode(node =>
-               ({ ...node, children: [replacementId, node.children[1]]})) },
-    rootId
-  } : { graph, rootId: replacementId }
-
+  const collapsed = path.length
+    ? { graph: { ...graph,
+                 nodes: graph.nodes.map(node =>
+                   (console.log({ node }), node.id === pair.parentId
+                     ? { ...node,
+                       /**
+                        * Replace the left child; keep the right.
+                        *
+                        * TODO: Can we simply collapse all pairs with an empty
+                        * left child (aka identity), rather than at a
+                        * precomputed path?
+                        *
+                        * Currently the "children" are strings, so we can't
+                        * directly inspect whether they are empty. They should
+                        * be GraphNodes, which should allow us to literally just
+                        * replace the node.
+                        *
+                        * But shouldn't the right child replace the parent?
+                        *
+                        * @type {[string, string]}
+                        * */
+                         children: [replacementId, node.children[1]]}
+                     : node)) },
+        rootId }
+    : { graph, rootId: replacementId }
 
   console.log(
     '%c6. applyCollapse', 'color: brown',
