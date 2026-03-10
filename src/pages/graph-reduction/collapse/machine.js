@@ -87,17 +87,24 @@ export const findNextCollapse = (graph, rootId) => {
  * @param {CollapseEvent} event
  * @returns {{ graph: import('./graph.js').Graph, rootId: string }}
  */
-export const applyCollapse = (graph, rootId, event) => {
+export const applyCollapse = (graph, rootId, event, ast) => {
   invariant(event && typeof event === 'object', 'applyCollapse requires event')
 
   // Replace node at event path
-  const { path, replacementId } = event  // TODO: Find the target here instead?
-  const pair = path[path.length - 1]
+  const { path, replacementId } = event
+  const pair = path[path.length - 1]  // why do we pass in the whole path?
+
+  // NOTE: Using the AST would require a recursive walk. Do we need the node
+  // list? We later use it to generate a links array to draw the tree. Could we
+  // simply directly `render` the nested arrays? All that would remain is the
+  // parser; even IDs and node types would disappear and collapse would be
+  // completely local.
 
   const collapsed = path.length
     ? { graph: { ...graph,
                  nodes: graph.nodes.map(node =>
-                   (console.log({ node }), node.id === pair.parentId
+                   (console.log({ node }),
+                   node.id === pair.parentId
                      ? { ...node,
                        /**
                         * Replace the left child; keep the right.
@@ -128,5 +135,19 @@ export const applyCollapse = (graph, rootId, event) => {
           ([k, v]) => graph.nodes[k] !== v))) })
 
   return collapsed
+}
+
+export const collapse = ast => {
+  // Return symbols - no further reduction possible
+  if (!Array.isArray(ast) || !Array.isArray(ast[0])) return ast
+
+  const [first, second] = ast
+  const isIdentity = first?.length === 0
+
+  if (isIdentity) {
+    return second
+  } else {
+    return ast
+  }
 }
 

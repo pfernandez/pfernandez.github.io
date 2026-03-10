@@ -39,7 +39,7 @@ export const createIdGenerator = (prefix = 'n') => {
 /**
  * Parse and compile a binary pair expression into a graph.
  * @param {string} source
- * @returns {{ graph: import('../graph.js').Graph, rootId: string }}
+ * @returns {{ ast, graph: import('../graph.js').Graph, rootId: string }}
  */
 export function compileSource(source) {
   const ast = parseSexpr(source)
@@ -55,6 +55,7 @@ export function compileSource(source) {
     children: node.children ? node.children.join(', ') : ''
   })))
 
-  return { graph: compiled.graph, rootId: compiled.nodeId }
+  // WIP: Use the AST directly.
+  return { ast, graph: compiled.graph, rootId: compiled.nodeId }
 }
 

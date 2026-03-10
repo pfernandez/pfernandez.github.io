@@ -99,7 +99,8 @@ const View = component(({
     const next = findNextCollapse(built.graph, built.rootId)
     return next
       ? View({ source,
-               compiled: applyCollapse(built.graph, built.rootId, next),
+               compiled: applyCollapse(
+                 built.graph, built.rootId, next, built.ast),
                error: null,
                history: [...history,
                          { graph: built.graph, rootId: built.rootId }]})
