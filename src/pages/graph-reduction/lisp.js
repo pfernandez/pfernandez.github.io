@@ -20,20 +20,29 @@ const setSource = source => {
   }
 }
 
-const ink = depth => ({
+const spanWidth = pair =>
+  Array.isArray(pair)
+    ? pair.length === 0
+      ? 2
+      : spanWidth(pair[0]) + spanWidth(pair[1]) + 3
+    : String(pair).length
+
+const viewStyle = (pair, depth) => ({
   '--depth': depth,
+  '--span': spanWidth(pair),
   '--ink-alpha': Math.max(0.32, 0.94 - depth * 0.09).toFixed(2)
 })
 
 const renderPair = (pair, depth = 0) =>
   Array.isArray(pair)
     ? pair.length === 0
-      ? span({ class: 'lisp-leaf empty', style: ink(depth) }, '()')
+      ? span({ class: 'lisp-leaf empty', style: viewStyle(pair, depth) }, '()')
       : span(
-        { class: 'lisp-pair', style: ink(depth) },
+        { class: 'lisp-pair', style: viewStyle(pair, depth) },
         span({ class: 'lisp-child left' }, renderPair(pair[0], depth + 1)),
+        span({ class: 'lisp-space' }, ' '),
         span({ class: 'lisp-child right' }, renderPair(pair[1], depth + 1)))
-    : span({ class: 'lisp-leaf atom', style: ink(depth) }, String(pair))
+    : span({ class: 'lisp-leaf atom', style: viewStyle(pair, depth) }, String(pair))
 
 const View = component(({
   source = DEFAULT_SOURCE,
@@ -70,7 +79,8 @@ const View = component(({
       div({ class: 'panel' },
           h2('Lisp view'),
           p({ class: 'hint' },
-            'The pair is rendered as nested DOM. The visible grouping comes ',
+            'The pair is rendered as nested DOM. Width follows printed span; ',
+            'the visible grouping comes ',
             'from CSS, not a coordinate layout pass.'),
           label('Program / term',
                 textarea(

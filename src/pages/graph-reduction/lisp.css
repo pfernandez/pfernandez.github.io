@@ -50,25 +50,27 @@
   line-height: 1.7;
   font-size: 15px;
   padding: 8px;
+  white-space: pre;
 }
 
 .lisp-pair,
 .lisp-leaf {
-  animation: lisp-enter 220ms ease both;
-  animation-delay: calc(var(--depth, 0) * 22ms);
   color: rgb(var(--ink) / var(--ink-alpha));
+  overflow: hidden;
+  width: calc(var(--span) * 1ch);
 }
 
 .lisp-pair {
   display: inline-flex;
   align-items: flex-start;
-  gap: 0.45rem;
-  margin: 0 0.12rem;
+  gap: 0;
+  margin: 0;
 }
 
 .lisp-pair::before,
 .lisp-pair::after {
   color: rgb(var(--ink) / calc(var(--ink-alpha) * 0.82));
+  flex: 0 0 1ch;
 }
 
 .lisp-pair::before {
@@ -82,22 +84,18 @@
 .lisp-child {
   display: inline-flex;
   align-items: flex-start;
+  flex: 0 0 auto;
+}
+
+.lisp-space {
+  display: inline-block;
+  flex: 0 0 1ch;
+  width: 1ch;
 }
 
 .lisp-leaf {
-  display: inline-flex;
-  margin: 0 0.12rem;
-}
-
-@keyframes lisp-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  display: inline-block;
+  margin: 0;
 }
 
 @media (max-width: 980px) {
