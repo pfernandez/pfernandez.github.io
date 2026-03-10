@@ -13,7 +13,6 @@
  *   id: string,
  *   kind: string,
  *   label: string,
- *   focus: boolean,
  *   x: number,
  *   y: number
  * }} LayoutNode
@@ -40,22 +39,11 @@ const isPair = pair => Array.isArray(pair) && pair.length === 2
 const pathId = path => path.length === 0 ? 'root' : `p${path.join('')}`
 
 /**
- * @param {Path} path
- * @param {Path | null} focus
- * @returns {boolean}
- */
-const isFocused = (path, focus) =>
-  focus !== null
-  && path.length === focus.length
-  && path.every((step, index) => step === focus[index])
-
-/**
  * @param {Pair} pair
- * @param {Path | null} [focus]
  * @returns {{ nodes: LayoutNode[],
  *             edges: LayoutEdge[], width: number, height: number }}
  */
-export function layout(pair, focus = null) {
+export function layout(pair) {
   /** @type {LayoutNode[]} */
   const nodes = []
   /** @type {LayoutEdge[]} */
@@ -77,7 +65,6 @@ export function layout(pair, focus = null) {
     }
 
     const id = pathId(path)
-    const focused = isFocused(path, focus)
 
     if (!isPair(pair)) {
       const x = leafX++
@@ -85,7 +72,6 @@ export function layout(pair, focus = null) {
         id,
         kind: isEmpty(pair) ? 'empty' : 'atom',
         label: isEmpty(pair) ? '()' : String(pair),
-        focus: focused,
         x,
         y: depth
       })
@@ -107,7 +93,6 @@ export function layout(pair, focus = null) {
       id,
       kind: 'pair',
       label: '·',
-      focus: focused,
       x,
       y: depth
     })

@@ -71,11 +71,6 @@
   stroke-width: 1;
 }
 
-.collapse-demo .focus circle {
-  stroke: #d97706;
-  stroke-width: 2.4;
-}
-
 @media (max-width: 980px) {
   .collapse-demo {
     grid-template-columns: 1fr;
@@ -84,4 +79,3 @@
     height: min(60vh, 560px);
   }
 }
-

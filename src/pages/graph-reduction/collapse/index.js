@@ -12,13 +12,6 @@
 
 /**
  * @typedef {import('./utils/pair-types').Pair} Pair
- * @typedef {0 | 1} Side
- * @typedef {Side[]} Path
- * @typedef {{
- *   pair: Pair,
- *   changed: boolean,
- *   path: Path | null
- * }} CollapseResult
  */
 
 /**
@@ -36,24 +29,19 @@ const isPair = pair => Array.isArray(pair) && pair.length === 2
 /**
  * One leftmost-outermost collapse step.
  * @param {Pair} pair
- * @param {Path} [path]
- * @returns {CollapseResult}
+ * @returns {Pair | null}
  */
-export const collapse = (pair, path = []) => {
-  if (!isPair(pair)) return { pair, changed: false, path: null }
+export const collapse = pair => {
+  if (!isPair(pair)) return null
 
   const [left, right] = pair
-  if (isEmpty(left)) return { pair: right, changed: true, path }
+  if (isEmpty(left)) return right
 
-  const nextLeft = collapse(left, [...path, 0])
-  if (nextLeft.changed) {
-    return { pair: [nextLeft.pair, right], changed: true, path: nextLeft.path }
-  }
+  const nextLeft = collapse(left)
+  if (nextLeft !== null) return [nextLeft, right]
 
-  const nextRight = collapse(right, [...path, 1])
-  if (nextRight.changed) {
-    return { pair: [left, nextRight.pair], changed: true, path: nextRight.path }
-  }
+  const nextRight = collapse(right)
+  if (nextRight !== null) return [left, nextRight]
 
-  return { pair, changed: false, path: null }
+  return null
 }

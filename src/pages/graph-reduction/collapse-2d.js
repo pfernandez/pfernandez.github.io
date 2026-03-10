@@ -12,8 +12,8 @@
 import { article, button, circle, component, div, g, h2, label, line, p,
          pre, section, svg, text as svgText, textarea } from '@pfern/elements'
 import { collapse } from './collapse/index.js'
-import { layout, parse, show }
-  from './collapse/utils/index.js'
+import { layout } from './collapse/utils/layout.js'
+import { parse, show } from './collapse/utils/sexpr.js'
 import './collapse-2d.css'
 
 const DEFAULT_SOURCE =
@@ -21,8 +21,6 @@ const DEFAULT_SOURCE =
 ; Collapse rule: (() x) -> x
 
 ((() ()) (() (a b)))`
-
-const SOURCE_TEXTAREA_ID = 'collapse-source'
 
 const read = source => {
   try {
@@ -34,38 +32,8 @@ const read = source => {
 
 const initial = read(DEFAULT_SOURCE)
 
-const afterUpdate = fn =>
-  typeof queueMicrotask === 'function'
-    ? window.queueMicrotask(fn)
-    : window.setTimeout(fn, 0)
-
-const restoreTextareaFocus = (event, selection) =>
-  event?.target
-    && document.activeElement === event.target
-    && selection
-    && afterUpdate(() =>
-      window.requestAnimationFrame(() => {
-        const el = document.getElementById(SOURCE_TEXTAREA_ID)
-        if (el instanceof window.HTMLTextAreaElement) {
-          el.focus()
-          try { el.setSelectionRange(selection.start, selection.end) }
-          catch { /* Ignore selection restore failures */ }
-        }
-      }))
-
 const setSource = nextSource =>
   View({ source: nextSource, ...read(nextSource), history: []})
-
-const setSourceKeepingFocus = (nextSource, event) => {
-  const { target } = event
-  const selection =
-        typeof target?.selectionStart === 'number'
-          ? { start: target.selectionStart, end: target.selectionEnd }
-          : null
-  const vnode = setSource(nextSource)
-  restoreTextareaFocus(event, selection)
-  return vnode
-}
 
 const View = component(({
   source = DEFAULT_SOURCE,
@@ -78,10 +46,10 @@ const View = component(({
   const stepOnce = () => {
     if (pair === null) return View({ source, pair, error, history })
 
-    return next.changed
+    return next !== null
       ? View({
         source,
-        pair: next.pair,
+        pair: next,
         error: null,
         history: [...history, pair]
       })
@@ -96,7 +64,7 @@ const View = component(({
 
   const text = pair !== null ? show(pair) : null
 
-  const picture = pair !== null ? layout(pair, next?.path ?? null) : null
+  const picture = pair !== null ? layout(pair) : null
 
   const scaleX = picture ? 120 : 1
   const scaleY = picture ? 80 : 1
@@ -120,7 +88,7 @@ const View = component(({
                           y2: padding + to.y * scaleY })
           }),
           ...picture.nodes.map(n =>
-            g({ class: `node${n.focus ? ' focus' : ''}` },
+            g({ class: 'node' },
               circle({ cx: padding + n.x * scaleX,
                        cy: padding + n.y * scaleY,
                        r: n.kind === 'pair' ? 12 : 16 }),
@@ -138,10 +106,9 @@ const View = component(({
             'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.'),
           label('Program / term',
                 textarea(
-                  { id: SOURCE_TEXTAREA_ID,
-                    value: source,
-                    oninput: (value, event) =>
-                      setSourceKeepingFocus(String(value ?? ''), event),
+                  { value: source,
+                    oninput: value =>
+                      setSource(String(value ?? '')),
                     spellcheck: false })),
           div({ class: 'row' },
               button({ onclick: () => setSource(DEFAULT_SOURCE) }, 'Reset'),
@@ -150,7 +117,7 @@ const View = component(({
                      'Undo')),
           div({ class: 'hint', style: { marginTop: '8px' }},
               `Steps: ${history.length}`,
-              next?.changed ? ' · Next: highlighted' : ' · Stuck'),
+              next !== null ? ' · Reducible' : ' · Stuck'),
           error ? pre({ class: 'expr' }, error) : null,
           text ? div(
             div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
