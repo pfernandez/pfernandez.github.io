@@ -10,27 +10,11 @@
  * `((() a) b) -> (a b), (a (() b)) -> (a b)`.
  */
 
-/**
- * @typedef {import('./utils/pair-types').Pair} Pair
- */
-
-/**
- * @param {Pair} pair
- * @returns {pair is []}
- */
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 
-/**
- * @param {Pair} pair
- * @returns {pair is [Pair, Pair]}
- */
 const isPair = pair => Array.isArray(pair) && pair.length === 2
 
-/**
- * One leftmost-outermost collapse step.
- * @param {Pair} pair
- * @returns {Pair | null}
- */
+// One leftmost-outermost collapse step.
 export const collapse = pair => {
   if (!isPair(pair)) return null
 

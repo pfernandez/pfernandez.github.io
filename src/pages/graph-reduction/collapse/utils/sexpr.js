@@ -16,35 +16,15 @@
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
 
-/**
- * @typedef {import('./pair-types').Pair} Pair
- * @typedef {import('./pair-types').EmptyPair} EmptyPair
- */
-
-/**
- * Strip `;` line comments.
- * @param {string} source
- * @returns {string}
- */
 const clean = source => source.replace(/;.*$/gm, '')
 
-/**
- * Tokenize an S-expression string into `(`, `)`, and atom tokens.
- * @param {string} source
- * @returns {string[]}
- */
 const tokenize = source =>
   clean(source)
     .match(/[()]|[^()\s]+/g) ?? []
 
-/**
- * Parse a single S-expression.
- * @param {string} source
- * @returns {Pair}
- */
 export const parse = source => {
   const tokens = tokenize(source)
-  if (!tokens.length) return /** @type {EmptyPair} */ ([])
+  if (!tokens.length) return []
 
   let pos = 0
   const read = () => {
@@ -55,7 +35,7 @@ export const parse = source => {
       if (pos >= tokens.length) throw new Error('Missing )')
       if (tokens[pos] === ')') {
         pos++
-        return /** @type {EmptyPair} */ ([])
+        return []
       }
 
       const left = read()
@@ -64,7 +44,7 @@ export const parse = source => {
       if (tokens[pos] !== ')') throw new Error(
         'Lists must have exactly 2 elements')
       pos++
-      return /** @type {[Pair, Pair]} */ ([left, right])
+      return [left, right]
     }
 
     if (token === ')') throw new Error('Unexpected )')
@@ -78,11 +58,7 @@ export const parse = source => {
   return pair
 }
 
-/**
- * @param {Pair} pair
- * @returns {string}
- */
-export const show = pair => {
+export const serialize = pair => {
   if (Array.isArray(pair)) {
     if (pair.length === 0) {
       return '()'
@@ -93,7 +69,7 @@ export const show = pair => {
     }
 
     const [left, right] = pair
-    return `(${show(left)} ${show(right)})`
+    return `(${serialize(left)} ${serialize(right)})`
   }
 
   return String(pair)

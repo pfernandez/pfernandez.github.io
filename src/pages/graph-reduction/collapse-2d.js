@@ -13,7 +13,7 @@ import { article, button, circle, component, div, g, h2, label, line, p,
          pre, section, svg, text as svgText, textarea } from '@pfern/elements'
 import { collapse } from './collapse/index.js'
 import { layout } from './collapse/utils/layout.js'
-import { parse, show } from './collapse/utils/sexpr.js'
+import { parse, serialize } from './collapse/utils/sexpr.js'
 import './collapse-2d.css'
 
 const DEFAULT_SOURCE =
@@ -22,23 +22,20 @@ const DEFAULT_SOURCE =
 
 ((() ()) (() (a b)))`
 
-const read = source => {
+const initialPair = parse(DEFAULT_SOURCE)
+
+const setSource = source => {
   try {
-    return { pair: parse(source), error: null }
+    return View({ source, pair: parse(source), error: null, history: []})
   } catch (e) {
-    return { pair: null, error: String(e?.message || e) }
+    return View({ source, pair: null, error: String(e?.message || e), history: []})
   }
 }
 
-const initial = read(DEFAULT_SOURCE)
-
-const setSource = nextSource =>
-  View({ source: nextSource, ...read(nextSource), history: []})
-
 const View = component(({
   source = DEFAULT_SOURCE,
-  pair = initial.pair,
-  error = initial.error,
+  pair = initialPair,
+  error = null,
   history = []
 } = {}) => {
   const next = pair !== null ? collapse(pair) : null
@@ -62,7 +59,7 @@ const View = component(({
       error: null,
       history: history.slice(0, -1) })
 
-  const text = pair !== null ? show(pair) : null
+  const text = pair !== null ? serialize(pair) : null
 
   const picture = pair !== null ? layout(pair) : null
 

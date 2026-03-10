@@ -4,67 +4,22 @@
  * Deterministic tree layout for pair snapshots.
  */
 
-/**
- * @typedef {import('./pair-types').Pair} Pair
- * @typedef {0 | 1} Side
- * @typedef {Side[]} Path
- *
- * @typedef {{
- *   id: string,
- *   kind: string,
- *   label: string,
- *   x: number,
- *   y: number
- * }} LayoutNode
- *
- * @typedef {{ from: string, to: string }} LayoutEdge
- */
-
-/**
- * @param {Pair} pair
- * @returns {pair is []}
- */
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 
-/**
- * @param {Pair} pair
- * @returns {pair is [Pair, Pair]}
- */
 const isPair = pair => Array.isArray(pair) && pair.length === 2
 
-/**
- * @param {Path} path
- * @returns {string}
- */
-const pathId = path => path.length === 0 ? 'root' : `p${path.join('')}`
-
-/**
- * @param {Pair} pair
- * @returns {{ nodes: LayoutNode[],
- *             edges: LayoutEdge[], width: number, height: number }}
- */
 export function layout(pair) {
-  /** @type {LayoutNode[]} */
   const nodes = []
-  /** @type {LayoutEdge[]} */
   const edges = []
   let leafX = 0
   let maxDepth = 0
 
-  /**
-   * @param {Pair} pair
-   * @param {number} depth
-   * @param {Path} path
-   * @returns {number}
-   */
-  const walk = (pair, depth, path) => {
+  const walk = (pair, depth, id) => {
     maxDepth = Math.max(maxDepth, depth)
 
     if (Array.isArray(pair) && pair.length !== 0 && pair.length !== 2) {
       throw new Error('Lists must be empty or pairs')
     }
-
-    const id = pathId(path)
 
     if (!isPair(pair)) {
       const x = leafX++
@@ -78,15 +33,13 @@ export function layout(pair) {
       return x
     }
 
-    const leftPath = [...path, 0]
-    const rightPath = [...path, 1]
-    const leftId = pathId(leftPath)
-    const rightId = pathId(rightPath)
+    const leftId = `${id}0`
+    const rightId = `${id}1`
 
     edges.push({ from: id, to: leftId }, { from: id, to: rightId })
 
-    const leftX = walk(pair[0], depth + 1, leftPath)
-    const rightX = walk(pair[1], depth + 1, rightPath)
+    const leftX = walk(pair[0], depth + 1, leftId)
+    const rightX = walk(pair[1], depth + 1, rightId)
     const x = (leftX + rightX) / 2
 
     nodes.push({
@@ -99,7 +52,7 @@ export function layout(pair) {
     return x
   }
 
-  walk(pair, 0, [])
+  walk(pair, 0, 'root')
 
   return {
     nodes,
