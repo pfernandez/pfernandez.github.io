@@ -1,5 +1,5 @@
 /**
- * Collapse interpreter page (keep-alive).
+ * Binary tree collapse page (keep-alive).
  *
  * This is the “small core” staging artifact:
  * - One binary pairs syntax.
@@ -14,7 +14,7 @@ import { article, button, circle, component, div, g, h2, label, line, p,
 import { collapse } from './collapse/index.js'
 import { layout } from './collapse/utils/layout.js'
 import { parse, serialize } from './collapse/utils/sexpr.js'
-import './collapse-2d.css'
+import './binary-tree.css'
 
 const DEFAULT_SOURCE =
 `; Binary pairs only: () or (a b)
@@ -98,7 +98,7 @@ const View = component(({
     section(
       { class: 'collapse-demo' },
       div({ class: 'panel' },
-          h2('Collapse interpreter'),
+          h2('Binary tree'),
           p({ class: 'hint' },
             'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.'),
           label('Program / term',
