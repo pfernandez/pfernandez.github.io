@@ -1,7 +1,7 @@
 /**
  * @module collapse/sexpr
  *
- * Minimal S-expression parser and serializer.
+ * Minimal pair parser and serializer.
  *
  * We intentionally restrict surface S-expressions to a *binary* discipline:
  * every list must be either `()` or a 2-tuple `(a b)`. This keeps the output
@@ -17,8 +17,8 @@
  */
 
 /**
- * @typedef {import('./ast-types').AtomAst} AtomAst
- * @typedef {import('./ast-types').PairAst} PairAst
+ * @typedef {import('./pair-types').Pair} Pair
+ * @typedef {import('./pair-types').EmptyPair} EmptyPair
  */
 
 /**
@@ -40,11 +40,11 @@ const tokenize = source =>
 /**
  * Parse a single S-expression.
  * @param {string} source
- * @returns {AtomAst}
+ * @returns {Pair}
  */
-export const parseSexpr = source => {
+export const parse = source => {
   const tokens = tokenize(source)
-  if (!tokens.length) return /** @type {PairAst} */ ([])
+  if (!tokens.length) return /** @type {EmptyPair} */ ([])
 
   let pos = 0
   const read = () => {
@@ -55,7 +55,7 @@ export const parseSexpr = source => {
       if (pos >= tokens.length) throw new Error('Missing )')
       if (tokens[pos] === ')') {
         pos++
-        return /** @type {PairAst} */ ([])
+        return /** @type {EmptyPair} */ ([])
       }
 
       const left = read()
@@ -64,7 +64,7 @@ export const parseSexpr = source => {
       if (tokens[pos] !== ')') throw new Error(
         'Lists must have exactly 2 elements')
       pos++
-      return /** @type {PairAst} */ ([left, right])
+      return /** @type {[Pair, Pair]} */ ([left, right])
     }
 
     if (token === ')') throw new Error('Unexpected )')
@@ -72,29 +72,29 @@ export const parseSexpr = source => {
     return Number.isNaN(numberToken) ? token : numberToken
   }
 
-  const expr = read()
+  const pair = read()
   if (pos !== tokens.length) throw new Error('Extra content after expression')
 
-  return expr
+  return pair
 }
 
 /**
- * @param {AtomAst} ast
+ * @param {Pair} pair
  * @returns {string}
  */
-export const serializeSexpr = ast => {
-  if (Array.isArray(ast)) {
-    if (ast.length === 0) {
+export const show = pair => {
+  if (Array.isArray(pair)) {
+    if (pair.length === 0) {
       return '()'
     }
 
-    if (ast.length !== 2) {
+    if (pair.length !== 2) {
       throw new Error('Lists must be empty or pairs')
     }
 
-    const [left, right] = ast
-    return `(${serializeSexpr(left)} ${serializeSexpr(right)})`
+    const [left, right] = pair
+    return `(${show(left)} ${show(right)})`
   }
 
-  return String(ast)
+  return String(pair)
 }

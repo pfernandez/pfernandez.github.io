@@ -10,9 +10,9 @@
  * stack. This should stay small enough to port to WASM later.
  */
 import { article, button, circle, component, div, g, h2, label, line, p,
-         pre, section, svg, text, textarea } from '@pfern/elements'
-import { collapseOnce } from './collapse/index.js'
-import { layoutSnapshotTree, parseSexpr, serializeSexpr }
+         pre, section, svg, text as svgText, textarea } from '@pfern/elements'
+import { collapse } from './collapse/index.js'
+import { layout, parse, show }
   from './collapse/utils/index.js'
 import './collapse-2d.css'
 
@@ -24,13 +24,15 @@ const DEFAULT_SOURCE =
 
 const SOURCE_TEXTAREA_ID = 'collapse-source'
 
-const initialAst = (() => {
+const read = source => {
   try {
-    return parseSexpr(DEFAULT_SOURCE)
-  } catch {
-    return null
+    return { pair: parse(source), error: null }
+  } catch (e) {
+    return { pair: null, error: String(e?.message || e) }
   }
-})()
+}
+
+const initial = read(DEFAULT_SOURCE)
 
 const afterUpdate = fn =>
   typeof queueMicrotask === 'function'
@@ -51,91 +53,63 @@ const restoreTextareaFocus = (event, selection) =>
         }
       }))
 
-const reparse = nextSource => {
-  try {
-    return View({
-      source: nextSource,
-      ast: parseSexpr(nextSource),
-      error: null,
-      history: []
-    })
-  } catch (e) {
-    return View({
-      source: nextSource,
-      ast: null,
-      error: String(e?.message || e),
-      history: []
-    })
-  }
-}
+const setSource = nextSource =>
+  View({ source: nextSource, ...read(nextSource), history: []})
 
-const reparsePreservingFocus = (nextSource, event) => {
+const setSourceKeepingFocus = (nextSource, event) => {
   const { target } = event
   const selection =
         typeof target?.selectionStart === 'number'
           ? { start: target.selectionStart, end: target.selectionEnd }
           : null
-  const vnode = reparse(nextSource)
+  const vnode = setSource(nextSource)
   restoreTextareaFocus(event, selection)
   return vnode
 }
 
 const View = component(({
   source = DEFAULT_SOURCE,
-  ast = initialAst,
-  error = null,
+  pair = initial.pair,
+  error = initial.error,
   history = []
 } = {}) => {
-  const nextStep = ast ? collapseOnce(ast) : null
+  const next = pair !== null ? collapse(pair) : null
 
   const stepOnce = () => {
-    let currentAst
-    try {
-      currentAst = ast || parseSexpr(source)
-    } catch (e) {
-      return View(
-        { source, ast: null, error: String(e?.message || e), history })
-    }
+    if (pair === null) return View({ source, pair, error, history })
 
-    const step = collapseOnce(currentAst)
-    return step.changed
+    return next.changed
       ? View({
         source,
-        ast: step.ast,
+        pair: next.pair,
         error: null,
-        history: [...history, currentAst]
+        history: [...history, pair]
       })
-      : View({ source, ast: currentAst, error: null, history })
+      : View({ source, pair, error: null, history })
   }
 
   const undo = () => history.length && View(
     { source,
-      ast: history[history.length - 1],
+      pair: history[history.length - 1],
       error: null,
       history: history.slice(0, -1) })
 
-  const renderedExpr =
-      ast
-        ? serializeSexpr(ast)
-        : null
+  const text = pair !== null ? show(pair) : null
 
-  const layout =
-      ast
-        ? layoutSnapshotTree(ast, nextStep?.focusPath ?? null)
-        : null
+  const picture = pair !== null ? layout(pair, next?.path ?? null) : null
 
-  const scaleX = layout ? 120 : 1
-  const scaleY = layout ? 80 : 1
+  const scaleX = picture ? 120 : 1
+  const scaleY = picture ? 80 : 1
   const padding = 40
-  const viewW = layout ? layout.width * scaleX + padding * 2 : 800
-  const viewH = layout ? layout.height * scaleY + padding * 2 : 420
-  const nodePos = new Map(layout?.nodes.map(n => [n.id, n]))
+  const viewW = picture ? picture.width * scaleX + padding * 2 : 800
+  const viewH = picture ? picture.height * scaleY + padding * 2 : 420
+  const nodePos = new Map(picture?.nodes.map(node => [node.id, node]))
 
-  const tree = layout
+  const tree = picture
     ? svg({ viewBox: `0 0 ${viewW} ${viewH}`,
             role: 'img',
             'aria-label': 'Collapse tree' },
-          ...layout.edges.map(e => {
+          ...picture.edges.map(e => {
             const from = nodePos.get(e.from)
             const to = nodePos.get(e.to)
             if (!from || !to) return null
@@ -145,14 +119,14 @@ const View = component(({
                           x2: padding + to.x * scaleX,
                           y2: padding + to.y * scaleY })
           }),
-          ...layout.nodes.map(n =>
+          ...picture.nodes.map(n =>
             g({ class: `node${n.focus ? ' focus' : ''}` },
               circle({ cx: padding + n.x * scaleX,
                        cy: padding + n.y * scaleY,
                        r: n.kind === 'pair' ? 12 : 16 }),
-              text({ x: padding + n.x * scaleX,
-                     y: padding + n.y * scaleY },
-                   n.kind === 'pair' ? '·' : n.label))))
+              svgText({ x: padding + n.x * scaleX,
+                        y: padding + n.y * scaleY },
+                      n.kind === 'pair' ? '·' : n.label))))
     : null
 
   return article(
@@ -167,20 +141,20 @@ const View = component(({
                   { id: SOURCE_TEXTAREA_ID,
                     value: source,
                     oninput: (value, event) =>
-                      reparsePreservingFocus(String(value ?? ''), event),
+                      setSourceKeepingFocus(String(value ?? ''), event),
                     spellcheck: false })),
           div({ class: 'row' },
-              button({ onclick: () => reparse(DEFAULT_SOURCE) }, 'Reset'),
+              button({ onclick: () => setSource(DEFAULT_SOURCE) }, 'Reset'),
               button({ onclick: stepOnce, disabled: !!error }, 'Step'),
               button({ onclick: undo, disabled: history.length === 0 },
                      'Undo')),
           div({ class: 'hint', style: { marginTop: '8px' }},
               `Steps: ${history.length}`,
-              nextStep?.changed ? ' · Next: highlighted' : ' · Stuck'),
+              next?.changed ? ' · Next: highlighted' : ' · Stuck'),
           error ? pre({ class: 'expr' }, error) : null,
-          renderedExpr ? div(
+          text ? div(
             div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
-            pre({ class: 'expr' }, renderedExpr))
+            pre({ class: 'expr' }, text))
             : null),
       div({ class: 'panel' },
           tree ?? pre('Parse an expression to view it.'))))
