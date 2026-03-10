@@ -1,153 +1,81 @@
 /**
  * @module collapse/machine
  *
- * Collapse machine (local rewrite)
+ * Collapse machine (single visible step)
  *
  * Implements the single local reduction rule:
  *
  *   (() x) → x
  *
- * Interpreting binary pairs as application, this is “empty is identity” under a
- * purely structural, leftmost-outermost schedule.
+ * Examples to keep in mind:
+ * `((() a) b) -> (a b), (a (() b)) -> (a b)`.
  *
- * This module is intentionally tiny, so it can serve as a seed for a future
- * WASM “bare metal” pointer machine.
- */
-
-import { getNode } from './graph.js'
-import { invariant } from './utils'
-
-/**
- * @typedef {{ kind: 'pair', parentId: string, index: 0 | 1 }} PairFrame
- * @typedef {{ nodeId: string, replacementId: string, path: PairFrame[] }}
- *          CollapseEvent
+ * The reducer walks the term leftmost-outermost and returns both the next term
+ * and the path of the collapsed pair, so the UI can highlight the next step
+ * without translating through an intermediate graph.
  */
 
 /**
- * @param {any} node
- * @returns {node is { kind: 'pair', children: [string, string] }}
+ * @typedef {import('./utils/ast-types').AtomAst} AtomAst
+ * @typedef {0 | 1} PairIndex
+ * @typedef {PairIndex[]} CollapsePath
+ * @typedef {{
+ *   ast: AtomAst,
+ *   changed: boolean,
+ *   focusPath: CollapsePath | null
+ * }} CollapseStep
  */
-const isPairNode = node =>
-  node?.kind === 'pair'
-  && Array.isArray(node.children)
-  && node.children.length === 2
-  && typeof node.children[0] === 'string'
-  && typeof node.children[1] === 'string'
 
 /**
- * Find the next collapse redex using a leftmost-outermost traversal.
- * @param {import('./graph.js').Graph} graph
- * @param {string} rootId
- * @returns {CollapseEvent | null}
+ * @param {AtomAst} ast
+ * @returns {ast is []}
  */
-export const findNextCollapse = (graph, rootId) => {
-  /** @type {{ nodeId: string, path: PairFrame[] }[]} */
-  const stack = [{ nodeId: rootId, path: []}]
+const isEmptyAst = ast => Array.isArray(ast) && ast.length === 0
 
-  while (stack.length) {
-    const item = stack.pop()
-    if (!item) break
+/**
+ * @param {AtomAst} ast
+ * @returns {ast is [AtomAst, AtomAst]}
+ */
+const isPairAst = ast => Array.isArray(ast) && ast.length === 2
 
-    const node = getNode(graph, item.nodeId)
-    if (!isPairNode(node)) continue
+/**
+ * @param {AtomAst} ast
+ * @param {CollapsePath} path
+ * @returns {CollapseStep}
+ */
+const step = (ast, path) => {
+  if (!isPairAst(ast)) return { ast, changed: false, focusPath: null }
 
-    const [leftId, rightId] = node.children
-    const left = getNode(graph, leftId)
+  const [left, right] = ast
 
-    // If the left child is empty, the pair will collapse, leaving the right
-    // child in its place.
-    if (left.kind === 'empty') {
-      const nextCollapse =
-        { nodeId: item.nodeId, replacementId: rightId, path: item.path }
+  if (isEmptyAst(left)) {
+    return { ast: right, changed: true, focusPath: path }
+  }
 
-      console.log('%c4. next collapse:', 'color: darkorange',
-                  { ...nextCollapse, path: JSON.stringify(nextCollapse.path) })
-
-      return nextCollapse
+  const nextLeft = step(left, [...path, 0])
+  if (nextLeft.changed) {
+    return {
+      ast: [nextLeft.ast, right],
+      changed: true,
+      focusPath: nextLeft.focusPath
     }
-
-    // Pre-order: examine left child before right child.
-    stack.push({
-      nodeId: rightId,
-      path: [...item.path, { kind: 'pair', parentId: item.nodeId, index: 1 }]
-    })
-    stack.push({
-      nodeId: leftId,
-      path: [...item.path, { kind: 'pair', parentId: item.nodeId, index: 0 }]
-    })
   }
 
-  return null
+  const nextRight = step(right, [...path, 1])
+  if (nextRight.changed) {
+    return {
+      ast: [left, nextRight.ast],
+      changed: true,
+      focusPath: nextRight.focusPath
+    }
+  }
+
+  return { ast, changed: false, focusPath: null }
 }
 
 /**
- * Apply a collapse event.
- * @param {import('./graph.js').Graph} graph
- * @param {string} rootId
- * @param {CollapseEvent} event
- * @returns {{ graph: import('./graph.js').Graph, rootId: string }}
+ * Perform one leftmost-outermost collapse step.
+ * @param {AtomAst} ast
+ * @returns {CollapseStep}
  */
-export const applyCollapse = (graph, rootId, event, ast) => {
-  invariant(event && typeof event === 'object', 'applyCollapse requires event')
-
-  // Replace node at event path
-  const { path, replacementId } = event
-  const pair = path[path.length - 1]  // why do we pass in the whole path?
-
-  // NOTE: Using the AST would require a recursive walk. Do we need the node
-  // list? We later use it to generate a links array to draw the tree. Could we
-  // simply directly `render` the nested arrays? All that would remain is the
-  // parser; even IDs and node types would disappear and collapse would be
-  // completely local.
-
-  const collapsed = path.length
-    ? { graph: { ...graph,
-                 nodes: graph.nodes.map(node =>
-                   (console.log({ node }),
-                   node.id === pair.parentId
-                     ? { ...node,
-                       /**
-                        * Replace the left child; keep the right.
-                        *
-                        * TODO: Can we simply collapse all pairs with an empty
-                        * left child (aka identity), rather than at a
-                        * precomputed path?
-                        *
-                        * Currently the "children" are strings, so we can't
-                        * directly inspect whether they are empty. They should
-                        * be GraphNodes, which should allow us to literally just
-                        * replace the node.
-                        *
-                        * But shouldn't the right child replace the parent?
-                        *
-                        * @type {[string, string]}
-                        * */
-                         children: [replacementId, node.children[1]]}
-                     : node)) },
-        rootId }
-    : { graph, rootId: replacementId }
-
-  console.log(
-    '%c6. applyCollapse', 'color: brown',
-    { ...event, path: JSON.stringify(event.path),
-      diff: JSON.stringify(Object.fromEntries(
-        Object.entries(collapsed.graph.nodes).filter(
-          ([k, v]) => graph.nodes[k] !== v))) })
-
-  return collapsed
-}
-
-export const collapse = ast => {
-  // Return symbols - no further reduction possible
-  if (!Array.isArray(ast) || !Array.isArray(ast[0])) return ast
-
-  const [first, second] = ast
-  const isIdentity = first?.length === 0
-
-  if (isIdentity) {
-    return second
-  } else {
-    return ast
-  }
-}
-
+export const collapseOnce = ast => step(ast, [])

@@ -16,8 +16,6 @@
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
 
-import { getNode } from '../graph.js'
-
 /**
  * @typedef {import('./ast-types').AtomAst} AtomAst
  * @typedef {import('./ast-types').PairAst} PairAst
@@ -28,13 +26,7 @@ import { getNode } from '../graph.js'
  * @param {string} source
  * @returns {string}
  */
-const clean = source => {
-  const sexpr = source.replace(/;.*$/gm, '')
-
-  console.log('%c1. sexpr:', 'color: lightyellow', sexpr.trim())
-
-  return sexpr
-}
+const clean = source => source.replace(/;.*$/gm, '')
 
 /**
  * Tokenize an S-expression string into `(`, `)`, and atom tokens.
@@ -87,32 +79,22 @@ export const parseSexpr = source => {
 }
 
 /**
- * @param {import('../graph.js').Graph} graph
- * @param {string} nodeId
+ * @param {AtomAst} ast
  * @returns {string}
  */
-const nodeToString = (graph, nodeId) => {
-  const node = getNode(graph, nodeId)
-  if (node.kind === 'empty') {
-    return '()'
-  } else if (node.kind === 'symbol') {
-    return String(node.label ?? '#sym')
-  } else {
-    const [leftId, rightId] = node.children ?? []
-    return `(${nodeToString(graph, leftId)} ${nodeToString(graph, rightId)})`
+export const serializeSexpr = ast => {
+  if (Array.isArray(ast)) {
+    if (ast.length === 0) {
+      return '()'
+    }
+
+    if (ast.length !== 2) {
+      throw new Error('Lists must be empty or pairs')
+    }
+
+    const [left, right] = ast
+    return `(${serializeSexpr(left)} ${serializeSexpr(right)})`
   }
-}
 
-/**
- * Convert a collapse graph back into a Lisp-ish binary S-expression string for
- * for display/debugging.
- *
- * @param {import('../graph.js').Graph} graph
- * @param {string} rootId
- * @returns {string}
- */
-export const serializeGraph = (graph, rootId) => {
-  const serialized = nodeToString(graph, rootId)
-  return serialized
+  return String(ast)
 }
-

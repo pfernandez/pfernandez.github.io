@@ -1,37 +1,19 @@
 /**
  * @module collapse/layout
  *
- * Deterministic tree layout for snapshots.
- *
- * We keep this “obviously correct” rather than clever: a simple inorder leaf
- * layout makes it easy to watch collapse events without bringing in a graph
- * library.
- */
-
-import { invariant } from '.'
-
-/**
- * @typedef {{
- *   id: string,
- *   kind: string,
- *   label?: string,
- *   children?: [string, string]
- * }} SnapshotNode
- *
- * @typedef {{
- *   id: string,
- *   kind: string,
- *   from: string,
- *   to: string,
- *   index: 0 | 1
- * }} SnapshotEdge
+ * Deterministic tree layout for AST snapshots.
  */
 
 /**
+ * @typedef {import('./ast-types').AtomAst} AtomAst
+ * @typedef {0 | 1} PairIndex
+ * @typedef {PairIndex[]} CollapsePath
+ *
  * @typedef {{
  *   id: string,
  *   kind: string,
  *   label: string,
+ *   focus: boolean,
  *   x: number,
  *   y: number
  * }} LayoutNode
@@ -40,63 +22,99 @@ import { invariant } from '.'
  */
 
 /**
- * @param {{ nodes: SnapshotNode[], edges: SnapshotEdge[] }} snapshotGraph
- * @param {string} rootId
+ * @param {AtomAst} ast
+ * @returns {ast is []}
+ */
+const isEmptyAst = ast => Array.isArray(ast) && ast.length === 0
+
+/**
+ * @param {AtomAst} ast
+ * @returns {ast is [AtomAst, AtomAst]}
+ */
+const isPairAst = ast => Array.isArray(ast) && ast.length === 2
+
+/**
+ * @param {CollapsePath} path
+ * @returns {string}
+ */
+const pathId = path => path.length === 0 ? 'root' : `p${path.join('')}`
+
+/**
+ * @param {CollapsePath} path
+ * @param {CollapsePath | null} focusPath
+ * @returns {boolean}
+ */
+const isFocused = (path, focusPath) =>
+  focusPath !== null
+  && path.length === focusPath.length
+  && path.every((step, index) => step === focusPath[index])
+
+/**
+ * @param {AtomAst} ast
+ * @param {CollapsePath | null} [focusPath]
  * @returns {{ nodes: LayoutNode[],
  *             edges: LayoutEdge[], width: number, height: number }}
  */
-export function layoutSnapshotTree(snapshotGraph, rootId) {
-  const byId = new Map(snapshotGraph.nodes.map(n => [n.id, n]))
-  const childrenOf = nodeId => {
-    const node = byId.get(nodeId)
-    if (!node) return null
-    if (node.kind !== 'pair') return null
-    const kids = node.children ?? []
-    invariant(kids.length === 2, 'pair must have 2 children')
-    return /** @type {[string, string]} */ ([kids[0], kids[1]])
-  }
-
+export function layoutSnapshotTree(ast, focusPath = null) {
+  /** @type {LayoutNode[]} */
   const nodes = []
+  /** @type {LayoutEdge[]} */
   const edges = []
   let leafX = 0
   let maxDepth = 0
 
-  const walk = (nodeId, depth) => {
+  /**
+   * @param {AtomAst} node
+   * @param {number} depth
+   * @param {CollapsePath} path
+   * @returns {number}
+   */
+  const walk = (node, depth, path) => {
     maxDepth = Math.max(maxDepth, depth)
-    const node = byId.get(nodeId)
-    invariant(node, `Unknown node ${nodeId}`)
 
-    const kids = childrenOf(nodeId)
-    if (!kids) {
+    if (Array.isArray(node) && node.length !== 0 && node.length !== 2) {
+      throw new Error('Lists must be empty or pairs')
+    }
+
+    const id = pathId(path)
+    const focus = isFocused(path, focusPath)
+
+    if (!isPairAst(node)) {
       const x = leafX++
       nodes.push({
-        id: nodeId,
-        kind: node.kind,
-        label: node.kind === 'empty' ? '()' : String(node.label ?? ''),
+        id,
+        kind: isEmptyAst(node) ? 'empty' : 'atom',
+        label: isEmptyAst(node) ? '()' : String(node),
+        focus,
         x,
         y: depth
       })
       return x
     }
 
-    const [l, r] = kids
-    edges.push({ from: nodeId, to: l })
-    edges.push({ from: nodeId, to: r })
+    const leftPath = [...path, 0]
+    const rightPath = [...path, 1]
+    const leftId = pathId(leftPath)
+    const rightId = pathId(rightPath)
 
-    const leftX = walk(l, depth + 1)
-    const rightX = walk(r, depth + 1)
+    edges.push({ from: id, to: leftId }, { from: id, to: rightId })
+
+    const leftX = walk(node[0], depth + 1, leftPath)
+    const rightX = walk(node[1], depth + 1, rightPath)
     const x = (leftX + rightX) / 2
+
     nodes.push({
-      id: nodeId,
-      kind: node.kind,
+      id,
+      kind: 'pair',
       label: '·',
+      focus,
       x,
       y: depth
     })
     return x
   }
 
-  walk(rootId, 0)
+  walk(ast, 0, [])
 
   return {
     nodes,
@@ -105,4 +123,3 @@ export function layoutSnapshotTree(snapshotGraph, rootId) {
     height: maxDepth + 1
   }
 }
-

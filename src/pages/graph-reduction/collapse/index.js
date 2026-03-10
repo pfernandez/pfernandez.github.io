@@ -1,11 +1,8 @@
 /**
  * @module collapse
  *
- * Minimal collapse interpreter entrypoint. The core logic is exported here;
- * ancillary code for parsing, serializing, layout, and shared helpers can be
- * found in ./utils/.
+ * Minimal collapse interpreter entrypoint. The core rewrite is exported here;
+ * parsing, serialization, and layout live in ./utils/.
  */
 
-export { createGraph } from './graph'
-export { applyCollapse, findNextCollapse } from './machine'
-
+export { collapseOnce } from './machine.js'

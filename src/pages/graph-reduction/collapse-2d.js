@@ -11,9 +11,9 @@
  */
 import { article, button, circle, component, div, g, h2, label, line, p,
          pre, section, svg, text, textarea } from '@pfern/elements'
-import { applyCollapse, findNextCollapse } from './collapse'
-import { compileSource, layoutSnapshotTree, serializeGraph }
-  from './collapse/utils'
+import { collapseOnce } from './collapse/index.js'
+import { layoutSnapshotTree, parseSexpr, serializeSexpr }
+  from './collapse/utils/index.js'
 import './collapse-2d.css'
 
 const DEFAULT_SOURCE =
@@ -24,9 +24,9 @@ const DEFAULT_SOURCE =
 
 const SOURCE_TEXTAREA_ID = 'collapse-source'
 
-const initialCompiled = (() => {
+const initialAst = (() => {
   try {
-    return compileSource(DEFAULT_SOURCE)
+    return parseSexpr(DEFAULT_SOURCE)
   } catch {
     return null
   }
@@ -51,82 +51,78 @@ const restoreTextareaFocus = (event, selection) =>
         }
       }))
 
-const recompile = nextSource => {
+const reparse = nextSource => {
   try {
     return View({
       source: nextSource,
-      compiled: compileSource(nextSource),
+      ast: parseSexpr(nextSource),
       error: null,
       history: []
     })
   } catch (e) {
     return View({
       source: nextSource,
-      compiled: null,
+      ast: null,
       error: String(e?.message || e),
       history: []
     })
   }
 }
 
-const recompilePreservingFocus = (nextSource, event) => {
+const reparsePreservingFocus = (nextSource, event) => {
   const { target } = event
   const selection =
         typeof target?.selectionStart === 'number'
           ? { start: target.selectionStart, end: target.selectionEnd }
           : null
-  const vnode = recompile(nextSource)
+  const vnode = reparse(nextSource)
   restoreTextareaFocus(event, selection)
   return vnode
 }
 
 const View = component(({
   source = DEFAULT_SOURCE,
-  compiled = initialCompiled,
+  ast = initialAst,
   error = null,
   history = []
 } = {}) => {
+  const nextStep = ast ? collapseOnce(ast) : null
 
   const stepOnce = () => {
-    let built
+    let currentAst
     try {
-      built = compiled || compileSource(source)
+      currentAst = ast || parseSexpr(source)
     } catch (e) {
       return View(
-        { source, compiled: null, error: String(e?.message || e), history })
+        { source, ast: null, error: String(e?.message || e), history })
     }
 
-    const next = findNextCollapse(built.graph, built.rootId)
-    return next
-      ? View({ source,
-               compiled: applyCollapse(
-                 built.graph, built.rootId, next, built.ast),
-               error: null,
-               history: [...history,
-                         { graph: built.graph, rootId: built.rootId }]})
-      : View({ source, compiled: built, error: null, history })
+    const step = collapseOnce(currentAst)
+    return step.changed
+      ? View({
+        source,
+        ast: step.ast,
+        error: null,
+        history: [...history, currentAst]
+      })
+      : View({ source, ast: currentAst, error: null, history })
   }
 
   const undo = () => history.length && View(
     { source,
-      compiled: history[history.length - 1],
+      ast: history[history.length - 1],
       error: null,
       history: history.slice(0, -1) })
 
-  const nextFocusId =
-      compiled?.graph && compiled?.rootId
-        ? findNextCollapse(compiled.graph, compiled.rootId)?.nodeId ?? null
-        : null
-
   const renderedExpr =
-      compiled?.graph && compiled?.rootId
-        ? serializeGraph(compiled.graph, compiled.rootId)
+      ast
+        ? serializeSexpr(ast)
         : null
 
-  const layout = layoutSnapshotTree(compiled.graph, compiled.rootId)
-
-  console.log('%c5. edges for layout:', 'color: chocolate')
-  console.table(layout.edges)
+  const layout =
+      ast
+        ? layoutSnapshotTree(ast, nextStep?.focusPath ?? null)
+        : null
 
   const scaleX = layout ? 120 : 1
   const scaleY = layout ? 80 : 1
@@ -150,7 +146,7 @@ const View = component(({
                           y2: padding + to.y * scaleY })
           }),
           ...layout.nodes.map(n =>
-            g({ class: `node${n.id === nextFocusId ? ' focus' : ''}` },
+            g({ class: `node${n.focus ? ' focus' : ''}` },
               circle({ cx: padding + n.x * scaleX,
                        cy: padding + n.y * scaleY,
                        r: n.kind === 'pair' ? 12 : 16 }),
@@ -171,24 +167,23 @@ const View = component(({
                   { id: SOURCE_TEXTAREA_ID,
                     value: source,
                     oninput: (value, event) =>
-                      recompilePreservingFocus(String(value ?? ''), event),
+                      reparsePreservingFocus(String(value ?? ''), event),
                     spellcheck: false })),
           div({ class: 'row' },
-              button({ onclick: () => recompile(DEFAULT_SOURCE) }, 'Reset'),
+              button({ onclick: () => reparse(DEFAULT_SOURCE) }, 'Reset'),
               button({ onclick: stepOnce, disabled: !!error }, 'Step'),
               button({ onclick: undo, disabled: history.length === 0 },
                      'Undo')),
           div({ class: 'hint', style: { marginTop: '8px' }},
               `Steps: ${history.length}`,
-              nextFocusId ? ' · Next: highlighted' : ' · Stuck'),
+              nextStep?.changed ? ' · Next: highlighted' : ' · Stuck'),
           error ? pre({ class: 'expr' }, error) : null,
           renderedExpr ? div(
             div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
             pre({ class: 'expr' }, renderedExpr))
             : null),
       div({ class: 'panel' },
-          tree ?? pre('Compile an expression to view it.'))))
+          tree ?? pre('Parse an expression to view it.'))))
 })
 
 export default () => div({ class: 'collapse-demo-root' }, View())
-
