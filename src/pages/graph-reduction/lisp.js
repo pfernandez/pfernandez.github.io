@@ -50,15 +50,15 @@ const View = component(({
   error = null,
   history = []
 } = {}) => {
-  const next = pair !== null ? collapse(pair) : null
-
-  const stepOnce = () => {
+  const collapseNow = () => {
     if (pair === null) return View({ source, pair, error, history })
 
-    return next !== null
+    const after = collapse(pair)
+
+    return after !== null
       ? View({
         source,
-        pair: next,
+        pair: after,
         error: null,
         history: [...history, pair]
       })
@@ -90,12 +90,11 @@ const View = component(({
                     spellcheck: false })),
           div({ class: 'row' },
               button({ onclick: () => setSource(DEFAULT_SOURCE) }, 'Reset'),
-              button({ onclick: stepOnce, disabled: !!error }, 'Step'),
+              button({ onclick: collapseNow, disabled: !!error }, 'Collapse'),
               button({ onclick: undo, disabled: history.length === 0 },
                      'Undo')),
           div({ class: 'hint', style: { marginTop: '8px' }},
-              `Steps: ${history.length}`,
-              next !== null ? ' · Reducible' : ' · Stuck'),
+              `Collapses: ${history.length}`),
           error ? pre({ class: 'expr' }, error) : null,
           text ? div(
             div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
