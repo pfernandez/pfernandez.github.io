@@ -1,24 +1,12 @@
-import { article, button, component, div, h2, label, p, pre, section,
-         span, textarea } from '@pfern/elements'
-import { collapse } from './collapse/index.js'
-import { parse, serialize } from './collapse/utils/sexpr.js'
+import { article, component, div, pre, section, span } from '@pfern/elements'
+import { controlsPanel, DEFAULT_SOURCE, readSource } from './collapse-panel.js'
+import { collapse } from '../collapse/index.js'
+import { parse } from '../collapse/utils/sexpr.js'
 import './lisp.css'
-
-const DEFAULT_SOURCE =
-`; Binary pairs only: () or (a b)
-; Collapse rule: (() x) -> x
-
-((() ()) (() (a b)))`
 
 const initialPair = parse(DEFAULT_SOURCE)
 
-const setSource = source => {
-  try {
-    return View({ source, pair: parse(source), error: null, history: []})
-  } catch (e) {
-    return View({ source, pair: null, error: String(e?.message || e), history: []})
-  }
-}
+const setSource = source => readSource(View, source)
 
 const spanWidth = pair =>
   Array.isArray(pair)
@@ -71,35 +59,24 @@ const View = component(({
       error: null,
       history: history.slice(0, -1) })
 
-  const text = pair !== null ? serialize(pair) : null
-
   return article(
     section(
       { class: 'lisp-view' },
-      div({ class: 'panel' },
-          h2('Lisp view'),
-          p({ class: 'hint' },
-            'The pair is rendered as nested DOM. Width follows printed span; ',
-            'the visible grouping comes ',
-            'from CSS, not a coordinate layout pass.'),
-          label('Program / term',
-                textarea(
-                  { value: source,
-                    oninput: value =>
-                      setSource(String(value ?? '')),
-                    spellcheck: false })),
-          div({ class: 'row' },
-              button({ onclick: () => setSource(DEFAULT_SOURCE) }, 'Reset'),
-              button({ onclick: collapseNow, disabled: !!error }, 'Collapse'),
-              button({ onclick: undo, disabled: history.length === 0 },
-                     'Undo')),
-          div({ class: 'hint', style: { marginTop: '8px' }},
-              `Collapses: ${history.length}`),
-          error ? pre({ class: 'expr' }, error) : null,
-          text ? div(
-            div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
-            pre({ class: 'expr' }, text))
-            : null),
+      controlsPanel({
+        title: 'Lisp view',
+        hint: [
+          'The pair is rendered as nested DOM. Width follows printed span; ',
+          'the visible grouping comes ',
+          'from CSS, not a coordinate layout pass.'
+        ],
+        source,
+        history,
+        error,
+        onSource: setSource,
+        onReset: () => setSource(DEFAULT_SOURCE),
+        onCollapse: collapseNow,
+        onUndo: undo
+      }),
       div({ class: 'panel lisp-panel' },
           pair !== null
             ? div({ class: 'lisp-scene' }, renderPair(pair))

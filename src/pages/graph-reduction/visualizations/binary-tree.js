@@ -9,28 +9,17 @@
  * The point is to watch collapse happen on-screen without any heavy rendering
  * stack. This should stay small enough to port to WASM later.
  */
-import { article, button, circle, component, div, g, h2, label, line, p,
-         pre, section, svg, text as svgText, textarea } from '@pfern/elements'
-import { collapse } from './collapse/index.js'
-import { layout } from './collapse/utils/layout.js'
-import { parse, serialize } from './collapse/utils/sexpr.js'
+import { article, circle, component, div, g, pre, section, svg,
+         text as svgText, line } from '@pfern/elements'
+import { controlsPanel, DEFAULT_SOURCE, readSource } from './collapse-panel.js'
+import { collapse } from '../collapse/index.js'
+import { layout } from '../collapse/utils/layout.js'
+import { parse } from '../collapse/utils/sexpr.js'
 import './binary-tree.css'
-
-const DEFAULT_SOURCE =
-`; Binary pairs only: () or (a b)
-; Collapse rule: (() x) -> x
-
-((() ()) (() (a b)))`
 
 const initialPair = parse(DEFAULT_SOURCE)
 
-const setSource = source => {
-  try {
-    return View({ source, pair: parse(source), error: null, history: []})
-  } catch (e) {
-    return View({ source, pair: null, error: String(e?.message || e), history: []})
-  }
-}
+const setSource = source => readSource(View, source)
 
 const View = component(({
   source = DEFAULT_SOURCE,
@@ -58,8 +47,6 @@ const View = component(({
       pair: history[history.length - 1],
       error: null,
       history: history.slice(0, -1) })
-
-  const text = pair !== null ? serialize(pair) : null
 
   const picture = pair !== null ? layout(pair) : null
 
@@ -97,28 +84,17 @@ const View = component(({
   return article(
     section(
       { class: 'collapse-demo' },
-      div({ class: 'panel' },
-          h2('Binary tree'),
-          p({ class: 'hint' },
-            'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.'),
-          label('Program / term',
-                textarea(
-                  { value: source,
-                    oninput: value =>
-                      setSource(String(value ?? '')),
-                    spellcheck: false })),
-          div({ class: 'row' },
-              button({ onclick: () => setSource(DEFAULT_SOURCE) }, 'Reset'),
-              button({ onclick: collapseNow, disabled: !!error }, 'Collapse'),
-              button({ onclick: undo, disabled: history.length === 0 },
-                     'Undo')),
-          div({ class: 'hint', style: { marginTop: '8px' }},
-              `Collapses: ${history.length}`),
-          error ? pre({ class: 'expr' }, error) : null,
-          text ? div(
-            div({ class: 'hint', style: { marginTop: '10px' }}, 'Current'),
-            pre({ class: 'expr' }, text))
-            : null),
+      controlsPanel({
+        title: 'Binary tree',
+        hint: 'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.',
+        source,
+        history,
+        error,
+        onSource: setSource,
+        onReset: () => setSource(DEFAULT_SOURCE),
+        onCollapse: collapseNow,
+        onUndo: undo
+      }),
       div({ class: 'panel' },
           tree ?? pre('Parse an expression to view it.'))))
 })
