@@ -51,18 +51,18 @@ const View = component(({
   history = []
 } = {}) => {
   const collapseNow = () => {
-    if (pair === null) return View({ source, pair, error, history })
+    if (pair === null) return
 
     const after = collapse(pair)
 
-    return after !== null
-      ? View({
-        source,
-        pair: after,
-        error: null,
-        history: [...history, pair]
-      })
-      : View({ source, pair, error: null, history })
+    if (after === pair) return
+
+    return View({
+      source,
+      pair: after,
+      error: null,
+      history: [...history, pair]
+    })
   }
 
   const undo = () => history.length && View(

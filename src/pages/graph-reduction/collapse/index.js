@@ -16,16 +16,16 @@ const isPair = pair => Array.isArray(pair) && pair.length === 2
 
 // One leftmost-outermost collapse step.
 export const collapse = pair => {
-  if (!isPair(pair)) return null
+  if (!isPair(pair)) return pair
 
   const [left, right] = pair
   if (isEmpty(left)) return right
 
   const nextLeft = collapse(left)
-  if (nextLeft !== null) return [nextLeft, right]
+  if (nextLeft !== left) return [nextLeft, right]
 
   const nextRight = collapse(right)
-  if (nextRight !== null) return [left, nextRight]
+  if (nextRight !== right) return [left, nextRight]
 
-  return null
+  return pair
 }
