@@ -6,7 +6,7 @@
 
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 
-const isPair = pair => Array.isArray(pair) && pair.length === 2
+const isLeaf = pair => !Array.isArray(pair)
 
 export function layout(pair) {
   const nodes = []
@@ -21,11 +21,11 @@ export function layout(pair) {
       throw new Error('Lists must be empty or pairs')
     }
 
-    if (!isPair(pair)) {
+    if (isLeaf(pair) || isEmpty(pair)) {
       const x = leafX++
       nodes.push({
         id,
-        kind: isEmpty(pair) ? 'empty' : 'atom',
+        kind: isEmpty(pair) ? 'empty' : 'leaf',
         label: isEmpty(pair) ? '()' : String(pair),
         x,
         y: depth

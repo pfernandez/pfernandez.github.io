@@ -12,11 +12,12 @@
 
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 
-const isPair = pair => Array.isArray(pair) && pair.length === 2
+const isLeaf = pair => !Array.isArray(pair)
 
 // One leftmost-outermost collapse step.
 export const collapse = pair => {
-  if (!isPair(pair)) return pair
+  if (isLeaf(pair) || isEmpty(pair)) return pair
+  if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
 
   const [left, right] = pair
   if (isEmpty(left)) return right
