@@ -15,6 +15,10 @@ const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 const isLeaf = pair => !Array.isArray(pair)
 
 // One leftmost-outermost collapse step.
+// For now, "leftmost" is only the reducer's search order. It does not yet mean
+// that the left branch is the present and the right branch is still unrealized.
+// If we later give that asymmetry causal meaning, this will need an explicit
+// notion of focus or frontier, not just a tree walk.
 export const collapse = pair => {
   if (isLeaf(pair) || isEmpty(pair)) return pair
   if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
