@@ -9,9 +9,9 @@
  * The point is to watch collapse happen on-screen without any heavy rendering
  * stack. This should stay small enough to port to WASM later.
  */
-import { article, circle, component, div, g, pre, section, svg,
-         text as svgText, line } from '@pfern/elements'
-import { controlsPanel, DEFAULT_SOURCE, readSource } from './collapse-panel.js'
+import { article, circle, component, div, g, line, pre, section,
+         svg, text as svgText } from '@pfern/elements'
+import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
 import { collapse } from '../collapse/index.js'
 import { layout } from '../collapse/utils/layout.js'
 import { parse } from '../collapse/utils/sexpr.js'
@@ -84,17 +84,16 @@ const View = component(({
   return article(
     section(
       { class: 'collapse-demo' },
-      controlsPanel({
-        title: 'Binary tree',
-        hint: 'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.',
-        source,
-        history,
-        error,
-        onSource: setSource,
-        onReset: () => setSource(DEFAULT_SOURCE),
-        onCollapse: collapseNow,
-        onUndo: undo
-      }),
+      controlsPanel(
+        { title: 'Binary tree',
+          hint: 'Binary pairs only: `()` or `(a b)`. One rule: `(() x) → x`.',
+          source,
+          history,
+          error,
+          onSource: setSource,
+          onReset: () => setSource(DEFAULT_SOURCE),
+          onCollapse: collapseNow,
+          onUndo: undo }),
       div({ class: 'panel' },
           tree ?? pre('Parse an expression to view it.'))))
 })

@@ -1,5 +1,5 @@
 import { article, component, div, pre, section, span } from '@pfern/elements'
-import { controlsPanel, DEFAULT_SOURCE, readSource } from './collapse-panel.js'
+import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
 import { collapse } from '../collapse/index.js'
 import { parse } from '../collapse/utils/sexpr.js'
 import './lisp.css'
@@ -8,9 +8,8 @@ const initialPair = parse(DEFAULT_SOURCE)
 
 const setSource = source => readSource(View, source)
 
-const viewStyle = depth => ({
-  '--ink-alpha': Math.max(0.32, 0.94 - depth * 0.09).toFixed(2)
-})
+const viewStyle = depth =>
+  ({ '--ink-alpha': Math.max(0.32, 0.94 - depth * 0.09).toFixed(2) })
 
 const renderPair = (pair, depth = 0) =>
   Array.isArray(pair)
@@ -36,12 +35,11 @@ const View = component(({
 
     if (after === pair) return
 
-    return View({
-      source,
-      pair: after,
-      error: null,
-      history: [...history, pair]
-    })
+    return View(
+      { source,
+        pair: after,
+        error: null,
+        history: [...history, pair]})
   }
 
   const undo = () => history.length && View(
@@ -53,20 +51,18 @@ const View = component(({
   return article(
     section(
       { class: 'lisp-view' },
-      controlsPanel({
-        title: 'Lisp view',
-        hint: [
-          'The pair is rendered as nested DOM; the visible grouping comes ',
-          'from CSS, not a coordinate layout pass.'
-        ],
-        source,
-        history,
-        error,
-        onSource: setSource,
-        onReset: () => setSource(DEFAULT_SOURCE),
-        onCollapse: collapseNow,
-        onUndo: undo
-      }),
+      controlsPanel(
+        { title: 'Lisp view',
+          hint:
+          ['The pair is rendered as nested DOM; the visible grouping comes ',
+           'from CSS, not a coordinate layout pass.'],
+          source,
+          history,
+          error,
+          onSource: setSource,
+          onReset: () => setSource(DEFAULT_SOURCE),
+          onCollapse: collapseNow,
+          onUndo: undo }),
       div({ class: 'panel lisp-panel' },
           pair !== null
             ? div({ class: 'lisp-scene' }, renderPair(pair))
