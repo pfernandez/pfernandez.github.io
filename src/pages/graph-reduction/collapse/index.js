@@ -12,7 +12,7 @@
 
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 
-const isLeaf = pair => !Array.isArray(pair)
+const isVar = pair => !Array.isArray(pair)
 
 // One leftmost-outermost collapse step.
 // For now, "leftmost" is only the reducer's search order. It does not yet mean
@@ -20,17 +20,16 @@ const isLeaf = pair => !Array.isArray(pair)
 // If we later give that asymmetry causal meaning, this will need an explicit
 // notion of focus or frontier, not just a tree walk.
 export const collapse = pair => {
-  if (isLeaf(pair) || isEmpty(pair)) return pair
-  if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
+  if (!isVar(pair) && !isEmpty(pair)) {
+    const [left, right] = pair
+    if (isEmpty(left)) return right
 
-  const [left, right] = pair
-  if (isEmpty(left)) return right
+    const nextLeft = collapse(left)
+    if (nextLeft !== left) return [nextLeft, right]
 
-  const nextLeft = collapse(left)
-  if (nextLeft !== left) return [nextLeft, right]
-
-  const nextRight = collapse(right)
-  if (nextRight !== right) return [left, nextRight]
+    // const nextRight = collapse(right)
+    // if (nextRight !== right) return [left, nextRight]
+  }
 
   return pair
 }

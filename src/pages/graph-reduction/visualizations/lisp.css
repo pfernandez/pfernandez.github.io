@@ -27,16 +27,7 @@
 }
 
 .lisp-view .hint {
-  opacity: 0.8;
-  font-size: 13px;
-}
-
-.lisp-view .expr {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
-  word-break: break-word;
+  margin-top: 8px;
 }
 
 .lisp-panel {
@@ -50,41 +41,6 @@
   line-height: 1.7;
   font-size: 15px;
   padding: 8px;
-}
-
-.lisp-pair,
-.lisp-leaf {
-  color: rgb(var(--ink) / var(--ink-alpha));
-}
-
-.lisp-pair {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 0;
-  margin: 0;
-}
-
-.lisp-pair::before,
-.lisp-pair::after {
-  color: rgb(var(--ink) / calc(var(--ink-alpha) * 0.82));
-}
-
-.lisp-pair::before {
-  content: "(";
-}
-
-.lisp-pair::after {
-  content: ")";
-}
-
-.lisp-child {
-  display: inline-flex;
-  align-items: flex-start;
-}
-
-.lisp-leaf {
-  display: inline-block;
-  margin: 0;
 }
 
 @media (max-width: 980px) {

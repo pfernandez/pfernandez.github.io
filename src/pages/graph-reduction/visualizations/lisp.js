@@ -1,4 +1,4 @@
-import { article, component, div, pre, section, span } from '@pfern/elements'
+import { article, component, div, section } from '@pfern/elements'
 import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
 import { collapse } from '../collapse/index.js'
 import { parse } from '../collapse/utils/sexpr.js'
@@ -8,19 +8,12 @@ const initialPair = parse(DEFAULT_SOURCE)
 
 const setSource = source => readSource(View, source)
 
-const viewStyle = depth =>
-  ({ '--ink-alpha': Math.max(0.32, 0.94 - depth * 0.09).toFixed(2) })
-
 const renderPair = (pair, depth = 0) =>
   Array.isArray(pair)
     ? pair.length === 0
-      ? span({ class: 'lisp-leaf empty', style: viewStyle(depth) }, '()')
-      : span(
-        { class: 'lisp-pair', style: viewStyle(depth) },
-        span({ class: 'lisp-child left' }, renderPair(pair[0], depth + 1)),
-        ' ',
-        span({ class: 'lisp-child right' }, renderPair(pair[1], depth + 1)))
-    : span({ class: 'lisp-leaf leaf', style: viewStyle(depth) }, String(pair))
+      ? '()'
+      : `(${renderPair(pair[0], depth + 1)} ${renderPair(pair[1], depth + 1)})`
+    : pair
 
 const View = component(({
   source = DEFAULT_SOURCE,
@@ -28,19 +21,11 @@ const View = component(({
   error = null,
   history = []
 } = {}) => {
-  const collapseNow = () => {
-    if (pair === null) return
-
-    const after = collapse(pair)
-
-    if (after === pair) return
-
-    return View(
-      { source,
-        pair: after,
-        error: null,
-        history: [...history, pair]})
-  }
+  const step = () => View(
+    { source,
+      pair: collapse(pair),
+      error: null,
+      history: [...history, pair]})
 
   const undo = () => history.length && View(
     { source,
@@ -52,21 +37,18 @@ const View = component(({
     section(
       { class: 'lisp-view' },
       controlsPanel(
-        { title: 'Lisp view',
-          hint:
-          ['The pair is rendered as nested DOM; the visible grouping comes ',
-           'from CSS, not a coordinate layout pass.'],
+        { title: 'S-expressions',
+          hint: [''],
           source,
           history,
           error,
           onSource: setSource,
           onReset: () => setSource(DEFAULT_SOURCE),
-          onCollapse: collapseNow,
+          onCollapse: step,
           onUndo: undo }),
       div({ class: 'panel lisp-panel' },
-          pair !== null
-            ? div({ class: 'lisp-scene' }, renderPair(pair))
-            : pre('Parse an expression to view it.'))))
+          div({ class: 'lisp-scene' }, renderPair(pair)))))
 })
 
 export default () => div({ class: 'lisp-root' }, View())
+

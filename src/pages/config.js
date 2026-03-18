@@ -9,7 +9,7 @@ export default
                       default: true },
                     { label: 'Binary Tree',
                       file: 'visualizations/binary-tree.js' },
-                    { label: 'Lisp View',
+                    { label: 'Symbolic Expressions',
                       file: 'visualizations/lisp.js' }]},
           { path: 'nonplanar-polygons',
             summary: 'Nonplanar Polygons',
