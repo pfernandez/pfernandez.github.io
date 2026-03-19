@@ -18,29 +18,27 @@ export const readSource = (View, source) => {
   }
 }
 
-export const controlsPanel = ({
-  title,
-  hint,
-  source,
-  history,
-  error,
-  onSource,
-  onReset,
-  onCollapse,
-  onUndo
-}) => div(
+export const controlsPanel = (
+  { title,
+    hint,
+    source,
+    history,
+    error,
+    onSource,
+    onReset,
+    onCollapse,
+    onUndo }) => div(
   { class: 'panel' },
   h2(title),
   p({ class: 'hint' }, ...children(hint)),
   label('Program / term',
         textarea({ value: source,
-                   oninput: value => onSource(String(value ?? '')),
+                   onchange: value => onSource(String(value ?? '')),
                    spellcheck: false })),
   div({ class: 'row' },
       button({ onclick: onReset }, 'Reset'),
       button({ onclick: onCollapse, disabled: !!error }, 'Reduce'),
       button({ onclick: onUndo, disabled: history.length === 0 }, 'Undo')),
-  div({ class: 'hint', style: { marginTop: '8px' }},
-      `Steps: ${history.length}`),
-  error ? pre({ class: 'expr' }, error) : null
-)
+  div({ class: 'hint' }, `Steps: ${history.length}`),
+  error ? pre({ class: 'expr' }, `Error: ${error}`) : null)
+

@@ -30,6 +30,12 @@
   margin-top: 8px;
 }
 
+.lisp-view .expr {
+  color: inherit;
+  font-size: smaller;
+  margin-top: 8px;
+}
+
 .lisp-panel {
   min-height: 420px;
 }
