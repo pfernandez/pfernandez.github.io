@@ -49,6 +49,16 @@
   padding: 8px;
 }
 
+.lisp-focus {
+  background: color-mix(in oklab, gold 28%, Canvas);
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+.lisp-focus-collapse {
+  background: color-mix(in oklab, orange 36%, Canvas);
+}
+
 @media (max-width: 980px) {
   .lisp-view {
     grid-template-columns: 1fr;

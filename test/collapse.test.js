@@ -1,12 +1,11 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { collapse } from '../src/pages/graph-reduction/collapse/index.js'
+import { collapse, traceCollapse } from '../src/pages/graph-reduction/collapse/index.js'
 
 describe('collapse reducer', () => {
   test('collapses the leftmost-outermost redex', () => {
     assert.deepEqual(collapse([[[], 'a'], 'b']), ['a', 'b'])
-    assert.deepEqual(collapse(['a', [[], 'b']]), ['a', 'b'])
     assert.deepEqual(collapse([[], ['a', 'b']]), ['a', 'b'])
   })
 
@@ -29,13 +28,25 @@ describe('collapse reducer', () => {
     assert.equal(after[1], right)
   })
 
-  test('preserves the left branch when reducing the right', () => {
+  test('does not reduce the right branch before the left exposes it', () => {
     const left = ['stay', 'put']
     const root = [left, [[], 'x']]
     const after = collapse(root)
 
-    assert.deepEqual(after, [left, 'x'])
-    assert.equal(after[0], left)
+    assert.equal(after, root)
+    assert.deepEqual(after, root)
+  })
+
+  test('records descend, collapse, and return frames', () => {
+    const trace = traceCollapse([[[], 'a'], 'b'])
+
+    assert.equal(trace.changed, true)
+    assert.deepEqual(trace.after, ['a', 'b'])
+    assert.deepEqual(
+      trace.frames.map(({ type, path, term }) => ({ type, path, term })),
+      [{ type: 'descend', path: 'root0', term: [[[], 'a'], 'b'] },
+       { type: 'collapse', path: 'root0', term: ['a', 'b'] },
+       { type: 'return', path: 'root', term: ['a', 'b'] }])
   })
 
   test('rejects malformed non-binary arrays', () => {

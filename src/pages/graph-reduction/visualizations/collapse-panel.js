@@ -20,7 +20,10 @@ export const readSource = (View, source) => {
 
 export const controlsPanel = (
   { title, hint, source, history, error,
-    onSource, onReset, onReduce, onUndo }) =>
+    onSource, onReset, onReduce, onUndo,
+    reduceLabel = 'Reduce',
+    canUndo = history.length > 0,
+    status = null }) =>
 
   div({ class: 'panel' },
       h2(title),
@@ -32,8 +35,9 @@ export const controlsPanel = (
 
       div({ class: 'row' },
           button({ onclick: onReset }, 'Reset'),
-          button({ onclick: onReduce, disabled: !!error || !onReduce }, 'Reduce'),
-          button({ onclick: onUndo, disabled: history.length === 0 }, 'Undo')),
+          button({ onclick: onReduce, disabled: !!error || !onReduce }, reduceLabel),
+          button({ onclick: onUndo, disabled: !canUndo }, 'Undo')),
 
       div({ class: 'hint' }, `Steps: ${history.length}`),
+      status ? div({ class: 'hint expr' }, status) : null,
       error ? pre({ class: 'expr' }, `Error: ${error}`) : null)

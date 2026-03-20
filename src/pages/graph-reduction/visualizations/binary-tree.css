@@ -56,6 +56,16 @@
   stroke-width: 1.2;
 }
 
+.collapse-demo .node.is-focus circle {
+  fill: color-mix(in oklab, gold 26%, Canvas);
+  stroke: color-mix(in oklab, orange 40%, CanvasText);
+  stroke-width: 2;
+}
+
+.collapse-demo .node.is-collapse circle {
+  fill: color-mix(in oklab, orange 32%, Canvas);
+}
+
 .collapse-demo .node text {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
