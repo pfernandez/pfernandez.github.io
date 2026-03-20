@@ -49,6 +49,18 @@ describe('collapse reducer', () => {
        { type: 'return', path: 'root', term: ['a', 'b'] }])
   })
 
+  test('records stable when no collapse is available', () => {
+    const trace = traceCollapse(['a', 'b'])
+
+    assert.equal(trace.changed, false)
+    assert.equal(trace.after[0], 'a')
+    assert.equal(trace.after[1], 'b')
+    assert.deepEqual(
+      trace.frames.map(({ type, path, term }) => ({ type, path, term })),
+      [{ type: 'descend', path: 'root0', term: ['a', 'b'] },
+       { type: 'stable', path: 'root0', term: ['a', 'b'] }])
+  })
+
   test('rejects malformed non-binary arrays', () => {
     assert.throws(() => collapse(['a', 'b', 'c']), /empty or pairs/i)
   })

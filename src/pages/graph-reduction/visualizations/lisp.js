@@ -58,13 +58,11 @@ const View = component((
         { source,
           pair: trace.after,
           error: null,
-          history: [...history, pair],
+          history: trace.changed ? [...history, pair] : history,
           trace: null })
     }
 
     const nextTrace = traceCollapse(pair)
-
-    if (!nextTrace.changed) return
 
     return View(
       { source,
