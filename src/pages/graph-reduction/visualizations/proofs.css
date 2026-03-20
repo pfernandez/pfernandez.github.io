@@ -1,0 +1,82 @@
+.proofs-page {
+  display: grid;
+  gap: 16px;
+}
+
+.proofs-intro {
+  max-width: 72ch;
+}
+
+.proofs-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.proofs-panel,
+.proofs-card {
+  padding: 16px;
+  border: 1px solid color-mix(in oklab, CanvasText 12%, Canvas);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg,
+                    color-mix(in oklab, Canvas 94%, #f4efe0),
+                    Canvas);
+}
+
+.proofs-panel p:last-child,
+.proofs-card p:last-child {
+  margin-bottom: 0;
+}
+
+.proofs-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.proofs-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.proofs-card h3 {
+  margin-bottom: 6px;
+}
+
+.proofs-card p {
+  margin-bottom: 10px;
+}
+
+.proofs-meta {
+  color: color-mix(in oklab, CanvasText 68%, Canvas);
+  font-size: 0.92rem;
+}
+
+.proofs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.proofs-badge-pass {
+  background: color-mix(in oklab, #2f8f55 18%, Canvas);
+  color: color-mix(in oklab, #1f5f39 78%, CanvasText);
+}
+
+.proofs-badge-fail {
+  background: color-mix(in oklab, #c84f3a 18%, Canvas);
+  color: color-mix(in oklab, #7a2417 80%, CanvasText);
+}
+
+.proofs-badge-pending {
+  background: color-mix(in oklab, #ad7a21 18%, Canvas);
+  color: color-mix(in oklab, #684812 80%, CanvasText);
+}

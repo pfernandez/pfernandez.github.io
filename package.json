@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build && node scripts/prerender.js",
     "preview": "vite preview",
+    "proofs": "node scripts/proofs.js",
     "test": "node --test test/*.test.* --test-reporter spec",
     "prerender": "node scripts/prerender.js"
   },
