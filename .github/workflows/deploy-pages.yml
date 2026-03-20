@@ -16,23 +16,34 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout site
         uses: actions/checkout@v4
+        with:
+          path: site
+
+      - name: Checkout elements
+        uses: actions/checkout@v4
+        with:
+          repository: pfernandez/elements
+          path: elements
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: site/package-lock.json
 
       - name: Install
+        working-directory: site
         run: npm ci
 
       - name: Build
+        working-directory: site
         run: npm run build
 
       - name: Verify dist output
+        working-directory: site
         run: |
           test -f dist/index.html
           grep -n "assets/" dist/index.html
@@ -44,7 +55,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: dist
+          publish_dir: site/dist
           force_orphan: true
           enable_jekyll: false
           commit_message: Deploy ${{ github.sha }}
