@@ -5,31 +5,42 @@
  *
  * One rule:
  *   (() x) -> x
- *
- * Examples to keep in mind:
- * `((() a) b) -> (a b), (a (() b)) -> (a b)`.
  */
 
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
-
 const isVar = pair => !Array.isArray(pair)
 
-// One leftmost-outermost collapse step.
-// For now, "leftmost" is only the reducer's search order. It does not yet mean
-// that the left branch is the present and the right branch is still unrealized.
-// If we later give that asymmetry causal meaning, this will need an explicit
-// notion of focus or frontier, not just a tree walk.
 export const collapse = pair => {
-  if (!isVar(pair) && !isEmpty(pair)) {
-    const [left, right] = pair
-    if (isEmpty(left)) return right
+  // TBD: Return quoted patterns
+  if (isVar(pair)) return pair
 
-    const nextLeft = collapse(left)
-    if (nextLeft !== left) return [nextLeft, right]
+  // Preserve references for structural sharing
+  const [left, right] = pair
 
-    // const nextRight = collapse(right)
-    // if (nextRight !== right) return [left, nextRight]
-  }
+  // "Collapse" is identity as fall-through: (() x) -> x
+  if (isEmpty(left)) return right
 
-  return pair
+  // Reduce the left pair. If unchanged ("stuck"), return it.
+  const nextLeft = collapse(left)
+  return nextLeft === left ? pair : [nextLeft, right]
+
+  /**
+   * We can reduce right, but is it causally justified for the following
+   * bijection?
+   *
+   * | Dyck path | S-expression |
+   * |-----------|--------------|
+   * | ()        | (() ())      |
+   *
+   * Both are Catalan pairs with a send-return causal order. The Dyck paths
+   * (()) and ()() are "send-send-return-return" and "send-return-send-return"
+   * respectively, the stack traces of the equivalent S-expressions. The
+   * half-line (( is a causal path in probability space, and "collapse" is
+   * triggered upon observation, as seen in the double-slit experiment.
+   */
+  // if (nextLeft !== left) return [nextLeft, right]
+  // const nextRight = collapse(right)
+  // if (nextRight !== right) return [left, nextRight]
+  // return pair
 }
+

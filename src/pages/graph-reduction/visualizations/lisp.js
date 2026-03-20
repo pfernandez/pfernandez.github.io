@@ -15,12 +15,17 @@ const renderPair = (pair, depth = 0) =>
       : `(${renderPair(pair[0], depth + 1)} ${renderPair(pair[1], depth + 1)})`
     : pair
 
-const View = component(({
-  source = DEFAULT_SOURCE,
-  pair = initialPair,
-  error = null,
-  history = []
-} = {}) => {
+const View = component((
+  { source = DEFAULT_SOURCE,
+    pair = initialPair,
+    error = null,
+    history = []} = {}) => {
+
+  // TBD: Stepping works well but obscures the physical nature of the collapse
+  // event, which itself generates both time and space. It is possible to
+  // somehow watch the evolution of the pair in a more hands-off way, perhaps
+  // pausing recursion with each click? In other words, collapse should
+  // drive the animation, and the view should simply view it.
   const step = () => View(
     { source,
       pair: collapse(pair),
@@ -34,20 +39,21 @@ const View = component(({
       history: history.slice(0, -1) })
 
   return article(
-    section(
-      { class: 'lisp-view' },
-      controlsPanel(
-        { title: 'S-expressions',
-          hint: [''],
-          source,
-          history,
-          error,
-          onSource: setSource,
-          onReset: () => setSource(DEFAULT_SOURCE),
-          onCollapse: step,
-          onUndo: undo }),
-      div({ class: 'panel lisp-panel' },
-          div({ class: 'lisp-scene' }, renderPair(pair)))))
+    section({ class: 'lisp-view' },
+
+            controlsPanel(
+              { title: 'S-expressions',
+                hint: [''],
+                source,
+                history,
+                error,
+                onSource: setSource,
+                onReset: () => setSource(DEFAULT_SOURCE),
+                onStep: step,
+                onUndo: undo }),
+
+            div({ class: 'panel lisp-panel' },
+                div({ class: 'lisp-scene' }, renderPair(pair)))))
 })
 
 export default () => div({ class: 'lisp-root' }, View())
