@@ -41,6 +41,8 @@ const View = component((
     history = [],
     trace = null } = {}) => {
   const currentFrame = trace ? trace.frames[trace.index] : null
+  const nextTrace = !trace && pair !== null ? traceCollapse(pair) : null
+  const isStable = !!nextTrace && !nextTrace.changed
   const shownPair = currentFrame?.term ?? pair
 
   const step = () => {
@@ -61,8 +63,6 @@ const View = component((
           history: trace.changed ? [...history, pair] : history,
           trace: null })
     }
-
-    const nextTrace = traceCollapse(pair)
 
     return View(
       { source,
@@ -97,7 +97,7 @@ const View = component((
                 onReset: () => setSource(DEFAULT_SOURCE),
                 onReduce: step,
                 onUndo: undo,
-                reduceLabel: trace ? 'Next' : 'Reduce',
+                reduceLabel: trace ? 'Next' : isStable ? 'Stable' : 'Reduce',
                 canUndo: !!trace || history.length > 0,
                 status: currentFrame ? describeTrace(currentFrame) : null }),
 

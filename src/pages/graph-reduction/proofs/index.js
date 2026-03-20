@@ -1,68 +1,11 @@
 import { traceCollapse } from '../collapse/index.js'
+import { countPairs, dyckPrefixStates, generateCatalanPairs,
+         normalizeTerm } from './utils.js'
 
 const MAX_PAIRS = 7
 
-const isEmpty = term => Array.isArray(term) && term.length === 0
-const isAtom = term => !Array.isArray(term)
-
-const sameTerm = (left, right) => {
-  if (Array.isArray(left) || Array.isArray(right)) {
-    if (!Array.isArray(left) || !Array.isArray(right)) return false
-    if (left.length !== right.length) return false
-    if (left.length === 0) return true
-    return sameTerm(left[0], right[0]) && sameTerm(left[1], right[1])
-  }
-
-  return Object.is(left, right)
-}
-
 const expect = (condition, message) => {
   if (!condition) throw new Error(message)
-}
-
-const countPairs = term =>
-  isAtom(term) || isEmpty(term)
-    ? 0
-    : 1 + countPairs(term[0]) + countPairs(term[1])
-
-const dyckWord = term =>
-  isAtom(term) || isEmpty(term)
-    ? ''
-    : `(${dyckWord(term[0])})${dyckWord(term[1])}`
-
-const generateCatalanPairs = maxPairs => {
-  const memo = new Map([[0, [[]]]])
-
-  const read = size => {
-    if (memo.has(size)) return memo.get(size)
-
-    const pairs = []
-    for (let leftSize = 0; leftSize < size; leftSize++) {
-      const rightSize = size - 1 - leftSize
-      for (const left of read(leftSize)) {
-        for (const right of read(rightSize)) {
-          pairs.push([left, right])
-        }
-      }
-    }
-
-    memo.set(size, pairs)
-    return pairs
-  }
-
-  return Array.from({ length: maxPairs + 1 }, (_, size) => read(size)).flat()
-}
-
-const normalize = term => {
-  const steps = []
-
-  const visit = current => {
-    const trace = traceCollapse(current)
-    steps.push(trace)
-    return trace.changed ? visit(trace.after) : trace.after
-  }
-
-  return { after: visit(term), steps }
 }
 
 const exact = ({ id, section, title, run }) => {
@@ -157,7 +100,7 @@ const exactClaims = () => {
 
         for (const pair of catalanPairs) {
           const initialPairs = countPairs(pair)
-          const { after, steps } = normalize(pair)
+          const { after, steps } = normalizeTerm(pair)
           const changedSteps = steps.filter(step => step.changed)
 
           longest = Math.max(longest, changedSteps.length)
@@ -184,30 +127,21 @@ const exactClaims = () => {
         let prefixCount = 0
 
         for (const pair of catalanPairs) {
-          let opens = 0
-          let closes = 0
-          let time = 0
-          let position = 0
+          let previousTime = 0
+          let previousPosition = 0
 
-          for (const token of dyckWord(pair)) {
-            const previousTime = time
-            const previousPosition = position
-
-            if (token === '(') {
-              opens++
-              position++
-            } else {
-              closes++
-              position--
-            }
-
-            time++
+          for (const state of dyckPrefixStates(pair)) {
             prefixCount++
 
-            expect(opens >= closes, 'A Dyck prefix should never cross below the horizon')
-            expect(time === previousTime + 1, 'Each token should advance time by one tick')
-            expect(Math.abs(position - previousPosition) === 1,
+            expect(state.opens >= state.closes,
+                   'A Dyck prefix should never cross below the horizon')
+            expect(state.time === previousTime + 1,
+                   'Each token should advance time by one tick')
+            expect(Math.abs(state.position - previousPosition) === 1,
                    'Each token should move by one unit in x')
+
+            previousTime = state.time
+            previousPosition = state.position
           }
         }
 
@@ -223,19 +157,14 @@ const exactClaims = () => {
         let prefixCount = 0
 
         for (const pair of catalanPairs) {
-          let opens = 0
-          let closes = 0
-
-          for (const token of dyckWord(pair)) {
-            token === '(' ? opens++ : closes++
+          for (const state of dyckPrefixStates(pair)) {
             prefixCount++
 
-            const time = opens + closes
-            const position = opens - closes
-            const interval = (time * time - position * position) / 4
+            const interval =
+              (state.time * state.time - state.position * state.position) / 4
 
             expect(Number.isInteger(interval), 'Interval proxy should stay integral')
-            expect(interval === opens * closes, 'Interval proxy should equal uv')
+            expect(interval === state.interval, 'Interval proxy should equal uv')
           }
         }
 
