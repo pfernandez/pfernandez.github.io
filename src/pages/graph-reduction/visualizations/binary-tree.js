@@ -27,7 +27,7 @@ const View = component(({
   error = null,
   history = []
 } = {}) => {
-  const collapseNow = () => {
+  const step = () => {
     if (pair === null) return
 
     const after = collapse(pair)
@@ -92,7 +92,7 @@ const View = component(({
           error,
           onSource: setSource,
           onReset: () => setSource(DEFAULT_SOURCE),
-          onCollapse: collapseNow,
+          onReduce: step,
           onUndo: undo }),
       div({ class: 'panel' },
           tree ?? pre('Parse an expression to view it.'))))

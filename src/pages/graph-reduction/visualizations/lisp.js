@@ -1,19 +1,12 @@
 import { article, component, div, section } from '@pfern/elements'
 import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
 import { collapse } from '../collapse/index.js'
-import { parse } from '../collapse/utils/sexpr.js'
+import { parse, serialize } from '../collapse/utils/sexpr.js'
 import './lisp.css'
 
 const initialPair = parse(DEFAULT_SOURCE)
 
 const setSource = source => readSource(View, source)
-
-const renderPair = (pair, depth = 0) =>
-  Array.isArray(pair)
-    ? pair.length === 0
-      ? '()'
-      : `(${renderPair(pair[0], depth + 1)} ${renderPair(pair[1], depth + 1)})`
-    : pair
 
 const View = component((
   { source = DEFAULT_SOURCE,
@@ -21,16 +14,19 @@ const View = component((
     error = null,
     history = []} = {}) => {
 
-  // TBD: Stepping works well but obscures the physical nature of the collapse
-  // event, which itself generates both time and space. It is possible to
-  // somehow watch the evolution of the pair in a more hands-off way, perhaps
-  // pausing recursion with each click? In other words, collapse should
-  // drive the animation, and the view should simply view it.
-  const step = () => View(
-    { source,
-      pair: collapse(pair),
-      error: null,
-      history: [...history, pair]})
+  // TODO: Expose the reducer as a trace so the view can watch descent,
+  // collapse, and rebuild instead of triggering those steps itself.
+  const step = () => {
+    const nextPair = collapse(pair)
+
+    if (nextPair === pair) return
+
+    return View(
+      { source,
+        pair: nextPair,
+        error: null,
+        history: [...history, pair]})
+  }
 
   const undo = () => history.length && View(
     { source,
@@ -43,18 +39,17 @@ const View = component((
 
             controlsPanel(
               { title: 'S-expressions',
-                hint: [''],
+                hint: 'The same reducer as the tree view, rendered as a term.',
                 source,
                 history,
                 error,
                 onSource: setSource,
                 onReset: () => setSource(DEFAULT_SOURCE),
-                onStep: step,
+                onReduce: step,
                 onUndo: undo }),
 
             div({ class: 'panel lisp-panel' },
-                div({ class: 'lisp-scene' }, renderPair(pair)))))
+                div({ class: 'lisp-scene' }, pair === null ? null : serialize(pair)))))
 })
 
 export default () => div({ class: 'lisp-root' }, View())
-
