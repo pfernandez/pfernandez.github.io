@@ -96,28 +96,35 @@ const View = component(({
     ? svg({ viewBox: `0 0 ${viewW} ${viewH}`,
             role: 'img',
             'aria-label': 'Collapse tree' },
-          ...picture.edges.map(e => {
-            const from = nodePos.get(e.from)
-            const to = nodePos.get(e.to)
-            if (!from || !to) return null
-            return line({ class: 'edge',
-                          x1: padding + from.x * scaleX,
-                          y1: padding + from.y * scaleY,
-                          x2: padding + to.x * scaleX,
-                          y2: padding + to.y * scaleY })
-          }),
-              ...picture.nodes.map(n =>
-            g({ class: ['node',
-                        n.id === focusId ? 'is-focus' : null,
-                        currentFrame?.type === 'collapse' && n.id === focusId
-                          ? 'is-collapse'
-                          : null].filter(Boolean).join(' ') },
-              circle({ cx: padding + n.x * scaleX,
-                       cy: padding + n.y * scaleY,
-                       r: n.kind === 'pair' ? 12 : 16 }),
-              svgText({ x: padding + n.x * scaleX,
-                        y: padding + n.y * scaleY },
-                      n.kind === 'pair' ? '·' : n.label))))
+          g(
+            { class: 'edge-layer' },
+            ...picture.edges.map(e => {
+              const from = nodePos.get(e.from)
+              const to = nodePos.get(e.to)
+              if (!from || !to) return null
+              return line({ key: `${e.from}-${e.to}`,
+                            class: 'edge',
+                            x1: padding + from.x * scaleX,
+                            y1: padding + from.y * scaleY,
+                            x2: padding + to.x * scaleX,
+                            y2: padding + to.y * scaleY })
+            })
+          ),
+          g(
+            { class: 'node-layer' },
+            ...picture.nodes.map(n =>
+              g({ key: n.id,
+                  class: ['node',
+                          n.id === focusId ? 'is-focus' : null,
+                          currentFrame?.type === 'collapse' && n.id === focusId
+                            ? 'is-collapse'
+                            : null].filter(Boolean).join(' ') },
+                circle({ cx: padding + n.x * scaleX,
+                         cy: padding + n.y * scaleY,
+                         r: n.kind === 'pair' ? 12 : 16 }),
+                svgText({ x: padding + n.x * scaleX,
+                          y: padding + n.y * scaleY },
+                        n.kind === 'pair' ? '·' : n.label)))))
     : null
 
   return article(
