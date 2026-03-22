@@ -1,4 +1,5 @@
 import { traceCollapse } from '../collapse/index.js'
+import { focusAt, unfocus } from '../focus/index.js'
 import { countPairs, dyckPrefixStates, generateCatalanPairs,
          normalizeTerm } from './utils.js'
 
@@ -25,6 +26,13 @@ const exact = ({ id, section, title, run }) => {
 
 const pending = ({ id, section, title, note }) =>
   ({ id, section, title, kind: 'pending', status: 'pending', note })
+
+const focusPaths = (term, path = 'root') =>
+  !Array.isArray(term) || term.length === 0
+    ? [path]
+    : [path,
+       ...focusPaths(term[0], `${path}0`),
+       ...focusPaths(term[1], `${path}1`)]
 
 const exactClaims = () => {
   const catalanPairs = generateCatalanPairs(MAX_PAIRS)
@@ -170,6 +178,32 @@ const exactClaims = () => {
 
         return `Checked the interval identity on ${prefixCount} Dyck prefixes.`
       }
+    }),
+
+    exact({
+      id: 'focus',
+      section: 'Focus',
+      title: 'Local focus moves preserve substrate structure',
+      run: () => {
+        let pathCount = 0
+
+        for (const pair of catalanPairs) {
+          for (const path of focusPaths(pair)) {
+            const state = focusAt(pair, path)
+            const root = unfocus(state)
+            pathCount++
+
+            expect(state.term === pair,
+                   'Focusing should not replace the underlying substrate')
+            expect(root.term === pair,
+                   'Returning to the root should preserve the same substrate')
+            expect(root.focus === pair,
+                   'Returning to the root should recover the original root focus')
+          }
+        }
+
+        return `Checked ${pathCount} focus positions across ${catalanPairs.length} pure Catalan pairs.`
+      }
     })
   ]
 }
@@ -177,16 +211,10 @@ const exactClaims = () => {
 const pendingClaims = () =>
   [
     pending({
-      id: 'focus',
-      section: 'Focus',
-      title: 'Focus moves preserve substrate structure',
-      note: 'This needs a canonical focus operator first; the current reducer only traces where attention moves during collapse.'
-    }),
-    pending({
       id: 'focus-commutes',
       section: 'Focus',
       title: 'Focus should commute with normalization up to observation',
-      note: 'This becomes executable once focus and observational equivalence are both defined as pure functions.'
+      note: 'This now needs a deterministic focusStep together with observational equivalence, not just local focus movement.'
     }),
     pending({
       id: 'fixed-points',
