@@ -1,11 +1,14 @@
 /**
  * @module focus
  *
- * Pure focus/context navigation for binary pair terms.
+ * Pure observer-frame navigation for binary pair terms.
  *
- * This module does not collapse or rotate structure. It only moves an explicit
- * focus through an existing term and can rebuild a new term when the focused
- * subterm is replaced.
+ * The substrate stays fixed. What changes is the local origin from which the
+ * substrate is being expressed.
+ *
+ * This module does not collapse or rotate structure. It only shifts an
+ * explicit origin through an existing term and can rebuild a new term when the
+ * subterm currently presented at that origin is replaced.
  */
 
 const isEmpty = term => Array.isArray(term) && term.length === 0
@@ -16,10 +19,11 @@ const assertPair = term => {
     throw new Error('Terms must be empty or pairs')
 }
 
-const pathBits = path => {
-  if (path === 'root') return []
-  if (!path.startsWith('root')) throw new Error('Focus paths must start at root')
-  const bits = path.slice(4)
+const addressBits = address => {
+  if (address === 'root') return []
+  if (!address.startsWith('root'))
+    throw new Error('Focus addresses must start at root')
+  const bits = address.slice(4)
   if (!/^[01]+$/.test(bits)) throw new Error('Focus paths may only use 0 and 1')
   return [...bits]
 }
@@ -27,60 +31,85 @@ const pathBits = path => {
 /**
  * @typedef {{
  *   parent: *,
- *   path: string,
+ *   address: string,
  *   side: 'left' | 'right',
  *   sibling: *
- * }} FocusFrame
+ * }} OriginFrame
  *
  * @typedef {{
+ *   substrate: *,
+ *   origin: *,
+ *   address: string,
+ *   frame: OriginFrame[],
  *   term: *,
  *   focus: *,
  *   path: string,
- *   context: FocusFrame[]
+ *   context: OriginFrame[]
  * }} FocusState
  */
 
 /**
- * Create a focused state at the root of a term.
+ * Internal state constructor.
+ *
+ * The legacy `term` / `focus` / `path` / `context` names remain as aliases so
+ * older notebook code can keep working while the source shifts toward the
+ * observer-frame vocabulary.
+ *
+ * @param {*} substrate
+ * @param {*} origin
+ * @param {string} address
+ * @param {OriginFrame[]} frame
+ * @returns {FocusState}
+ */
+const makeState = (substrate, origin, address, frame) =>
+  ({ substrate,
+     origin,
+     address,
+     frame,
+     term: substrate,
+     focus: origin,
+     path: address,
+     context: frame })
+
+/**
+ * Create an observer state at the root of a term.
  *
  * @param {*} term
  * @returns {FocusState}
  */
-export const focusRoot = term => {
+export const observeRoot = term => {
   assertPair(term)
-  return { term, focus: term, path: 'root', context: [] }
+  return makeState(term, term, 'root', [])
 }
 
-const descendFocus = (state, side) => {
-  assertPair(state.focus)
-  if (isAtom(state.focus) || isEmpty(state.focus)) return null
+const shiftInto = (state, side) => {
+  assertPair(state.origin)
+  if (isAtom(state.origin) || isEmpty(state.origin)) return null
 
-  const [left, right] = state.focus
+  const [left, right] = state.origin
   return side === 'left'
-    ? {
-        term: state.term,
-        focus: left,
-        path: `${state.path}0`,
-        context: [...state.context,
-                  { parent: state.focus,
-                    path: state.path,
-                    side: 'left',
-                    sibling: right }]
-      }
-    : {
-        term: state.term,
-        focus: right,
-        path: `${state.path}1`,
-        context: [...state.context,
-                  { parent: state.focus,
-                    path: state.path,
-                    side: 'right',
-                    sibling: left }]
-      }
+    ? makeState(
+      state.substrate,
+      left,
+      `${state.address}0`,
+      [...state.frame,
+       { parent: state.origin,
+         address: state.address,
+         side: 'left',
+         sibling: right }])
+    : makeState(
+      state.substrate,
+      right,
+      `${state.address}1`,
+      [...state.frame,
+       { parent: state.origin,
+         address: state.address,
+         side: 'right',
+         sibling: left }])
 }
 
 /**
- * Move the focus by one local edge.
+ * Shift the observer origin by one local edge.
  *
  * Supported directions:
  * - `left`
@@ -93,18 +122,17 @@ const descendFocus = (state, side) => {
  * @param {'left' | 'right' | 'up'} direction
  * @returns {FocusState | null}
  */
-export const moveFocus = (state, direction) => {
-  if (direction === 'left') return descendFocus(state, 'left')
-  if (direction === 'right') return descendFocus(state, 'right')
+export const shiftOrigin = (state, direction) => {
+  if (direction === 'left') return shiftInto(state, 'left')
+  if (direction === 'right') return shiftInto(state, 'right')
   if (direction === 'up') {
-    const frame = state.context.at(-1)
+    const frame = state.frame.at(-1)
     return frame
-      ? {
-          term: state.term,
-          focus: frame.parent,
-          path: frame.path,
-          context: state.context.slice(0, -1)
-        }
+      ? makeState(
+        state.substrate,
+        frame.parent,
+        frame.address,
+        state.frame.slice(0, -1))
       : null
   }
 
@@ -112,34 +140,34 @@ export const moveFocus = (state, direction) => {
 }
 
 /**
- * Focus a term at a specific path.
+ * Express a term from a specific origin address.
  *
- * Paths use the tree ids already used elsewhere in the notebook:
+ * Addresses use the tree ids already used elsewhere in the notebook:
  * `root`, `root0`, `root01`, ...
  *
  * @param {*} term
- * @param {string} [path='root']
+ * @param {string} [address='root']
  * @returns {FocusState}
  */
-export const focusAt = (term, path = 'root') =>
-  pathBits(path).reduce((state, bit) => {
-    const next = moveFocus(state, bit === '0' ? 'left' : 'right')
-    if (!next) throw new Error(`Cannot focus ${path}`)
+export const observeAt = (term, address = 'root') =>
+  addressBits(address).reduce((state, bit) => {
+    const next = shiftOrigin(state, bit === '0' ? 'left' : 'right')
+    if (!next) throw new Error(`Cannot focus ${address}`)
     return next
-  }, focusRoot(term))
+  }, observeRoot(term))
 
-const rebuildFromContext = (focus, context) =>
-  context.reduceRight(
+const rebuildFromFrame = (origin, frame) =>
+  frame.reduceRight(
     (child, frame) =>
       frame.side === 'left'
         ? [child, frame.sibling]
         : [frame.sibling, child],
-    focus
+    origin
   )
 
 /**
- * Replace the currently focused subterm and return a new focused state at the
- * same path in the rebuilt term.
+ * Replace the subterm currently presented at the origin and return a new
+ * observer state at the same address in the rebuilt substrate.
  *
  * Untouched siblings are preserved by reference.
  *
@@ -147,26 +175,35 @@ const rebuildFromContext = (focus, context) =>
  * @param {*} replacement
  * @returns {FocusState}
  */
-export const replaceFocus = (state, replacement) =>
-  focusAt(rebuildFromContext(replacement, state.context), state.path)
+export const replaceOrigin = (state, replacement) =>
+  observeAt(rebuildFromFrame(replacement, state.frame), state.address)
 
 /**
- * Read the current focus value for a term/path pair.
+ * Read the subterm currently presented at an origin address.
  *
  * @param {*} term
- * @param {string} [path='root']
+ * @param {string} [address='root']
  * @returns {*}
  */
-export const readFocus = (term, path = 'root') =>
-  focusAt(term, path).focus
+export const readOrigin = (term, address = 'root') =>
+  observeAt(term, address).origin
 
 /**
- * Move the focus back to the root while preserving the same term reference.
+ * Return the origin to the root while preserving the same substrate
+ * reference.
  *
  * @param {FocusState} state
  * @returns {FocusState}
  */
-export const unfocus = state =>
-  state.context.length
-    ? unfocus(moveFocus(state, 'up'))
+export const recenter = state =>
+  state.frame.length
+    ? recenter(shiftOrigin(state, 'up'))
     : state
+
+// Legacy aliases kept so the notebook can migrate gradually.
+export const focusRoot = observeRoot
+export const moveFocus = shiftOrigin
+export const focusAt = observeAt
+export const replaceFocus = replaceOrigin
+export const readFocus = readOrigin
+export const unfocus = recenter

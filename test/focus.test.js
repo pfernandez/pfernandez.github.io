@@ -2,68 +2,69 @@ import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { serialize } from '../src/pages/graph-reduction/collapse/utils/sexpr.js'
-import { focusAt, focusRoot, moveFocus, readFocus,
-         replaceFocus, unfocus } from '../src/pages/graph-reduction/focus/index.js'
+import { observeAt, observeRoot, readOrigin,
+         recenter, replaceOrigin, shiftOrigin }
+  from '../src/pages/graph-reduction/focus/index.js'
 
-describe('focus', () => {
-  test('focusAt reads visually inspectable paths', () => {
+describe('focus as observer frame', () => {
+  test('observeAt reads visually inspectable origin addresses', () => {
     const term = [[[], []], [[], ['a', 'b']]]
 
-    assert.equal(serialize(readFocus(term, 'root')), '((() ()) (() (a b)))')
-    assert.equal(serialize(readFocus(term, 'root0')), '(() ())')
-    assert.equal(serialize(readFocus(term, 'root1')), '(() (a b))')
-    assert.equal(serialize(readFocus(term, 'root11')), '(a b)')
+    assert.equal(serialize(readOrigin(term, 'root')), '((() ()) (() (a b)))')
+    assert.equal(serialize(readOrigin(term, 'root0')), '(() ())')
+    assert.equal(serialize(readOrigin(term, 'root1')), '(() (a b))')
+    assert.equal(serialize(readOrigin(term, 'root11')), '(a b)')
   })
 
-  test('local focus moves preserve the original root by reference', () => {
+  test('local origin shifts preserve the substrate by reference', () => {
     const term = [[[], []], [[], ['a', 'b']]]
-    const root = focusRoot(term)
-    const left = moveFocus(root, 'left')
-    const right = moveFocus(root, 'right')
+    const root = observeRoot(term)
+    const left = shiftOrigin(root, 'left')
+    const right = shiftOrigin(root, 'right')
 
     assert.ok(left)
     assert.ok(right)
-    assert.equal(left.term, term)
-    assert.equal(left.focus, term[0])
-    assert.equal(left.path, 'root0')
-    assert.equal(right.term, term)
-    assert.equal(right.focus, term[1])
-    assert.equal(right.path, 'root1')
+    assert.equal(left.substrate, term)
+    assert.equal(left.origin, term[0])
+    assert.equal(left.address, 'root0')
+    assert.equal(right.substrate, term)
+    assert.equal(right.origin, term[1])
+    assert.equal(right.address, 'root1')
 
-    const back = moveFocus(left, 'up')
+    const back = shiftOrigin(left, 'up')
     assert.ok(back)
-    assert.equal(back.term, term)
-    assert.equal(back.focus, term)
-    assert.equal(back.path, 'root')
+    assert.equal(back.substrate, term)
+    assert.equal(back.origin, term)
+    assert.equal(back.address, 'root')
   })
 
-  test('replaceFocus rebuilds only the focused path', () => {
+  test('replaceOrigin rebuilds only the addressed path', () => {
     const keep = [[], ['a', 'b']]
     const term = [[[[], []], 'x'], keep]
-    const state = focusAt(term, 'root0')
+    const state = observeAt(term, 'root0')
     const replacement = ['done', 'now']
-    const next = replaceFocus(state, replacement)
+    const next = replaceOrigin(state, replacement)
 
-    assert.equal(next.path, 'root0')
-    assert.equal(next.focus, replacement)
-    assert.equal(next.term[1], keep)
-    assert.equal(serialize(next.term), '((done now) (() (a b)))')
+    assert.equal(next.address, 'root0')
+    assert.equal(next.origin, replacement)
+    assert.equal(next.substrate[1], keep)
+    assert.equal(serialize(next.substrate), '((done now) (() (a b)))')
   })
 
-  test('unfocus returns to the original root reference after pure movement', () => {
+  test('recenter returns to the original root reference after pure movement', () => {
     const term = [[[], []], [[], ['a', 'b']]]
-    const state = focusAt(term, 'root11')
-    const root = unfocus(state)
+    const state = observeAt(term, 'root11')
+    const root = recenter(state)
 
-    assert.equal(root.term, term)
-    assert.equal(root.focus, term)
-    assert.equal(root.path, 'root')
+    assert.equal(root.substrate, term)
+    assert.equal(root.origin, term)
+    assert.equal(root.address, 'root')
   })
 
-  test('focusAt rejects invalid paths', () => {
+  test('observeAt rejects invalid addresses', () => {
     const term = [[[], []], [[], ['a', 'b']]]
-    assert.throws(() => focusAt(term, 'left'), /start at root/)
-    assert.throws(() => focusAt(term, 'root2'), /0 and 1/)
-    assert.throws(() => focusAt(term, 'root000'), /Cannot focus/)
+    assert.throws(() => observeAt(term, 'left'), /start at root/)
+    assert.throws(() => observeAt(term, 'root2'), /0 and 1/)
+    assert.throws(() => observeAt(term, 'root000'), /Cannot focus/)
   })
 })
