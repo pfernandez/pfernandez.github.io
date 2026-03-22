@@ -9,12 +9,11 @@
  * The point is to watch collapse happen on-screen without any heavy rendering
  * stack. This should stay small enough to port to WASM later.
  */
-import { article, circle, component, div, g, line, pre, section,
-         svg, text as svgText } from '@pfern/elements'
+import { article, component, div, section } from '@pfern/elements'
 import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
 import { traceCollapse } from '../collapse/index.js'
-import { layout } from '../collapse/utils/layout.js'
-import { parse } from '../collapse/utils/sexpr.js'
+import { parse, serialize } from '../collapse/utils/sexpr.js'
+import { renderBinaryTreeScene } from './binary-tree-scene.js'
 import './binary-tree.css'
 
 const initialPair = parse(DEFAULT_SOURCE)
@@ -38,7 +37,9 @@ const View = component(({
   const nextTrace = !trace && pair !== null ? traceCollapse(pair) : null
   const isStable = !!nextTrace && !nextTrace.changed
   const shownPair = currentFrame?.term ?? pair
-  const focusId = currentFrame?.path ?? null
+  const treePanelKey = shownPair === null
+    ? 'empty'
+    : `${serialize(shownPair)}:${currentFrame?.path ?? 'none'}:${currentFrame?.type ?? 'idle'}`
 
   const step = () => {
     if (pair === null) return
@@ -83,49 +84,7 @@ const View = component(({
         trace: null })
   }
 
-  const picture = shownPair !== null ? layout(shownPair) : null
-
-  const scaleX = picture ? 120 : 1
-  const scaleY = picture ? 80 : 1
-  const padding = 40
-  const viewW = picture ? picture.width * scaleX + padding * 2 : 800
-  const viewH = picture ? picture.height * scaleY + padding * 2 : 420
-  const nodePos = new Map(picture?.nodes.map(node => [node.id, node]))
-
-  const tree = picture
-    ? svg({ viewBox: `0 0 ${viewW} ${viewH}`,
-            role: 'img',
-            'aria-label': 'Collapse tree' },
-          g(
-            { class: 'edge-layer' },
-            ...picture.edges.map(e => {
-              const from = nodePos.get(e.from)
-              const to = nodePos.get(e.to)
-              if (!from || !to) return null
-              return line({ key: `${e.from}-${e.to}`,
-                            class: 'edge',
-                            x1: padding + from.x * scaleX,
-                            y1: padding + from.y * scaleY,
-                            x2: padding + to.x * scaleX,
-                            y2: padding + to.y * scaleY })
-            })
-          ),
-          g(
-            { class: 'node-layer' },
-            ...picture.nodes.map(n =>
-              g({ key: n.id,
-                  class: ['node',
-                          n.id === focusId ? 'is-focus' : null,
-                          currentFrame?.type === 'collapse' && n.id === focusId
-                            ? 'is-collapse'
-                            : null].filter(Boolean).join(' ') },
-                circle({ cx: padding + n.x * scaleX,
-                         cy: padding + n.y * scaleY,
-                         r: n.kind === 'pair' ? 12 : 16 }),
-                svgText({ x: padding + n.x * scaleX,
-                          y: padding + n.y * scaleY },
-                        n.kind === 'pair' ? '·' : n.label)))))
-    : null
+  const tree = renderBinaryTreeScene(shownPair, currentFrame)
 
   return article(
     section(
@@ -143,8 +102,7 @@ const View = component(({
           reduceLabel: trace ? 'Next' : isStable ? 'Stable' : 'Reduce',
           canUndo: !!trace || history.length > 0,
           status: currentFrame ? describeTrace(currentFrame) : null }),
-      div({ class: 'panel' },
-          tree ?? pre('Parse an expression to view it.'))))
+      div({ class: 'panel', key: treePanelKey }, tree)))
 })
 
 export default () => div({ class: 'collapse-demo-root' }, View())
