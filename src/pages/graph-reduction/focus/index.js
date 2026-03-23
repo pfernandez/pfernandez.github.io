@@ -1,14 +1,14 @@
 /**
  * @module focus
  *
- * Pure observer-frame navigation for binary pair terms.
+ * Pure observer-plane navigation for binary pair terms.
  *
- * The substrate stays fixed. What changes is the local origin from which the
- * substrate is being expressed.
+ * The substrate stays fixed. What changes is which part of the substrate is
+ * centered in a fixed observer plane.
  *
- * This module does not collapse or rotate structure. It only shifts an
- * explicit origin through an existing term and can rebuild a new term when the
- * subterm currently presented at that origin is replaced.
+ * This module does not collapse or rotate structure. It only re-centers the
+ * substrate through an existing term and can rebuild a new term when the
+ * subterm currently centered in the plane is replaced.
  */
 
 const isEmpty = term => Array.isArray(term) && term.length === 0
@@ -22,9 +22,9 @@ const assertPair = term => {
 const addressBits = address => {
   if (address === 'root') return []
   if (!address.startsWith('root'))
-    throw new Error('Focus addresses must start at root')
+    throw new Error('Addresses must start at root')
   const bits = address.slice(4)
-  if (!/^[01]+$/.test(bits)) throw new Error('Focus paths may only use 0 and 1')
+  if (!/^[01]+$/.test(bits)) throw new Error('Addresses may only use 0 and 1')
   return [...bits]
 }
 
@@ -34,17 +34,19 @@ const addressBits = address => {
  *   address: string,
  *   side: 'left' | 'right',
  *   sibling: *
- * }} OriginFrame
+ * }} TrailFrame
  *
  * @typedef {{
  *   substrate: *,
- *   origin: *,
+ *   centered: *,
  *   address: string,
- *   frame: OriginFrame[],
+ *   trail: TrailFrame[],
  *   term: *,
  *   focus: *,
  *   path: string,
- *   context: OriginFrame[]
+ *   context: TrailFrame[],
+ *   origin: *,
+ *   frame: TrailFrame[]
  * }} FocusState
  */
 
@@ -53,47 +55,49 @@ const addressBits = address => {
  *
  * The legacy `term` / `focus` / `path` / `context` names remain as aliases so
  * older notebook code can keep working while the source shifts toward the
- * observer-frame vocabulary.
+ * observer-plane vocabulary.
  *
  * @param {*} substrate
- * @param {*} origin
+ * @param {*} centered
  * @param {string} address
- * @param {OriginFrame[]} frame
+ * @param {TrailFrame[]} trail
  * @returns {FocusState}
  */
-const makeState = (substrate, origin, address, frame) =>
+const makeState = (substrate, centered, address, trail) =>
   ({ substrate,
-     origin,
+     centered,
      address,
-     frame,
+     trail,
      term: substrate,
-     focus: origin,
+     focus: centered,
      path: address,
-     context: frame })
+     context: trail,
+     origin: centered,
+     frame: trail })
 
 /**
- * Create an observer state at the root of a term.
+ * Center the whole substrate in the observer plane.
  *
  * @param {*} term
  * @returns {FocusState}
  */
-export const observeRoot = term => {
+export const centerRoot = term => {
   assertPair(term)
   return makeState(term, term, 'root', [])
 }
 
-const shiftInto = (state, side) => {
-  assertPair(state.origin)
-  if (isAtom(state.origin) || isEmpty(state.origin)) return null
+const panInto = (state, side) => {
+  assertPair(state.centered)
+  if (isAtom(state.centered) || isEmpty(state.centered)) return null
 
-  const [left, right] = state.origin
+  const [left, right] = state.centered
   return side === 'left'
     ? makeState(
       state.substrate,
       left,
       `${state.address}0`,
-      [...state.frame,
-       { parent: state.origin,
+      [...state.trail,
+       { parent: state.centered,
          address: state.address,
          side: 'left',
          sibling: right }])
@@ -101,46 +105,46 @@ const shiftInto = (state, side) => {
       state.substrate,
       right,
       `${state.address}1`,
-      [...state.frame,
-       { parent: state.origin,
+      [...state.trail,
+       { parent: state.centered,
          address: state.address,
          side: 'right',
          sibling: left }])
 }
 
 /**
- * Shift the observer origin by one local edge.
+ * Pan the substrate by one local edge relative to the fixed observer plane.
  *
  * Supported directions:
  * - `left`
  * - `right`
  * - `up`
  *
- * Returns `null` when that move is not available from the current focus.
+ * Returns `null` when that move is not available from the current center.
  *
  * @param {FocusState} state
  * @param {'left' | 'right' | 'up'} direction
  * @returns {FocusState | null}
  */
-export const shiftOrigin = (state, direction) => {
-  if (direction === 'left') return shiftInto(state, 'left')
-  if (direction === 'right') return shiftInto(state, 'right')
+export const pan = (state, direction) => {
+  if (direction === 'left') return panInto(state, 'left')
+  if (direction === 'right') return panInto(state, 'right')
   if (direction === 'up') {
-    const frame = state.frame.at(-1)
-    return frame
+    const trailFrame = state.trail.at(-1)
+    return trailFrame
       ? makeState(
         state.substrate,
-        frame.parent,
-        frame.address,
-        state.frame.slice(0, -1))
+        trailFrame.parent,
+        trailFrame.address,
+        state.trail.slice(0, -1))
       : null
   }
 
-  throw new Error(`Unknown focus direction: ${direction}`)
+  throw new Error(`Unknown pan direction: ${direction}`)
 }
 
 /**
- * Express a term from a specific origin address.
+ * Center a specific address of the substrate in the observer plane.
  *
  * Addresses use the tree ids already used elsewhere in the notebook:
  * `root`, `root0`, `root01`, ...
@@ -149,25 +153,25 @@ export const shiftOrigin = (state, direction) => {
  * @param {string} [address='root']
  * @returns {FocusState}
  */
-export const observeAt = (term, address = 'root') =>
+export const centerOn = (term, address = 'root') =>
   addressBits(address).reduce((state, bit) => {
-    const next = shiftOrigin(state, bit === '0' ? 'left' : 'right')
-    if (!next) throw new Error(`Cannot focus ${address}`)
+    const next = pan(state, bit === '0' ? 'left' : 'right')
+    if (!next) throw new Error(`Cannot center ${address}`)
     return next
-  }, observeRoot(term))
+  }, centerRoot(term))
 
-const rebuildFromFrame = (origin, frame) =>
-  frame.reduceRight(
-    (child, frame) =>
-      frame.side === 'left'
-        ? [child, frame.sibling]
-        : [frame.sibling, child],
-    origin
+const rebuildFromTrail = (centered, trail) =>
+  trail.reduceRight(
+    (child, trailFrame) =>
+      trailFrame.side === 'left'
+        ? [child, trailFrame.sibling]
+        : [trailFrame.sibling, child],
+    centered
   )
 
 /**
- * Replace the subterm currently presented at the origin and return a new
- * observer state at the same address in the rebuilt substrate.
+ * Replace the subterm currently centered in the observer plane and return a
+ * new centered state at the same address in the rebuilt substrate.
  *
  * Untouched siblings are preserved by reference.
  *
@@ -175,35 +179,41 @@ const rebuildFromFrame = (origin, frame) =>
  * @param {*} replacement
  * @returns {FocusState}
  */
-export const replaceOrigin = (state, replacement) =>
-  observeAt(rebuildFromFrame(replacement, state.frame), state.address)
+export const replaceCentered = (state, replacement) =>
+  centerOn(rebuildFromTrail(replacement, state.trail), state.address)
 
 /**
- * Read the subterm currently presented at an origin address.
+ * Read the subterm currently centered in the observer plane.
  *
  * @param {*} term
  * @param {string} [address='root']
  * @returns {*}
  */
-export const readOrigin = (term, address = 'root') =>
-  observeAt(term, address).origin
+export const readCentered = (term, address = 'root') =>
+  centerOn(term, address).centered
 
 /**
- * Return the origin to the root while preserving the same substrate
+ * Return the centered presentation to the root while preserving the same substrate
  * reference.
  *
  * @param {FocusState} state
  * @returns {FocusState}
  */
-export const recenter = state =>
-  state.frame.length
-    ? recenter(shiftOrigin(state, 'up'))
+export const returnToRoot = state =>
+  state.trail.length
+    ? returnToRoot(pan(state, 'up'))
     : state
 
 // Legacy aliases kept so the notebook can migrate gradually.
-export const focusRoot = observeRoot
-export const moveFocus = shiftOrigin
-export const focusAt = observeAt
-export const replaceFocus = replaceOrigin
-export const readFocus = readOrigin
-export const unfocus = recenter
+export const observeRoot = centerRoot
+export const observeAt = centerOn
+export const shiftOrigin = pan
+export const replaceOrigin = replaceCentered
+export const readOrigin = readCentered
+export const recenter = returnToRoot
+export const focusRoot = centerRoot
+export const moveFocus = pan
+export const focusAt = centerOn
+export const replaceFocus = replaceCentered
+export const readFocus = readCentered
+export const unfocus = returnToRoot

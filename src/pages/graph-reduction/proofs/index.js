@@ -1,5 +1,5 @@
 import { traceCollapse } from '../collapse/index.js'
-import { observeAt, recenter } from '../focus/index.js'
+import { centerOn, returnToRoot } from '../focus/index.js'
 import { countPairs, dyckPrefixStates, generateCatalanPairs,
          normalizeTerm } from './utils.js'
 
@@ -183,26 +183,26 @@ const exactClaims = () => {
     exact({
       id: 'focus',
       section: 'Focus',
-      title: 'Shifting the observer origin preserves substrate structure',
+      title: 'Panning the substrate preserves its underlying structure',
       run: () => {
         let pathCount = 0
 
         for (const pair of catalanPairs) {
           for (const path of focusPaths(pair)) {
-            const state = observeAt(pair, path)
-            const root = recenter(state)
+            const state = centerOn(pair, path)
+            const root = returnToRoot(state)
             pathCount++
 
             expect(state.substrate === pair,
-                   'Readdressing the origin should not replace the substrate')
+                   'Re-centering the plane should not replace the substrate')
             expect(root.substrate === pair,
                    'Returning to the root should preserve the same substrate')
-            expect(root.origin === pair,
-                   'Returning to the root should recover the original origin view')
+            expect(root.centered === pair,
+                   'Returning to the root should recover the whole substrate')
           }
         }
 
-        return `Checked ${pathCount} origin addresses across ${catalanPairs.length} pure Catalan pairs.`
+        return `Checked ${pathCount} centered addresses across ${catalanPairs.length} pure Catalan pairs.`
       }
     })
   ]
