@@ -22,56 +22,56 @@ const assertPair = term => {
 /**
  * Trace a single collapse step as an explicit machine.
  *
- * Frame types:
- * - `descend`: move the focus into the left branch
- * - `collapse`: apply `(() x) -> x`
- * - `return`: return through one suspended context on the way back out
+ * Event types:
+ * - `descend`: send into the left branch
+ * - `collapse`: annihilate `()` and expose the continuation
+ * - `return`: resume through one suspended context on the way back out
  * - `stable`: no collapse is reachable under this schedule
  *
  * `path` uses the same ids as the tree layout: `root`, `root0`, `root00`, ...
  *
- * `context` is the surrounding structure. Given a replacement for the current
- * focus, it rebuilds the whole term.
+ * `surround` is the suspended structure around the current branch. Given a
+ * replacement for that branch, it rebuilds the whole term.
  */
 export const traceCollapse = term => {
   const frames = []
 
   const emit = (type, path, shown) => frames.push({ type, path, term: shown })
 
-  const traceAt = (focus, path, context) => {
-    assertPair(focus)
+  const traceAt = (current, path, surround) => {
+    assertPair(current)
 
     // TBD: Distinguish reducible structure from quoted data.
-    if (isAtom(focus) || isEmpty(focus)) {
-      emit('stable', path, context(focus))
-      return { changed: false, focus }
+    if (isAtom(current) || isEmpty(current)) {
+      emit('stable', path, surround(current))
+      return { changed: false, current }
     }
 
-    const [left, right] = focus
+    const [left, right] = current
 
     if (isEmpty(left)) {
-      emit('collapse', path, context(right))
-      return { changed: true, focus: right }
+      emit('collapse', path, surround(right))
+      return { changed: true, current: right }
     }
 
     const childPath = `${path}0`
-    emit('descend', childPath, context(focus))
+    emit('descend', childPath, surround(current))
 
     const next = traceAt(
       left,
       childPath,
-      nextLeft => context([nextLeft, right]))
+      nextLeft => surround([nextLeft, right]))
 
-    if (!next.changed) return { changed: false, focus }
+    if (!next.changed) return { changed: false, current }
 
-    const rebuilt = [next.focus, right]
-    emit('return', path, context(rebuilt))
-    return { changed: true, focus: rebuilt }
+    const resumed = [next.current, right]
+    emit('return', path, surround(resumed))
+    return { changed: true, current: resumed }
   }
 
   const next = traceAt(term, 'root', x => x)
 
-  return { after: next.focus, changed: next.changed, frames }
+  return { after: next.current, changed: next.changed, frames }
 }
 
 export const collapse = term => traceCollapse(term).after

@@ -183,7 +183,7 @@ const exactClaims = () => {
     exact({
       id: 'focus',
       section: 'Focus',
-      title: 'Panning the substrate preserves its underlying structure',
+      title: 'Re-centering the observer plane preserves the substrate',
       run: () => {
         let pathCount = 0
 
@@ -213,14 +213,14 @@ const pendingClaims = () =>
     pending({
       id: 'focus-commutes',
       section: 'Focus',
-      title: 'Focus should commute with normalization up to observation',
-      note: 'This now needs a deterministic focusStep together with observational equivalence, not just local focus movement.'
+      title: 'Centering should commute with normalization up to observation',
+      note: 'This now needs a deterministic centering law together with observational equivalence, not just local navigation.'
     }),
     pending({
       id: 'fixed-points',
       section: 'Focus',
-      title: 'Repeated refocusing should expose fixed points or short cycles',
-      note: 'This is where Julia-like basin tests belong, but it depends on a real focusStep.'
+      title: 'Repeated re-centering should expose fixed points or short cycles',
+      note: 'This is where Julia-like basin tests belong, but it depends on a real centering law.'
     }),
     pending({
       id: 'gauge',
@@ -250,7 +250,7 @@ const pendingClaims = () =>
       id: 'horizon',
       section: 'Scaling',
       title: 'A horizon should separate stable signal from unresolved traffic',
-      note: 'A horizon needs an agreed observable first: collapse flux, focus sensitivity, or another local-first statistic.'
+      note: 'A horizon needs an agreed observable first: collapse flux, centering sensitivity, or another local-first statistic.'
     }),
     pending({
       id: 'atlas',

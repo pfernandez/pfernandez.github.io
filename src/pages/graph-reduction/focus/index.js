@@ -40,22 +40,12 @@ const addressBits = address => {
  *   substrate: *,
  *   centered: *,
  *   address: string,
- *   trail: TrailFrame[],
- *   term: *,
- *   focus: *,
- *   path: string,
- *   context: TrailFrame[],
- *   origin: *,
- *   frame: TrailFrame[]
+ *   trail: TrailFrame[]
  * }} FocusState
  */
 
 /**
  * Internal state constructor.
- *
- * The legacy `term` / `focus` / `path` / `context` names remain as aliases so
- * older notebook code can keep working while the source shifts toward the
- * observer-plane vocabulary.
  *
  * @param {*} substrate
  * @param {*} centered
@@ -67,13 +57,7 @@ const makeState = (substrate, centered, address, trail) =>
   ({ substrate,
      centered,
      address,
-     trail,
-     term: substrate,
-     focus: centered,
-     path: address,
-     context: trail,
-     origin: centered,
-     frame: trail })
+     trail })
 
 /**
  * Center the whole substrate in the observer plane.
@@ -160,7 +144,7 @@ export const centerOn = (term, address = 'root') =>
     return next
   }, centerRoot(term))
 
-const rebuildFromTrail = (centered, trail) =>
+const rebuildSubstrate = (centered, trail) =>
   trail.reduceRight(
     (child, trailFrame) =>
       trailFrame.side === 'left'
@@ -180,7 +164,7 @@ const rebuildFromTrail = (centered, trail) =>
  * @returns {FocusState}
  */
 export const replaceCentered = (state, replacement) =>
-  centerOn(rebuildFromTrail(replacement, state.trail), state.address)
+  centerOn(rebuildSubstrate(replacement, state.trail), state.address)
 
 /**
  * Read the subterm currently centered in the observer plane.
@@ -193,27 +177,12 @@ export const readCentered = (term, address = 'root') =>
   centerOn(term, address).centered
 
 /**
- * Return the centered presentation to the root while preserving the same substrate
- * reference.
+ * Return the observer plane to the whole substrate.
+ *
+ * This does not need to walk back up the trail. The root view is just the same
+ * substrate centered at `root`.
  *
  * @param {FocusState} state
  * @returns {FocusState}
  */
-export const returnToRoot = state =>
-  state.trail.length
-    ? returnToRoot(pan(state, 'up'))
-    : state
-
-// Legacy aliases kept so the notebook can migrate gradually.
-export const observeRoot = centerRoot
-export const observeAt = centerOn
-export const shiftOrigin = pan
-export const replaceOrigin = replaceCentered
-export const readOrigin = readCentered
-export const recenter = returnToRoot
-export const focusRoot = centerRoot
-export const moveFocus = pan
-export const focusAt = centerOn
-export const replaceFocus = replaceCentered
-export const readFocus = readCentered
-export const unfocus = returnToRoot
+export const returnToRoot = state => centerRoot(state.substrate)
