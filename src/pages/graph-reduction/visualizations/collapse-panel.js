@@ -1,5 +1,5 @@
 import { button, div, h2, label, p, pre, textarea } from '@pfern/elements'
-import { parse } from '../collapse/utils/sexpr.js'
+import { parse } from '../sexpr.js'
 
 export const DEFAULT_SOURCE =
 `; Binary pairs only: () or (a b)
@@ -28,7 +28,7 @@ export const controlsPanel = (
   div({ class: 'panel' },
       h2(title),
       p({ class: 'hint' }, ...children(hint)),
-      label('Program / term',
+      label('Program / expression',
             textarea({ value: source,
                        onchange: value => onSource(String(value ?? '')),
                        spellcheck: false })),

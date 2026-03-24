@@ -6,7 +6,7 @@
  * inspectable structure rather than hide logic inside the harness.
  */
 
-import { observe } from '../collapse/utils/observe.js'
+import { observe } from '../observe.js'
 
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 const isAtom = pair => !Array.isArray(pair)
@@ -74,19 +74,19 @@ export const generateCatalanPairs = maxPairs => {
 /**
  * Normalize a pair expression by repeatedly applying single-step collapse.
  *
- * The returned `steps` array contains one entry for each actual collapse.
+ * The returned `steps` array contains one observation for each actual collapse.
  *
  * @param {*} pair
  * @returns {{ after: *, steps: Array<{ after: *, changed: boolean, event: object | null }> }}
  */
-export const normalizeTerm = pair => {
+export const normalizePair = pair => {
   const steps = []
 
-  const visit = current => {
-    const step = observe(current)
-    if (!step.changed) return current
-    steps.push(step)
-    return visit(step.after)
+  const visit = currentPair => {
+    const observation = observe(currentPair)
+    if (!observation.changed) return currentPair
+    steps.push(observation)
+    return visit(observation.after)
   }
 
   return { after: visit(pair), steps }

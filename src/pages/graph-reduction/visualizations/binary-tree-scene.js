@@ -1,6 +1,6 @@
 import { circle, g, line, pre, svg, text as svgText } from '@pfern/elements'
-import { layout } from '../collapse/utils/layout.js'
-import { serialize } from '../collapse/utils/sexpr.js'
+import { layout } from '../layout.js'
+import { serialize } from '../sexpr.js'
 
 const comparePathIds = (a, b) =>
   a.length - b.length || a.localeCompare(b)

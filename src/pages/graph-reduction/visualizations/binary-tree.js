@@ -11,8 +11,8 @@
  */
 import { article, component, div, section } from '@pfern/elements'
 import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
-import { observe } from '../collapse/utils/observe.js'
-import { parse, serialize } from '../collapse/utils/sexpr.js'
+import { observe } from '../observe.js'
+import { parse, serialize } from '../sexpr.js'
 import { renderBinaryTreeScene } from './binary-tree-scene.js'
 import './binary-tree.css'
 

@@ -1,4 +1,4 @@
-import { collapse } from '../index.js'
+import { collapse } from './collapse.js'
 
 /**
  * Observe one whole collapse event from the root.

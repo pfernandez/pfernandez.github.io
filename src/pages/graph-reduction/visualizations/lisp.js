@@ -1,7 +1,7 @@
 import { article, component, div, section, span } from '@pfern/elements'
 import { DEFAULT_SOURCE, controlsPanel, readSource } from './collapse-panel.js'
-import { observe } from '../collapse/utils/observe.js'
-import { parse } from '../collapse/utils/sexpr.js'
+import { observe } from '../observe.js'
+import { parse } from '../sexpr.js'
 import './lisp.css'
 
 const initialPair = parse(DEFAULT_SOURCE)

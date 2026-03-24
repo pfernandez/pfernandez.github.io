@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { parse, serialize } from '../src/pages/graph-reduction/collapse/utils/sexpr.js'
+import { parse, serialize } from '../src/pages/graph-reduction/sexpr.js'
 
 describe('collapse pair parser', () => {
   test('parses empty input as empty list', () => {

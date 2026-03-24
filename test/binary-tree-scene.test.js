@@ -3,7 +3,7 @@ import { describe, test } from 'node:test'
 
 import { render } from '@pfern/elements'
 import { createFakeDom } from '../../elements/packages/elements/test/fake-dom.js'
-import { parse } from '../src/pages/graph-reduction/collapse/utils/sexpr.js'
+import { parse } from '../src/pages/graph-reduction/sexpr.js'
 import { renderBinaryTreeScene }
   from '../src/pages/graph-reduction/visualizations/binary-tree-scene.js'
 

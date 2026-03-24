@@ -1,6 +1,6 @@
-import { observe } from '../collapse/utils/observe.js'
+import { observe } from '../observe.js'
 import { countPairs, dyckPrefixStates, generateCatalanPairs,
-         normalizeTerm } from './utils.js'
+         normalizePair } from './utils.js'
 
 const MAX_PAIRS = 7
 
@@ -37,9 +37,10 @@ const exactClaims = () => {
       run: () => {
         const samples = ['x', 42, [], ['a', 'b'], [[[], []], 'tail']]
         for (const sample of samples) {
-          const step = observe([[], sample])
-          expect(step.changed, 'Root redex should collapse')
-          expect(step.after === sample, 'Collapse should reuse the right branch')
+          const observation = observe([[], sample])
+          expect(observation.changed, 'Root redex should collapse')
+          expect(observation.after === sample,
+                 'Collapse should reuse the right branch')
         }
 
         return `Checked ${samples.length} representative values at the root redex.`
@@ -58,9 +59,10 @@ const exactClaims = () => {
            { before: [[[[[], []], 'x'], 'y'], rightB], keep: rightB }]
 
         for (const { before, keep } of cases) {
-          const step = observe(before)
-          expect(step.changed, 'Case should collapse')
-          expect(step.after[1] === keep, 'Untouched right branch should be shared')
+          const observation = observe(before)
+          expect(observation.changed, 'Case should collapse')
+          expect(observation.after[1] === keep,
+                 'Untouched right branch should be shared')
         }
 
         return `Checked ${cases.length} collapsing terms with preserved distant branches.`
@@ -77,9 +79,11 @@ const exactClaims = () => {
         const cases = [[leftStable, deferred], [['atom', 'pair'], [[], []]]]
 
         for (const before of cases) {
-          const step = observe(before)
-          expect(!step.changed, 'A deferred right redex should not collapse yet')
-          expect(step.after === before, 'Stable terms should be returned unchanged')
+          const observation = observe(before)
+          expect(!observation.changed,
+                 'A deferred right redex should not collapse yet')
+          expect(observation.after === before,
+                 'Stable pairs should be returned unchanged')
         }
 
         const competing = observe([[[], 'left'], [[], 'right']])
@@ -99,14 +103,15 @@ const exactClaims = () => {
 
         for (const pair of catalanPairs) {
           const initialPairs = countPairs(pair)
-          const { after, steps } = normalizeTerm(pair)
+          const { after, steps } = normalizePair(pair)
 
           longest = Math.max(longest, steps.length)
-          expect(countPairs(after) <= initialPairs, 'Normalization should not grow the term')
+          expect(countPairs(after) <= initialPairs,
+                 'Normalization should not grow the pair')
 
           let currentPairs = initialPairs
-          for (const step of steps) {
-            const nextPairs = countPairs(step.after)
+          for (const observation of steps) {
+            const nextPairs = countPairs(observation.after)
             expect(nextPairs < currentPairs, 'Each collapse should remove at least one pair')
             currentPairs = nextPairs
           }

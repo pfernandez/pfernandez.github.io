@@ -1,8 +1,8 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { collapse } from '../src/pages/graph-reduction/collapse/index.js'
-import { observe } from '../src/pages/graph-reduction/collapse/utils/observe.js'
+import { collapse } from '../src/pages/graph-reduction/collapse.js'
+import { observe } from '../src/pages/graph-reduction/observe.js'
 
 describe('collapse reducer', () => {
   test('collapses the leftmost-outermost redex', () => {
@@ -52,21 +52,21 @@ describe('collapse reducer', () => {
   })
 
   test('observe lifts the local event to the whole step', () => {
-    const step = observe([[[], 'a'], 'b'])
+    const observation = observe([[[], 'a'], 'b'])
 
-    assert.deepEqual(step.after, ['a', 'b'])
-    assert.deepEqual(step.event,
+    assert.deepEqual(observation.after, ['a', 'b'])
+    assert.deepEqual(observation.event,
                      { path: 'root0',
                        before: [[[], 'a'], 'b'],
                        after: ['a', 'b'] })
-    assert.equal(step.changed, true)
+    assert.equal(observation.changed, true)
   })
 
   test('observe reports no event when no collapse is available', () => {
-    const step = observe(['a', 'b'])
+    const observation = observe(['a', 'b'])
 
-    assert.equal(step.changed, false)
-    assert.equal(step.event, null)
-    assert.deepEqual(step.after, ['a', 'b'])
+    assert.equal(observation.changed, false)
+    assert.equal(observation.event, null)
+    assert.deepEqual(observation.after, ['a', 'b'])
   })
 })

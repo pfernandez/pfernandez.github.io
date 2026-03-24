@@ -1,9 +1,9 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { serialize } from '../src/pages/graph-reduction/collapse/utils/sexpr.js'
+import { serialize } from '../src/pages/graph-reduction/sexpr.js'
 import { countPairs, dyckPrefixStates, dyckWord, generateCatalanPairs,
-         normalizeTerm } from '../src/pages/graph-reduction/proofs/utils.js'
+         normalizePair } from '../src/pages/graph-reduction/proofs/utils.js'
 
 describe('proofs utilities', () => {
   test('countPairs counts only non-empty pair nodes', () => {
@@ -25,9 +25,9 @@ describe('proofs utilities', () => {
     const pairs = generateCatalanPairs(3)
 
     for (const [shown, expected] of cases) {
-      const term = pairs.find(pair => serialize(pair) === shown)
-      assert.ok(term, shown)
-      assert.equal(dyckWord(term), expected, shown)
+      const pair = pairs.find(candidate => serialize(candidate) === shown)
+      assert.ok(pair, shown)
+      assert.equal(dyckWord(pair), expected, shown)
     }
   })
 
@@ -50,12 +50,12 @@ describe('proofs utilities', () => {
        '(((() ()) ()) ())'])
   })
 
-  test('normalizeTerm records each collapse in order', () => {
-    const term = [[[], []], [[], []]]
-    const normalized = normalizeTerm(term)
-    const changedTerms = normalized.steps.map(step => serialize(step.after))
+  test('normalizePair records each collapse in order', () => {
+    const pair = [[[], []], [[], []]]
+    const normalized = normalizePair(pair)
+    const changedPairs = normalized.steps.map(step => serialize(step.after))
 
-    assert.deepEqual(changedTerms, ['(() (() ()))', '(() ())', '()'])
+    assert.deepEqual(changedPairs, ['(() (() ()))', '(() ())', '()'])
     assert.equal(serialize(normalized.after), '()')
   })
 

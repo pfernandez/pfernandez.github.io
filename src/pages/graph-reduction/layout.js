@@ -1,5 +1,5 @@
 /**
- * @module collapse/layout
+ * @module layout
  *
  * Deterministic tree layout for pair snapshots.
  */

@@ -1,5 +1,5 @@
 /**
- * @module collapse/sexpr
+ * @module sexpr
  *
  * Minimal pair parser and serializer.
  *

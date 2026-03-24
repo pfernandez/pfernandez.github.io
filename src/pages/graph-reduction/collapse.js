@@ -17,7 +17,7 @@ const isPair = pair => Array.isArray(pair) && pair.length === 2
 /**
  * Collapse one reachable redex under the leftmost-outermost schedule.
  *
- * If no collapse is reachable, the input term is returned unchanged.
+ * If no collapse is reachable, the input pair is returned unchanged.
  *
  * @param {*} pair
  * @param {(event: { path: string, before: *, after: * }) => void} [oncollapse]
