@@ -50,16 +50,12 @@ describe('proofs utilities', () => {
        '(((() ()) ()) ())'])
   })
 
-  test('normalizeTerm records each changed term before the final stable trace', () => {
+  test('normalizeTerm records each collapse in order', () => {
     const term = [[[], []], [[], []]]
     const normalized = normalizeTerm(term)
-    const changedTerms =
-      normalized.steps
-        .filter(step => step.changed)
-        .map(step => serialize(step.after))
+    const changedTerms = normalized.steps.map(step => serialize(step.after))
 
     assert.deepEqual(changedTerms, ['(() (() ()))', '(() ())', '()'])
-    assert.equal(normalized.steps.at(-1)?.changed, false)
     assert.equal(serialize(normalized.after), '()')
   })
 

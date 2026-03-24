@@ -6,38 +6,38 @@
  * inspectable structure rather than hide logic inside the harness.
  */
 
-import { traceCollapse } from '../collapse/index.js'
+import { observe } from '../collapse/utils/observe.js'
 
-const isEmpty = term => Array.isArray(term) && term.length === 0
-const isAtom = term => !Array.isArray(term)
+const isEmpty = pair => Array.isArray(pair) && pair.length === 0
+const isAtom = pair => !Array.isArray(pair)
 
 /**
- * Count non-empty pair nodes in a term.
+ * Count non-empty pair nodes in a pair expression.
  *
  * Empty leaves and atoms contribute zero. A binary pair contributes one plus
  * the count of its left and right branches.
  *
- * @param {*} term
+ * @param {*} pair
  * @returns {number}
  */
-export const countPairs = term =>
-  isAtom(term) || isEmpty(term)
+export const countPairs = pair =>
+  isAtom(pair) || isEmpty(pair)
     ? 0
-    : 1 + countPairs(term[0]) + countPairs(term[1])
+    : 1 + countPairs(pair[0]) + countPairs(pair[1])
 
 /**
- * Convert a binary-pair term into its Dyck-word skeleton.
+ * Convert a binary-pair expression into its Dyck-word skeleton.
  *
  * We treat each pair node as one matched excursion: descend with `(`,
  * return with `)`, then continue through the right branch.
  *
- * @param {*} term
+ * @param {*} pair
  * @returns {string}
  */
-export const dyckWord = term =>
-  isAtom(term) || isEmpty(term)
+export const dyckWord = pair =>
+  isAtom(pair) || isEmpty(pair)
     ? ''
-    : `(${dyckWord(term[0])})${dyckWord(term[1])}`
+    : `(${dyckWord(pair[0])})${dyckWord(pair[1])}`
 
 /**
  * Enumerate all pure Catalan pair trees up to a given pair count.
@@ -72,40 +72,40 @@ export const generateCatalanPairs = maxPairs => {
 }
 
 /**
- * Normalize a term by repeatedly applying the single-step collapse trace.
+ * Normalize a pair expression by repeatedly applying single-step collapse.
  *
- * The returned `steps` array contains every intermediate trace, including the
- * final stable one.
+ * The returned `steps` array contains one entry for each actual collapse.
  *
- * @param {*} term
- * @returns {{ after: *, steps: Array<{ after: *, changed: boolean, frames: Array<object> }> }}
+ * @param {*} pair
+ * @returns {{ after: *, steps: Array<{ after: *, changed: boolean, event: object | null }> }}
  */
-export const normalizeTerm = term => {
+export const normalizeTerm = pair => {
   const steps = []
 
   const visit = current => {
-    const trace = traceCollapse(current)
-    steps.push(trace)
-    return trace.changed ? visit(trace.after) : trace.after
+    const step = observe(current)
+    if (!step.changed) return current
+    steps.push(step)
+    return visit(step.after)
   }
 
-  return { after: visit(term), steps }
+  return { after: visit(pair), steps }
 }
 
 /**
- * Expand a term into Dyck-prefix state after each token.
+ * Expand a pair expression into Dyck-prefix state after each token.
  *
  * Each state records the running open/close counters plus the derived
  * `time`, `position`, and interval proxy `uv`.
  *
- * @param {*} term
+ * @param {*} pair
  * @returns {Array<{ token: string, opens: number, closes: number, time: number, position: number, interval: number }>}
  */
-export const dyckPrefixStates = term => {
+export const dyckPrefixStates = pair => {
   let opens = 0
   let closes = 0
 
-  return [...dyckWord(term)].map(token => {
+  return [...dyckWord(pair)].map(token => {
     token === '(' ? opens++ : closes++
 
     const time = opens + closes

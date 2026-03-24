@@ -5,13 +5,13 @@ import { serialize } from '../collapse/utils/sexpr.js'
 const comparePathIds = (a, b) =>
   a.length - b.length || a.localeCompare(b)
 
-export const renderBinaryTreeScene = (pair, frame = null) => {
+export const renderBinaryTreeScene = (pair, event = null) => {
   if (pair === null) {
     return pre('Parse an expression to view it.')
   }
 
   const picture = layout(pair)
-  const focusId = frame?.path ?? null
+  const eventId = event?.path ?? null
   const scaleX = 120
   const scaleY = 80
   const padding = 40
@@ -24,7 +24,7 @@ export const renderBinaryTreeScene = (pair, frame = null) => {
   const nodes = picture.nodes
     .slice()
     .sort((a, b) => comparePathIds(a.id, b.id))
-  const treeKey = `${serialize(pair)}:${focusId ?? 'none'}:${frame?.type ?? 'idle'}`
+  const treeKey = `${serialize(pair)}:${eventId ?? 'none'}`
 
   return svg(
     { key: treeKey,
@@ -53,10 +53,10 @@ export const renderBinaryTreeScene = (pair, frame = null) => {
         g(
           { key: node.id,
             class: ['node',
-                    node.id === focusId ? 'is-focus' : null,
-                    frame?.type === 'collapse' && node.id === focusId
-                      ? 'is-collapse'
-                      : null].filter(Boolean).join(' ') },
+                    node.id === eventId ? 'is-focus' : null,
+                    node.id === eventId ? 'is-collapse' : null]
+              .filter(Boolean)
+              .join(' ') },
           circle(
             { cx: padding + node.x * scaleX,
               cy: padding + node.y * scaleY,

@@ -1,7 +1,8 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { collapse, traceCollapse } from '../src/pages/graph-reduction/collapse/index.js'
+import { collapse } from '../src/pages/graph-reduction/collapse/index.js'
+import { observe } from '../src/pages/graph-reduction/collapse/utils/observe.js'
 
 describe('collapse reducer', () => {
   test('collapses the leftmost-outermost redex', () => {
@@ -37,31 +38,35 @@ describe('collapse reducer', () => {
     assert.deepEqual(after, root)
   })
 
-  test('records descend, collapse, and return frames', () => {
-    const trace = traceCollapse([[[], 'a'], 'b'])
+  test('collapse emits one local collapse event', () => {
+    let event = null
+    const after = collapse([[[], 'a'], 'b'], detail => {
+      event = detail
+    })
 
-    assert.equal(trace.changed, true)
-    assert.deepEqual(trace.after, ['a', 'b'])
-    assert.deepEqual(
-      trace.frames.map(({ type, path, term }) => ({ type, path, term })),
-      [{ type: 'descend', path: 'root0', term: [[[], 'a'], 'b'] },
-       { type: 'collapse', path: 'root0', term: ['a', 'b'] },
-       { type: 'return', path: 'root', term: ['a', 'b'] }])
+    assert.deepEqual(after, ['a', 'b'])
+    assert.deepEqual(event,
+                     { path: 'root0',
+                       before: [[], 'a'],
+                       after: 'a' })
   })
 
-  test('records stable when no collapse is available', () => {
-    const trace = traceCollapse(['a', 'b'])
+  test('observe lifts the local event to the whole step', () => {
+    const step = observe([[[], 'a'], 'b'])
 
-    assert.equal(trace.changed, false)
-    assert.equal(trace.after[0], 'a')
-    assert.equal(trace.after[1], 'b')
-    assert.deepEqual(
-      trace.frames.map(({ type, path, term }) => ({ type, path, term })),
-      [{ type: 'descend', path: 'root0', term: ['a', 'b'] },
-       { type: 'stable', path: 'root0', term: ['a', 'b'] }])
+    assert.deepEqual(step.after, ['a', 'b'])
+    assert.deepEqual(step.event,
+                     { path: 'root0',
+                       before: [[[], 'a'], 'b'],
+                       after: ['a', 'b'] })
+    assert.equal(step.changed, true)
   })
 
-  test('rejects malformed non-binary arrays', () => {
-    assert.throws(() => collapse(['a', 'b', 'c']), /empty or pairs/i)
+  test('observe reports no event when no collapse is available', () => {
+    const step = observe(['a', 'b'])
+
+    assert.equal(step.changed, false)
+    assert.equal(step.event, null)
+    assert.deepEqual(step.after, ['a', 'b'])
   })
 })

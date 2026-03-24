@@ -1,5 +1,4 @@
-import { traceCollapse } from '../collapse/index.js'
-import { centerOn, returnToRoot } from '../focus/index.js'
+import { observe } from '../collapse/utils/observe.js'
 import { countPairs, dyckPrefixStates, generateCatalanPairs,
          normalizeTerm } from './utils.js'
 
@@ -27,13 +26,6 @@ const exact = ({ id, section, title, run }) => {
 const pending = ({ id, section, title, note }) =>
   ({ id, section, title, kind: 'pending', status: 'pending', note })
 
-const focusPaths = (term, path = 'root') =>
-  !Array.isArray(term) || term.length === 0
-    ? [path]
-    : [path,
-       ...focusPaths(term[0], `${path}0`),
-       ...focusPaths(term[1], `${path}1`)]
-
 const exactClaims = () => {
   const catalanPairs = generateCatalanPairs(MAX_PAIRS)
 
@@ -45,9 +37,9 @@ const exactClaims = () => {
       run: () => {
         const samples = ['x', 42, [], ['a', 'b'], [[[], []], 'tail']]
         for (const sample of samples) {
-          const trace = traceCollapse([[], sample])
-          expect(trace.changed, 'Root redex should collapse')
-          expect(trace.after === sample, 'Collapse should reuse the right branch')
+          const step = observe([[], sample])
+          expect(step.changed, 'Root redex should collapse')
+          expect(step.after === sample, 'Collapse should reuse the right branch')
         }
 
         return `Checked ${samples.length} representative values at the root redex.`
@@ -66,9 +58,9 @@ const exactClaims = () => {
            { before: [[[[[], []], 'x'], 'y'], rightB], keep: rightB }]
 
         for (const { before, keep } of cases) {
-          const trace = traceCollapse(before)
-          expect(trace.changed, 'Case should collapse')
-          expect(trace.after[1] === keep, 'Untouched right branch should be shared')
+          const step = observe(before)
+          expect(step.changed, 'Case should collapse')
+          expect(step.after[1] === keep, 'Untouched right branch should be shared')
         }
 
         return `Checked ${cases.length} collapsing terms with preserved distant branches.`
@@ -85,15 +77,14 @@ const exactClaims = () => {
         const cases = [[leftStable, deferred], [['atom', 'pair'], [[], []]]]
 
         for (const before of cases) {
-          const trace = traceCollapse(before)
-          expect(!trace.changed, 'A deferred right redex should not collapse yet')
-          expect(trace.frames.at(-1)?.type === 'stable', 'Trace should end in stability')
-          expect(trace.after === before, 'Stable terms should be returned unchanged')
+          const step = observe(before)
+          expect(!step.changed, 'A deferred right redex should not collapse yet')
+          expect(step.after === before, 'Stable terms should be returned unchanged')
         }
 
-        const competing = traceCollapse([[[], 'left'], [[], 'right']])
-        const collapseFrame = competing.frames.find(frame => frame.type === 'collapse')
-        expect(collapseFrame?.path === 'root0', 'First collapse should be on the left branch')
+        const competing = observe([[[], 'left'], [[], 'right']])
+        expect(competing.event?.path === 'root0',
+               'First collapse should be on the left branch')
 
         return 'Checked deferred-right examples and a competing-redex example for left-first order.'
       }
@@ -109,14 +100,12 @@ const exactClaims = () => {
         for (const pair of catalanPairs) {
           const initialPairs = countPairs(pair)
           const { after, steps } = normalizeTerm(pair)
-          const changedSteps = steps.filter(step => step.changed)
 
-          longest = Math.max(longest, changedSteps.length)
-          expect(steps.at(-1)?.changed === false, 'Normalization should end at a stable trace')
+          longest = Math.max(longest, steps.length)
           expect(countPairs(after) <= initialPairs, 'Normalization should not grow the term')
 
           let currentPairs = initialPairs
-          for (const step of changedSteps) {
+          for (const step of steps) {
             const nextPairs = countPairs(step.after)
             expect(nextPairs < currentPairs, 'Each collapse should remove at least one pair')
             currentPairs = nextPairs
@@ -178,50 +167,12 @@ const exactClaims = () => {
 
         return `Checked the interval identity on ${prefixCount} Dyck prefixes.`
       }
-    }),
-
-    exact({
-      id: 'focus',
-      section: 'Focus',
-      title: 'Re-centering the observer plane preserves the substrate',
-      run: () => {
-        let pathCount = 0
-
-        for (const pair of catalanPairs) {
-          for (const path of focusPaths(pair)) {
-            const state = centerOn(pair, path)
-            const root = returnToRoot(state)
-            pathCount++
-
-            expect(state.substrate === pair,
-                   'Re-centering the plane should not replace the substrate')
-            expect(root.substrate === pair,
-                   'Returning to the root should preserve the same substrate')
-            expect(root.centered === pair,
-                   'Returning to the root should recover the whole substrate')
-          }
-        }
-
-        return `Checked ${pathCount} centered addresses across ${catalanPairs.length} pure Catalan pairs.`
-      }
     })
   ]
 }
 
 const pendingClaims = () =>
   [
-    pending({
-      id: 'focus-commutes',
-      section: 'Focus',
-      title: 'Centering should commute with normalization up to observation',
-      note: 'This now needs a deterministic centering law together with observational equivalence, not just local navigation.'
-    }),
-    pending({
-      id: 'fixed-points',
-      section: 'Focus',
-      title: 'Repeated re-centering should expose fixed points or short cycles',
-      note: 'This is where Julia-like basin tests belong, but it depends on a real centering law.'
-    }),
     pending({
       id: 'gauge',
       section: 'Histories',
@@ -250,7 +201,7 @@ const pendingClaims = () =>
       id: 'horizon',
       section: 'Scaling',
       title: 'A horizon should separate stable signal from unresolved traffic',
-      note: 'A horizon needs an agreed observable first: collapse flux, centering sensitivity, or another local-first statistic.'
+      note: 'A horizon needs an agreed observable first: collapse flux or another local-first statistic.'
     }),
     pending({
       id: 'atlas',

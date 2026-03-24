@@ -18,8 +18,7 @@ describe('proofs runner', () => {
        'schedule',
        'normalization',
        'causal-wedge',
-       'interval-proxy',
-       'focus']
+       'interval-proxy']
     )
 
     for (const claim of proofs.exact)
