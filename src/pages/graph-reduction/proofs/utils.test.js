@@ -1,9 +1,9 @@
-import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 
-import { serialize } from '../src/pages/graph-reduction/sexpr.js'
+import { serialize } from '../sexpr.js'
 import { countPairs, dyckPrefixStates, dyckWord, generateCatalanPairs,
-         normalizePair } from '../src/pages/graph-reduction/proofs/utils.js'
+         normalizePair } from './utils.js'
 
 describe('proofs utilities', () => {
   test('countPairs counts only non-empty pair nodes', () => {

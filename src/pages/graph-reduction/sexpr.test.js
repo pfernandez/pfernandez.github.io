@@ -1,9 +1,9 @@
-import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 
-import { parse, serialize } from '../src/pages/graph-reduction/sexpr.js'
+import { parse, serialize } from './sexpr.js'
 
-describe('collapse pair parser', () => {
+describe('pair parser', () => {
   test('parses empty input as empty list', () => {
     assert.deepEqual(parse(''), [])
     assert.deepEqual(parse('   \n\t'), [])
@@ -48,7 +48,7 @@ describe('collapse pair parser', () => {
   })
 })
 
-describe('collapse pair serializer', () => {
+describe('pair serializer', () => {
   test('serializes atoms and pairs canonically', () => {
     assert.equal(serialize('foo'), 'foo')
     assert.equal(serialize(42), '42')

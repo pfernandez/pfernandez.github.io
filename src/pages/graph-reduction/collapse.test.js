@@ -1,16 +1,15 @@
-import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 
-import { collapse } from '../src/pages/graph-reduction/collapse.js'
-import { observe } from '../src/pages/graph-reduction/observe.js'
+import { collapse } from './collapse.js'
 
-describe('collapse reducer', () => {
+describe('collapse', () => {
   test('collapses the leftmost-outermost redex', () => {
     assert.deepEqual(collapse([[[], 'a'], 'b']), ['a', 'b'])
     assert.deepEqual(collapse([[], ['a', 'b']]), ['a', 'b'])
   })
 
-  test('returns irreducible terms unchanged by reference', () => {
+  test('returns irreducible pairs unchanged by reference', () => {
     const leaf = 'x'
     const empty = []
     const pair = ['a', 'b']
@@ -38,7 +37,7 @@ describe('collapse reducer', () => {
     assert.deepEqual(after, root)
   })
 
-  test('collapse emits one local collapse event', () => {
+  test('emits one local collapse event', () => {
     let event = null
     const after = collapse([[[], 'a'], 'b'], detail => {
       event = detail
@@ -49,24 +48,5 @@ describe('collapse reducer', () => {
                      { path: 'root0',
                        before: [[], 'a'],
                        after: 'a' })
-  })
-
-  test('observe lifts the local event to the whole step', () => {
-    const observation = observe([[[], 'a'], 'b'])
-
-    assert.deepEqual(observation.after, ['a', 'b'])
-    assert.deepEqual(observation.event,
-                     { path: 'root0',
-                       before: [[[], 'a'], 'b'],
-                       after: ['a', 'b'] })
-    assert.equal(observation.changed, true)
-  })
-
-  test('observe reports no event when no collapse is available', () => {
-    const observation = observe(['a', 'b'])
-
-    assert.equal(observation.changed, false)
-    assert.equal(observation.event, null)
-    assert.deepEqual(observation.after, ['a', 'b'])
   })
 })

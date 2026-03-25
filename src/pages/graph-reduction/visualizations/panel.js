@@ -1,5 +1,4 @@
 import { button, div, h2, label, p, pre, textarea } from '@pfern/elements'
-import { parse } from '../sexpr.js'
 
 export const DEFAULT_SOURCE =
 `; Binary pairs only: () or (a b)
@@ -9,16 +8,7 @@ export const DEFAULT_SOURCE =
 
 const children = content => Array.isArray(content) ? content : [content]
 
-export const readSource = (View, source) => {
-  try {
-    return View({ source, pair: parse(source), error: null, history: []})
-  } catch (e) {
-    return View(
-      { source, pair: null, error: String(e?.message || e), history: []})
-  }
-}
-
-export const controlsPanel = (
+export const panel = (
   { title, hint, source, history, error,
     onSource, onReset, onReduce, onUndo,
     reduceLabel = 'Reduce',
