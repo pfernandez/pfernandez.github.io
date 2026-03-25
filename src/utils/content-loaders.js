@@ -15,7 +15,9 @@ const markdownModules =
 // reference sibling repos or local-only paths that should not be part of a
 // production build.
 const scriptModules =
-  import.meta.glob(['/src/pages/**/*.js', '!/src/pages/**/*.dev.js'])
+  import.meta.glob(['/src/pages/**/*.js',
+                    '!/src/pages/**/*.dev.js',
+                    '!/src/pages/**/*.test.js'])
 
 export const loadMarkdownText = async path => {
   const loader = markdownModules[path]

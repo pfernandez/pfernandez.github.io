@@ -6,7 +6,7 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
 import { coordinateAxes, gridXY } from '../../../utils'
 import { layout } from '../../layout.js'
 import { parse } from '../../sexpr.js'
-import { DEFAULT_SOURCE } from '../panel.js'
+import { DEFAULT_SOURCE } from '../dashboard.js'
 
 const defaultPair = parse(DEFAULT_SOURCE)
 
@@ -19,7 +19,7 @@ const label = text =>
   billboard(
     { axisOfRotation: '0 0 0' },
     transform(
-      { translation: '0 0.3 0' },
+      { translation: '0 0.24 0' },
       shape(
         appearance(
           material({ diffuseColor: '0.2 0.2 0.2',
@@ -28,22 +28,22 @@ const label = text =>
           { string: JSON.stringify(String(text)) },
           fontStyle({ family: '"SANS"',
                       justify: '"MIDDLE" "MIDDLE"',
-                      size: '.18' })))))
+                      size: '.14' })))))
 
 const style = (node, active) =>
   active
-    ? { radius: node.kind === 'pair' ? 0.13 : 0.16,
+    ? { radius: node.kind === 'pair' ? 0.11 : 0.13,
         diffuseColor: '0.95 0.62 0.12',
         emissiveColor: '0.3 0.14 0.02' }
     : node.kind === 'pair'
-      ? { radius: 0.12,
+      ? { radius: 0.1,
           diffuseColor: '0.22 0.22 0.22',
           emissiveColor: '0.07 0.07 0.07' }
       : node.kind === 'empty'
-        ? { radius: 0.14,
+        ? { radius: 0.12,
             diffuseColor: '0.72 0.58 0.14',
             emissiveColor: '0.16 0.12 0.02' }
-        : { radius: 0.14,
+        : { radius: 0.12,
             diffuseColor: '0.4 0.58 0.82',
             emissiveColor: '0.08 0.12 0.18' }
 

@@ -1,9 +1,11 @@
-import { component, div } from '@pfern/elements'
+import { button, component, div, h2, label, p, pre, textarea } from '@pfern/elements'
 import { layout } from '../layout.js'
 import { observe } from '../observe.js'
 import { parse } from '../sexpr.js'
-import { DEFAULT_SOURCE, panel } from './panel.js'
+import DEFAULT_SOURCE_TEXT from '../source.lisp?raw'
 import './style.css'
+
+export const DEFAULT_SOURCE = DEFAULT_SOURCE_TEXT
 
 const describe = event => `Collapse at ${event.path}`
 const frame = pair => pair === null ? null : layout(pair)
@@ -11,7 +13,7 @@ const frame = pair => pair === null ? null : layout(pair)
 const read = (view, source) => {
   try {
     const pair = parse(source)
-    return view({ source, pair, frame: frame(pair), error: null, history: [] })
+    return view({ source, pair, frame: frame(pair), error: null, history: []})
   } catch (error) {
     return view({
       source,
@@ -43,6 +45,7 @@ export const dashboard = (
     const observation = pair === null ? null : observe(pair)
     const stable = !!observation && !observation.changed
     const classes = ['dashboard', kind].filter(Boolean).join(' ')
+    const hintContent = Array.isArray(hint) ? hint : [hint]
 
     const step = () =>
       pair === null || !observation?.changed
@@ -70,19 +73,23 @@ export const dashboard = (
 
     return div(
       { class: classes },
-      panel(
-        { title,
-          hint,
-          source,
-          history,
-          error,
-          onSource: source => read(view, source),
-          onReset: () => read(view, DEFAULT_SOURCE),
-          onReduce: step,
-          onUndo: undo,
-          reduceLabel: stable ? 'Stable' : 'Reduce',
-          canUndo: history.length > 0,
-          status: event ? describe(event) : null }),
+      div(
+        { class: 'panel' },
+        h2(title),
+        p({ class: 'hint' }, ...hintContent),
+        label('Program / expression',
+              textarea({ value: source,
+                         onchange: value => read(view, String(value ?? '')),
+                         spellcheck: false })),
+        div(
+          { class: 'row' },
+          button({ onclick: () => read(view, DEFAULT_SOURCE) }, 'Reset'),
+          button({ onclick: step, disabled: !!error || !observation?.changed },
+                 stable ? 'Stable' : 'Reduce'),
+          button({ onclick: undo, disabled: history.length === 0 }, 'Undo')),
+        div({ class: 'hint' }, `Steps: ${history.length}`),
+        event ? div({ class: 'hint expr' }, describe(event)) : null,
+        error ? pre({ class: 'expr' }, `Error: ${error}`) : null),
       div(
         panelKey === null
           ? { class: 'panel' }

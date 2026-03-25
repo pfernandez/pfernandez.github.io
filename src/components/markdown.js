@@ -11,7 +11,8 @@ let renderSeq = 0
 const tokenMeta = new Map()
 const scriptsByBasePath = new Map()
 
-const pageJsModules = import.meta.glob('/src/pages/**/*.js')
+const pageJsModules =
+  import.meta.glob(['/src/pages/**/*.js', '!/src/pages/**/*.test.js'])
 
 let markdownGlobalsCache = null
 let markdownGlobalsCacheFn = null
