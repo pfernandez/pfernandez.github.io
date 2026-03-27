@@ -35,6 +35,19 @@ describe('links', () => {
                        [1, 2]]])
   })
 
+  test('reports contextual links by source and target path', () => {
+    const refs = []
+
+    build(parse('(() (() (() ((#2 #0) (#1 #0)))))'),
+          ref => refs.push(ref))
+
+    assert.deepEqual(refs,
+                     [{ from: 'root11100', to: 0, toPath: 'root0', depth: 2 },
+                      { from: 'root11101', to: 2, toPath: 'root110', depth: 0 },
+                      { from: 'root11110', to: 1, toPath: 'root10', depth: 1 },
+                      { from: 'root11111', to: 2, toPath: 'root110', depth: 0 }])
+  })
+
   test('rejects out-of-scope links', () => {
     assert.throws(() => build(parse('(() #1)')),
                   /Out-of-scope link: #1/)

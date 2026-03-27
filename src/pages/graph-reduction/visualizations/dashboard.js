@@ -1,5 +1,6 @@
 import { button, component, div, h2, label, p, pre, textarea } from '@pfern/elements'
 import { layout } from '../layout.js'
+import { build } from '../links.js'
 import { observe } from '../observe.js'
 import { parse } from '../sexpr.js'
 import DEFAULT_SOURCE_TEXT from '../source.lisp?raw'
@@ -13,6 +14,7 @@ const frame = pair => pair === null ? null : layout(pair)
 const read = (view, source) => {
   try {
     const pair = parse(source)
+    build(pair)
     return view({ source, pair, frame: frame(pair), error: null, history: []})
   } catch (error) {
     return view({

@@ -5,6 +5,7 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
   from '@pfern/elements-x3dom'
 import { coordinateAxes, gridXY } from '../../../utils'
 import { layout } from '../../layout.js'
+import { build } from '../../links.js'
 import { parse } from '../../sexpr.js'
 import { DEFAULT_SOURCE } from '../dashboard.js'
 
@@ -49,6 +50,12 @@ const style = (node, active) =>
 
 const renderLattice = (pair, event, frame) => {
   const tree = layout(pair)
+  const refs = []
+
+  try {
+    build(pair, ref => refs.push(ref))
+  } catch {}
+
   const id = event?.path ?? null
   const bounds = frame ?? tree
   const reach = Math.max(Math.abs(bounds.minX), Math.abs(bounds.maxX), bounds.maxY + 1)
@@ -71,6 +78,16 @@ const renderLattice = (pair, event, frame) => {
   const linePoints = segments.flat()
   const lineIndex = segments.flatMap((_, index) =>
     [index * 2, index * 2 + 1, -1])
+  const wires = refs
+    .map(ref => {
+      const from = points.get(ref.from)
+      const to = points.get(ref.toPath)
+      return !from || !to ? null : [from, to]
+    })
+    .filter(Boolean)
+  const wirePoints = wires.flat()
+  const wireIndex = wires.flatMap((_, index) =>
+    [index * 2, index * 2 + 1, -1])
   const nodes = tree.nodes
     .slice()
     .sort((a, b) => compare(a.id, b.id))
@@ -91,6 +108,14 @@ const renderLattice = (pair, event, frame) => {
           indexedLineSet(
             { coordIndex: lineIndex.join(' ') },
             coordinate({ point: linePoints.map(pos).join(' ') }))),
+      wirePoints.length === 0
+        ? null
+        : shape(
+          appearance(
+            material({ emissiveColor: '0.76 0.24 0.12' })),
+          indexedLineSet(
+            { coordIndex: wireIndex.join(' ') },
+            coordinate({ point: wirePoints.map(pos).join(' ') }))),
       ...nodes.map(node => {
         const point = points.get(node.id)
         const nodeStyle = style(node, node.id === id)
