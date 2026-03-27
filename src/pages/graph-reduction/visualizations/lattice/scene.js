@@ -5,16 +5,63 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
   from '@pfern/elements-x3dom'
 import { coordinateAxes, gridXY } from '../../../utils'
 import { layout } from '../../layout.js'
-import { build } from '../../links.js'
+import { build, materialize } from '../../links.js'
 import { parse } from '../../sexpr.js'
-import { DEFAULT_SOURCE } from '../dashboard.js'
-
-const defaultPair = parse(DEFAULT_SOURCE)
+import DEFAULT_SOURCE from '../../source.lisp?raw'
 
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
 
 const pos = ({ x, y, z }) => `${x} ${y} ${z}`
+
+const representative = (paths, byPath) => {
+  const path = paths.find(path => byPath.get(`${path}0`)?.kind === 'empty')
+  return path ? `${path}0` : paths[0]
+}
+
+const graph = model => {
+  const ids = new Map()
+  const tree = layout(materialize(...model, ids))
+  const canonical = id => ids.get(id) ?? id
+  const byPath = new Map(tree.nodes.map(node => [node.id, node]))
+  const groups = new Map()
+  const points = new Map()
+
+  tree.nodes
+    .slice()
+    .sort((a, b) => compare(a.id, b.id))
+    .forEach(node => {
+      const id = canonical(node.id)
+      const group = groups.get(id) ?? []
+      group.push(node.id)
+      groups.set(id, group)
+    })
+
+  groups.forEach((paths, id) => {
+    const path = representative(paths, byPath)
+    const node = byPath.get(path)
+    points.set(id, { ...node, id, x: node.x, y: -node.y, z: 0 })
+  })
+
+  const seen = new Set()
+  const segments = tree.edges
+    .slice()
+    .sort((a, b) => compare(a.to, b.to))
+    .map(edge => {
+      const from = canonical(edge.from)
+      const to = canonical(edge.to)
+      const key = `${from}:${to}`
+
+      return from === to || seen.has(key)
+        ? null
+        : (seen.add(key), [points.get(from), points.get(to)])
+    })
+    .filter(Boolean)
+
+  const nodes = [...points.values()]
+
+  return { tree, segments, nodes, canonical }
+}
 
 const label = text =>
   billboard(
@@ -48,49 +95,14 @@ const style = (node, active) =>
             diffuseColor: '0.4 0.58 0.82',
             emissiveColor: '0.08 0.12 0.18' }
 
-const renderLattice = (pair, event, frame) => {
-  const tree = layout(pair)
-  const refs = []
-
-  try {
-    build(pair, ref => refs.push(ref))
-  } catch {}
-
-  const id = event?.path ?? null
+const renderLattice = (event, frame, model) => {
+  const { tree, segments, nodes, canonical } = graph(model)
+  const id = event?.path ? canonical(event.path) : null
   const bounds = frame ?? tree
   const reach = Math.max(Math.abs(bounds.minX), Math.abs(bounds.maxX), bounds.maxY + 1)
-  const points = new Map(
-    tree.nodes.map(node => [
-      node.id,
-      { x: node.x,
-        y: -node.y,
-        z: 0 }
-    ]))
-  const segments = tree.edges
-    .slice()
-    .sort((a, b) => compare(a.to, b.to))
-    .map(edge => {
-      const from = points.get(edge.from)
-      const to = points.get(edge.to)
-      return !from || !to ? null : [from, to]
-    })
-    .filter(Boolean)
   const linePoints = segments.flat()
   const lineIndex = segments.flatMap((_, index) =>
     [index * 2, index * 2 + 1, -1])
-  const wires = refs
-    .map(ref => {
-      const from = points.get(ref.from)
-      const to = points.get(ref.toPath)
-      return !from || !to ? null : [from, to]
-    })
-    .filter(Boolean)
-  const wirePoints = wires.flat()
-  const wireIndex = wires.flatMap((_, index) =>
-    [index * 2, index * 2 + 1, -1])
-  const nodes = tree.nodes
-    .slice()
-    .sort((a, b) => compare(a.id, b.id))
 
   return x3d(
     { width: '100%', height: '100%' },
@@ -108,20 +120,11 @@ const renderLattice = (pair, event, frame) => {
           indexedLineSet(
             { coordIndex: lineIndex.join(' ') },
             coordinate({ point: linePoints.map(pos).join(' ') }))),
-      wirePoints.length === 0
-        ? null
-        : shape(
-          appearance(
-            material({ emissiveColor: '0.76 0.24 0.12' })),
-          indexedLineSet(
-            { coordIndex: wireIndex.join(' ') },
-            coordinate({ point: wirePoints.map(pos).join(' ') }))),
       ...nodes.map(node => {
-        const point = points.get(node.id)
         const nodeStyle = style(node, node.id === id)
 
         return transform(
-          { translation: pos(point) },
+          { translation: pos(node) },
           shape(
             appearance(
               material({ diffuseColor: nodeStyle.diffuseColor,
@@ -131,9 +134,12 @@ const renderLattice = (pair, event, frame) => {
       })))
 }
 
-export const scene = (pair = defaultPair, event = null, frame = null) =>
+export const scene = (pair, event = null, frame = null, model) =>
   pair === null
     ? pre('Parse an expression to view it.')
-    : renderLattice(pair, event, frame)
+    : renderLattice(
+      event,
+      frame,
+      model ?? build(pair ?? parse(DEFAULT_SOURCE)))
 
 export default scene

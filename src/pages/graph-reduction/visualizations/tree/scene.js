@@ -10,6 +10,7 @@ const renderTree = (pair, event, frame) => {
   const bounds = frame ?? tree
   const id = event?.path ?? null
   const pad = 1
+  const scale = 1.35
   const pos = new Map(tree.nodes.map(node => [node.id, node]))
   const edges = tree.edges
     .slice()
@@ -18,10 +19,16 @@ const renderTree = (pair, event, frame) => {
     .slice()
     .sort((a, b) => compare(a.id, b.id))
   const key = `${serialize(pair)}:${id ?? 'none'}`
+  const width = (bounds.width + pad * 2) * scale
+  const height = (bounds.height + pad * 2) * scale
+  const centerX = bounds.minX + bounds.width / 2
+  const centerY = bounds.minY + bounds.height / 2
+  const minX = centerX - width / 2
+  const minY = centerY - height / 2
 
   return svg(
     { key,
-      viewBox: `${bounds.minX - pad} ${bounds.minY - pad} ${bounds.width + pad * 2} ${bounds.height + pad * 2}`,
+      viewBox: `${minX} ${minY} ${width} ${height}`,
       role: 'img',
       'aria-label': 'Collapse tree' },
     g(
