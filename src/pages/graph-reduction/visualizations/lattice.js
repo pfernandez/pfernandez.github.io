@@ -164,6 +164,8 @@ const scene = (event, frame, model) => {
   const lineIndex = segments.flatMap((_, index) =>
     [index * 2, index * 2 + 1, -1])
 
+  // console.log({ event, frame, model, id, reach, linePoints, lineIndex })
+
   return x3d(
     { width: '100%', height: '100%' },
     x3scene(

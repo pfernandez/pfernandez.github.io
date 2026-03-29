@@ -31,7 +31,7 @@ export function layout(pair) {
 
     const leftId = `${id}0`
     const rightId = `${id}1`
-    const step = 2 / (depth + 2)
+    const step = 1
 
     edges.push({ from: id, to: leftId }, { from: id, to: rightId })
     walk(pair[0], depth + 1, x - step, leftId)

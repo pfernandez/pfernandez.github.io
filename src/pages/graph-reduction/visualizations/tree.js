@@ -11,7 +11,7 @@ const scene = (pair, event = null, frame = null) => {
   const bounds = frame ?? tree
   const id = event?.path ?? null
   const pad = 1
-  const scale = 1.35
+  const scale = 2
   const pos = new Map(tree.nodes.map(node => [node.id, node]))
   const edges = tree.edges
     .slice()
@@ -23,7 +23,7 @@ const scene = (pair, event = null, frame = null) => {
   const width = (bounds.width + pad * 2) * scale
   const height = (bounds.height + pad * 2) * scale
   const centerX = bounds.minX + bounds.width / 2
-  const centerY = bounds.minY + bounds.height / 2
+  const centerY = bounds.minY + bounds.height / 0.9
   const minX = centerX - width / 2
   const minY = centerY - height / 2
 
