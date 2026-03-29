@@ -1,0 +1,1 @@
+import{collapse as o}from"./collapse-WImBclGB.js";const a=l=>{let e=null;const t=o(l,n=>{e=n});return e===null?{after:t,changed:!1,event:null}:{after:t,changed:!0,event:{path:e.path,before:l,after:t}}};export{a as observe};

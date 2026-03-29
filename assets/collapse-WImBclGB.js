@@ -1,0 +1,1 @@
+const f=t=>Array.isArray(t)&&t.length===0,l=t=>Array.isArray(t)&&t.length===2,u=function t(r,o=null,s="root"){if(!l(r))return r;const[e,n]=r;if(f(e))return o?.({path:s,before:r,after:n}),n;const c=t(e,o,`${s}0`);return c===e?r:[c,n]};export{u as collapse};
