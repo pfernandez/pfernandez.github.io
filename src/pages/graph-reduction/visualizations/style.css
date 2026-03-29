@@ -8,18 +8,12 @@
   min-height: 100%;
 }
 
-.dashboard > .panel {
-  padding: 1.5rem 1.75rem 2rem;
-}
-
-.dashboard > .panel {
-  min-height: 0;
+.dashboard .panel {
+  padding: 1.5rem 1.75rem;
 }
 
 .dashboard > .panel:last-child {
-  border-left: 1px solid color-mix(in oklab, CanvasText 18%, transparent);
-  padding: 0;
-  display: flex;
+  border-left: 1px solid light-dark(#ccc, #333);
 }
 
 .dashboard .scene {
@@ -31,7 +25,6 @@
 .dashboard .scene > pre {
   margin: 0;
   width: 100%;
-  padding: 1.5rem 1.75rem 2rem;
 }
 
 .dashboard .scene > svg,
@@ -80,7 +73,6 @@
     "Liberation Mono", "Courier New", monospace;
   line-height: 1.7;
   font-size: 15px;
-  padding: 1.5rem 1.75rem 2rem;
 }
 
 .lisp .focus {
@@ -151,31 +143,24 @@
 
 /* Proofs */
 
-.proofs-page {
-  max-width: 72ch;
+.proofs-page h2 {
+  margin: 1.5em 0 0;
 }
 
 .proofs-page h3 {
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.proofs-page h4 {
-  margin-top: 0;
-  margin-bottom: 0.25rem;
-}
-
-.proofs-page p {
-  margin-bottom: 10px;
+  margin-top: 1.5em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid light-dark(#ccc, #333);
 }
 
 .proofs-meta {
-  color: color-mix(in oklab, CanvasText 68%, Canvas);
-  font-size: 0.92rem;
+  font-size: smaller;
+  font-style: italic;
 }
 
 .proof {
-  margin: 0 0 1rem;
+  border-bottom: 1px solid light-dark(#ccc, #333);
+  margin-bottom: 1rem;
 }
 
 .proof:last-child {
@@ -229,8 +214,16 @@
 }
 
 @media (max-width: 768px) {
+  .dashboard {
+    display: block;
+  }
+
   .dashboard,
   .proofs-page {
-    padding-top: 1.75rem;
+    padding-top: 2.5rem;
+  }
+
+  .dashboard .panel {
+    padding: 1.5rem 1.25rem;
   }
 }

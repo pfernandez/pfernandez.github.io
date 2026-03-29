@@ -1,5 +1,5 @@
 <script type="module">
-  const { default: vis } = await md.import('./visualizations/lattice/scene.js')
+  const { default: vis } = await md.import('./visualizations/lattice.js')
 </script>
 
 # Lattice

@@ -11,10 +11,13 @@
 :root {
   --sidebar-w: 14rem;
   --toggle-viewport-left: 1.25rem;
+  color-scheme: light dark;
 }
 
 body {
   height: 100dvh;
+  background-color: light-dark(#fff, #111);
+  color: light-dark(#000, #eee);
 }
 
 main {
@@ -29,7 +32,7 @@ body > main {
 
 article,
 #sidebar {
-  background: #fff;
+  background-color: light-dark(#fff, #111);
   padding: 1.25rem;
   margin: 0;
 }
@@ -38,13 +41,17 @@ section {
   margin: 0;
 }
 
-pre {
-  padding: 1rem;
-}
-
 article {
   background: inherit;
   box-shadow: none;
+}
+
+h2 {
+  margin: 2rem 0 1rem;
+}
+
+pre {
+  padding: 1rem;
 }
 
 #sidebar {
@@ -53,7 +60,7 @@ article {
   height: 100%;
   width: var(--sidebar-w);
   padding-top: 1rem;
-  box-shadow: 4px 0px 7px -8px #000000;
+  border-right: 1px solid light-dark(#ccc, #333);
 }
 
 #sidebar .sidebar-panel {
@@ -117,7 +124,6 @@ article {
 }
 
 x3d {
-  background-color: #fff;
   height: 100%;
   width: 100%;
   max-width: 100%;
@@ -194,11 +200,12 @@ x3d {
   }
 
   .toggle {
-    background-color: #fff;
     position: absolute;
     display: block;
     top: 1rem;
     left: calc(100% + var(--toggle-viewport-left));
+    background-color: light-dark(#ffffff, #111111);
+    color: light-dark(#000000, #aaa);
     border: 2px solid;
     margin-bottom: 1rem;
     padding: 0;
@@ -212,7 +219,7 @@ x3d {
     display: block;
     width: 2rem;
     height: 2rem;
-    padding-top: 3px;
+    padding-top: 6px;
   }
 
   #content,

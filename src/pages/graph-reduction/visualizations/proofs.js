@@ -1,4 +1,5 @@
-import { article, code, div, h2, h3, h4, p, section, span } from '@pfern/elements'
+import { article, code, div, h1, h2, h3, h4, p, section, span }
+  from '@pfern/elements'
 import { runProofs } from '../proofs/index.js'
 import './style.css'
 
@@ -45,7 +46,7 @@ export default () => {
 
   return article(
     { class: 'proofs-page' },
-    h2('Proofs'),
+    h1('Proofs'),
     p(
       'This page keeps the notebook honest. The exact claims below run directly against the current collapse kernel, and the same runner is available in the terminal with ',
       code('npm run proofs'),
@@ -55,7 +56,7 @@ export default () => {
       'Anything more ambitious stays visible, but explicitly pending, until the program has the right machinery to carry it.'
     ),
     section(
-      h3('Summary'),
+      h2('Summary'),
       p(`${proofs.summary.exact.pass}/${proofs.summary.exact.total} exact claims passing.`),
       p(`${proofs.summary.pending.pending}/${proofs.summary.pending.total} claims still pending new machinery.`),
       p(`Scope: pure Catalan pairs up to ${proofs.maxPairs} pair nodes.`)
