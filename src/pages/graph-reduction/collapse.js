@@ -36,3 +36,4 @@ export const collapse = function collapse(pair, oncollapse = null, path = 'root'
   const nextLeft = collapse(left, oncollapse, `${path}0`)
   return nextLeft === left ? pair : [nextLeft, right]
 }
+

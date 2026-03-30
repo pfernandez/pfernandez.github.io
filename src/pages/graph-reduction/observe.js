@@ -18,5 +18,5 @@ export const observe = pair => {
     ? { after, changed: false, event: null }
     : { after,
         changed: true,
-        event: { path: localEvent.path, before: pair, after } }
+        event: { path: localEvent.path, before: pair, after }}
 }

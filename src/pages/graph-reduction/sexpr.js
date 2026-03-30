@@ -26,24 +26,24 @@ export const parse = source => {
   const tokens = tokenize(source)
   if (!tokens.length) return []
 
-  let pos = 0
+  let i = 0
   const read = () => {
-    if (pos >= tokens.length) throw new Error('Unexpected EOF while reading')
-    const token = tokens[pos++]
+    if (i >= tokens.length) throw new Error('Unexpected EOF while reading')
+    const token = tokens[i++]
 
     if (token === '(') {
-      if (pos >= tokens.length) throw new Error('Missing )')
-      if (tokens[pos] === ')') {
-        pos++
+      if (i >= tokens.length) throw new Error('Missing )')
+      if (tokens[i] === ')') {
+        i++
         return []
       }
 
       const left = read()
       const right = read()
-      if (pos >= tokens.length) throw new Error('Missing )')
-      if (tokens[pos] !== ')') throw new Error(
-        'Lists must have exactly 2 elements')
-      pos++
+      if (i >= tokens.length) throw new Error('Missing )')
+      if (tokens[i] !== ')')
+        throw new Error('Lists must have exactly 2 elements')
+      i++
       return [left, right]
     }
 
@@ -53,24 +53,13 @@ export const parse = source => {
   }
 
   const pair = read()
-  if (pos !== tokens.length) throw new Error('Extra content after expression')
+  if (i !== tokens.length) throw new Error('Extra content after expression')
 
   return pair
 }
 
-export const serialize = pair => {
-  if (Array.isArray(pair)) {
-    if (pair.length === 0) {
-      return '()'
-    }
+export const serialize = pair =>
+  Array.isArray(pair)
+    ? pair.length ? `(${serialize(pair[0])} ${serialize(pair[1])})` : '()'
+    : pair
 
-    if (pair.length !== 2) {
-      throw new Error('Lists must be empty or pairs')
-    }
-
-    const [left, right] = pair
-    return `(${serialize(left)} ${serialize(right)})`
-  }
-
-  return String(pair)
-}
