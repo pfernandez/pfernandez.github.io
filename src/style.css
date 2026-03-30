@@ -240,6 +240,10 @@ x3d {
 
 /* Wide widths only */
 @media (min-width: 769px) {
+  h2 {
+    margin: 0 0 1rem;
+  }
+
   .toggle {
     display: none;
   }

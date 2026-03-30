@@ -20,20 +20,17 @@ const isPair = pair => Array.isArray(pair) && pair.length === 2
  * If no collapse is reachable, the input pair is returned unchanged.
  *
  * @param {*} pair
- * @param {(event: { path: string, before: *, after: * }) => void} [oncollapse]
  * @returns {*}
  */
-export const collapse = function collapse(pair, oncollapse = null, path = 'root') {
+export const collapse = function collapse(pair) {
   // TBD: Distinguish reducible structure from quoted data.
   if (!isPair(pair)) return pair
 
   const [left, right] = pair
   if (isEmpty(left)) {
-    oncollapse?.({ path, before: pair, after: right })
     return right
   }
 
-  const nextLeft = collapse(left, oncollapse, `${path}0`)
+  const nextLeft = collapse(left)
   return nextLeft === left ? pair : [nextLeft, right]
 }
-
