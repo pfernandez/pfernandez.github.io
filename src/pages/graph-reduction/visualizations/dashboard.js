@@ -16,12 +16,14 @@ const state = source => {
     return { source,
              pair: next,
              error: null,
-             history: []}
+             history: [],
+             stable: false }
   } catch (error) {
     return { source,
              pair: null,
              error: String(error?.message || error),
-             history: []}
+             history: [],
+             stable: false }
   }
 }
 
@@ -40,23 +42,32 @@ export const dashboard = ({
     source = DEFAULT_SOURCE,
     pair = initial.pair,
     error = null,
-    history = []
+    history = [],
+    stable = false
   } = {}) => {
-
-    const next = Array.isArray(pair) ? step(pair) : pair
-    const stable = next === pair
     const classes = ['dashboard', kind].filter(Boolean).join(' ')
     const hintContent = Array.isArray(hint) ? hint : [hint]
 
-    const reduce = () =>
-      stable
-        ? undefined
+    const reduce = () => {
+      if (stable || !Array.isArray(pair)) return
+
+      const next = step(pair)
+      return next === pair
+        ? view({
+          source,
+          pair,
+          error: null,
+          history,
+          stable: true
+        })
         : view({
           source,
           pair: next,
           error: null,
-          history: [...history, pair]
+          history: [...history, pair],
+          stable: false
         })
+    }
 
     const undo = () =>
       !history.length
@@ -65,7 +76,8 @@ export const dashboard = ({
           source,
           pair: history[history.length - 1],
           error: null,
-          history: history.slice(0, -1)
+          history: history.slice(0, -1),
+          stable: false
         })
 
     return div(
