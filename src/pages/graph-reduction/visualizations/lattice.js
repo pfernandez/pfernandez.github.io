@@ -142,26 +142,21 @@ const label = text =>
                       justify: '"MIDDLE" "MIDDLE"',
                       size: '.14' })))))
 
-const style = (node, active) =>
-  active
-    ? { radius: node.kind === 'pair' ? 0.11 : 0.13,
-        diffuseColor: '0.95 0.62 0.12',
-        emissiveColor: '0.3 0.14 0.02' }
-    : node.kind === 'pair'
-      ? { radius: 0.1,
-          diffuseColor: '0.22 0.22 0.22',
-          emissiveColor: '0.07 0.07 0.07' }
-      : node.kind === 'empty'
-        ? { radius: 0.12,
-            diffuseColor: '0.72 0.58 0.14',
-            emissiveColor: '0.16 0.12 0.02' }
-        : { radius: 0.12,
-            diffuseColor: '0.4 0.58 0.82',
-            emissiveColor: '0.08 0.12 0.18' }
+const style = node =>
+  node.kind === 'pair'
+    ? { radius: 0.1,
+        diffuseColor: '0.22 0.22 0.22',
+        emissiveColor: '0.07 0.07 0.07' }
+    : node.kind === 'empty'
+      ? { radius: 0.12,
+          diffuseColor: '0.72 0.58 0.14',
+          emissiveColor: '0.16 0.12 0.02' }
+      : { radius: 0.12,
+          diffuseColor: '0.4 0.58 0.82',
+          emissiveColor: '0.08 0.12 0.18' }
 
-const latticeScene = (pair, event = null) => {
-  const { segments, nodes, canonical } = graph(pair)
-  const id = event?.path ? canonical(event.path) : null
+const latticeScene = pair => {
+  const { segments, nodes } = graph(pair)
   const reach = Math.max(1, ...nodes.map(node =>
     Math.max(Math.abs(node.x), Math.abs(node.y), Math.abs(node.z)))) + 1
   const linePoints = segments.flat()
@@ -185,7 +180,7 @@ const latticeScene = (pair, event = null) => {
             { coordIndex: lineIndex.join(' ') },
             coordinate({ point: linePoints.map(pos).join(' ') }))),
       ...nodes.map(node => {
-        const nodeStyle = style(node, node.id === id)
+        const nodeStyle = style(node)
 
         return transform(
           { translation: pos(node) },

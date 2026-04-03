@@ -1,15 +1,13 @@
 import { circle, g, line, pre, svg, text as svgText } from '@pfern/elements'
 import { dashboard } from './dashboard.js'
 import { layout } from '../layout.js'
-import { serialize } from '../sexpr.js'
 
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
 
-const scene = (pair, event = null, frame = null) => {
+const scene = pair => {
   const tree = layout(pair)
-  const bounds = frame ?? tree
-  const id = event?.path ?? null
+  const bounds = tree
   const pad = 1
   const scale = 2
   const pos = new Map(tree.nodes.map(node => [node.id, node]))
@@ -19,7 +17,6 @@ const scene = (pair, event = null, frame = null) => {
   const nodes = tree.nodes
     .slice()
     .sort((a, b) => compare(a.id, b.id))
-  const key = `${serialize(pair)}:${id ?? 'none'}`
   const width = (bounds.width + pad * 2) * scale
   const height = (bounds.height + pad * 2) * scale
   const centerX = bounds.minX + bounds.width / 2
@@ -29,8 +26,7 @@ const scene = (pair, event = null, frame = null) => {
 
   return pair === null
     ? pre('Parse an expression to view it.')
-    : svg({ key,
-            viewBox: `${minX} ${minY} ${width} ${height}`,
+    : svg({ viewBox: `${minX} ${minY} ${width} ${height}`,
             role: 'img',
             'aria-label': 'Collapse tree' },
           g({ class: 'edge-layer' },
@@ -48,10 +44,7 @@ const scene = (pair, event = null, frame = null) => {
             })),
           g({ class: 'node-layer' },
             ...nodes.map(node =>
-              g({ key: node.id,
-                  class: ['node', node.id === id ? 'is-collapse' : null]
-                    .filter(Boolean)
-                    .join(' ') },
+              g({ key: node.id, class: 'node' },
                 circle({ cx: node.x,
                          cy: node.y,
                          r: node.kind === 'pair' ? 0.16 : 0.2 }),
