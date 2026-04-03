@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { parse, serialize } from './sexpr.js'
+import { parse, resolve, serialize } from './sexpr.js'
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -73,5 +73,31 @@ describe('pair serializer', () => {
       const pair = parse(source)
       assert.deepEqual(parse(serialize(pair)), pair)
     }
+  })
+})
+
+describe('resolve', () => {
+  test('resolves S in fill-order indices', () => {
+    const term = parse('(((((0 2) (1 2)) a) b) c)')
+    assert.deepEqual(resolve(term),
+                     [['a', 'c'],
+                      ['b', 'c']])
+  })
+
+  test('preserves extra args outside the motif', () => {
+    const term = parse('((((((0 2) (1 2)) a) b) c) d)')
+    assert.deepEqual(resolve(term),
+                     [[['a', 'c'],
+                       ['b', 'c']],
+                      'd'])
+  })
+
+  test('shares duplicated arguments by identity', () => {
+    const term = parse('(((((0 2) (1 2)) a) b) (u v))')
+    const out = resolve(term)
+    assert.deepEqual(out,
+                     [['a', ['u', 'v']],
+                      ['b', ['u', 'v']]])
+    assert.equal(out[0][1], out[1][1])
   })
 })

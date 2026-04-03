@@ -11,26 +11,38 @@
  * a collapse exposes it.
  */
 
-const isEmpty = pair => Array.isArray(pair) && pair.length === 0
-const isPair = pair => Array.isArray(pair) && pair.length === 2
-
 /**
  * Collapse one reachable redex under the leftmost-outermost schedule.
  *
  * If no collapse is reachable, the input pair is returned unchanged.
  *
+ * If `emit` is provided, it is called once with:
+ * `{ path, before, after }` where `path` is a "root..." string pointing at the
+ * reduced pair within the original input.
+ *
  * @param {*} pair
+ * @param {null | ((detail: { path: string, before: *, after: * }) => void)}
+ *                emit
  * @returns {*}
  */
-export const collapse = function collapse(pair) {
+export const collapse = (pair, emit = null) => {
   // TBD: Distinguish reducible structure from quoted data.
-  if (!isPair(pair)) return pair
+  const step = (node, path) => {
+    if (!Array.isArray(node) || node.length !== 2) {
+      return { node, changed: false }
+    }
 
-  const [left, right] = pair
-  if (isEmpty(left)) {
-    return right
+    const [left, right] = node
+    if (Array.isArray(left) && left.length === 0) {
+      emit?.({ path, before: node, after: right })
+      return { node: right, changed: true }
+    }
+
+    const nextLeft = step(left, `${path}0`)
+    return nextLeft.changed
+      ? { node: [nextLeft.node, right], changed: true }
+      : { node, changed: false }
   }
 
-  const nextLeft = collapse(left)
-  return nextLeft === left ? pair : [nextLeft, right]
+  return step(pair, 'root').node
 }

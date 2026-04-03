@@ -4,10 +4,7 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
          x3d, x3dtext, scene as x3scene }
   from '@pfern/elements-x3dom'
 import { coordinateAxes, gridXY } from '../../utils'
-import { build, materialize } from '../links.js'
-import { parse } from '../sexpr.js'
-import DEFAULT_SOURCE from '../source.lisp?raw'
-import { dashboard } from './dashboard'
+import { dashboard } from './dashboard.js'
 
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
@@ -40,10 +37,10 @@ const representative = (paths, byPath) => {
   return path ? `${path}0` : paths[0]
 }
 
-const graph = model => {
-  const ids = new Map()
-  const pair = materialize(...model, ids)
-  const canonical = id => ids.get(id) ?? id
+const graph = pair => {
+  // Canonicalize shared substructure by identity so repeated references render
+  // as one node (DAG) rather than duplicated as a tree.
+  const canonicalRef = new Map()
   const placed = new Map()
   const edges = []
   const h = Math.sqrt(3) / 2
@@ -54,9 +51,15 @@ const graph = model => {
       throw new Error('Lists must be empty or pairs')
     }
 
+    const canonical =
+      Array.isArray(pair)
+        ? (canonicalRef.get(pair) ?? (canonicalRef.set(pair, path), path))
+        : path
+
     placed.set(
       path,
       { id: path,
+        canonical,
         kind: isEmpty(pair) ? 'empty' : isLeaf(pair) ? 'leaf' : 'pair',
         label: isEmpty(pair) ? '()' : isLeaf(pair) ? String(pair) : '·',
         x: point.x,
@@ -88,12 +91,13 @@ const graph = model => {
         { x: 0, y: 0, z: 1 })
 
   const byPath = new Map([...placed.entries()])
+  const canonical = path => byPath.get(path)?.canonical ?? path
   const groups = new Map()
   const placedNodes = [...placed.values()]
   placedNodes
     .sort((a, b) => compare(a.id, b.id))
     .forEach(node => {
-      const id = canonical(node.id)
+      const id = node.canonical
       const group = groups.get(id) ?? []
       group.push(node.id)
       groups.set(id, group)
@@ -155,16 +159,14 @@ const style = (node, active) =>
             diffuseColor: '0.4 0.58 0.82',
             emissiveColor: '0.08 0.12 0.18' }
 
-const scene = (event, frame, model) => {
-  const { segments, nodes, canonical } = graph(model)
+const latticeScene = (pair, event = null) => {
+  const { segments, nodes, canonical } = graph(pair)
   const id = event?.path ? canonical(event.path) : null
   const reach = Math.max(1, ...nodes.map(node =>
     Math.max(Math.abs(node.x), Math.abs(node.y), Math.abs(node.z)))) + 1
   const linePoints = segments.flat()
   const lineIndex = segments.flatMap((_, index) =>
     [index * 2, index * 2 + 1, -1])
-
-  // console.log({ event, frame, model, id, reach, linePoints, lineIndex })
 
   return x3d(
     { width: '100%', height: '100%' },
@@ -198,9 +200,9 @@ const scene = (event, frame, model) => {
 
 export default dashboard(
   { title: 'Lattice',
-    hint: 'The same collapse kernel, suspended above the fixed observer plane.',
+    hint: 'Suspends the current pair graph above the fixed observer plane. Shared substructure is merged by identity.',
     kind: 'lattice',
-    scene: (pair, event = null, frame = null, model) =>
+    scene: pair =>
       pair === null
         ? pre('Parse an expression to view it.')
-        : scene(event, frame, model ?? build(pair ?? parse(DEFAULT_SOURCE))) })
+        : latticeScene(pair) })

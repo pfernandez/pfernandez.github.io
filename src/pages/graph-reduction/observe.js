@@ -6,7 +6,8 @@ import { collapse } from './collapse.js'
  * This is notebook/UI plumbing, not kernel semantics.
  *
  * @param {*} pair
- * @returns {{ after: *, changed: boolean, event: { path: string, before: *, after: * } | null }}
+ * @returns {{ after: *, changed: boolean,
+ *             event: { path: string, before: *, after: * } | null }}
  */
 export const observe = pair => {
   let localEvent = null

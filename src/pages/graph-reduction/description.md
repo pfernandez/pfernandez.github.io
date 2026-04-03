@@ -1,15 +1,32 @@
-<script type="module">
-  const { default: vis } = await md.import('./visualizations/lattice.js')
-</script>
+# Graph Reduction
 
-# Lattice
+This page uses a tiny S-expression surface syntax restricted to *binary pairs*:
 
-This scene keeps an XY grid fixed as the observer plane and suspends the
-current pair graph above it. The root stays anchored at the origin while the
-rest of the structure re-expresses itself around that contact point after each
-collapse event.
+- `()` is the empty list
+- `(a b)` is a pair (also used as an application node)
 
-See the [interactive lattice](/graph-reduction/visualizations/lattice).
+The core reducer is split into two small steps:
 
-<div id="lattice-demo" class="demo3d"></div>
-<script>render(vis(), document.getElementById('lattice-demo'))</script>
+- `resolve` instantiates *motifs* expressed with non-negative integer indices.
+  Indices are in **fill order**: in `(((f x) y) z)`, the environment is
+  `[x, y, z]`, so `0 -> x`, `1 -> y`, `2 -> z`, etc.
+- `collapse` performs one leftmost-outermost step of the single rewrite:
+  `(() x) -> x`
+
+Example motif (S kernel body):
+
+```
+((0 2) (1 2))
+```
+
+Applied as:
+
+```
+(((((0 2) (1 2)) a) b) c)
+```
+
+`resolve` reduces that in one step to:
+
+```
+((a c) (b c))
+```

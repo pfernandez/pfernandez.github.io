@@ -1,10 +1,12 @@
 ; Binary pairs only: () or (a b)
 ; Collapse rule: (() x) -> x
+;
+; I = ()  ; index 0
+; S = (() (() (() ((0 2) (1 2)))))  ; index 2
+;
+; (() a)  ; I a -> a
+; K is not representable in the "indices only" encoding if an argument is unused
+; (because arity is inferred from the largest index referenced).
+; (((((0 2) (1 2)) a) b) c)  ; S a b c -> ((a c) (b c))
 
-; I = (() #0)
-; K = (() (() #1))
-; S = (() (() (() ((#2 #0) (#1 #0)))))
-; ((() #0) a)  ; I a
-; (((() (() #1)) a) b)  ; K a b
-((((() (() (() ((#2 #0) (#1 #0))))) a) b) c)  ; S a b c
-
+(((((0 2) (1 2)) a) b) c)
