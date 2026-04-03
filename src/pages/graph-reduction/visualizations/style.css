@@ -143,59 +143,6 @@
   display: block;
 }
 
-/* Proofs */
-
-.proofs-page h2 {
-  margin: 1.5em 0 0;
-}
-
-.proofs-page h3 {
-  margin-top: 1.5em;
-  padding-bottom: 0.5em;
-  border-bottom: 1px solid light-dark(#ccc, #333);
-}
-
-.proofs-meta {
-  font-size: smaller;
-  font-style: italic;
-}
-
-.proof {
-  border-bottom: 1px solid light-dark(#ccc, #333);
-  margin-bottom: 1rem;
-}
-
-.proof:last-child {
-  margin-bottom: 0;
-}
-
-.proofs-badge {
-  display: inline-block;
-  margin-left: 0.45rem;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.proofs-badge.pass {
-  background: color-mix(in oklab, #2f8f55 18%, Canvas);
-  color: color-mix(in oklab, #1f5f39 78%, CanvasText);
-}
-
-.proofs-badge.fail {
-  background: color-mix(in oklab, #c84f3a 18%, Canvas);
-  color: color-mix(in oklab, #7a2417 80%, CanvasText);
-}
-
-.proofs-badge.pending {
-  background: color-mix(in oklab, #ad7a21 18%, Canvas);
-  color: color-mix(in oklab, #684812 80%, CanvasText);
-}
-
 @media (max-width: 980px) {
   .dashboard {
     grid-template-columns: 1fr;
@@ -220,8 +167,7 @@
     display: block;
   }
 
-  .dashboard,
-  .proofs-page {
+  .dashboard {
     padding-top: 2.5rem;
   }
 

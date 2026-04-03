@@ -12,8 +12,6 @@ export default
                     { label: 'Lattice',
                       file: 'visualizations/lattice.js' },
                     { label: 'Description',
-                      file: 'description.md' },
-                    { label: 'Proofs',
-                      file: 'visualizations/proofs.js' }]}],
+                      file: 'description.md' }]}],
   markdownGlobals: () => ({ render }),
   keepAlive: true }

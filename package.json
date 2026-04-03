@@ -9,7 +9,6 @@
     "dev": "vite",
     "build": "vite build && node scripts/prerender.js",
     "preview": "vite preview",
-    "proofs": "node scripts/proofs.js",
     "test": "find src -name '*.test.js' -print0 | xargs -0 node --test --test-reporter spec",
     "prerender": "node scripts/prerender.js"
   },

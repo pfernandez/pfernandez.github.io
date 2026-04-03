@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
+import { collapse } from './collapse.js'
 import { parse, resolve, serialize } from './sexpr.js'
+
+const normalizeCollapse = pair => {
+  const steps = []
+  let current = pair
+
+  while (true) {
+    const next = collapse(current)
+    if (next === current) return { after: current, steps }
+    steps.push(next)
+    current = next
+  }
+}
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -99,5 +112,39 @@ describe('resolve', () => {
                      [['a', ['u', 'v']],
                       ['b', ['u', 'v']]])
     assert.equal(out[0][1], out[1][1])
+  })
+})
+
+describe('motifs', () => {
+  test('expanded pair-local S transport collapses to the compact motif', () => {
+    const expanded = parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')
+    const normalized = normalizeCollapse(expanded)
+
+    assert.deepEqual(
+      normalized.steps,
+      [parse('((((() (() ((0 2) (1 2)))) a) b) c)'),
+       parse('((((() ((0 2) (1 2))) a) b) c)'),
+       parse('(((((0 2) (1 2)) a) b) c)')]
+    )
+    assert.deepEqual(normalized.after,
+                     parse('(((((0 2) (1 2)) a) b) c)'))
+  })
+
+  test('expanded and compact S agree once pair-local transport is erased', () => {
+    const expanded = parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')
+    const compact = parse('(((((0 2) (1 2)) a) b) c)')
+
+    assert.deepEqual(resolve(normalizeCollapse(expanded).after),
+                     resolve(compact))
+  })
+})
+
+describe('K boundary', () => {
+  test('indices-only motifs cannot express an unused extra argument', () => {
+    const oneArg = parse('(0 a)')
+    const twoArgs = parse('((0 a) b)')
+
+    assert.equal(resolve(oneArg), 'a')
+    assert.equal(resolve(twoArgs), twoArgs)
   })
 })
