@@ -1,6 +1,7 @@
 import { circle, g, line, pre, svg, text as svgText } from '@pfern/elements'
 import { dashboard } from './dashboard.js'
 import { layout } from '../layout.js'
+import { serialize } from '../sexpr.js'
 
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
@@ -17,6 +18,7 @@ const scene = pair => {
   const nodes = tree.nodes
     .slice()
     .sort((a, b) => compare(a.id, b.id))
+  const key = serialize(pair)
   const width = (bounds.width + pad * 2) * scale
   const height = (bounds.height + pad * 2) * scale
   const centerX = bounds.minX + bounds.width / 2
@@ -26,7 +28,8 @@ const scene = pair => {
 
   return pair === null
     ? pre('Parse an expression to view it.')
-    : svg({ viewBox: `${minX} ${minY} ${width} ${height}`,
+    : svg({ key,
+            viewBox: `${minX} ${minY} ${width} ${height}`,
             role: 'img',
             'aria-label': 'Collapse tree' },
           g({ class: 'edge-layer' },
