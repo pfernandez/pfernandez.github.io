@@ -3,7 +3,6 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
          material, shape, sphere, transform, viewpoint, worldInfo,
          x3d, x3dtext, scene as x3scene }
   from '@pfern/elements-x3dom'
-import { coordinateAxes, gridXY } from '../../utils'
 import { dashboard } from './dashboard.js'
 
 const compare = (a, b) =>
@@ -14,7 +13,6 @@ const isLeaf = pair => !Array.isArray(pair)
 const pos = ({ x, y, z }) => `${x} ${y} ${z}`
 const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
-const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
 const scale = (v, s) => ({ x: v.x * s, y: v.y * s, z: v.z * s })
 const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y,
                            y: a.z * b.x - a.x * b.z,
@@ -32,18 +30,14 @@ const rotate = (v, axis, angle) => {
              scale(u, dot(u, v) * (1 - c)))
 }
 
-const representative = (paths, byPath) => {
-  const path = paths.find(path => byPath.get(`${path}0`)?.kind === 'empty')
-  return path ? `${path}0` : paths[0]
-}
-
 const graph = pair => {
   // Canonicalize shared substructure by identity so repeated references render
   // as one node (DAG) rather than duplicated as a tree.
   const canonicalRef = new Map()
   const placed = new Map()
   const edges = []
-  const h = Math.sqrt(3) / 2
+  const edgeLength = 1
+  const spread = Math.PI / 6
   const fold = Math.acos(1 / 3)
 
   const place = (pair, path, point, forward, normal) => {
@@ -68,21 +62,20 @@ const graph = pair => {
 
     if (isLeaf(pair) || isEmpty(pair)) return
 
-    const tangent = unit(cross(normal, forward))
-    const leftPoint = add(point, add(scale(forward, h), scale(tangent, -0.5)))
-    const rightPoint = add(point, add(scale(forward, h), scale(tangent, 0.5)))
+    const leftDir = unit(rotate(forward, normal, spread))
+    const rightDir = unit(rotate(forward, normal, -spread))
+    const leftPoint = add(point, scale(leftDir, edgeLength))
+    const rightPoint = add(point, scale(rightDir, edgeLength))
     const leftPath = `${path}0`
     const rightPath = `${path}1`
-    const leftForward = unit(sub(leftPoint, point))
-    const rightForward = unit(sub(rightPoint, point))
-    const leftNormal = rotate(normal, leftForward, fold)
-    const rightNormal = rotate(normal, rightForward, -fold)
+    const leftNormal = rotate(normal, leftDir, fold)
+    const rightNormal = rotate(normal, rightDir, -fold)
 
     edges.push({ from: path, to: leftPath },
                { from: path, to: rightPath },
                { from: leftPath, to: rightPath })
-    place(pair[0], leftPath, leftPoint, leftForward, leftNormal)
-    place(pair[1], rightPath, rightPoint, rightForward, rightNormal)
+    place(pair[0], leftPath, leftPoint, leftDir, leftNormal)
+    place(pair[1], rightPath, rightPoint, rightDir, rightNormal)
   }
 
   place(pair, 'root',
@@ -105,9 +98,19 @@ const graph = pair => {
 
   const nodes = new Map()
   groups.forEach((paths, id) => {
-    const path = representative(paths, byPath)
-    const node = byPath.get(path)
-    nodes.set(id, { ...node, id, path })
+    const samples = paths.map(path => byPath.get(path))
+    const base = samples[0]
+    const total = samples.reduce(
+      (sum, node) => add(sum, node),
+      { x: 0, y: 0, z: 0 })
+    const point = scale(total, 1 / samples.length)
+
+    nodes.set(id,
+              { ...base,
+                id,
+                x: point.x,
+                y: point.y,
+                z: point.z })
   })
 
   const seen = new Set()
@@ -124,7 +127,7 @@ const graph = pair => {
     })
     .filter(Boolean)
 
-  return { segments, nodes: [...nodes.values()], canonical }
+  return { segments, nodes: [...nodes.values()] }
 }
 
 const label = text =>
@@ -167,15 +170,14 @@ const latticeScene = pair => {
     { width: '100%', height: '100%' },
     x3scene(
       worldInfo({ title: 'Lattice.x3d' }),
-      viewpoint({ position: `0 0 ${reach * 3 + 2}`,
+      viewpoint({ position: `0 0 ${reach * 2.8}`,
+                  centerOfRotation: '0 0 0',
                   description: 'Lattice' }),
-      gridXY(),
-      coordinateAxes(),
       linePoints.length === 0
         ? null
         : shape(
           appearance(
-            material({ emissiveColor: '0.22 0.22 0.22' })),
+            material({ emissiveColor: '0.25 0.25 0.25' })),
           indexedLineSet(
             { coordIndex: lineIndex.join(' ') },
             coordinate({ point: linePoints.map(pos).join(' ') }))),
@@ -195,7 +197,7 @@ const latticeScene = pair => {
 
 export default dashboard(
   { title: 'Lattice',
-    hint: 'Suspends the current pair graph above the fixed observer plane. Shared substructure is merged by identity.',
+    hint: 'Root stays at the origin. Each pair forms a local equilateral triangle; shared structure is merged by identity.',
     kind: 'lattice',
     scene: pair =>
       pair === null

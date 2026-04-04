@@ -107,12 +107,6 @@
   stroke-width: 0.03;
 }
 
-.tree .node.is-collapse circle {
-  fill: color-mix(in oklab, orange 32%, Canvas);
-  stroke: color-mix(in oklab, orange 40%, CanvasText);
-  stroke-width: 0.05;
-}
-
 .tree .node text {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
