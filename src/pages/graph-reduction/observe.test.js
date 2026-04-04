@@ -4,7 +4,7 @@ import { describe, test } from 'node:test'
 import { observe } from './observe.js'
 
 describe('observe', () => {
-  test('lifts the local event to the whole step', () => {
+  test('returns the whole-term result and the reduced path', () => {
     const observation = observe([[[], 'a'], 'b'])
 
     assert.deepEqual(observation.after, ['a', 'b'])
@@ -15,7 +15,7 @@ describe('observe', () => {
     assert.equal(observation.changed, true)
   })
 
-  test('reports no event when no collapse is available', () => {
+  test('returns no event when no collapse occurs', () => {
     const observation = observe(['a', 'b'])
 
     assert.equal(observation.changed, false)

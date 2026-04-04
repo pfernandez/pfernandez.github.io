@@ -90,14 +90,14 @@ describe('pair serializer', () => {
 })
 
 describe('resolve', () => {
-  test('resolves S in fill-order indices', () => {
+  test('resolves ((0 2) (1 2)) with fill-order slots', () => {
     const term = parse('(((((0 2) (1 2)) a) b) c)')
     assert.deepEqual(resolve(term),
                      [['a', 'c'],
                       ['b', 'c']])
   })
 
-  test('preserves extra args outside the motif', () => {
+  test('leaves extra applied args outside the resolved motif', () => {
     const term = parse('((((((0 2) (1 2)) a) b) c) d)')
     assert.deepEqual(resolve(term),
                      [[['a', 'c'],
@@ -105,7 +105,7 @@ describe('resolve', () => {
                       'd'])
   })
 
-  test('shares duplicated arguments by identity', () => {
+  test('reuses the same argument object at repeated slots', () => {
     const term = parse('(((((0 2) (1 2)) a) b) (u v))')
     const out = resolve(term)
     assert.deepEqual(out,
@@ -116,7 +116,7 @@ describe('resolve', () => {
 })
 
 describe('motifs', () => {
-  test('expanded pair-local S transport collapses to the compact motif', () => {
+  test('the expanded S scaffold collapses to the compact S motif', () => {
     const expanded = parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')
     const normalized = normalizeCollapse(expanded)
 
@@ -130,7 +130,7 @@ describe('motifs', () => {
                      parse('(((((0 2) (1 2)) a) b) c)'))
   })
 
-  test('expanded and compact S agree once pair-local transport is erased', () => {
+  test('expanded and compact S resolve to the same term', () => {
     const expanded = parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')
     const compact = parse('(((((0 2) (1 2)) a) b) c)')
 
@@ -140,11 +140,24 @@ describe('motifs', () => {
 })
 
 describe('K boundary', () => {
-  test('indices-only motifs cannot express an unused extra argument', () => {
+  test('an unused second argument is not consumed by indices alone', () => {
     const oneArg = parse('(0 a)')
     const twoArgs = parse('((0 a) b)')
 
     assert.equal(resolve(oneArg), 'a')
     assert.equal(resolve(twoArgs), twoArgs)
+  })
+})
+
+describe('identity', () => {
+  test('0 is identity at the resolve layer', () => {
+    assert.equal(resolve(parse('(0 x)')), 'x')
+  })
+
+  test('(() 0) composes resolve-identity with collapse-identity', () => {
+    const resolved = resolve(parse('((() 0) x)'))
+
+    assert.deepEqual(resolved, [[], 'x'])
+    assert.equal(collapse(resolved), 'x')
   })
 })
