@@ -1,0 +1,1 @@
+const f=(s,l=null)=>{const n=(e,a)=>{if(!Array.isArray(e)||e.length!==2)return{node:e,changed:!1};const[r,t]=e;if(Array.isArray(r)&&r.length===0)return l?.({path:a,before:e,after:t}),{node:t,changed:!0};const c=n(r,`${a}0`);return c.changed?{node:[c.node,t],changed:!0}:{node:e,changed:!1}};return n(s,"root").node};export{f as collapse};

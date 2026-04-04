@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1" name="viewport"><meta content="light dark" name="color-scheme"><link href="data:x-icon" rel="icon"><title>Graph Reduction · pfernandez.github.io</title><meta content="This page uses a tiny S-expression surface syntax restricted to *binary pairs*: - is the empty list - is a pair (also used as an application node) The core r…" name="description"><link crossorigin href="/assets/index-Dvi5gHbz.css" rel="stylesheet"></head><body class="container"><header><h1>pfernandez.github.io</h1></header><main class="grid"><aside><nav><section><summary>Graph Reduction</summary><ul><li><a class="" href="/graph-reduction/visualizations/tree">Tree</a></li><li><a class="" href="/graph-reduction/visualizations/lisp">Symbolic Expressions</a></li><li><a class="" href="/graph-reduction/visualizations/lattice">Lattice</a></li><li><a aria-current="page" class="active" href="/graph-reduction/description">Description</a></li></ul></section></nav></aside><section class="content"><article><h1>Graph Reduction</h1>
+<p>This page uses a tiny S-expression surface syntax restricted to <em>binary pairs</em>:</p>
+<ul>
+<li><code>()</code> is the empty list</li>
+<li><code>(a b)</code> is a pair (also used as an application node)</li>
+</ul>
+<p>The core reducer is split into two small steps:</p>
+<ul>
+<li><code>resolve</code> instantiates <em>motifs</em> expressed with non-negative integer indices.
+Indices are in <strong>fill order</strong>: in <code>(((f x) y) z)</code>, the environment is
+<code>[x, y, z]</code>, so <code>0 -&gt; x</code>, <code>1 -&gt; y</code>, <code>2 -&gt; z</code>, etc.</li>
+<li><code>collapse</code> performs one leftmost-outermost step of the single rewrite:
+<code>(() x) -&gt; x</code></li>
+</ul>
+<p>Example motif (S kernel body):</p>
+<pre><code>((0 2) (1 2))
+</code></pre>
+<p>Applied as:</p>
+<pre><code>(((((0 2) (1 2)) a) b) c)
+</code></pre>
+<p><code>resolve</code> reduces that in one step to:</p>
+<pre><code>((a c) (b c))
+</code></pre></article></section></main></body></html>

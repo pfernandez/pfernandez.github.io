@@ -1,0 +1,1 @@
+import{serialize as r}from"./sexpr-DPe4j6DJ.js";import{dashboard as s}from"./dashboard-Q2USzTZi.js";import"./index-Bob7fOwx.js";import"./collapse-D0cOjRLY.js";const a=s({title:"S-expressions",hint:"The same reducer as the tree view. Reduce performs one resolve+collapse tick.",kind:"lisp",scene:e=>r(e)});export{a as default};
