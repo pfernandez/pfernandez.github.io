@@ -59,6 +59,6 @@ const scene = pair => {
 
 export default dashboard(
   { title: 'Tree',
-    hint: 'Binary pairs only: `()` or `(a b)`. Reduce performs one resolve+collapse tick.',
+    hint: 'Binary pairs only: `()` or `(a b)`. Observation performs one tick.',
     kind: 'tree',
     scene })

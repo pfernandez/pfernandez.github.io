@@ -2,17 +2,18 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import { collapse } from './collapse.js'
-import { parse, resolve, serialize } from './sexpr.js'
+import { observe } from './observe.js'
+import { build, parse, serialize } from './sexpr.js'
 
-const normalizeCollapse = pair => {
+const normalizeObserve = pair => {
   const steps = []
   let current = pair
 
   while (true) {
-    const next = collapse(current)
-    if (next === current) return { after: current, steps }
-    steps.push(next)
-    current = next
+    const observation = observe(current)
+    if (!observation.changed) return { after: current, steps }
+    steps.push(observation.after)
+    current = observation.after
   }
 }
 
@@ -89,17 +90,17 @@ describe('pair serializer', () => {
   })
 })
 
-describe('resolve', () => {
-  test('resolves ((0 2) (1 2)) with fill-order slots', () => {
+describe('build', () => {
+  test('builds ((0 2) (1 2)) with fill-order slots', () => {
     const term = parse('(((((0 2) (1 2)) a) b) c)')
-    assert.deepEqual(resolve(term),
+    assert.deepEqual(build(term),
                      [['a', 'c'],
                       ['b', 'c']])
   })
 
-  test('leaves extra applied args outside the resolved motif', () => {
+  test('leaves extra applied args outside the built motif', () => {
     const term = parse('((((((0 2) (1 2)) a) b) c) d)')
-    assert.deepEqual(resolve(term),
+    assert.deepEqual(build(term),
                      [[['a', 'c'],
                        ['b', 'c']],
                       'd'])
@@ -107,7 +108,7 @@ describe('resolve', () => {
 
   test('reuses the same argument object at repeated slots', () => {
     const term = parse('(((((0 2) (1 2)) a) b) (u v))')
-    const out = resolve(term)
+    const out = build(term)
     assert.deepEqual(out,
                      [['a', ['u', 'v']],
                       ['b', ['u', 'v']]])
@@ -118,7 +119,7 @@ describe('resolve', () => {
 describe('motifs', () => {
   test('the expanded S scaffold collapses to the compact S motif', () => {
     const expanded = parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')
-    const normalized = normalizeCollapse(expanded)
+    const normalized = normalizeObserve(expanded)
 
     assert.deepEqual(
       normalized.steps,
@@ -130,32 +131,38 @@ describe('motifs', () => {
                      parse('(((((0 2) (1 2)) a) b) c)'))
   })
 
-  test('expanded and compact S resolve to the same term', () => {
+  test('expanded and compact S build to the same term', () => {
     const expanded = parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')
     const compact = parse('(((((0 2) (1 2)) a) b) c)')
 
-    assert.deepEqual(resolve(normalizeCollapse(expanded).after),
-                     resolve(compact))
+    assert.deepEqual(build(normalizeObserve(expanded).after),
+                     build(compact))
   })
 })
 
 describe('K boundary', () => {
-  test('an unused second argument is not consumed by indices alone', () => {
-    const oneArg = parse('(0 a)')
-    const twoArgs = parse('((0 a) b)')
+  test('an unused second argument stays outside the observed result', () => {
+    const oneArg = build(parse('(0 a)'))
+    const twoArgs = build(parse('((0 a) b)'))
 
-    assert.equal(resolve(oneArg), 'a')
-    assert.equal(resolve(twoArgs), twoArgs)
+    assert.equal(build(oneArg), 'a')
+    assert.deepEqual(build(twoArgs), ['a', 'b'])
+
+    // FIXME: K would require observation to expose the first argument while
+    // leaving the second unreachable; the current build/observe split cannot
+    // express that yet.
+    assert.equal(observe(build(oneArg).after), 'a')   // undefined
+    assert.equal(observe(build(twoArgs).after), 'a')  // undefined
   })
 })
 
 describe('identity', () => {
-  test('0 is identity at the resolve layer', () => {
-    assert.equal(resolve(parse('(0 x)')), 'x')
+  test('0 is identity at the build layer', () => {
+    assert.equal(build(parse('(0 x)')), 'x')
   })
 
-  test('(() 0) composes resolve-identity with collapse-identity', () => {
-    const resolved = resolve(parse('((() 0) x)'))
+  test('(() 0) composes build-identity with collapse-identity', () => {
+    const resolved = build(parse('((() 0) x)'))
 
     assert.deepEqual(resolved, [[], 'x'])
     assert.equal(collapse(resolved), 'x')

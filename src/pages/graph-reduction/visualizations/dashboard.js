@@ -1,14 +1,12 @@
 import { button, component, div, h2, label, p, pre, textarea } from '@pfern/elements'
-import { parse, resolve } from '../sexpr.js'
+import { build, parse } from '../sexpr.js'
 import DEFAULT_SOURCE_TEXT from '../source.lisp?raw'
 import './style.css'
-import { collapse } from '../collapse.js'
+import { observe } from '../observe.js'
 
 export const DEFAULT_SOURCE = DEFAULT_SOURCE_TEXT
 
-// One reduction "tick" in the UI: one leftmost-outermost resolve step, then one
-// leftmost-outermost collapse step (`(() x) -> x`).
-const step = pair => collapse(resolve(pair))
+const tick = pair => observe(build(pair)).after
 
 const state = source => {
   try {
@@ -48,10 +46,10 @@ export const dashboard = ({
     const classes = ['dashboard', kind].filter(Boolean).join(' ')
     const hintContent = Array.isArray(hint) ? hint : [hint]
 
-    const reduce = () => {
+    const observeNext = () => {
       if (stable || !Array.isArray(pair)) return
 
-      const next = step(pair)
+      const next = tick(pair)
       return next === pair
         ? view({
           source,
@@ -94,8 +92,8 @@ export const dashboard = ({
           div({ class: 'row' },
               button({ onclick: () => load(view, DEFAULT_SOURCE) },
                      'Reset'),
-              button({ onclick: reduce, disabled: !!error || stable },
-                     stable ? 'Stable' : 'Reduce'),
+              button({ onclick: observeNext, disabled: !!error || stable },
+                     stable ? 'Stable' : 'Observe'),
               button({ onclick: undo, disabled: history.length === 0 },
                      'Undo')),
 

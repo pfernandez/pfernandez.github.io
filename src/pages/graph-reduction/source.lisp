@@ -1,7 +1,8 @@
 ; Binary pairs only: () or (a b)
 ; Collapse rule: (() x) -> x
 ;
-; I = ()  ; index 0
+; 0 is identity at the build layer
+; () is identity at the collapse layer
 ; S = (() (() (() ((0 2) (1 2)))))  ; index 2
 ;
 ; (() a)  ; I a -> a

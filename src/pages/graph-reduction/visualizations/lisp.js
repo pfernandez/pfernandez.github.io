@@ -3,6 +3,6 @@ import { dashboard } from './dashboard.js'
 
 export default dashboard(
   { title: 'S-expressions',
-    hint: 'The same reducer as the tree view. Reduce performs one resolve+collapse tick.',
+    hint: 'The same build/observe pipeline as the tree view. Observation performs one tick.',
     kind: 'lisp',
     scene: pair => serialize(pair) })

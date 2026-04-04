@@ -68,19 +68,19 @@ export const serialize = pair => {
   return String(pair)
 }
 
-// Resolve De Bruijn-like indices (as non-negative integers) against an
+// Build De Bruijn-like motifs (as non-negative integers) against an
 // application spine, but with indices in *fill order*:
 // `(((f x) y) z)` makes an environment `[x, y, z]`, so `0 -> x`, `1 -> y`,
 // `2 -> z`, etc.
 //
 // Extra arguments *outside* the motif are preserved by the schedule: a term
-// like `((((((0 2) (1 2)) a) b) c) d)` resolves its left child first, yielding
+// like `((((((0 2) (1 2)) a) b) c) d)` builds its left child first, yielding
 // `(((a c) (b c)) d)`.
 //
-// Example (S): `(((((0 2) (1 2)) a) b) c)` resolves to `((a c) (b c))` and
+// Example (S): `(((((0 2) (1 2)) a) b) c)` builds to `((a c) (b c))` and
 // shares `c` by reference when `c` is a compound pair.
 //
-export const resolve = term => {
+export const build = term => {
   // Walk a term and report the largest De Bruijn index it mentions.
   // `-1` means "no indices here", so no environment is required.
   const maxIndex = node => {
@@ -122,8 +122,8 @@ export const resolve = term => {
     return [instantiate(node[0], env), instantiate(node[1], env)]
   }
 
-  // Try to resolve *at this node* (outermost), without descending.
-  const resolveHere = node => {
+  // Try to build *at this node* (outermost), without descending.
+  const buildHere = node => {
     if (!Array.isArray(node) || node.length !== 2) return node
 
     // Peel application nodes until we hit a motif (template) in function
@@ -142,7 +142,7 @@ export const resolve = term => {
     const arity = maxIndex(body) + 1
     if (arity === 0) return node
 
-    // A resolve-redex is exactly "motif applied to arity args".
+    // A build-redex is exactly "motif applied to arity args".
     // If there are extra args, this node is not the redex; the redex is
     // strictly inside the left child.
     if (args.length !== arity) return node
@@ -151,12 +151,12 @@ export const resolve = term => {
     return instantiate(body, env)
   }
 
-  const reduced = resolveHere(term)
+  const reduced = buildHere(term)
   if (reduced !== term) return reduced
 
   // Leftmost-outermost schedule: only descend into the left branch.
   if (!Array.isArray(term) || term.length !== 2) return term
   const [left, right] = term
-  const nextLeft = resolve(left)
+  const nextLeft = build(left)
   return nextLeft === left ? term : [nextLeft, right]
 }
