@@ -10,4 +10,4 @@
 ; (because arity is inferred from the largest index referenced).
 ; (((((0 2) (1 2)) a) b) c)  ; S a b c -> ((a c) (b c))
 
-(((((0 2) (1 2)) a) b) c)
+((() 0) x)

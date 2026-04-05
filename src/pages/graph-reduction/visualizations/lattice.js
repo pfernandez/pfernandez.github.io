@@ -1,9 +1,7 @@
-import { pre } from '@pfern/elements'
-import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
-         material, shape, sphere, transform, viewpoint, worldInfo,
-         x3d, x3dtext, scene as x3scene }
-  from '@pfern/elements-x3dom'
-import { dashboard } from './dashboard.js'
+import { appearance, billboard, coordinate, fontStyle, indexedLineSet, material,
+         shape, sphere, transform, viewpoint, worldInfo, x3d, x3dtext,
+         scene as x3scene } from '@pfern/elements-x3dom'
+import dashboard from './dashboard.js'
 
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
@@ -178,7 +176,7 @@ const graph = pair => {
 
     const canonical =
       Array.isArray(pair)
-        ? (canonicalRef.get(pair) ?? (canonicalRef.set(pair, path), path))
+        ? canonicalRef.get(pair) ?? (canonicalRef.set(pair, path), path)
         : path
 
     placed.set(
@@ -312,13 +310,13 @@ const style = node =>
       ? { radius: 0.12,
           diffuseColor: '0.82 0.46 0.18',
           emissiveColor: '0.2 0.08 0.03' }
-    : node.kind === 'empty'
-      ? { radius: 0.12,
-          diffuseColor: '0.72 0.58 0.14',
-          emissiveColor: '0.16 0.12 0.02' }
-      : { radius: 0.12,
-          diffuseColor: '0.4 0.58 0.82',
-          emissiveColor: '0.08 0.12 0.18' }
+      : node.kind === 'empty'
+        ? { radius: 0.12,
+            diffuseColor: '0.72 0.58 0.14',
+            emissiveColor: '0.16 0.12 0.02' }
+        : { radius: 0.12,
+            diffuseColor: '0.4 0.58 0.82',
+            emissiveColor: '0.08 0.12 0.18' }
 
 const latticeScene = pair => {
   const { segments, nodes } = graph(pair)
@@ -358,10 +356,10 @@ const latticeScene = pair => {
 }
 
 export default dashboard(
-  { title: 'Lattice',
-    hint: 'Root stays at the origin. Each pair forms a local equilateral triangle; shared structure is merged by identity.',
-    kind: 'lattice',
-    scene: pair =>
-      pair === null
-        ? pre('Parse an expression to view it.')
-        : latticeScene(pair) })
+  { className: 'lattice',
+    title: 'Lattice',
+    description: ['Root stays at the origin.',
+                  'Each pair forms a local equilateral triangle;',
+                  'shared structure is merged by identity.'].join(' '),
+    scene: latticeScene })
+

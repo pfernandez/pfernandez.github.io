@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-
 import { collapse } from './collapse.js'
 
 describe('collapse', () => {
@@ -21,3 +20,4 @@ describe('collapse', () => {
     assert.equal(collapse(nested), nested)
   })
 })
+

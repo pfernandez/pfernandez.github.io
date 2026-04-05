@@ -22,3 +22,4 @@ export const collapse = pair =>
   && pair[0].length === 0
     ? pair[1]
     : pair
+

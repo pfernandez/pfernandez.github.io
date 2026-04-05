@@ -36,7 +36,7 @@ const coordinates = (s, d) => {
 
 const { coordIndex, colorIndex, point } = coordinates(1, 10)
 
-export const gridXY = () =>
+export default () =>
   group(
     transform(
       { DEF: 'GridLocation', rotation: '1 0 0 1.57079' },

@@ -2,7 +2,7 @@ import { appearance, billboard, collision, cone, cylinder, fontStyle, group,
          material, shape, transform, x3dtext }
   from '@pfern/elements-x3dom'
 
-export const coordinateAxes = () =>
+export default () =>
   collision(
     { DEF: 'DoNotCollideWithVisualizationWidget' },
     group(

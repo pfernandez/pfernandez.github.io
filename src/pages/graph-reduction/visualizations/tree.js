@@ -1,5 +1,5 @@
 import { circle, g, line, pre, svg, text as svgText } from '@pfern/elements'
-import { dashboard } from './dashboard.js'
+import dashboard from './dashboard.js'
 import { layout } from '../layout.js'
 import { serialize } from '../sexpr.js'
 
@@ -58,7 +58,8 @@ const scene = pair => {
 }
 
 export default dashboard(
-  { title: 'Tree',
-    hint: 'Binary pairs only: `()` or `(a b)`. Observation performs one tick.',
-    kind: 'tree',
+  { className: 'tree',
+    title: 'Tree',
+    description: ['Binary pairs only: `()` or `(a b)`.',
+                  'Observation performs one tick.'].join(' '),
     scene })

@@ -8,7 +8,7 @@ export default
                                  document: 'readonly',
                                  window: 'readonly',
                                  process: 'readonly',
-                                 fetch: 'readonly' }},
+                                 fetch: 'readonly' } },
    rules: {
      'array-bracket-newline': ['warn', 'consistent'],
      'array-bracket-spacing': ['warn', 'never'],
@@ -50,7 +50,7 @@ export default
                          { allowParensAfterCommentPattern: '@type' }],
      'no-multiple-empty-lines': ['warn', { max: 2, maxEOF: 1 }],
      'no-multi-spaces': ['warn', { ignoreEOLComments: true,
-                                   exceptions: { Property: false }}],
+                                   exceptions: { Property: false } }],
      'no-trailing-spaces': 'warn',
      'no-undef': 'warn',
      'no-unused-vars': ['warn', { args: 'all',
@@ -58,13 +58,10 @@ export default
                                   argsIgnorePattern: '^_' }],
 
      'object-curly-newline': ['warn', { consistent: true }],
-     'object-curly-spacing': ['warn',
-                              'always',
-                              { arraysInObjects: false,
-                                objectsInObjects: false }],
+     'object-curly-spacing': ['warn', 'always'],
      'operator-linebreak': ['warn',
                             'before',
-                            { overrides: { '=': 'ignore' }}],
+                            { overrides: { '=': 'ignore' } }],
      'prefer-rest-params': 'warn',
      'quote-props': ['warn', 'as-needed'],
      quotes: ['warn', 'single'],
@@ -76,5 +73,5 @@ export default
      'spaced-comment': ['warn', 'always'],
      'space-in-parens': ['warn', 'never'],
      'space-infix-ops': 'warn'
-   }}]
+   } }]
 

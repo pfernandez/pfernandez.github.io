@@ -23,39 +23,45 @@ const tokenize = source =>
     .match(/[()]|[^()\s]+/g) ?? []
 
 export const parse = source => {
-  const tokens = tokenize(source)
-  if (!tokens.length) return []
+  try {
+    const tokens = tokenize(source)
+    if (!tokens.length) return []
 
-  let i = 0
-  const read = () => {
-    if (i >= tokens.length) throw new Error('Unexpected EOF while reading')
-    const token = tokens[i++]
+    let i = 0
+    const read = () => {
+      if (i >= tokens.length) throw new Error('Unexpected EOF while reading')
+      const token = tokens[i++]
 
-    if (token === '(') {
-      if (i >= tokens.length) throw new Error('Missing )')
-      if (tokens[i] === ')') {
+      if (token === '(') {
+        if (i >= tokens.length) throw new Error('Missing )')
+        if (tokens[i] === ')') {
+          i++
+          return []
+        }
+
+        const left = read()
+        const right = read()
+        if (i >= tokens.length) throw new Error('Missing )')
+        if (tokens[i] !== ')')
+          throw new Error('Lists must have exactly 2 elements')
         i++
-        return []
+        return [left, right]
       }
 
-      const left = read()
-      const right = read()
-      if (i >= tokens.length) throw new Error('Missing )')
-      if (tokens[i] !== ')')
-        throw new Error('Lists must have exactly 2 elements')
-      i++
-      return [left, right]
+      if (token === ')') throw new Error('Unexpected )')
+      const numberToken = Number(token)
+      return Number.isNaN(numberToken) ? token : numberToken
     }
 
-    if (token === ')') throw new Error('Unexpected )')
-    const numberToken = Number(token)
-    return Number.isNaN(numberToken) ? token : numberToken
+    const pair = read()
+    if (i !== tokens.length) throw new Error('Extra content after expression')
+
+    return pair
   }
-
-  const pair = read()
-  if (i !== tokens.length) throw new Error('Extra content after expression')
-
-  return pair
+  catch (error) {
+    console.error(error)
+    return error
+  }
 }
 
 export const serialize = pair => {

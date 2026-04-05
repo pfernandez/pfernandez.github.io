@@ -20,13 +20,12 @@ export function layout(pair) {
 
     if (isLeaf(pair) || isEmpty(pair)) {
       const x = nextLeafX++
-      nodes.push({
-        id,
-        kind: isEmpty(pair) ? 'empty' : 'leaf',
-        label: isEmpty(pair) ? '()' : String(pair),
-        x,
-        y: depth
-      })
+      nodes.push(
+        { id,
+          kind: isEmpty(pair) ? 'empty' : 'leaf',
+          label: isEmpty(pair) ? '()' : String(pair),
+          x,
+          y: depth })
 
       return x
     }
@@ -39,13 +38,12 @@ export function layout(pair) {
     const rightX = walk(pair[1], depth + 1, rightId)
     const x = (leftX + rightX) / 2
 
-    nodes.push({
-      id,
-      kind: 'pair',
-      label: '·',
-      x,
-      y: depth
-    })
+    nodes.push(
+      { id,
+        kind: 'pair',
+        label: '·',
+        x,
+        y: depth })
 
     return x
   }
