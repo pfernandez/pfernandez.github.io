@@ -1,35 +1,28 @@
-import { collapse } from './collapse.js'
 
 /**
  * Observe one whole collapse event from the root.
  *
- * @param {*} pair
- * @returns {{ after: *, changed: boolean,
- *             event: { path: string, before: *, after: * } | null }}
+ * @param {*} event
+ * @returns {*} pair
  */
-export const observe = pair => {
-  const tick = (node, path) => {
-    const after = collapse(node)
-    if (after !== node) {
-      return { after, changed: true, event: { path, before: node, after } }
-    }
+export const observe = event => {
+  const resolve = (pair = event) => {
+    // Atom
+    if (!(Array.isArray(pair) && pair.length)) return pair
 
-    if (!Array.isArray(node) || node.length !== 2) {
-      return { after: node, changed: false, event: null }
-    }
+    const [first, rest] = pair
 
-    const nextLeft = tick(node[0], `${path}0`)
-    return nextLeft.changed
-      ? { after: [nextLeft.after, node[1]],
-          changed: true,
-          event: nextLeft.event }
-      : { after: node, changed: false, event: null }
+    // Empty first child
+    if (!first.length) return rest
+
+    const next = resolve(first)
+
+    // Reduced fully
+    if (next === first) return pair
+
+    return next
   }
 
-  const ticked = tick(pair, 'root')
-  return ticked.changed
-    ? { after: ticked.after,
-        changed: true,
-        event: { path: ticked.event.path, before: pair, after: ticked.after }}
-    : { after: pair, changed: false, event: null }
+  return resolve(event)
 }
+

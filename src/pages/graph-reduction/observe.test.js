@@ -4,20 +4,29 @@ import { describe, test } from 'node:test'
 import { observe } from './observe.js'
 
 describe('observe', () => {
-  test('returns the whole-term result and the reduced path', () => {
-    const observation = observe([[[], 'a'], 'b'])
+  test('The empty pair acts as identity', () => {
+    const value = 'x'
+    const pair = ['a', 'b']
+    assert.equal(observe([[], value]), value)
+    assert.equal(observe([[], pair]), pair)
+    assert.deepEqual(observe([[], pair]), pair)
+  })
 
-    assert.deepEqual(observation.after, ['a', 'b'])
-    assert.deepEqual(observation.event,
-                     { path: 'root0',
-                       before: [[[], 'a'], 'b'],
-                       after: ['a', 'b'] })
-    assert.equal(observation.changed, true)
+  test('obvservation preserves referential identity', () => {
+    const value = 'x'
+    const empty = []
+    const pair = ['a', 'b']
+    const nested = [[[], 'a'], 'b']
+
+    assert.equal(observe(value), value)
+    assert.equal(observe(empty), empty)
+    assert.equal(observe(pair), pair)
+    assert.equal(observe(nested), nested)
   })
 
   test('takes the leftmost-outermost collapse step', () => {
-    assert.deepEqual(observe([[[], 'a'], 'b']).after, ['a', 'b'])
-    assert.deepEqual(observe([[], ['a', 'b']]).after, ['a', 'b'])
+    assert.deepEqual(observe([[[], 'a'], 'b']), ['a', 'b'])
+    assert.deepEqual(observe([[], ['a', 'b']]), ['a', 'b'])
   })
 
   test('reuses untouched branches by reference', () => {
@@ -25,24 +34,24 @@ describe('observe', () => {
     const root = [[[[], 'a'], 'b'], right]
     const observation = observe(root)
 
-    assert.deepEqual(observation.after, [['a', 'b'], right])
-    assert.equal(observation.after[1], right)
+    assert.deepEqual(observation, [['a', 'b'], right])
+    assert.equal(observation, right)
   })
 
-  test('does not reduce the right branch before the left branch', () => {
+  test('does not reduce the right branch', () => {
     const left = ['stay', 'put']
     const root = [left, [[], 'x']]
     const observation = observe(root)
 
-    assert.equal(observation.after, root)
-    assert.deepEqual(observation.after, root)
+    assert.equal(observation, root)
+    assert.deepEqual(observation, root)
   })
 
-  test('returns no event when no collapse occurs', () => {
-    const observation = observe(['a', 'b'])
+  test('returns the pair when no collapse occurs', () => {
+    const pair = ['a', 'b']
+    const observation = observe(pair)
 
-    assert.equal(observation.changed, false)
-    assert.equal(observation.event, null)
-    assert.deepEqual(observation.after, ['a', 'b'])
+    assert.equal(observation, pair)
+    assert.deepEqual(observation, ['a', 'b'])
   })
 })

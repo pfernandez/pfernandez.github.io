@@ -9,5 +9,4 @@
 ; K is not representable in the "indices only" encoding if an argument is unused
 ; (because arity is inferred from the largest index referenced).
 ; (((((0 2) (1 2)) a) b) c)  ; S a b c -> ((a c) (b c))
-
-((() 0) x)
+((((() (() (() ((0 2) (1 2))))) a) b) c)

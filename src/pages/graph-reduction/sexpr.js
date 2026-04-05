@@ -166,5 +166,6 @@ export const build = term => {
   if (!Array.isArray(term) || term.length !== 2) return term
   const [left, right] = term
   const nextLeft = build(left)
+
   return nextLeft === left ? term : [nextLeft, right]
 }

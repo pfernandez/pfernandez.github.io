@@ -20,9 +20,7 @@ export default ({ className, title, description, scene }) => {
 
     const tick = () => {
       if (!stable) {
-        console.log(JSON.stringify(pair))
-        const next = observe(pair).after
-        console.log(JSON.stringify(next))
+        const next = observe(pair)
         return dashboard({ source, pair: next, history: [...history, pair] })
       }
     }
