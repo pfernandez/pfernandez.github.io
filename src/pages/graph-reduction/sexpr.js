@@ -87,6 +87,8 @@ export const serialize = pair => {
 // shares `c` by reference when `c` is a compound pair.
 //
 export const build = term => {
+  console.log('Building', term)
+
   // Walk a term and report the largest De Bruijn index it mentions.
   // `-1` means "no indices here", so no environment is required.
   const maxIndex = node => {

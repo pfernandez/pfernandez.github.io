@@ -1,3 +1,5 @@
+import { collapse } from './collapse.js'
+
 /**
  * Observe one whole collapse event from the root.
  *
@@ -7,14 +9,7 @@
  */
 export const observe = pair => {
   const tick = (node, path) => {
-
-    // If the left child is empty, collapse to identity.
-    // TBD: Everything should be pairs, but for now we return atoms.
-    const after = Array.isArray(node)
-      && node.length === 2
-      && Array.isArray(node[0])
-      && node[0].length === 0 ? node[1] : node
-
+    const after = collapse(node)
     if (after !== node) {
       return { after, changed: true, event: { path, before: node, after } }
     }
@@ -35,6 +30,6 @@ export const observe = pair => {
   return ticked.changed
     ? { after: ticked.after,
         changed: true,
-        event: { path: ticked.event.path, before: pair, after: ticked.after } }
+        event: { path: ticked.event.path, before: pair, after: ticked.after }}
     : { after: pair, changed: false, event: null }
 }

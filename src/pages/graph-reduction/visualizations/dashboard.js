@@ -7,7 +7,7 @@ import { observe } from '../observe.js'
 export default ({ className, title, description, scene }) => {
   const dashboard = component(({
     source = DEFAULT_SOURCE,
-    pair = parse(source),
+    pair = build(parse(source)),  // instantiate the DAG from source text
     history = []
   } = {}) => {
     const last = history.length && history[history.length - 1]
@@ -18,15 +18,12 @@ export default ({ className, title, description, scene }) => {
     const undo = () =>
       last && dashboard({ source, pair: last, history: history.slice(0, -1) })
 
-    const next = () => {
+    const tick = () => {
       if (!stable) {
         console.log(JSON.stringify(pair))
-        const motif = build(pair)
-        console.log(JSON.stringify(motif))
-        const result = observe(motif).after
-        console.log(JSON.stringify(result))
-
-        return dashboard({ source, pair: result, history: [...history, pair] })
+        const next = observe(pair).after
+        console.log(JSON.stringify(next))
+        return dashboard({ source, pair: next, history: [...history, pair] })
       }
     }
 
@@ -42,12 +39,12 @@ export default ({ className, title, description, scene }) => {
                            spellcheck: false })),
 
           div({ class: 'row' },
-              button({ onclick: () => dashboard({ source: DEFAULT_SOURCE }) },
-                     'Reset'),
-              button({ onclick: next, disabled: stable || !!error },
+              button({ onclick: tick, disabled: stable || !!error },
                      stable ? 'Stable' : 'Next'),
               button({ onclick: undo, disabled: history.length === 0 },
-                     'Undo')),
+                     'Undo'),
+              button({ onclick: () => dashboard({ source: DEFAULT_SOURCE }) },
+                     'Reset')),
 
           div({ class: 'description' }, `Steps: ${history.length}`)),
 
