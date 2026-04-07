@@ -7,23 +7,25 @@ import { observe } from '../observe.js'
 export default ({ className, title, description, scene }) => {
   const dashboard = component(({
     source = DEFAULT_SOURCE,
-    pair = build(parse(source)),  // instantiate the DAG from source text
+    graph = build(parse(source)),  // instantiate the DAG from source text
     history = []
   } = {}) => {
-    const last = history.length && history[history.length - 1]
-    const stable = last === pair
     const error =
-      typeof pair === 'object' && !Array.isArray(pair) && String(pair)
+      typeof graph === 'object' && !Array.isArray(graph) && String(graph)
+
+    const next = observe(graph)
+
+    const stable = next === graph
+
+    const view = () =>
+      dashboard({ source, graph: next, history: [...history, graph] })
 
     const undo = () =>
-      last && dashboard({ source, pair: last, history: history.slice(0, -1) })
+      dashboard({ source,
+                  graph: history[history.length - 1],
+                  history: history.slice(0, -1) })
 
-    const tick = () => {
-      if (!stable) {
-        const next = observe(pair)
-        return dashboard({ source, pair: next, history: [...history, pair] })
-      }
-    }
+    const reset = () => dashboard({ source: DEFAULT_SOURCE })
 
     return div(
       { class: `dashboard ${className}` },
@@ -37,16 +39,14 @@ export default ({ className, title, description, scene }) => {
                            spellcheck: false })),
 
           div({ class: 'row' },
-              button({ onclick: tick, disabled: stable || !!error },
+              button({ onclick: view, disabled: stable || !!error },
                      stable ? 'Stable' : 'Next'),
-              button({ onclick: undo, disabled: history.length === 0 },
-                     'Undo'),
-              button({ onclick: () => dashboard({ source: DEFAULT_SOURCE }) },
-                     'Reset')),
+              button({ onclick: undo, disabled: history.length === 0 }, 'Undo'),
+              button({ onclick: reset }, 'Reset')),
 
           div({ class: 'description' }, `Steps: ${history.length}`)),
 
-      div({ class: 'panel scene' }, error || scene(pair)))
+      div({ class: 'panel scene' }, error || scene(graph)))
   })
 
   return dashboard

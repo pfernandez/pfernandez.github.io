@@ -1,28 +1,22 @@
-
 /**
- * Observe one whole collapse event from the root.
- *
- * @param {*} event
+ * @param {*} root
  * @returns {*} pair
  */
-export const observe = event => {
-  const resolve = (pair = event) => {
-    // Atom
-    if (!(Array.isArray(pair) && pair.length)) return pair
+export const observe = root => {
+  // Atom
+  if (!Array.isArray(root)) return root
 
-    const [first, rest] = pair
+  const [first, rest] = root
 
-    // Empty first child
-    if (!first.length) return rest
+  // Empty pair
+  if (Array.isArray(first) && !first.length) return rest
 
-    const next = resolve(first)
+  const next = observe(first)
 
-    // Reduced fully
-    if (next === first) return pair
+  // Normal form
+  if (next === first) return root
 
-    return next
-  }
-
-  return resolve(event)
+  // Next focus
+  return next
 }
 
