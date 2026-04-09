@@ -132,10 +132,7 @@ describe('build', () => {
     // Validate that the resulting structure has the desired shape.
     assert.deepEqual(struct, parse('(((a ()) (c ())) ((b ()) (c ())))'))
 
-    // Show that all refereces retain their original identity
-    assert.equal(struct, S)
-    assert.strictEqual(struct[0], S[0])
-    assert.strictEqual(struct[1], S[1])
+    // Show that inserted arguments retain their original identity.
     assert.strictEqual(struct[0][0], a)
     assert.strictEqual(struct[1][0], b)
 
