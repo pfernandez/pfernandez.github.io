@@ -72,9 +72,37 @@ export const serialize = pair => {
 }
 
 export const build = expr => {
+  const slots = node => {
+    if (typeof node === 'number') return node
+    if (!Array.isArray(node) || !node.length) return -1
+    return Math.max(slots(node[0]), slots(node[1]))
+  }
 
-  // TODO
+  const hasSlots = node => slots(node) >= 0
 
-  return expr
+  const fill = (node, args) => {
+    if (typeof node === 'number') {
+      if (node >= args.length) throw new Error(`Unbound slot: ${node}`)
+      return args[node]
+    }
+    if (!Array.isArray(node) || !node.length) return node
+    node[0] = fill(node[0], args)
+    node[1] = fill(node[1], args)
+    return node
+  }
+
+  const args = []
+  let head = expr
+  while (Array.isArray(head) && head.length === 2 && !hasSlots(head[1])) {
+    args.unshift(head[1])
+    head = head[0]
+  }
+
+  if (!args.length) return expr
+
+  const used = slots(head) + 1
+  let built = fill(head, args)
+  for (const arg of args.slice(used)) built = [built, arg]
+  return built
 }
 

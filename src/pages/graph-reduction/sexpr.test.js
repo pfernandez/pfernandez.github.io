@@ -53,9 +53,15 @@ describe('pair parser', () => {
     parse(')')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /Unexpected \)/i)
-    parse('(a b')
+    parse('(')
     assert.equal(mock.callCount(), 2)
     assert.match(mock.calls[1].arguments[0].message, /Missing \)/i)
+    parse('(a')
+    assert.equal(mock.callCount(), 3)
+    assert.match(mock.calls[2].arguments[0].message, /Unexpected EOF while reading/i)
+    parse('(a b')
+    assert.equal(mock.callCount(), 4)
+    assert.match(mock.calls[3].arguments[0].message, /Missing \)/i)
   })
 })
 
@@ -81,6 +87,11 @@ describe('pair serializer', () => {
       const pair = parse(source)
       assert.deepEqual(parse(serialize(pair)), pair)
     }
+  })
+
+  test('rejects non-pair arrays', () => {
+    assert.throws(() => serialize(['a']), /empty or pairs/i)
+    assert.throws(() => serialize(['a', 'b', 'c']), /empty or pairs/i)
   })
 })
 
@@ -122,7 +133,7 @@ describe('build', () => {
     assert.deepEqual(struct, parse('(((a ()) (c ())) ((b ()) (c ())))'))
 
     // Show that all refereces retain their original identity
-    // assert.equal(struct, S)
+    assert.equal(struct, S)
     assert.strictEqual(struct[0], S[0])
     assert.strictEqual(struct[1], S[1])
     assert.strictEqual(struct[0][0], a)
@@ -130,7 +141,16 @@ describe('build', () => {
 
     // and that multiple instances of the same argument are shared.
     assert.strictEqual(struct[0][1], c)
-    assert.strictEqual(struct[1][0], c)
+    assert.strictEqual(struct[1][1], c)
+  })
+
+  test('returns non-applications unchanged', () => {
+    assert.equal(build('x'), 'x')
+    assert.deepEqual(build([]), [])
+  })
+
+  test('rejects out-of-range slots', () => {
+    assert.throws(() => build(parse('(2 a)')), /Unbound slot: 2/)
   })
 })
 
@@ -156,4 +176,3 @@ describe('identity', () => {
     assert.equal(observe(expr), I('x'))
   })
 })
-
