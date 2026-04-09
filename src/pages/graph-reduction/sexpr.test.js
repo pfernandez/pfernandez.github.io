@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { build, parse, serialize } from './sexpr.js'
+import { observe } from './observe.js'
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -69,15 +70,12 @@ describe('pair serializer', () => {
   })
 
   test('round-trips valid terms through parse and serialize', () => {
-    const cases = [
-      '',
-      'foo',
-      '42',
-      '()',
-      '(a b)',
-      '((() a) (() b))',
-      '; comment\n((a b) ; inline\n (c d))'
-    ]
+    const cases = ['', 'foo',
+                   '42',
+                   '()',
+                   '(a b)',
+                   '((() a) (() b))',
+                   '; comment\n((a b) ; inline\n (c d))']
 
     for (const source of cases) {
       const pair = parse(source)
@@ -92,16 +90,70 @@ describe('build', () => {
     assert.deepEqual(build(term), [['a', 'c'], ['b', 'c']])
   })
 
-  test('leaves extra applied args outside the built motif', () => {
+  test('preserves empty pairs', () => {
+    assert.deepEqual(build(parse('(() a)')), [[], 'a'])
+    assert.deepEqual(build(parse('(a ())')), ['a', []])
+  })
+
+  test('preserves unused arguments', () => {
     const term = parse('((((((0 2) (1 2)) a) b) c) d)')
     assert.deepEqual(build(term), [[['a', 'c'], ['b', 'c']], 'd'])
   })
 
   test('reuses the same argument object at repeated slots', () => {
-    const term = parse('(((((0 2) (1 2)) a) b) (u v))')
-    const out = build(term)
-    assert.deepEqual(out, [['a', ['u', 'v']], ['b', ['u', 'v']]])
-    assert.equal(out[0][1], out[1][1])
+    // Wrap the arguments in array objects to comapare referential identity.
+    const a = ['a', []]
+    const b = ['b', []]
+    const c = ['c', []]
+
+    // Describe the desred result with reverse De Brujin indices.
+    const S = [[0, 2], [1, 2]]
+
+    // Construct the full expression.
+    const expr = [[[S, a], b], c]
+
+    // Validate that we've constructed it as the parser would.
+    assert.deepEqual(expr, parse('(((((0 2) (1 2)) (a ())) (b ())) (c ()))'))
+
+    // Replace the De Brujin numbers with direct argument references.
+    const struct = build(expr)
+
+    // Validate that the resulting structure has the desired shape.
+    assert.deepEqual(struct, parse('(((a ()) (c ())) ((b ()) (c ())))'))
+
+    // Show that all refereces retain their original identity
+    // assert.equal(struct, S)
+    assert.strictEqual(struct[0], S[0])
+    assert.strictEqual(struct[1], S[1])
+    assert.strictEqual(struct[0][0], a)
+    assert.strictEqual(struct[1][0], b)
+
+    // and that multiple instances of the same argument are shared.
+    assert.strictEqual(struct[0][1], c)
+    assert.strictEqual(struct[1][0], c)
+  })
+})
+
+describe('K boundary', () => {
+  test('an unused second argument stays outside the built result', () => {
+    const oneArg = parse('(0 a)')
+    const twoArgs = parse('((0 a) b)')
+
+    assert.equal(build(oneArg), 'a')
+    assert.deepEqual(build(twoArgs), ['a', 'b'])
+  })
+})
+
+describe('identity', () => {
+  test('0 behaves like () after build', () => {
+    assert.equal(observe(parse('(() x)')), 'x')
+    assert.equal(observe(build(parse('(0 x)'))), 'x')
+  })
+
+  test('() behaves like the identity function under observation', () => {
+    const I = x => x
+    const expr = parse('(() x)')
+    assert.equal(observe(expr), I('x'))
   })
 })
 
