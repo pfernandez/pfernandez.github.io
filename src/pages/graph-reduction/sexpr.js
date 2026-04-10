@@ -19,9 +19,6 @@
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
 
-const clean = source => source.replace(/;.*$/gm, '')
-
-const tokenize = source => clean(source).match(/[()]|[^()\s]+/g) ?? []
 
 const isPair = node => Array.isArray(node) && node.length === 2
 
@@ -58,7 +55,7 @@ const read = (tokens, i = 0) => {
  */
 export const parse = source => {
   try {
-    const tokens = tokenize(source)
+    const tokens = source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
     if (!tokens.length) return []
 
     const [pair, i] = read(tokens)

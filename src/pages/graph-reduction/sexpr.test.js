@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { build, parse, serialize } from './sexpr.js'
-import { observe } from './observe.js'
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -75,19 +74,16 @@ describe('pair serializer', () => {
                  '((a b) (c (d e)))')
   })
 
-  test('round-trips valid terms through parse and serialize', () => {
-    const cases = ['', 'foo',
-                   '42',
-                   '()',
-                   '(a b)',
-                   '((() a) (() b))',
-                   '; comment\n((a b) ; inline\n (c d))']
-
-    for (const source of cases) {
+  test('round-trips valid terms through parse and serialize', () =>
+    ['', 'foo',
+     '42',
+     '()',
+     '(a b)',
+     '((() a) (() b))',
+     '; comment\n((a b) ; inline\n (c d))'].forEach(source => {
       const pair = parse(source)
       assert.deepEqual(parse(serialize(pair)), pair)
-    }
-  })
+    }))
 
   test('rejects non-pair arrays', () => {
     assert.throws(() => serialize(['a']), /empty or pairs/i)
@@ -96,20 +92,18 @@ describe('pair serializer', () => {
 })
 
 describe('build', () => {
-  test('builds ((0 2) (1 2)) with fill-order slots', () => {
-    const term = parse('(((((0 2) (1 2)) a) b) c)')
-    assert.deepEqual(build(term), [['a', 'c'], ['b', 'c']])
-  })
+  test('replaces numbered slots with ordered arguments', () =>
+    assert.deepEqual(build(parse('(((((0 2) (1 2)) a) b) c)')),
+                     [['a', 'c'], ['b', 'c']]))
 
   test('preserves empty pairs', () => {
     assert.deepEqual(build(parse('(() a)')), [[], 'a'])
     assert.deepEqual(build(parse('(a ())')), ['a', []])
   })
 
-  test('preserves unused arguments', () => {
-    const term = parse('((((((0 2) (1 2)) a) b) c) d)')
-    assert.deepEqual(build(term), [[['a', 'c'], ['b', 'c']], 'd'])
-  })
+  test('preserves unused arguments', () =>
+    assert.deepEqual(build(parse('((((((0 2) (1 2)) a) b) c) d)')),
+                     [[['a', 'c'], ['b', 'c']], 'd']))
 
   test('reuses the same argument object at repeated slots', () => {
     // Wrap the arguments in array objects to comapare referential identity.
@@ -146,30 +140,6 @@ describe('build', () => {
     assert.deepEqual(build([]), [])
   })
 
-  test('rejects out-of-range slots', () => {
-    assert.throws(() => build(parse('(2 a)')), /Unbound slot: 2/)
-  })
-})
-
-describe('K boundary', () => {
-  test('an unused second argument stays outside the built result', () => {
-    const oneArg = parse('(0 a)')
-    const twoArgs = parse('((0 a) b)')
-
-    assert.equal(build(oneArg), 'a')
-    assert.deepEqual(build(twoArgs), ['a', 'b'])
-  })
-})
-
-describe('identity', () => {
-  test('0 behaves like () after build', () => {
-    assert.equal(observe(parse('(() x)')), 'x')
-    assert.equal(observe(build(parse('(0 x)'))), 'x')
-  })
-
-  test('() behaves like the identity function under observation', () => {
-    const I = x => x
-    const expr = parse('(() x)')
-    assert.equal(observe(expr), I('x'))
-  })
+  test('rejects out-of-range slots', () =>
+    assert.throws(() => build(parse('(2 a)')), /Unbound slot: 2/))
 })

@@ -3,7 +3,7 @@ import { describe, test } from 'node:test'
 import { observe } from './observe.js'
 
 describe('observe', () => {
-  test('obvservation preserves referential identity', () => {
+  test('preserves referential identity', () => {
     const pair = ['a', 'b']
     const nested = [[], pair]
     assert.equal(observe(pair), pair)
@@ -28,4 +28,3 @@ describe('observe', () => {
     assert.deepEqual(observation, ['a', 'b'])
   })
 })
-
