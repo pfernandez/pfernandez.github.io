@@ -85,10 +85,10 @@ export const serialize = pair => {
 }
 
 /**
- * Replaces numeric leaves in the application head with shared binder nodes
+ * Replaces numeric leaves in the application head with shared binder cells
  * gathered from the surrounding left-associated application spine, treating
- * numbers as reverse De Bruijn slots. Used arguments become binder cells
- * `[slot, arg]`, while unused outer arguments remain unchanged.
+ * numbers as reverse De Bruijn slots. The original argument positions remain
+ * unchanged.
  *
  * @param {*} expr
  * @returns {*}
@@ -119,7 +119,6 @@ export const build = expr => {
   const used = slots(head) + 1
   if (used > args.length) throw new Error(`Unbound slot: ${used - 1}`)
 
-  const binders = Array.from({ length: used }, () => [])
-  const linked = args.map((arg, i) => i < used ? [binders[i], arg] : arg)
-  return linked.reduce((built, arg) => [built, arg], fill(head, binders))
+  const binders = args.map((arg, i) => i < used ? [[], arg] : arg)
+  return args.reduce((built, arg) => [built, arg], fill(head, binders))
 }

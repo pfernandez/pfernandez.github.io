@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import { build, parse } from './sexpr.js'
 import { observe } from './observe.js'
 
 describe('observe', () => {
@@ -22,7 +23,12 @@ describe('observe', () => {
     assert.deepStrictEqual(observe(root)[1], root[1])
   })
 
+  test('steps into a built binder cell', () => {
+    const graph = build(parse('(0 a)'))
+    assert.deepStrictEqual(graph, [[[], 'a'], 'a'])
+    assert.strictEqual(observe(graph), 'a')
+  })
+
   test('returns the argument when no reduction occurs', () =>
     assert.deepStrictEqual(observe(stable), stable))
 })
-

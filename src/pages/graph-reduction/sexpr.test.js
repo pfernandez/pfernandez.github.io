@@ -108,11 +108,11 @@ describe('build', () => {
   // Construct the full expression.
   const expr = [[[S, a], b], c]
 
-  // Replace the numbered De Brujin targets with shared binder nodes.
+  // Replace the numbered De Brujin targets with shared binder cells.
   const struct = build(expr)
-  const expectedStruct = [[[[[[], []], [[], []]], [[], a]], [[], b]], [[], c]]
+  const expectedStruct = [[[[[[[], a], [[], c]], [[[], b], [[], c]]], a], b], c]
 
-  test('replaces numbered slots with shared binder nodes', () =>
+  test('replaces numbered slots with shared binder cells', () =>
     assert.deepStrictEqual(struct, expectedStruct))
 
   test('preserves unused arguments', () =>
@@ -127,35 +127,39 @@ describe('build', () => {
   test('preserves right empty pairs while evaluating left', () =>
     assert.deepStrictEqual(build([expr, []]), [expectedStruct, []]))
 
+  test('preserves atomic leaves inside instantiated heads', () =>
+    assert.deepStrictEqual(build(parse('((foo 0) a)')),
+                           [['foo', [[], 'a']], 'a']))
+
   test('returns strings unchanged', () => assert.strictEqual(build('x'), 'x'))
 
   test('returns numbers unchanged', () => assert.deepStrictEqual(build(0), 0))
 
   // Get the direct references at each node.
-  const [[[[[x, z0], [y, z1]], ax], by], cz] = struct
+  const [[[left, ax], by], cz] = struct
+  const [[x, z0], [y, z1]] = left
 
-  test('replaces slots with the left children of the new binder pairs.', () => {
-    assert.deepStrictEqual(ax[0], x)
-    assert.deepStrictEqual(by[0], y)
-    assert.deepStrictEqual(cz[0], z0)
+  test('leaves original argument positions unchanged', () => {
+    assert.strictEqual(ax, a)
+    assert.strictEqual(by, b)
+    assert.strictEqual(cz, c)
   })
 
-  test('replaces arguments with the right children of new binder pairs', () => {
-    assert.deepStrictEqual(ax[1], a)
-    assert.deepStrictEqual(by[1], b)
-    assert.deepStrictEqual(cz[1], c)
+  test('replaces slots with binder cells carrying the original arguments', () => {
+    assert.strictEqual(x[1], a)
+    assert.strictEqual(y[1], b)
+    assert.strictEqual(z0[1], c)
   })
 
-  test('replaces De Brujin numbers with empty pairs', () => {
-    assert.deepStrictEqual(x, [])
-    assert.deepStrictEqual(y, [])
-    assert.deepStrictEqual(z0, [])
-    assert.deepStrictEqual(z1, [])
+  test('replaces De Brujin numbers with binder cells whose left children are empty pairs', () => {
+    assert.deepStrictEqual(x[0], [])
+    assert.deepStrictEqual(y[0], [])
+    assert.deepStrictEqual(z0[0], [])
+    assert.deepStrictEqual(z1[0], [])
   })
 
-  test('shares the same binder nodes at repeated targets', () => {
-    assert.deepStrictEqual(z0, z1)
-  })
+  test('shares the same binder cells at repeated targets', () =>
+    assert.strictEqual(z0, z1))
 
   test('rejects out-of-range slots', () =>
     assert.throws(() => build(parse('(2 a)')), /Unbound slot: 2/))
@@ -164,9 +168,8 @@ describe('build', () => {
     assert.throws(() => build(parse('((0 1) a)')), /Unbound slot: 1/))
 
   test('returns a single linked input for one used argument', () =>
-    assert.deepEqual(build(parse('(0 a)')), [[], [[], 'a']]))
+    assert.deepEqual(build(parse('(0 a)')), [[[], 'a'], 'a']))
 
   test('leaves unused outer arguments outside the built result', () =>
-    assert.deepEqual(build(parse('((0 a) b)')), [[[], [[], 'a']], 'b']))
+    assert.deepEqual(build(parse('((0 a) b)')), [[[[], 'a'], 'a'], 'b']))
 })
-

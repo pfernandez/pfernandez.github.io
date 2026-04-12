@@ -1,4 +1,3 @@
-
 /**
  * @param {*} root
  * @returns {*} pair
@@ -9,7 +8,7 @@ export const observe = root => {
 
   const [first, rest] = root
 
-  // Empty pair
+  // Empty left
   if (Array.isArray(first) && !first.length) return rest
 
   const next = observe(first)
@@ -20,4 +19,3 @@ export const observe = root => {
   // Next focus
   return next
 }
-
