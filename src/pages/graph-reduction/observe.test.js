@@ -3,28 +3,26 @@ import { describe, test } from 'node:test'
 import { observe } from './observe.js'
 
 describe('observe', () => {
+  const emptyLeft = [[], 'a']
+  const stable = ['a', 'b']
+
   test('preserves referential identity', () => {
-    const pair = ['a', 'b']
-    const nested = [[], pair]
-    assert.equal(observe(pair), pair)
-    assert.equal(observe(nested), pair)
+    assert.deepStrictEqual(observe(stable), stable)
+    assert.deepStrictEqual(observe([[], stable]), stable)
   })
 
   test('returns right when left is empty', () =>
-    assert.deepEqual(observe([[], 'a']), 'a'))
+    assert.strictEqual(observe(emptyLeft), 'a'))
 
   test('discards right when left is not empty', () =>
-    assert.equal(observe([[[], 'a'], 'b']), 'a'))
+    assert.strictEqual(observe([emptyLeft, 'b']), 'a'))
 
   test('does not reduce the right branch', () => {
     const root = ['x', []]
-    assert.equal(observe(root)[1], root[1])
+    assert.deepStrictEqual(observe(root)[1], root[1])
   })
 
-  test('returns pair when no reduction occurs', () => {
-    const pair = ['a', 'b']
-    const observation = observe(pair)
-    assert.equal(observation, pair)
-    assert.deepEqual(observation, ['a', 'b'])
-  })
+  test('returns the argument when no reduction occurs', () =>
+    assert.deepStrictEqual(observe(stable), stable))
 })
+

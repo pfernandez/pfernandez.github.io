@@ -13,12 +13,10 @@ export default ({ className, title, description, scene }) => {
     const error =
       typeof graph === 'object' && !Array.isArray(graph) && String(graph)
 
-    const next = observe(graph)
-
-    const stable = next === graph
+    const stable = !!history.length && history[history.length - 1] === graph
 
     const view = () =>
-      dashboard({ source, graph: next, history: [...history, graph] })
+      dashboard({ source, graph: observe(graph), history: [...history, graph] })
 
     const undo = () =>
       dashboard({ source,
