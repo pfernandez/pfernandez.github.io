@@ -1,15 +1,17 @@
 /**
  * @module sexpr
  *
- * Parsing, serialization, and De Bruijn slot substitution for binary
- * S-expressions encoded as nested JS arrays.
+ * Parsing, serialization, and motif instantiation for pair-encoded
+ * S-expressions.
  *
  * We intentionally restrict surface S-expressions to a *binary* discipline:
  * every list must be either `()` or a 2-tuple `(a b)`. This keeps the output
  * isomorphic to a full binary tree / pairs encoding.
  *
  * Supported:
- * - Lists: `(a b)` → `['a', 'b']`
+ * - Binary expressions: `(a b)` → `['a', 'b']`
+ * - Program sources with `(def ...)` / `(defn ...)` forms and one final
+ *   expression
  * - Numbers: `42` → `42`
  * - Symbols: everything else as strings
  * - Line comments starting with `;`
@@ -21,6 +23,13 @@
 
 
 const isPair = node => Array.isArray(node) && node.length === 2
+const isList = Array.isArray
+
+const tokenize = source =>
+  source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
+
+const clone = node =>
+  isList(node) ? node.map(clone) : node
 
 const maxSlot = node => {
   if (typeof node === 'number') return node
@@ -54,20 +63,122 @@ const atom = token => {
 }
 
 const read = (tokens, i = 0) => {
-  if (i >= tokens.length) throw new Error('Unexpected EOF while reading')
-
   const token = tokens[i]
   if (token === ')') throw new Error('Unexpected )')
   if (token !== '(') return [atom(token), i + 1]
-  if (i + 1 >= tokens.length) throw new Error('Missing )')
-  if (tokens[i + 1] === ')') return [[], i + 2]
 
-  const [left, j] = read(tokens, i + 1)
-  const [right, k] = read(tokens, j)
+  const list = []
+  let cursor = i + 1
 
-  if (k >= tokens.length) throw new Error('Missing )')
-  if (tokens[k] !== ')') throw new Error('Lists must have exactly 2 elements')
-  return [[left, right], k + 1]
+  while (true) {
+    if (cursor >= tokens.length) throw new Error('Missing )')
+    if (tokens[cursor] === ')') return [list, cursor + 1]
+    const [value, next] = read(tokens, cursor)
+    list.push(value)
+    cursor = next
+  }
+}
+
+const toBinary = expr => {
+  if (!isList(expr)) return expr
+  if (expr.length === 0) return []
+  if (expr.length !== 2) throw new Error('Lists must have exactly 2 elements')
+  return [toBinary(expr[0]), toBinary(expr[1])]
+}
+
+const normalizeParamList = params => {
+  if (!isList(params)) throw new Error('defn params must be a list')
+  params.forEach(param => {
+    if (typeof param !== 'string') {
+      throw new Error('defn params must be symbols')
+    }
+  })
+  return params
+}
+
+const collectProgram = source => {
+  const tokens = tokenize(source)
+  const forms = []
+  let index = 0
+
+  while (index < tokens.length) {
+    const [form, next] = read(tokens, index)
+    forms.push(form)
+    index = next
+  }
+
+  return forms
+}
+
+const makeProgramEntry = (name, body) => ({ kind: 'def', name, body })
+const makeProgramFunction = (name, params, body) =>
+  ({ kind: 'defn', name, params, body })
+
+const normalizeDefinitionForm = form => {
+  if (!isList(form) || !form.length) return null
+  if (form[0] !== 'def' && form[0] !== 'defn') return null
+
+  if (form[0] === 'def') {
+    if (form.length < 3) throw new Error('Each form must be (def name body)')
+    const [, name, body] = form
+    if (typeof name !== 'string') throw new Error('def name must be a symbol')
+    return makeProgramEntry(name, body)
+  }
+
+  if (form[0] === 'defn') {
+    if (form.length < 4) throw new Error('Each form must be (defn name (x ...) body)')
+    const [, name, params, body] = form
+    if (typeof name !== 'string') throw new Error('defn name must be a symbol')
+    return makeProgramFunction(name, normalizeParamList(params), body)
+  }
+}
+
+const programTable = forms => {
+  const env = new Map()
+  let expr = null
+
+  forms.forEach(form => {
+    const definition = normalizeDefinitionForm(form)
+    if (definition) {
+      env.set(definition.name, definition)
+      return
+    }
+    expr = form
+  })
+
+  if (expr === null) throw new Error('Program must end with an expression')
+  return { env, expr }
+}
+
+const expandWithEnv = (expr, env, locals = [], stack = []) => {
+  if (!isList(expr)) {
+    if (typeof expr !== 'string') return expr
+
+    const localIndex = locals.indexOf(expr)
+    if (localIndex >= 0) return localIndex
+
+    const entry = env.get(expr)
+    if (!entry) return expr
+
+    if (stack.includes(expr)) {
+      throw new Error(`Recursive definitions are not supported: ${expr}`)
+    }
+
+    if (entry.kind === 'def') {
+      return clone(expandWithEnv(entry.body, env, [], [...stack, expr]))
+    }
+
+    return clone(expandWithEnv(entry.body,
+                               env,
+                               entry.params,
+                               [...stack, expr]))
+  }
+
+  if (expr.length === 0) return []
+  return expr.map(item => expandWithEnv(item, env, locals, stack))
+    .slice(1)
+    .reduce((left, right) => [left, right],
+            expandWithEnv(expr[0], env, locals, stack))
 }
 
 /**
@@ -81,12 +192,35 @@ const read = (tokens, i = 0) => {
  */
 export const parse = source => {
   try {
-    const tokens = source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
+    const tokens = tokenize(source)
     if (!tokens.length) return []
 
     const [pair, i] = read(tokens)
     if (i !== tokens.length) throw new Error('Extra content after expression')
-    return pair
+    return toBinary(pair)
+  }
+  catch (error) {
+    console.error(error)
+    return error
+  }
+}
+
+/**
+ * Parses a multi-form program source, expands `(def ...)` / `(defn ...)`
+ * definitions, and lowers the final expression to binary pairs.
+ *
+ * `defn` parameters become fill-order numeric slots: `(defn S (x y z) ...)`
+ * lowers `x -> 0`, `y -> 1`, `z -> 2`.
+ *
+ * @param {string} source
+ * @returns {*|Error}
+ */
+export const parseProgram = source => {
+  try {
+    const forms = collectProgram(source)
+    if (!forms.length) return []
+    const { env, expr } = programTable(forms)
+    return expandWithEnv(expr, env)
   }
   catch (error) {
     console.error(error)
