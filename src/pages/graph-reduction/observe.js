@@ -1,21 +1,19 @@
+const isPair = node => Array.isArray(node) && node.length === 2
+const isEmpty = node => Array.isArray(node) && node.length === 0
+
 /**
  * @param {*} root
  * @returns {*} pair
  */
 export const observe = root => {
-  // Atom
-  if (!Array.isArray(root)) return root
+  if (!isPair(root)) return root
 
   const [first, rest] = root
 
-  // Empty left
-  if (Array.isArray(first) && !first.length) return rest
+  if (isPair(first) && isEmpty(first[0])) return first[1]
 
   const next = observe(first)
-
-  // Normal form
   if (next === first) return root
 
-  // Next focus
-  return next
+  return [next, rest]
 }

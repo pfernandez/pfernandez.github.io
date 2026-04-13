@@ -1,13 +1,20 @@
 import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { build, parse } from '../sexpr.js'
+import { buildOne, parse } from '../sexpr.js'
 import DEFAULT_SOURCE from '../source.lisp?raw'
 import './style.css'
 import { observe } from '../observe.js'
 
+const hasSlots = node =>
+  (typeof node === 'number' && Number.isInteger(node) && node >= 0)
+  || (Array.isArray(node) && node.length === 2
+      && (hasSlots(node[0]) || hasSlots(node[1])))
+
+const step = graph => hasSlots(graph) ? buildOne(graph) : observe(graph)
+
 export default ({ className, title, description, scene }) => {
   const dashboard = component(({
     source = DEFAULT_SOURCE,
-    graph = build(parse(source)),  // instantiate the DAG from source text
+    graph = parse(source),
     history = []
   } = {}) => {
     const error =
@@ -16,7 +23,7 @@ export default ({ className, title, description, scene }) => {
     const stable = !!history.length && history[history.length - 1] === graph
 
     const view = () =>
-      dashboard({ source, graph: observe(graph), history: [...history, graph] })
+      dashboard({ source, graph: step(graph), history: [...history, graph] })
 
     const undo = () =>
       dashboard({ source,
@@ -33,7 +40,8 @@ export default ({ className, title, description, scene }) => {
 
           label('Program / expression',
                 textarea({ value: source,
-                           onchange: value => dashboard({ source: value }),
+                           onchange: value =>
+                             dashboard({ source: value, graph: parse(value) }),
                            spellcheck: false })),
 
           div({ class: 'row' },
@@ -49,4 +57,3 @@ export default ({ className, title, description, scene }) => {
 
   return dashboard
 }
-
