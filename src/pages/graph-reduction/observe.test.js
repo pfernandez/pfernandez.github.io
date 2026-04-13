@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { build, parse } from './sexpr.js'
+import { parse, parseProgram } from './sexpr.js'
 import { observe } from './observe.js'
 
 const reduce = (source, maxSteps = 16) => {
-  let term = build(parse(source))
+  let term = parseProgram(source)
 
   for (let i = 0; i < maxSteps; i++) {
     const next = observe(term)
@@ -39,10 +39,8 @@ describe('observe', () => {
     assert.deepStrictEqual(observe(root)[1], root[1])
   })
 
-  test('leaves a built identity result alone', () => {
-    const graph = build(parse('(0 a)'))
-    assert.deepStrictEqual(graph, 'a')
-    assert.strictEqual(observe(graph), 'a')
+  test('leaves a plain atom alone', () => {
+    assert.strictEqual(observe('a'), 'a')
   })
 
   test('returns the same pair when no reduction occurs', () =>
@@ -51,14 +49,47 @@ describe('observe', () => {
 
 describe('what basis does', () => {
   test('keeps b after reducing identity', () =>
-    assert.deepStrictEqual(reduce('((0 a) b)'), parse('(a b)')))
+    assert.deepStrictEqual(reduce(`
+      (defn I (x) x)
+      ((I a) b)
+    `), parse('(a b)')))
 
   test('keeps both copies of c in S', () =>
     assert.deepStrictEqual(
-      reduce('(((((0 2) (1 2)) a) b) c)'),
+      reduce(`
+        (defn S (x y z) ((x z) (y z)))
+        (((S a) b) c)
+      `),
       parse('((a c) (b c))')
     ))
 
   test('does not collapse (() a) on sight', () =>
     assert.deepStrictEqual(reduce('(() a)'), parse('(() a)')))
+})
+
+describe('program stepping', () => {
+  test('feeds a, then b, then c through wrapped S', () => {
+    const source = parseProgram(`
+      (defn S (x y z) ((x z) (y z)))
+      (((S a) b) c)
+    `)
+
+    const afterA = observe(source)
+    assert.deepEqual(afterA, parse('(((() (() ((a 1) (0 1)))) b) c)'))
+
+    const afterB = observe(afterA)
+    assert.deepEqual(afterB, parse('((() ((a 0) (b 0))) c)'))
+
+    const afterC = observe(afterB)
+    assert.deepEqual(afterC, parse('((a c) (b c))'))
+  })
+
+  test('instantiates I without forcing the outer argument', () => {
+    const source = parseProgram(`
+      (defn I (x) x)
+      ((I a) b)
+    `)
+
+    assert.deepEqual(observe(source), parse('(a b)'))
+  })
 })

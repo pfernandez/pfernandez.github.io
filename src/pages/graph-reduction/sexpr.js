@@ -1,8 +1,7 @@
 /**
  * @module sexpr
  *
- * Parsing, serialization, and motif instantiation for pair-encoded
- * S-expressions.
+ * Parsing and serialization for pair-encoded S-expressions.
  *
  * We intentionally restrict surface S-expressions to a *binary* discipline:
  * every list must be either `()` or a 2-tuple `(a b)`. This keeps the output
@@ -15,14 +14,11 @@
  * - Numbers: `42` → `42`
  * - Symbols: everything else as strings
  * - Line comments starting with `;`
- * - Building terms by replacing numeric leaves with reverse De Bruijn slots
- *   collected from the surrounding left-associated application spine
+ * - `defn` bodies lowered to nested wrapper pairs around reverse De Bruijn
+ *   slots, so `observe` can feed one argument at a time
  *
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
-
-
-const isPair = node => Array.isArray(node) && node.length === 2
 const isList = Array.isArray
 
 const tokenize = source =>
@@ -31,31 +27,8 @@ const tokenize = source =>
 const clone = node =>
   isList(node) ? node.map(clone) : node
 
-const maxSlot = node => {
-  if (typeof node === 'number') return node
-  if (!isPair(node)) return -1
-  return Math.max(maxSlot(node[0]), maxSlot(node[1]))
-}
-
-const unapply = node =>
-  isPair(node) && maxSlot(node[1]) < 0
-    ? (([head, args]) => [head, [...args, node[1]]])(unapply(node[0]))
-    : [node, []]
-
-const fill = (node, args) => {
-  if (typeof node === 'number') return args[node]
-  if (!isPair(node)) return node
-  return [fill(node[0], args), fill(node[1], args)]
-}
-
-const rebuild = (head, args) =>
-  args.reduce((outer, arg) => [outer, arg], head)
-
-const consumeFirst = (node, arg) => {
-  if (typeof node === 'number') return node === 0 ? arg : node - 1
-  if (!isPair(node)) return node
-  return [consumeFirst(node[0], arg), consumeFirst(node[1], arg)]
-}
+const wrapParams = (count, body) =>
+  count <= 0 ? body : [[], wrapParams(count - 1, body)]
 
 const atom = token => {
   const number = Number(token)
@@ -168,10 +141,11 @@ const expandWithEnv = (expr, env, locals = [], stack = []) => {
       return clone(expandWithEnv(entry.body, env, [], [...stack, expr]))
     }
 
-    return clone(expandWithEnv(entry.body,
-                               env,
-                               entry.params,
-                               [...stack, expr]))
+    return clone(wrapParams(entry.params.length,
+                            expandWithEnv(entry.body,
+                                          env,
+                                          entry.params,
+                                          [...stack, expr])))
   }
 
   if (expr.length === 0) return []
@@ -209,8 +183,9 @@ export const parse = source => {
  * Parses a multi-form program source, expands `(def ...)` / `(defn ...)`
  * definitions, and lowers the final expression to binary pairs.
  *
- * `defn` parameters become fill-order numeric slots: `(defn S (x y z) ...)`
- * lowers `x -> 0`, `y -> 1`, `z -> 2`.
+ * `defn` parameters become nested wrappers around fill-order numeric slots:
+ * `(defn S (x y z) ...)` lowers to `(() (() (() ...)))`, with
+ * `x -> 0`, `y -> 1`, `z -> 2` inside the body.
  *
  * @param {string} source
  * @returns {*|Error}
@@ -242,47 +217,4 @@ export const serialize = pair => {
   }
 
   return String(pair)
-}
-
-/**
- * Replaces numeric leaves in the application head with shared inputs gathered
- * from the surrounding left-associated application spine, treating numbers as
- * reverse De Bruijn slots. Used inputs are consumed by the head; any unused
- * outer inputs remain outside the built result.
- *
- * @param {*} expr
- * @returns {*}
- */
-export const build = expr => {
-  const [head, args] = unapply(expr)
-  if (!args.length) return expr
-
-  const used = maxSlot(head) + 1
-  if (used > args.length) throw new Error(`Unbound slot: ${used - 1}`)
-
-  const built = fill(head, args)
-  return rebuild(built, args.slice(used))
-}
-
-/**
- * Consumes one input from a left-associated motif application.
- *
- * This mirrors the visualizer in `~/basis` more closely than `build`:
- * one step fills one input, reindexes the remaining slots, and leaves the
- * remaining outer inputs in place.
- *
- * @param {*} expr
- * @returns {*}
- */
-export const buildOne = expr => {
-  const [head, args] = unapply(expr)
-  if (!args.length) return expr
-
-  const slot = maxSlot(head)
-  if (slot < 0) return expr
-
-  const used = slot + 1
-  if (used > args.length) throw new Error(`Unbound slot: ${used - 1}`)
-
-  return rebuild(consumeFirst(head, args[0]), args.slice(1))
 }

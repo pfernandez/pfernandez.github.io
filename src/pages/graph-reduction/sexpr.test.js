@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { build, buildOne, parse, parseProgram, serialize } from './sexpr.js'
+import { parse, parseProgram, serialize } from './sexpr.js'
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -128,7 +128,7 @@ describe('program parser', () => {
     assert.deepEqual(parseProgram(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
-    `), parse('(((((0 2) (1 2)) a) b) c)')))
+    `), parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')))
 
   test('expands zero-argument defns', () =>
     assert.equal(parseProgram(`
@@ -141,7 +141,7 @@ describe('program parser', () => {
       (defn I (x) x)
       (defn first (x y) x)
       ((first (I a)) b)
-    `), parse('((0 (0 a)) b)')))
+    `), parse('(((() (() 0)) ((() 0) a)) b)')))
 
   test('clones repeated definition expansions', () => {
     const tree = parseProgram(`
@@ -208,103 +208,4 @@ describe('program parser', () => {
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /recursive definitions/i)
   })
-})
-
-describe('build', () => {
-  // Wrap arguments in arrays to allow comparison by reference.
-  const a = ['a', []]
-  const b = ['b', []]
-  const c = ['c', []]
-
-  // Describe the desired result with reverse De Bruijn indices.
-  const S = [[0, 2], [1, 2]]
-
-  // Construct the full expression.
-  const expr = [[[S, a], b], c]
-
-  // Fill the numbered targets with shared inputs.
-  const struct = build(expr)
-  const expectedStruct = [[a, c], [b, c]]
-
-  test('fills the used inputs into the head', () =>
-    assert.deepStrictEqual(struct, expectedStruct))
-
-  test('keeps unused outer inputs outside', () =>
-    assert.deepStrictEqual([build(expr), 'd'], [expectedStruct, 'd']))
-
-  test('preserves left empty pairs without evaluating right', () =>
-    assert.deepStrictEqual(build([[], expr]), [[], expr]))
-
-  test('leaves empty pairs alone', () =>
-    assert.deepStrictEqual(build([]), []))
-
-  test('builds the left side without touching the right', () =>
-    assert.deepStrictEqual(build([expr, []]), [expectedStruct, []]))
-
-  test('fills plain names into the head', () =>
-    assert.deepStrictEqual(build(parse('((foo 0) a)')), ['foo', 'a']))
-
-  test('leaves strings alone', () => assert.strictEqual(build('x'), 'x'))
-
-  test('leaves numbers alone', () => assert.deepStrictEqual(build(0), 0))
-
-  const [[ax, z0], [by, z1]] = struct
-
-  test('keeps the original inputs in place', () => {
-    assert.strictEqual(ax, a)
-    assert.strictEqual(by, b)
-  })
-
-  test('reuses the same input where a slot repeats', () => {
-    assert.strictEqual(z0, c)
-    assert.strictEqual(z1, c)
-  })
-
-  test('shares the same repeated input', () =>
-    assert.strictEqual(z0, z1))
-
-  test('rejects out-of-range slots', () =>
-    assert.throws(() => build(parse('(2 a)')), /Unbound slot: 2/))
-
-  test('rejects slots beyond the collected spine', () =>
-    assert.throws(() => build(parse('((0 1) a)')), /Unbound slot: 1/))
-
-  test('fills one input directly', () =>
-    assert.deepEqual(build(parse('(0 a)')), 'a'))
-
-  test('leaves unused outer arguments outside the built result', () =>
-    assert.deepEqual(build(parse('((0 a) b)')), ['a', 'b']))
-
-  test('leaves (() a) alone', () =>
-    assert.deepEqual(build(parse('(() a)')), [[], 'a']))
-})
-
-describe('build one step at a time', () => {
-  test('leaves atoms alone', () =>
-    assert.equal(buildOne('x'), 'x'))
-
-  test('fills a before b before c in S', () => {
-    const source = parse('(((((0 2) (1 2)) a) b) c)')
-
-    const afterA = buildOne(source)
-    assert.deepEqual(afterA, parse('((((a 1) (0 1)) b) c)'))
-
-    const afterB = buildOne(afterA)
-    assert.deepEqual(afterB, parse('(((a 0) (b 0)) c)'))
-
-    const afterC = buildOne(afterB)
-    assert.deepEqual(afterC, parse('((a c) (b c))'))
-  })
-
-  test('drops the first input even when the head does not use it', () => {
-    const source = parse('((1 a) b)')
-    assert.deepEqual(buildOne(source), parse('(0 b)'))
-  })
-
-  test('rejects out-of-range slots one step at a time', () =>
-    assert.throws(() => buildOne(parse('((0 1) a)')), /Unbound slot: 1/))
-
-  test('leaves built terms alone', () =>
-    assert.deepEqual(buildOne(parse('((a c) (b c))')),
-                     parse('((a c) (b c))')))
 })

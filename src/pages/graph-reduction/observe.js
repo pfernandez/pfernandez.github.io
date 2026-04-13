@@ -1,5 +1,10 @@
 const isPair = node => Array.isArray(node) && node.length === 2
 const isEmpty = node => Array.isArray(node) && node.length === 0
+const feedArg = (body, arg) => {
+  if (typeof body === 'number') return body === 0 ? arg : body - 1
+  if (!isPair(body)) return body
+  return [feedArg(body[0], arg), feedArg(body[1], arg)]
+}
 
 /**
  * @param {*} root
@@ -10,7 +15,7 @@ export const observe = root => {
 
   const [first, rest] = root
 
-  if (isPair(first) && isEmpty(first[0])) return first[1]
+  if (isPair(first) && isEmpty(first[0])) return feedArg(first[1], rest)
 
   const next = observe(first)
   if (next === first) return root

@@ -1,6 +1,6 @@
 ; Basis-style program source.
-; The parser expands `def` and `defn` forms, then lowers the final expression
-; into the pair-only motif language used by this page.
+; The parser expands `def` and `defn` forms, wrapping function bodies in
+; nested `(() ...)` pairs so that `observe` can feed one argument at a time.
 
 (defn I (x) x)
 (def id I)
@@ -59,5 +59,6 @@
 ; (((S a) b) c)
 ; (((pair a) b) left)
 ; ((((add one) two) f) x)
+; ((I a) b)
 
 (((S a) b) c)

@@ -1,15 +1,8 @@
 import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { buildOne, parseProgram } from '../sexpr.js'
+import { parseProgram } from '../sexpr.js'
 import DEFAULT_SOURCE from '../source.lisp?raw'
 import './style.css'
 import { observe } from '../observe.js'
-
-const hasSlots = node =>
-  (typeof node === 'number' && Number.isInteger(node) && node >= 0)
-  || (Array.isArray(node) && node.length === 2
-      && (hasSlots(node[0]) || hasSlots(node[1])))
-
-const step = graph => hasSlots(graph) ? buildOne(graph) : observe(graph)
 
 export default ({ className, title, description, scene }) => {
   const dashboard = component(({
@@ -23,7 +16,7 @@ export default ({ className, title, description, scene }) => {
     const stable = !!history.length && history[history.length - 1] === graph
 
     const view = () =>
-      dashboard({ source, graph: step(graph), history: [...history, graph] })
+      dashboard({ source, graph: observe(graph), history: [...history, graph] })
 
     const undo = () =>
       dashboard({ source,
