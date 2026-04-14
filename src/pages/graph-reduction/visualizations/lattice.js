@@ -10,41 +10,50 @@ const isSlot = node =>
 
 const H = Math.sqrt(3) / 2
 const T = Math.sqrt(2 / 3)
-const ROOT = { x: 0, y: 0, z: 0 }
-const ROOT_AWAY = { x: 0, y: -1, z: 0 }
-const ROOT_NORMAL = { x: 0, y: 0, z: 1 }
+const ROOT_TRIANGLE =
+  [{ x: -0.5, y: -H / 3, z: 0 },
+   { x: 0.5, y: -H / 3, z: 0 },
+   { x: 0, y: (2 * H) / 3, z: 0 }]
 
-const pos = ({ x, y, z }) => `${x} ${y} ${z}`
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
+const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
 const scale = (v, s) => ({ x: v.x * s, y: v.y * s, z: v.z * s })
+const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z
 const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y,
                            y: a.z * b.x - a.x * b.z,
                            z: a.x * b.y - a.y * b.x })
 const length = v => Math.hypot(v.x, v.y, v.z)
 const unit = v => {
   const size = length(v)
-  return size === 0 ? ROOT_NORMAL : scale(v, 1 / size)
+  return size === 0 ? { x: 0, y: 0, z: 1 } : scale(v, 1 / size)
+}
+const pos = ({ x, y, z }) => `${x} ${y} ${z}`
+const centroid = ([a, b, c]) => scale(add(add(a, b), c), 1 / 3)
+const triNormal = ([a, b, c]) => unit(cross(sub(b, a), sub(c, a)))
+
+const reflectAcrossEdge = (point, a, b) => {
+  const edge = unit(sub(b, a))
+  const projection = add(a, scale(edge, dot(sub(point, a), edge)))
+  return sub(point, scale(sub(point, projection), 2))
 }
 
-const branchVectors = (away, normal, lifted = false) => {
-  const side = unit(cross(away, normal))
-  const left = add(scale(away, H), scale(side, 0.5))
-  const right =
-    lifted
-      ? add(scale(away, (2 * H) / 3), scale(normal, T))
-      : add(scale(away, H), scale(side, -0.5))
+const tetraApex = triangle =>
+  add(centroid(triangle), scale(triNormal(triangle), T))
 
-  return { left, right, normal: unit(cross(left, right)) }
+const leftChildTriangle = ([a, b, c]) => [a, c, reflectAcrossEdge(b, a, c)]
+
+const rightChildTriangle = (triangle, lifted = false) => {
+  const [a, b, c] = triangle
+  return [c, b, lifted ? tetraApex(triangle) : reflectAcrossEdge(a, c, b)]
 }
 
-const pairWire = (right, tone = '0.25 0.25 0.25') =>
-  shape(
-    appearance(material({ emissiveColor: tone })),
-    indexedLineSet(
-      { coordIndex: '0 1 2 0 -1' },
-      coordinate({ point: [ROOT,
-                           add(ROOT, right.left),
-                           add(ROOT, right.right)].map(pos).join(' ') })))
+const rounded = n => Math.round(n * 1e6) / 1e6
+const pointKey = point => `${rounded(point.x)},${rounded(point.y)},${rounded(point.z)}`
+const segmentKey = (a, b) => {
+  const left = pointKey(a)
+  const right = pointKey(b)
+  return left < right ? `${left}|${right}` : `${right}|${left}`
+}
 
 const nodeStyle = node =>
   isPair(node)
@@ -67,7 +76,7 @@ const label = text =>
   billboard(
     { axisOfRotation: '0 0 0' },
     transform(
-      { translation: '0 0.21 0' },
+      { translation: '0 0.18 0' },
       shape(
         appearance(
           material({ diffuseColor: '0.2 0.2 0.2',
@@ -78,9 +87,10 @@ const label = text =>
                       justify: '"MIDDLE" "MIDDLE"',
                       size: '.13' })))))
 
-const atom = node => {
+const nodeAt = (node, point) => {
   const style = nodeStyle(node)
   return transform(
+    { translation: pos(point) },
     shape(
       appearance(
         material({ diffuseColor: style.diffuseColor,
@@ -92,68 +102,66 @@ const atom = node => {
 const isActiveApplication = node =>
   isPair(node) && isPair(node[0]) && isEmpty(node[0][0])
 
-const depth = node =>
-  !isPair(node) ? 1 : 1 + Math.max(depth(node[0]), depth(node[1]))
+const edgeMap = cells => {
+  const edges = new Map()
+  cells.forEach(cell => {
+    const vertices = cell.triangle
+    ;[[vertices[0], vertices[1]],
+      [vertices[1], vertices[2]],
+      [vertices[2], vertices[0]]].forEach(([from, to]) => {
+      const key = segmentKey(from, to)
+      const tone = edges.get(key)
+      if (!tone || cell.tone !== '0.25 0.25 0.25') {
+        edges.set(key, { from, to, tone: cell.tone })
+      }
+    })
+  })
+  return [...edges.values()]
+}
 
-const nodeAt = (node, point) =>
-  transform({ translation: pos(point) }, atom(node))
+const walk = (node, triangle, search = true) => {
+  const activeHere = search && isActiveApplication(node)
+  const tone = activeHere ? '0.78 0.36 0.16' : '0.25 0.25 0.25'
+  const cells = [{ triangle, tone }]
+  const nodes = [{ node, point: centroid(triangle) }]
+  const points = [...triangle, centroid(triangle)]
 
-const walk = (node, frame, search = true) => {
-  const origin = frame.origin
-
-  if (!Array.isArray(node)) {
-    return { shapes: [nodeAt(node, origin)], reach: Math.max(Math.abs(origin.x),
-                                                             Math.abs(origin.y),
-                                                             Math.abs(origin.z)) }
-  }
-
-  if (node.length === 0) {
-    return { shapes: [nodeAt(node, origin)], reach: Math.max(Math.abs(origin.x),
-                                                             Math.abs(origin.y),
-                                                             Math.abs(origin.z)) }
-  }
-
+  if (!isPair(node)) return { cells, nodes, points }
+  if (node.length === 0) return { cells, nodes, points }
   if (node.length !== 2) throw new Error('Lists must be empty or pairs')
 
-  const activeHere = search && isActiveApplication(node)
-  const branches = branchVectors(frame.away, frame.normal, activeHere)
-  const leftPoint = add(origin, branches.left)
-  const rightPoint = add(origin, branches.right)
-  const tone =
-    activeHere
-      ? '0.78 0.36 0.16'
-      : '0.25 0.25 0.25'
+  const left = walk(node[0], leftChildTriangle(triangle), search && !activeHere)
+  const right = walk(node[1], rightChildTriangle(triangle, activeHere), false)
 
-  const leftWalk = walk(node[0],
-                        { origin: leftPoint,
-                          away: scale(branches.left, -1),
-                          normal: branches.normal },
-                        search && !activeHere)
-  const rightWalk = walk(node[1],
-                         { origin: rightPoint,
-                           away: scale(branches.right, -1),
-                           normal: branches.normal },
-                         false)
+  return { cells: [...cells, ...left.cells, ...right.cells],
+           nodes: [...nodes, ...left.nodes, ...right.nodes],
+           points: [...points, ...left.points, ...right.points] }
+}
 
-  return {
-    shapes: [
-      transform({ translation: pos(origin) }, pairWire(branches, tone)),
-      nodeAt(node, origin),
-      ...leftWalk.shapes,
-      ...rightWalk.shapes
-    ],
-    reach: Math.max(Math.abs(origin.x),
-                    Math.abs(origin.y),
-                    Math.abs(origin.z),
-                    leftWalk.reach,
-                    rightWalk.reach)
-  }
+const edgeShape = (edges, tone) => {
+  if (!edges.length) return null
+
+  const points = edges.flatMap(edge => [edge.from, edge.to])
+  const index = edges.flatMap((_, position) => [position * 2, position * 2 + 1, -1])
+
+  return shape(
+    appearance(material({ emissiveColor: tone })),
+    indexedLineSet(
+      { coordIndex: index.join(' ') },
+      coordinate({ point: points.map(pos).join(' ') })))
 }
 
 const latticeScene = pair => {
-  const scene =
-    walk(pair, { origin: ROOT, away: ROOT_AWAY, normal: ROOT_NORMAL })
-  const reach = Math.max(6, scene.reach + depth(pair) * 0.4 + 2)
+  const scene = walk(pair, ROOT_TRIANGLE)
+  const edges = edgeMap(scene.cells)
+  const baseEdges = edges.filter(edge => edge.tone === '0.25 0.25 0.25')
+  const activeEdges = edges.filter(edge => edge.tone !== '0.25 0.25 0.25')
+  const reach = Math.max(6,
+                         Math.max(...scene.points.map(point =>
+                           Math.max(Math.abs(point.x),
+                                    Math.abs(point.y),
+                                    Math.abs(point.z)))) + 2)
+
   return x3d(
     { width: '100%', height: '100%' },
     x3scene(
@@ -161,13 +169,15 @@ const latticeScene = pair => {
       viewpoint({ position: `0 0 ${reach}`,
                   centerOfRotation: '0 0 0',
                   description: 'Lattice' }),
-      ...scene.shapes))
+      edgeShape(baseEdges, '0.25 0.25 0.25'),
+      edgeShape(activeEdges, '0.78 0.36 0.16'),
+      ...scene.nodes.map(({ node, point }) => nodeAt(node, point))))
 }
 
 export default dashboard(
   { className: 'lattice',
     title: 'Lattice',
-    description: ['Uniform equilateral pair cells with no recursive shrink.',
-                  'The next wrapper pair lifts onto the tetrahedral face.']
+    description: ['Each term occupies one equilateral cell in the mesh.',
+                  'The next wrapper application lifts one child out of plane.']
       .join(' '),
     scene: latticeScene })
