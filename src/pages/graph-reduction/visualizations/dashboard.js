@@ -2,7 +2,7 @@ import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
 import { parseProgram } from '../sexpr.js'
 import DEFAULT_SOURCE from '../source.lisp?raw'
 import './style.css'
-import { observe } from '../observe.js'
+import { step } from '../observe.js'
 
 export default ({ className, title, description, scene }) => {
   const dashboard = component(({
@@ -16,7 +16,7 @@ export default ({ className, title, description, scene }) => {
     const stable = !!history.length && history[history.length - 1] === graph
 
     const view = () =>
-      dashboard({ source, graph: observe(graph), history: [...history, graph] })
+      dashboard({ source, graph: step(graph), history: [...history, graph] })
 
     const undo = () =>
       dashboard({ source,
