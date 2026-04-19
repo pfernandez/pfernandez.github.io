@@ -5,22 +5,29 @@ import './style.css'
 import { observe } from '../observe.js'
 
 export default ({ className, title, description, scene }) => {
+  // The dashboard is the host-side observer for now: it carries focus,
+  // history, and observer time until those can be represented as pair motifs.
   const dashboard = component(({
     source = DEFAULT_SOURCE,
     graph = parseProgram(source),
     history = []
   } = {}) => {
+    const focus = graph
+    const time = history.length
+    const previous = history[time - 1]
     const error =
-      typeof graph === 'object' && !Array.isArray(graph) && String(graph)
+      typeof focus === 'object' && !Array.isArray(focus) && String(focus)
 
-    const stable = !!history.length && history[history.length - 1] === graph
+    const stable = !!time && previous === focus
 
     const view = () =>
-      dashboard({ source, graph: observe(graph), history: [...history, graph] })
+      dashboard({ source,
+                  graph: observe(focus),
+                  history: [...history, focus] })
 
     const undo = () =>
       dashboard({ source,
-                  graph: history[history.length - 1],
+                  graph: previous,
                   history: history.slice(0, -1) })
 
     const reset = () => dashboard({ source: DEFAULT_SOURCE })
@@ -43,12 +50,12 @@ export default ({ className, title, description, scene }) => {
           div({ class: 'row' },
               button({ onclick: view, disabled: stable || !!error },
                      stable ? 'Stable' : 'Next'),
-              button({ onclick: undo, disabled: history.length === 0 }, 'Undo'),
+              button({ onclick: undo, disabled: time === 0 }, 'Undo'),
               button({ onclick: reset }, 'Reset')),
 
-          div({ class: 'description' }, `Steps: ${history.length}`)),
+          div({ class: 'description' }, `Steps: ${time}`)),
 
-      div({ class: 'panel scene' }, error || scene(graph)))
+      div({ class: 'panel scene' }, error || scene(focus)))
   })
 
   return dashboard
