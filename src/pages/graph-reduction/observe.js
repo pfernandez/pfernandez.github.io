@@ -1,24 +1,39 @@
-const isPair = node => Array.isArray(node) && node.length === 2
+const isAtom = node => !Array.isArray(node)
 const isEmpty = node => Array.isArray(node) && node.length === 0
-const feedArg = (body, arg) => {
-  if (typeof body === 'number') return body === 0 ? arg : body - 1
-  if (!isPair(body)) return body
-  return [feedArg(body[0], arg), feedArg(body[1], arg)]
-}
 
-/**
- * @param {*} root
- * @returns {*} pair
- */
+
+// /**
+//  * @param {*} root
+//  * @returns {*} pair
+//  */
 export const observe = root => {
-  if (!isPair(root)) return root
+  if (isAtom(root)) return root
 
   const [first, rest] = root
 
-  if (isPair(first) && isEmpty(first[0])) return feedArg(first[1], rest)
+  if (first && isEmpty(first)) return rest
 
   const next = observe(first)
-  if (next === first) return root
 
-  return [next, rest]
+  // If the left side moved, rebuild the pair to keep 'rest' attached
+  if (next !== first) return [next, rest]
+
+  return root
 }
+
+
+// export const observe = root => {
+//   if (isAtom(root) || isEmpty(root)) return root
+
+//   const [first, rest] = root
+
+//   // FIX: Explicitly check for the empty array, even though it's falsy
+//   if (Array.isArray(first) && isEmpty(first)) return rest
+
+//   const next = observe(first)
+
+//   // If the left side moved, rebuild the pair to keep 'rest' attached
+//   if (next !== first) return [next, rest]
+
+//   return root
+// }
