@@ -15,9 +15,10 @@
  *
  * `isAtom` belongs here because atom-ness is an observation boundary. Future
  * engines can replace placeholder atoms with an external pattern protocol
- * while keeping the pair motifs pure. This dashboard observer returns snapshot
- * time rather than mutating pairs in place; an in-place WASM engine can make
- * the opposite choice at the rewrite sites noted below.
+ * while keeping the pair motifs pure. The dashboard currently carries observer
+ * time and history; this observer returns snapshots for that carrier. An
+ * in-place WASM engine can make the opposite choice at the rewrite sites noted
+ * below.
  */
 const isAtom = node => !Array.isArray(node)
 const isEmpty = node => Array.isArray(node) && node.length === 0
@@ -41,7 +42,7 @@ export const observe = root => {
 
   const next = observe(first)
 
-  // Observer time is snapshot time; an in-place engine would instead:
+  // The dashboard carries observer time; an in-place engine would instead:
   // if (!isSelf(next, first)) {
   //   root[0] = next
   //   return root

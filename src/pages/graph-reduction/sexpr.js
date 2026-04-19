@@ -9,13 +9,12 @@
  *
  * Supported:
  * - Binary expressions: `(a b)` → `['a', 'b']`
- * - Program sources with `(def ...)` / `(defn ...)` forms and one final
+ * - Source programs with `(def ...)` / `(defn ...)` forms and one final
  *   expression
  * - Numbers: `42` → `42`
  * - Symbols: everything else as strings
  * - Line comments starting with `;`
- * - `defn` bodies lowered to nested wrapper pairs around reverse De Bruijn
- *   slots, so `observe` can feed one argument at a time
+ * - Compiler expansion for definitions while pair-native motifs evolve
  *
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
@@ -180,17 +179,17 @@ export const parse = source => {
 }
 
 /**
- * Parses a multi-form program source, expands `(def ...)` / `(defn ...)`
+ * Compiles a multi-form source program, expands `(def ...)` / `(defn ...)`
  * definitions, and lowers the final expression to binary pairs.
  *
- * `defn` parameters become nested wrappers around fill-order numeric slots:
- * `(defn S (x y z) ...)` lowers to `(() (() (() ...)))`, with
- * `x -> 0`, `y -> 1`, `z -> 2` inside the body.
+ * This still returns the current wrapper/slot representation while pair-native
+ * motif compilation evolves. Tests intentionally avoid depending on the exact
+ * local-slot shape.
  *
  * @param {string} source
  * @returns {*|Error}
  */
-export const parseProgram = source => {
+export const compile = source => {
   try {
     const forms = collectProgram(source)
     if (!forms.length) return []
@@ -205,6 +204,7 @@ export const parseProgram = source => {
 
 /**
  * Serializes a parsed term back to canonical binary S-expression form.
+ * Numeric leaves remain the public notation for slot motifs.
  *
  * @param {*} pair
  * @returns {string}

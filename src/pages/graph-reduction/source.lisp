@@ -1,5 +1,5 @@
 ; Basis-style program source.
-; The parser expands `def` and `defn` forms, wrapping function bodies in
+; The compiler expands `def` and `defn` forms, wrapping function bodies in
 ; nested `(() ...)` pairs so that `observe` can feed one argument at a time.
 
 (defn I (x) x)

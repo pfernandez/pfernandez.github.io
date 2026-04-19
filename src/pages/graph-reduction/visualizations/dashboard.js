@@ -1,5 +1,5 @@
 import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { parseProgram } from '../sexpr.js'
+import { compile } from '../sexpr.js'
 import DEFAULT_SOURCE from '../source.lisp?raw'
 import './style.css'
 import { observe } from '../observe.js'
@@ -9,7 +9,7 @@ export default ({ className, title, description, scene }) => {
   // history, and observer time until those can be represented as pair motifs.
   const dashboard = component(({
     source = DEFAULT_SOURCE,
-    graph = parseProgram(source),
+    graph = compile(source),
     history = []
   } = {}) => {
     const focus = graph
@@ -43,7 +43,7 @@ export default ({ className, title, description, scene }) => {
                            onchange: value =>
                              dashboard({
                                source: value,
-                               graph: parseProgram(value)
+                               graph: compile(value)
                              }),
                            spellcheck: false })),
 

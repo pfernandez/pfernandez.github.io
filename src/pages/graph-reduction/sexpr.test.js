@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { parse, parseProgram, serialize } from './sexpr.js'
+import { compile, parse, serialize } from './sexpr.js'
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -21,10 +21,6 @@ describe('pair parser', () => {
 
   test('parses nested binary lists', () => assert.deepEqual(
     parse('((() a) (b (c ())))'), [[[], 'a'], ['b', ['c', []]]]))
-
-  test('preserves De Brujin indices', () =>
-    assert.deepEqual(parse('(((((0 2) (1 2)) a) b) c)'),
-                     [[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']))
 
   test('strips line breaks', () => assert.deepEqual(
     parse('\n(\na\n(\n(\n)\nb\n)\n)\n'), ['a', [[], 'b']]))
@@ -93,58 +89,49 @@ describe('pair serializer', () => {
     assert.throws(() => serialize(['a']), /empty or pairs/i)
     assert.throws(() => serialize(['a', 'b', 'c']), /empty or pairs/i)
   })
+
+  test('serializes numeric slot motifs', () =>
+    assert.equal(serialize([[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']),
+                 '(((((0 2) (1 2)) a) b) c)'))
 })
 
-describe('program parser', () => {
-  test('parses empty program input as empty list', () => {
-    assert.deepEqual(parseProgram(''), [])
-    assert.deepEqual(parseProgram(' \n\t '), [])
+describe('compiler', () => {
+  test('compiles empty program input as empty list', () => {
+    assert.deepEqual(compile(''), [])
+    assert.deepEqual(compile(' \n\t '), [])
   })
 
-  test('parses an empty final expression', () =>
-    assert.deepEqual(parseProgram('()'), []))
+  test('compiles an empty final expression', () =>
+    assert.deepEqual(compile('()'), []))
 
   test('leaves atom-only programs alone', () => {
-    assert.equal(parseProgram('name'), 'name')
-    assert.equal(parseProgram('7'), 7)
+    assert.equal(compile('name'), 'name')
+    assert.equal(compile('7'), 7)
   })
 
   test('leaves a plain expression alone', () =>
-    assert.deepEqual(parseProgram('(((f x) y) z)'),
+    assert.deepEqual(compile('(((f x) y) z)'),
                      parse('(((f x) y) z)')))
 
   test('left-associates n-ary applications', () =>
-    assert.deepEqual(parseProgram('(f x y z)'),
+    assert.deepEqual(compile('(f x y z)'),
                      parse('(((f x) y) z)')))
 
   test('expands def aliases into the final expression', () =>
-    assert.deepEqual(parseProgram(`
+    assert.deepEqual(compile(`
       (def I (() 0))
       (def id I)
       ((id a) b)
     `), parse('(((() 0) a) b)')))
 
-  test('expands defn parameters into fill-order slots', () =>
-    assert.deepEqual(parseProgram(`
-      (defn S (x y z) ((x z) (y z)))
-      (((S a) b) c)
-    `), parse('((((() (() (() ((0 2) (1 2))))) a) b) c)')))
-
   test('expands zero-argument defns', () =>
-    assert.equal(parseProgram(`
+    assert.equal(compile(`
       (defn answer () 42)
       answer
     `), 42))
 
-  test('expands global names inside defn bodies', () =>
-    assert.deepEqual(parseProgram(`
-      (defn I (x) x)
-      (defn first (x y) x)
-      ((first (I a)) b)
-    `), parse('(((() (() 0)) ((() 0) a)) b)')))
-
   test('clones repeated definition expansions', () => {
-    const tree = parseProgram(`
+    const tree = compile(`
       (def pair-ab (a b))
       (pair-ab pair-ab)
     `)
@@ -155,56 +142,56 @@ describe('program parser', () => {
 
   test('rejects programs without a final expression', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(def I (() 0))')
+    compile('(def I (() 0))')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /must end with an expression/i)
   })
 
   test('rejects non-list defn params', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(defn I x x)\n(I a)')
+    compile('(defn I x x)\n(I a)')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /params must be a list/i)
   })
 
   test('rejects short def forms', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(def I)\nI')
+    compile('(def I)\nI')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /def name body/i)
   })
 
   test('rejects short defn forms', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(defn I (x))\n(I a)')
+    compile('(defn I (x))\n(I a)')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /defn name/i)
   })
 
   test('rejects non-symbol def names', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(def 0 a)\na')
+    compile('(def 0 a)\na')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /def name must be a symbol/i)
   })
 
   test('rejects non-symbol defn names', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(defn 0 (x) x)\n(0 a)')
+    compile('(defn 0 (x) x)\n(0 a)')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /defn name must be a symbol/i)
   })
 
   test('rejects non-symbol defn params', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(defn I (x 0) x)\n(I a)')
+    compile('(defn I (x 0) x)\n(I a)')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /params must be symbols/i)
   })
 
   test('rejects recursive definitions', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
-    parseProgram('(def loop loop)\nloop')
+    compile('(def loop loop)\nloop')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /recursive definitions/i)
   })

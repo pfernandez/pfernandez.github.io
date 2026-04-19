@@ -1,127 +1,84 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { parse, parseProgram } from './sexpr.js'
 import { observe } from './observe.js'
 
-// const reduce = (source, maxSteps = 16) => {
-//   let term = parseProgram(source)
+const fixed = value => {
+  const pair = []
+  pair[0] = pair
+  pair[1] = value
+  return pair
+}
 
-//   for (let i = 0; i < maxSteps; i++) {
-//     const next = observe(term)
-//     if (next === term) return next
-//     term = next
-//   }
+const reduce = (term, maxSteps = 16) => {
+  let next = term
 
-//   throw new Error(`Did not settle after ${maxSteps} steps: ${source}`)
-// }
+  for (let i = 0; i < maxSteps; i++) {
+    const observed = observe(next)
+    if (observed === next) return next
+    next = observed
+  }
 
-// describe('observe', () => {
-//   const lambda = [[], 'a']
-//   const stable = ['a', 'b']
+  throw new Error(`Did not settle after ${maxSteps} steps`)
+}
 
-//   test('leaves (() a) alone', () => {
-//     assert.deepStrictEqual(observe(lambda), lambda)
-//   })
+describe('observe', () => {
+  test('leaves atoms alone', () =>
+    assert.equal(observe('a'), 'a'))
 
-//   test('applies (() a) to b', () =>
-//     assert.strictEqual(observe([lambda, 'b']), 'a'))
+  test('leaves the null boundary alone', () => {
+    const empty = []
+    assert.equal(observe(empty), empty)
+  })
 
-//   test('keeps the outer pair when the left side steps', () =>
-//     assert.deepStrictEqual(observe([[lambda, 'b'], 'c']), ['a', 'c']))
+  test('fires a fixed point pair', () =>
+    assert.equal(observe(fixed('a')), 'a'))
 
-//   test('preserves referential identity when nothing changes', () => {
-//     assert.deepStrictEqual(observe(stable), stable)
-//     assert.deepStrictEqual(observe([stable, 'c']), [stable, 'c'])
-//   })
+  test('collapses an empty-left boundary', () => {
+    assert.deepEqual(observe([[], []]), [])
+    assert.equal(observe([[], 'a']), 'a')
+  })
 
-//   test('does not reduce the right branch', () => {
-//     const root = ['x', []]
-//     assert.deepStrictEqual(observe(root)[1], root[1])
-//   })
+  test('steps left before right', () =>
+    assert.deepEqual(observe([[[], []], 'a']), [[], 'a']))
 
-//   test('leaves a plain atom alone', () => {
-//     assert.strictEqual(observe('a'), 'a')
-//   })
+  test('shifts right once the left pair is stable', () =>
+    assert.deepEqual(observe([['a', 'b'], fixed('c')]),
+                     [['a', 'b'], 'c']))
 
-//   test('returns the same pair when no reduction occurs', () =>
-//     assert.deepStrictEqual(observe(stable), stable))
-// })
+  test('does not force the right branch of an atom-headed pair', () => {
+    const root = ['a', fixed('b')]
+    assert.equal(observe(root), root)
+  })
 
-// describe('what basis does', () => {
-//   test('keeps b after reducing identity', () =>
-//     assert.deepStrictEqual(reduce(`
-//       (defn I (x) x)
-//       ((I a) b)
-//     `), parse('(a b)')))
+  test('preserves stable pair identity', () => {
+    const stable = ['a', 'b']
+    assert.equal(observe(stable), stable)
+  })
+})
 
-//   test('keeps both copies of c in S', () =>
-//     assert.deepStrictEqual(
-//       reduce(`
-//         (defn S (x y z) ((x z) (y z)))
-//         (((S a) b) c)
-//       `),
-//       parse('((a c) (b c))')
-//     ))
+describe('fixed point motifs', () => {
+  test('feeds S through a shared continuation', () => {
+    const p0 = fixed('a')
+    const p1 = fixed('b')
+    const p2 = fixed('c')
+    const s = [[p0, p2], [p1, p2]]
 
-//   test('does not collapse (() a) on sight', () =>
-//     assert.deepStrictEqual(reduce('(() a)'), parse('(() a)')))
-// })
+    const step0 = observe(s)
+    assert.deepEqual(step0, [['a', p2], [p1, p2]])
 
-// describe('program stepping', () => {
-//   test('feeds a, then b, then c through wrapped S', () => {
-//     const source = parseProgram(`
-//       (defn S (x y z) ((x z) (y z)))
-//       (((S a) b) c)
-//     `)
+    const step1 = observe(step0)
+    assert.deepEqual(step1, [['a', p2], ['b', p2]])
 
-//     const afterA = observe(source)
-//     assert.deepEqual(afterA, parse('(((() (() ((a 1) (0 1)))) b) c)'))
+    const step2 = observe(step1)
+    assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
+  })
 
-//     const afterB = observe(afterA)
-//     assert.deepEqual(afterB, parse('((() ((a 0) (b 0))) c)'))
+  test('reduces S to its exposed shape', () => {
+    const p0 = fixed('a')
+    const p1 = fixed('b')
+    const p2 = fixed('c')
 
-//     const afterC = observe(afterB)
-//     assert.deepEqual(afterC, parse('((a c) (b c))'))
-//   })
-
-//   test('instantiates I without forcing the outer argument', () => {
-//     const source = parseProgram(`
-//       (defn I (x) x)
-//       ((I a) b)
-//     `)
-
-//     assert.deepEqual(observe(source), parse('(a b)'))
-//   })
-// })
-
-test('S', () => {
-  const p0 = []
-  const p1 = []
-  const p2 = []
-  p0[0] = p0
-  p0[1] = 'a'
-  p1[0] = p1
-  p1[1] = 'b'
-  p2[0] = p2
-  p2[1] = 'c'
-
-  const p3 = [[p0, p2], [p1, p2]]
-
-  const step0 = observe(p3)
-  assert.deepEqual(step0, [['a', p2], [p1, p2]])
-
-  const step1 = observe(step0)
-  assert.deepEqual(step1, [['a', p2], ['b', p2]])
-
-  const step2 = observe(step1)
-  assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
-
-  assert.deepEqual(observe([]), [])  // null boundary
-  assert.equal(observe(p0), 'a')  // fixed point
-  assert.deepEqual(observe([[], []]), [])  // lambda reduction
-  assert.deepEqual(observe([[[], []], 'a']), [[], 'a'])  // leftmost descent
-  assert.equal(observe([[], 'a']), 'a')  // I
-  assert.deepEqual(observe([[[], 'a'], 'b']), ['a', 'b'])  // Stable pairs
-
-  // Closure is stack depth
+    assert.deepEqual(reduce([[p0, p2], [p1, p2]]),
+                     [['a', 'c'], ['b', 'c']])
+  })
 })
