@@ -95,23 +95,29 @@ import { observe } from './observe.js'
 // })
 
 test('S', () => {
-  // TODO: Find the arrangement that makes the test pass
-  const p0 = [[], 'a']
-  const p1 = [[], 'b']
-  const p2 = [[], 'c']
-  const p3 = [[p0[0], p2[0]], [p1[0], p2[0]]]
-  const p4 = [[[p3, p0[1]], p1[1]], p2[1]]
-  assert.deepEqual(p4, [[[[[[], []], [[], []]], 'a'], 'b'], 'c'])
+  const p0 = []
+  const p1 = []
+  const p2 = []
+  p0[0] = p0
+  p0[1] = 'a'
+  p1[0] = p1
+  p1[1] = 'b'
+  p2[0] = p2
+  p2[1] = 'c'
 
-  // NOTE: Only change the lines above, and/or at most two lines of `obesrve`.
+  const p3 = [[p0, p2], [p1, p2]]
 
-  // What it does now
-  // assert.deepEqual(observe(p4), [[[[[], [[], []]], 'a'], 'b'], 'c'])
+  const step0 = observe(p3)
+  assert.deepEqual(step0, [['a', p2], [p1, p2]])
 
-  // FIXME
-  assert.deepEqual(observe(p4), [[[['a', []], [[], []]], 'b'], 'c'])
+  const step1 = observe(step0)
+  assert.deepEqual(step1, [['a', p2], ['b', p2]])
+
+  const step2 = observe(step1)
+  assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
 
   assert.deepEqual(observe([]), [])  // null boundary
+  assert.equal(observe(p0), 'a')  // fixed point
   assert.deepEqual(observe([[], []]), [])  // lambda reduction
   assert.deepEqual(observe([[[], []], 'a']), [[], 'a'])  // leftmost descent
   assert.equal(observe([[], 'a']), 'a')  // I
