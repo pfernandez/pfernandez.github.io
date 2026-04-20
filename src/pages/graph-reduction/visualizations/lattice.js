@@ -1,183 +1,250 @@
-import { appearance, billboard, coordinate, fontStyle, indexedLineSet, material,
-         shape, sphere, transform, viewpoint, worldInfo, x3d, x3dtext,
-         scene as x3scene } from '@pfern/elements-x3dom'
+import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
+         material, shape, sphere, transform, viewpoint, worldInfo, x3d,
+         x3dtext, scene as x3scene } from
+  '@pfern/elements-x3dom'
 import dashboard from './dashboard.js'
 
-const isPair = node => Array.isArray(node) && node.length === 2
-const isEmpty = node => Array.isArray(node) && node.length === 0
-const isSlot = node =>
-  typeof node === 'number' && Number.isInteger(node) && node >= 0
-
-const H = Math.sqrt(3) / 2
-const T = Math.sqrt(2 / 3)
-const ROOT_TRIANGLE =
-  [{ x: -0.5, y: -H / 3, z: 0 },
-   { x: 0.5, y: -H / 3, z: 0 },
-   { x: 0, y: (2 * H) / 3, z: 0 }]
+const isList = Array.isArray
+const isPair = node => isList(node) && node.length === 2
+const isEmpty = node => isList(node) && node.length === 0
+const isFixed = node => isPair(node) && node[0] === node
 
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z })
 const scale = (v, s) => ({ x: v.x * s, y: v.y * s, z: v.z * s })
-const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z
-const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y,
-                           y: a.z * b.x - a.x * b.z,
-                           z: a.x * b.y - a.y * b.x })
 const length = v => Math.hypot(v.x, v.y, v.z)
-const unit = v => {
-  const size = length(v)
-  return size === 0 ? { x: 0, y: 0, z: 1 } : scale(v, 1 / size)
-}
+const unit = v => length(v) ? scale(v, 1 / length(v)) : { x: 1, y: 0, z: 0 }
 const pos = ({ x, y, z }) => `${x} ${y} ${z}`
-const centroid = ([a, b, c]) => scale(add(add(a, b), c), 1 / 3)
-const triNormal = ([a, b, c]) => unit(cross(sub(b, a), sub(c, a)))
 
-const reflectAcrossEdge = (point, a, b) => {
-  const edge = unit(sub(b, a))
-  const projection = add(a, scale(edge, dot(sub(point, a), edge)))
-  return sub(point, scale(sub(point, projection), 2))
+const nodeKind = node =>
+  isFixed(node)
+    ? 'fixed'
+    : isEmpty(node)
+      ? 'empty'
+      : isPair(node)
+        ? 'pair'
+        : 'atom'
+
+const nodeLabel = node =>
+  isEmpty(node)
+    ? '()'
+    : isFixed(node)
+      ? 'fix'
+      : isPair(node)
+        ? '.'
+        : String(node)
+
+const NODE_STYLES =
+  { atom: { radius: 0.1, color: '0.25 0.4 0.58' },
+    empty: { radius: 0.1, color: '0.62 0.54 0.18' },
+    fixed: { radius: 0.12, color: '0.86 0.56 0.22' },
+    pair: { radius: 0.075, color: '0.16 0.16 0.16' } }
+
+const nodeStyle = kind =>
+  NODE_STYLES[kind]
+
+const childrenOf = node =>
+  isEmpty(node) ? [] : isFixed(node) ? [node[1]] : isPair(node) ? node : []
+
+const atomKey = node => `${typeof node}:${String(node)}`
+
+const collectGraph = (
+  node,
+  indexes = { pairs: new Map(), atoms: new Map() }
+) => {
+  if (!isList(node)) {
+    const key = atomKey(node)
+    if (indexes.atoms.has(key)) {
+      return { id: indexes.atoms.get(key), indexes, nodes: [], edges: [] }
+    }
+
+    const id = `atom:${indexes.atoms.size}`
+    return { id,
+             indexes: { ...indexes,
+                        atoms: new Map(indexes.atoms).set(key, id) },
+             nodes: [{ id, node, kind: 'atom' }],
+             edges: [] }
+  }
+
+  if (node.length !== 0 && node.length !== 2) {
+    throw new Error('Lists must be empty or pairs')
+  }
+
+  if (indexes.pairs.has(node)) {
+    return { id: indexes.pairs.get(node), indexes, nodes: [], edges: [] }
+  }
+
+  const id = `pair:${indexes.pairs.size}`
+  const pairs = new Map(indexes.pairs).set(node, id)
+  const branches = childrenOf(node).reduce(
+    (state, child) => {
+      const branch = collectGraph(child, state.indexes)
+      return { indexes: branch.indexes,
+               items: [...state.items, branch] }
+    },
+    { indexes: { ...indexes, pairs }, items: [] })
+
+  return {
+    id,
+    indexes: branches.indexes,
+    nodes: [{ id, node, kind: nodeKind(node) },
+            ...branches.items.flatMap(branch => branch.nodes)],
+    edges: [...branches.items.map(branch => ({ from: id, to: branch.id })),
+            ...branches.items.flatMap(branch => branch.edges)]
+  }
 }
 
-const tetraApex = triangle =>
-  add(centroid(triangle), scale(triNormal(triangle), T))
+const childrenById = edges =>
+  edges.reduce((children, edge) =>
+    new Map(children).set(edge.from,
+                          [...(children.get(edge.from) ?? []), edge.to]),
+  new Map())
 
-const leftChildTriangle = ([a, b, c]) => [a, c, reflectAcrossEdge(b, a, c)]
+const rawLayout = ({ id: root, edges }) => {
+  const children = childrenById(edges)
 
-const rightChildTriangle = (triangle, lifted = false) => {
-  const [a, b, c] = triangle
-  return [c, b, lifted ? tetraApex(triangle) : reflectAcrossEdge(a, c, b)]
+  const place = (id, depth = 0, placed = new Map(), nextX = 0) => {
+    if (placed.has(id)) return { placed, nextX, x: placed.get(id).x }
+
+    const childIds = children.get(id) ?? []
+    if (!childIds.length) {
+      const point = { x: nextX, y: -depth, z: 0 }
+      return { placed: new Map(placed).set(id, point),
+               nextX: nextX + 1,
+               x: point.x }
+    }
+
+    const result = childIds.reduce(
+      (state, child) => place(child, depth + 1, state.placed, state.nextX),
+      { placed, nextX, x: 0 })
+    const x = childIds
+      .map(child => result.placed.get(child).x)
+      .reduce((sum, childX) => sum + childX, 0) / childIds.length
+
+    return { placed: new Map(result.placed).set(id, { x, y: -depth, z: 0 }),
+             nextX: result.nextX,
+             x }
+  }
+
+  return place(root).placed
 }
 
-const rounded = n => Math.round(n * 1e6) / 1e6
-const pointKey = point => `${rounded(point.x)},${rounded(point.y)},${rounded(point.z)}`
-const segmentKey = (a, b) => {
-  const left = pointKey(a)
-  const right = pointKey(b)
-  return left < right ? `${left}|${right}` : `${right}|${left}`
+const centeredPoints = placed => {
+  const bounds = [...placed.values()]
+    .reduce((box, point) =>
+      ({ minX: Math.min(box.minX, point.x),
+         maxX: Math.max(box.maxX, point.x),
+         minY: Math.min(box.minY, point.y),
+         maxY: Math.max(box.maxY, point.y) }),
+    { minX: 0, maxX: 0, minY: 0, maxY: 0 })
+  const center = { x: (bounds.minX + bounds.maxX) / 2,
+                   y: (bounds.minY + bounds.maxY) / 2,
+                   z: 0 }
+
+  return new Map([...placed].map(([id, point]) =>
+    [id, scale(sub(point, center), 0.9)]))
 }
 
-const nodeStyle = node =>
-  isPair(node)
-    ? { radius: 0.08,
-        diffuseColor: '0.22 0.22 0.22',
-        emissiveColor: '0.07 0.07 0.07' }
-    : isSlot(node)
-      ? { radius: 0.11,
-          diffuseColor: '0.82 0.46 0.18',
-          emissiveColor: '0.2 0.08 0.03' }
-      : isEmpty(node)
-        ? { radius: 0.11,
-            diffuseColor: '0.72 0.58 0.14',
-            emissiveColor: '0.16 0.12 0.02' }
-        : { radius: 0.11,
-            diffuseColor: '0.4 0.58 0.82',
-            emissiveColor: '0.08 0.12 0.18' }
+const layoutGraph = graph => {
+  const points = centeredPoints(rawLayout(graph))
+  return { ...graph,
+           nodes: graph.nodes.map(node => ({ ...node,
+                                             point: points.get(node.id) })),
+           points }
+}
+
+const fixedBasis = (node, child) =>
+  ({ tangent: unit(sub(child.point, node.point)),
+     surfaceNormal: { x: 0, y: 0, z: 1 } })
+
+const loopPoints = ({ point }, basis, radius = 0.18, steps = 32) =>
+  Array.from({ length: steps }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / steps
+    return add(point,
+               add(scale(basis.tangent, Math.cos(angle) * radius),
+                   scale(basis.surfaceNormal, Math.sin(angle) * radius)))
+  })
 
 const label = text =>
   billboard(
     { axisOfRotation: '0 0 0' },
     transform(
-      { translation: '0 0.18 0' },
+      { translation: '0 0.2 0' },
       shape(
-        appearance(
-          material({ diffuseColor: '0.2 0.2 0.2',
-                     emissiveColor: '0.08 0.08 0.08' })),
+        appearance(material({ diffuseColor: '0.12 0.12 0.12',
+                              emissiveColor: '0.08 0.08 0.08' })),
         x3dtext(
-          { string: JSON.stringify(String(text)) },
+          { string: JSON.stringify(text) },
           fontStyle({ family: '"SANS"',
                       justify: '"MIDDLE" "MIDDLE"',
                       size: '.13' })))))
 
-const nodeAt = (node, point) => {
-  const style = nodeStyle(node)
+const nodeAt = ({ node, kind, point }) => {
+  const style = nodeStyle(kind)
+
   return transform(
     { translation: pos(point) },
     shape(
-      appearance(
-        material({ diffuseColor: style.diffuseColor,
-                   emissiveColor: style.emissiveColor })),
+      appearance(material({ diffuseColor: style.color,
+                            emissiveColor: style.color })),
       sphere({ radius: style.radius })),
-    isPair(node) ? null : label(isEmpty(node) ? '()' : node))
+    label(nodeLabel(node)))
 }
 
-const isActiveApplication = node =>
-  isPair(node) && isPair(node[0]) && isEmpty(node[0][0])
+const lineShape = (segments, color = '0.18 0.18 0.18') =>
+  segments.length
+    ? shape(
+      appearance(material({ emissiveColor: color })),
+      indexedLineSet(
+        { coordIndex: segments
+          .flatMap((_, index) => [index * 2, index * 2 + 1, -1])
+          .join(' ') },
+        coordinate({ point: segments.flat().map(pos).join(' ') })))
+    : null
 
-const edgeMap = cells => {
-  const edges = new Map()
-  cells.forEach(cell => {
-    const vertices = cell.triangle
-    ;[[vertices[0], vertices[1]],
-      [vertices[1], vertices[2]],
-      [vertices[2], vertices[0]]].forEach(([from, to]) => {
-      const key = segmentKey(from, to)
-      const tone = edges.get(key)
-      if (!tone || cell.tone !== '0.25 0.25 0.25') {
-        edges.set(key, { from, to, tone: cell.tone })
-      }
-    })
-  })
-  return [...edges.values()]
+const loopShape = (fixedNodes, payloadById) => {
+  const rings = fixedNodes.map(node =>
+    loopPoints(node, fixedBasis(node, payloadById.get(node.id))))
+  const segments = rings.flatMap(points =>
+    points.map((point, index) => [point, points[(index + 1) % points.length]]))
+
+  return lineShape(segments, '0.78 0.42 0.12')
 }
 
-const walk = (node, triangle, search = true) => {
-  const activeHere = search && isActiveApplication(node)
-  const tone = activeHere ? '0.78 0.36 0.16' : '0.25 0.25 0.25'
-  const cells = [{ triangle, tone }]
-  const nodes = [{ node, point: centroid(triangle) }]
-  const points = [...triangle, centroid(triangle)]
-
-  if (!isPair(node)) return { cells, nodes, points }
-  if (node.length === 0) return { cells, nodes, points }
-  if (node.length !== 2) throw new Error('Lists must be empty or pairs')
-
-  const left = walk(node[0], leftChildTriangle(triangle), search && !activeHere)
-  const right = walk(node[1], rightChildTriangle(triangle, activeHere), false)
-
-  return { cells: [...cells, ...left.cells, ...right.cells],
-           nodes: [...nodes, ...left.nodes, ...right.nodes],
-           points: [...points, ...left.points, ...right.points] }
-}
-
-const edgeShape = (edges, tone) => {
-  if (!edges.length) return null
-
-  const points = edges.flatMap(edge => [edge.from, edge.to])
-  const index = edges.flatMap((_, position) => [position * 2, position * 2 + 1, -1])
-
-  return shape(
-    appearance(material({ emissiveColor: tone })),
-    indexedLineSet(
-      { coordIndex: index.join(' ') },
-      coordinate({ point: points.map(pos).join(' ') })))
-}
+const reach = points =>
+  Math.max(4,
+           ...[...points.values()]
+             .map(point => Math.max(Math.abs(point.x), Math.abs(point.y)))) + 2
 
 const latticeScene = pair => {
-  const scene = walk(pair, ROOT_TRIANGLE)
-  const edges = edgeMap(scene.cells)
-  const baseEdges = edges.filter(edge => edge.tone === '0.25 0.25 0.25')
-  const activeEdges = edges.filter(edge => edge.tone !== '0.25 0.25 0.25')
-  const reach = Math.max(6,
-                         Math.max(...scene.points.map(point =>
-                           Math.max(Math.abs(point.x),
-                                    Math.abs(point.y),
-                                    Math.abs(point.z)))) + 2)
+  const graph = layoutGraph(collectGraph(pair))
+  const fixedNodes = graph.nodes.filter(node => node.kind === 'fixed')
+  const nodeById = new Map(graph.nodes.map(node => [node.id, node]))
+  const fixedEdge = edge => nodeById.get(edge.from)?.kind === 'fixed'
+  const edgeSegment = edge =>
+    [graph.points.get(edge.from), graph.points.get(edge.to)]
+  const structureEdges = graph.edges.filter(edge => !fixedEdge(edge))
+  const payloadEdges = graph.edges.filter(fixedEdge)
+  const payloadById = new Map(payloadEdges.map(edge =>
+    [edge.from, nodeById.get(edge.to)]))
 
   return x3d(
     { width: '100%', height: '100%' },
     x3scene(
       worldInfo({ title: 'Lattice.x3d' }),
-      viewpoint({ position: `0 0 ${reach}`,
+      viewpoint({ position: `0 0 ${reach(graph.points)}`,
                   centerOfRotation: '0 0 0',
                   description: 'Lattice' }),
-      edgeShape(baseEdges, '0.25 0.25 0.25'),
-      edgeShape(activeEdges, '0.78 0.36 0.16'),
-      ...scene.nodes.map(({ node, point }) => nodeAt(node, point))))
+      lineShape(structureEdges.map(edgeSegment)),
+      lineShape(payloadEdges.map(edgeSegment), '0.78 0.42 0.12'),
+      loopShape(fixedNodes, payloadById),
+      ...graph.nodes.map(nodeAt)))
 }
 
 export default dashboard(
   { className: 'lattice',
     title: 'Lattice',
-    description: ['Each term occupies one equilateral cell in the mesh.',
-                  'The next wrapper application lifts one child out of plane.']
+    description: ['Literal graph sketch: pairs are line segments,',
+                  'and fixed points are standing loops with payload spokes.']
       .join(' '),
     scene: latticeScene })

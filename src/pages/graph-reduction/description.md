@@ -8,14 +8,15 @@ This page lowers a tiny Lisp surface syntax to *binary pairs*:
 - `(def name body)` and `(defn name (x y ...) body)` work like the Basis
   prelude and expand before stepping
 
-The runtime has one stepping rule:
+The current mechanics are:
 
-- `defn` lowers to nested wrapper pairs around a body with non-negative
-  integer slots. In `(((f x) y) z)`, the fill order is `[x, y, z]`, so
-  `0 -> x`, `1 -> y`, `2 -> z`, etc.
+- The compiler lowers numeric `def` templates and fully applied
+  parameter-only `defn` bodies to shared fixed-point argument closures.
+- `serialize` shows those closures as folding instructions: remaining
+  closures become dense slot numbers, and the staged argument payloads are
+  appended in fill order.
 - `observe` performs one leftmost-outermost step over a whole term
-- `(() body)` is a stable wrapper, and `((() body) arg)` feeds one argument
-  into `body` without forcing the rest of the term
+- `[self, value]` is the fixed-point motif, and observing it fires to `value`
 
 Example motif (S kernel body):
 
@@ -26,11 +27,17 @@ Example motif (S kernel body):
 Applied as:
 
 ```
-((((() (() (() ((0 2) (1 2))))) a) b) c)
+(((((0 2) (1 2)) a) b) c)
 ```
 
-Three `observe` steps instantiate that to:
+The folding projection exposes each staged step:
 
 ```
+(((((0 2) (1 2)) a) b) c)
+((((a 1) (0 1)) b) c)
+(((a 0) (b 0)) c)
 ((a c) (b c))
 ```
+
+The Lisp and tree views show this reversible projection. The lattice view is
+a literal graph sketch of pair nodes, shared arguments, and fixed-point loops.
