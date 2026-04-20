@@ -1,0 +1,1 @@
+import{serialize as r}from"./sexpr-Bl81dlLc.js";import e from"./dashboard-BJVH6tNz.js";import"./index-DnI1bM8t.js";import"./observe-DbHS6TdD.js";const n=e({className:"lisp",title:"S-expressions",description:["Folding projection of the current graph.","Observation performs one tick."].join(" "),scene:o=>r(o)});export{n as default};
