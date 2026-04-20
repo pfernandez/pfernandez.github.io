@@ -1,2 +1,2 @@
-export { gridXY } from './grid-xy'
-export { coordinateAxes } from './coordinate-axes'
+export { default as gridXY } from './grid-xy'
+export { default as coordinateAxes } from './coordinate-axes'

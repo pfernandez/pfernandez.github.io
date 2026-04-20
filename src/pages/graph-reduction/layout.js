@@ -7,23 +7,35 @@
 const isEmpty = pair => Array.isArray(pair) && pair.length === 0
 
 const isLeaf = pair => !Array.isArray(pair)
+const isFixed = pair =>
+  Array.isArray(pair) && pair.length === 2 && pair[0] === pair
 
 export function layout(pair) {
   const nodes = []
   const edges = []
+  const slots = new Map()
   let nextLeafX = 0
+
+  const slotLabel = pair => {
+    if (!slots.has(pair)) slots.set(pair, slots.size)
+    return String(slots.get(pair))
+  }
 
   const walk = (pair, depth, id) => {
     if (Array.isArray(pair) && pair.length !== 0 && pair.length !== 2) {
       throw new Error('Lists must be empty or pairs')
     }
 
-    if (isLeaf(pair) || isEmpty(pair)) {
+    if (isLeaf(pair) || isEmpty(pair) || isFixed(pair)) {
       const x = nextLeafX++
       nodes.push(
         { id,
           kind: isEmpty(pair) ? 'empty' : 'leaf',
-          label: isEmpty(pair) ? '()' : String(pair),
+          label: isEmpty(pair)
+            ? '()'
+            : isFixed(pair)
+              ? slotLabel(pair)
+              : String(pair),
           x,
           y: depth })
 
