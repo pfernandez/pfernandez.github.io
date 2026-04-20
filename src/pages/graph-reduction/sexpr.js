@@ -14,20 +14,32 @@
  * - Numbers: `42` → `42`
  * - Symbols: everything else as strings
  * - Line comments starting with `;`
- * - Compiler expansion for definitions while pair-native motifs evolve
+ * - Compiler expansion for definitions
+ * - Folding instructions such as `(def S ((0 2) (1 2)))`
  *
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
 const isList = Array.isArray
+const isPair = node => isList(node) && node.length === 2
+const isFixed = node => isPair(node) && node[0] === node
+const foldSlots = new WeakMap()
 
 const tokenize = source =>
   source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
 
-const clone = node =>
-  isList(node) ? node.map(clone) : node
+const fixed = (value, slot = null, group = null) => {
+  const pair = []
+  pair[0] = pair
+  pair[1] = value
+  if (group) foldSlots.set(pair, { group, slot, value })
+  return pair
+}
 
-const wrapParams = (count, body) =>
-  count <= 0 ? body : [[], wrapParams(count - 1, body)]
+const applyArgs = (head, args) =>
+  args.reduce((left, right) => [left, right], head)
+
+const applySerializedArgs = (head, args) =>
+  args.reduce((left, right) => `(${left} ${right})`, head)
 
 const atom = token => {
   const number = Number(token)
@@ -60,27 +72,19 @@ const toBinary = expr => {
 
 const normalizeParamList = params => {
   if (!isList(params)) throw new Error('defn params must be a list')
-  params.forEach(param => {
-    if (typeof param !== 'string') {
-      throw new Error('defn params must be symbols')
-    }
-  })
+  if (params.some(param => typeof param !== 'string')) {
+    throw new Error('defn params must be symbols')
+  }
   return params
 }
 
-const collectProgram = source => {
-  const tokens = tokenize(source)
-  const forms = []
-  let index = 0
-
-  while (index < tokens.length) {
-    const [form, next] = read(tokens, index)
-    forms.push(form)
-    index = next
-  }
-
-  return forms
+const collectForms = (tokens, index = 0, forms = []) => {
+  if (index >= tokens.length) return forms
+  const [form, next] = read(tokens, index)
+  return collectForms(tokens, next, [...forms, form])
 }
+
+const collectProgram = source => collectForms(tokenize(source))
 
 const makeProgramEntry = (name, body) => ({ kind: 'def', name, body })
 const makeProgramFunction = (name, params, body) =>
@@ -106,28 +110,140 @@ const normalizeDefinitionForm = form => {
 }
 
 const programTable = forms => {
-  const env = new Map()
-  let expr = null
-
-  forms.forEach(form => {
+  const { env, expr } = forms.reduce((program, form) => {
     const definition = normalizeDefinitionForm(form)
-    if (definition) {
-      env.set(definition.name, definition)
-      return
-    }
-    expr = form
-  })
+    return definition
+      ? { ...program,
+          env: new Map(program.env).set(definition.name, definition) }
+      : { ...program, expr: form }
+  }, { env: new Map(), expr: null })
 
   if (expr === null) throw new Error('Program must end with an expression')
   return { env, expr }
 }
 
-const expandWithEnv = (expr, env, locals = [], stack = []) => {
+const application = expr => {
+  if (!isList(expr) || expr.length === 0) return [expr, []]
+
+  const [head, ...rest] = expr
+  const [base, args] = application(head)
+  return [base, [...args, ...rest]]
+}
+
+const mergeCounts = (left, right) =>
+  [...right].reduce((counts, [group, count]) =>
+    new Map(counts).set(group, (counts.get(group) ?? 0) + count),
+  left)
+
+const visibleFoldCounts = node => {
+  const meta = foldSlots.get(node)
+  if (meta) return new Map([[meta.group, 1]])
+  if (!isPair(node) || isFixed(node)) return new Map()
+  return mergeCounts(visibleFoldCounts(node[0]), visibleFoldCounts(node[1]))
+}
+
+const childFoldCounts = node =>
+  isPair(node) && !isFixed(node)
+    ? [visibleFoldCounts(node[0]), visibleFoldCounts(node[1])]
+    : []
+
+const foldBoundaryGroup = (node, totals, counts) =>
+  [...counts]
+    .map(([group]) => group)
+    .find(group =>
+      counts.get(group) === totals.get(group) &&
+      !childFoldCounts(node).some(child => child.get(group) === totals.get(group)))
+
+const collectFoldClosures = (node, group) => {
+  const meta = foldSlots.get(node)
+  if (meta?.group === group) return [node]
+  if (!isPair(node) || isFixed(node)) return []
+  return [...collectFoldClosures(node[0], group),
+          ...collectFoldClosures(node[1], group)]
+}
+
+const uniqueByIdentity = values =>
+  values.filter((value, index) => values.indexOf(value) === index)
+
+const collectSlotIndexes = node => {
+  if (isFixed(node)) return null
+  if (isList(node)) {
+    if (node.length !== 2) return null
+    const left = collectSlotIndexes(node[0])
+    const right = collectSlotIndexes(node[1])
+    return left && right ? [...left, ...right] : null
+  }
+  if (typeof node !== 'number') return null
+  if (!Number.isInteger(node) || node < 0) {
+    throw new Error('Slot templates must use non-negative integer slots')
+  }
+  return [node]
+}
+
+const slotProfile = (template, arity = null) => {
+  const indexes = collectSlotIndexes(template)
+  if (!indexes) return null
+
+  const slots = [...new Set(indexes)].sort((a, b) => a - b)
+  const sparse = slots.some((slot, index) => slot !== index)
+  if (arity === null && sparse) {
+    throw new Error('Slot templates must use dense slots from 0')
+  }
+
+  return { arity: arity ?? slots.length }
+}
+
+const paramTemplate = (expr, locals) => {
+  if (!isList(expr)) {
+    return locals.has(expr)
+      ? { node: locals.get(expr), pure: true }
+      : { node: expr, pure: false }
+  }
+
+  if (expr.length === 0) return { node: [], pure: false }
+
+  const terms = expr.map(term => paramTemplate(term, locals))
+  return {
+    node: applyArgs(terms[0].node, terms.slice(1).map(term => term.node)),
+    pure: terms.every(term => term.pure)
+  }
+}
+
+const slotLocals = params =>
+  new Map(params.map((param, index) => [param, index]))
+
+const instantiateTemplate = (template, args, compileArg, arity = null) => {
+  const profile = slotProfile(template, arity)
+  if (!profile || args.length < profile.arity) return null
+
+  const group = {}
+  const slots = args.slice(0, profile.arity)
+    .map((arg, slot) => fixed(compileArg(arg), slot, group))
+  const fill = node =>
+    isList(node) ? [fill(node[0]), fill(node[1])] : slots[node]
+  const body = fill(template)
+  const rest = args.slice(profile.arity).map(compileArg)
+
+  return applyArgs(body, rest)
+}
+
+const resolveDefinition = (name, env, stack) => {
+  const entry = env.get(name)
+  if (!entry) return null
+  if (stack.includes(name)) {
+    throw new Error(`Recursive definitions are not supported: ${name}`)
+  }
+  if (entry.kind === 'def' && typeof entry.body === 'string') {
+    return resolveDefinition(entry.body, env, [...stack, name])
+  }
+  return { name, entry }
+}
+
+const compileExpr = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
     if (typeof expr !== 'string') return expr
 
-    const localIndex = locals.indexOf(expr)
-    if (localIndex >= 0) return localIndex
+    if (locals.has(expr)) return locals.get(expr)
 
     const entry = env.get(expr)
     if (!entry) return expr
@@ -137,25 +253,66 @@ const expandWithEnv = (expr, env, locals = [], stack = []) => {
     }
 
     if (entry.kind === 'def') {
-      return clone(expandWithEnv(entry.body, env, [], [...stack, expr]))
+      return compileExpr(entry.body, env, new Map(), [...stack, expr])
     }
 
-    return clone(wrapParams(entry.params.length,
-                            expandWithEnv(entry.body,
-                                          env,
-                                          entry.params,
-                                          [...stack, expr])))
+    if (entry.params.length === 0) {
+      return compileExpr(entry.body, env, new Map(), [...stack, expr])
+    }
+
+    return expr
   }
 
   if (expr.length === 0) return []
-  return expr.map(item => expandWithEnv(item, env, locals, stack))
-    .slice(1)
-    .reduce((left, right) => [left, right],
-            expandWithEnv(expr[0], env, locals, stack))
+
+  const [head, args] = application(expr)
+  const resolved = typeof head === 'string'
+    ? resolveDefinition(head, env, stack)
+    : null
+  const compileArg = arg => compileExpr(arg, env, locals, stack)
+
+  if (resolved?.entry.kind === 'defn' &&
+      args.length >= resolved.entry.params.length) {
+    const params = resolved.entry.params
+    const { node: template, pure } =
+      paramTemplate(resolved.entry.body, slotLocals(params))
+    const templated = pure
+      ? instantiateTemplate(template, args, compileArg, params.length)
+      : null
+
+    if (templated) return templated
+
+    const group = {}
+    const localArgs = args.slice(0, params.length)
+      .map((arg, slot) => fixed(compileArg(arg), slot, group))
+    const nextLocals = new Map([...locals,
+                                ...params.map((param, index) =>
+                                  [param, localArgs[index]])])
+    const body = compileExpr(resolved.entry.body,
+                             env,
+                             nextLocals,
+                             [...stack, resolved.name])
+    return applyArgs(body, args.slice(params.length).map(compileArg))
+  }
+
+  const templated = resolved?.entry.kind === 'def'
+    ? instantiateTemplate(resolved.entry.body, args, compileArg)
+    : null
+  if (templated) return templated
+
+  const compiledHead = compileExpr(head, env, locals, stack)
+  return instantiateTemplate(compiledHead, args, compileArg) ??
+    applyArgs(compiledHead, args.map(compileArg))
 }
 
 /**
- * Parses a binary S-expression into nested JS arrays, numbers, and strings.
+ * Parses one canonical binary S-expression into nested JS arrays, numbers,
+ * and strings.
+ *
+ * `parse` is the strict single-term reader used by tests and by plain pair
+ * round-tripping: every list must be either `()` or a two-item pair. It does
+ * not understand program forms, n-ary application, or definitions; use
+ * `compile` for full source programs.
  *
  * Returns the thrown error after logging it, to preserve the current parser
  * contract used by the tests.
@@ -179,12 +336,22 @@ export const parse = source => {
 }
 
 /**
- * Compiles a multi-form source program, expands `(def ...)` / `(defn ...)`
- * definitions, and lowers the final expression to binary pairs.
+ * Compiles a multi-form source program to the pair graph consumed by
+ * `observe`.
  *
- * This still returns the current wrapper/slot representation while pair-native
- * motif compilation evolves. Tests intentionally avoid depending on the exact
- * local-slot shape.
+ * Source programs may contain `(def name body)` aliases, numeric folding
+ * definitions such as `(def S ((0 2) (1 2)))`, `(defn name (x ...) body)`
+ * functions, and one final expression. N-ary source applications are lowered
+ * to left-associated binary pairs. Fully applied numeric templates and
+ * parameter-only `defn` bodies lower through the same folding path: each slot
+ * becomes one shared fixed-point closure carrying hidden fill-order metadata
+ * for `serialize`. Non-template `defn` bodies still receive fixed-point
+ * locals, so their arguments exist in the graph even when the body also
+ * contains ordinary symbols. Partial or unresolved applications remain
+ * ordinary left-associated pairs.
+ *
+ * Returns the thrown error after logging it, matching `parse` and preserving
+ * the test-facing API.
  *
  * @param {string} source
  * @returns {*|Error}
@@ -194,7 +361,7 @@ export const compile = source => {
     const forms = collectProgram(source)
     if (!forms.length) return []
     const { env, expr } = programTable(forms)
-    return expandWithEnv(expr, env)
+    return compileExpr(expr, env)
   }
   catch (error) {
     console.error(error)
@@ -202,19 +369,84 @@ export const compile = source => {
   }
 }
 
-/**
- * Serializes a parsed term back to canonical binary S-expression form.
- * Numeric leaves remain the public notation for slot motifs.
- *
- * @param {*} pair
- * @returns {string}
- */
-export const serialize = pair => {
-  if (Array.isArray(pair)) {
+const canonicalSerialize = (pair, slots = new Map()) => {
+  if (isFixed(pair)) {
+    if (!slots.has(pair)) slots.set(pair, slots.size)
+    return String(slots.get(pair))
+  }
+
+  if (isList(pair)) {
     if (pair.length === 0) return '()'
     if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${serialize(pair[0])} ${serialize(pair[1])})`
+    return `(${canonicalSerialize(pair[0], slots)} ${canonicalSerialize(pair[1], slots)})`
   }
 
   return String(pair)
 }
+
+const serializeFoldTemplate = (pair, group, slots) => {
+  const meta = foldSlots.get(pair)
+  if (meta?.group === group) return String(slots.get(pair))
+  if (meta) return serialize(pair)
+  if (isFixed(pair)) return canonicalSerialize(pair)
+
+  if (isList(pair)) {
+    if (pair.length === 0) return '()'
+    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
+    return `(${serializeFoldTemplate(pair[0], group, slots)} ${serializeFoldTemplate(pair[1], group, slots)})`
+  }
+
+  return String(pair)
+}
+
+const serializeFold = (pair, group) => {
+  const closures = uniqueByIdentity(collectFoldClosures(pair, group))
+    .sort((left, right) => foldSlots.get(left).slot - foldSlots.get(right).slot)
+  const slots = new Map(closures.map((closure, index) => [closure, index]))
+  const template = serializeFoldTemplate(pair, group, slots)
+  const args = closures.map(closure => serialize(foldSlots.get(closure).value))
+
+  return applySerializedArgs(template, args)
+}
+
+const serializeProjected = (pair, totals = visibleFoldCounts(pair)) => {
+  const counts = visibleFoldCounts(pair)
+  const group = foldBoundaryGroup(pair, totals, counts)
+  if (group) return serializeFold(pair, group)
+  if (isFixed(pair)) return canonicalSerialize(pair)
+
+  if (isList(pair)) {
+    if (pair.length === 0) return '()'
+    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
+    return `(${serializeProjected(pair[0], totals)} ${serializeProjected(pair[1], totals)})`
+  }
+
+  return String(pair)
+}
+
+/**
+ * Serializes a term to the Lisp-facing folding-instruction notation.
+ *
+ * Plain atoms, empty lists, and ordinary pairs serialize as canonical binary
+ * S-expressions. Compiler-created fixed-point argument closures carry hidden
+ * fill-order metadata; when such closures are visible, serialization projects
+ * the graph back into a reversible folding instruction by replacing the
+ * remaining closures with dense slot numbers and appending their stored
+ * argument payloads in fill order.
+ *
+ * This projection is intentionally not a literal object-graph dump. The graph
+ * still contains shared self-referential closures, and `observe` still rewrites
+ * those closures by identity. The folding form is the paper/worked-example
+ * view: repeated slot numbers describe where the same remaining argument will
+ * be folded, while the staged arguments after the template show the values
+ * already present inside the closure payloads. Manually constructed closures
+ * without compiler metadata fall back to traversal-local labels so serialization
+ * remains finite for arbitrary pair graphs.
+ *
+ * @param {*} pair
+ * @returns {string}
+ */
+export const serialize = pair =>
+  visibleFoldCounts(pair).size
+    ? serializeProjected(pair)
+    : canonicalSerialize(pair)

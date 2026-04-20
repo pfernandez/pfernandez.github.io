@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { compile, parse, serialize } from './sexpr.js'
+import { observe } from './observe.js'
 
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
@@ -93,6 +94,61 @@ describe('pair serializer', () => {
   test('serializes numeric slot motifs', () =>
     assert.equal(serialize([[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']),
                  '(((((0 2) (1 2)) a) b) c)'))
+
+  test('serializes compiled slots as folding instructions', () =>
+    assert.equal(serialize(compile(`
+      (defn S (x y z) ((x z) (y z)))
+      (((S a) b) c)
+    `)), '(((((0 2) (1 2)) a) b) c)'))
+
+  test('serializes observed folding steps by remaining fill order', () => {
+    const step0 = compile(`
+      (defn S (x y z) ((x z) (y z)))
+      (((S a) b) c)
+    `)
+    const step1 = observe(step0)
+    const step2 = observe(step1)
+    const step3 = observe(step2)
+
+    assert.equal(serialize(step0), '(((((0 2) (1 2)) a) b) c)')
+    assert.equal(serialize(step1), '((((a 1) (0 1)) b) c)')
+    assert.equal(serialize(step2), '(((a 0) (b 0)) c)')
+    assert.equal(serialize(step3), '((a c) (b c))')
+  })
+
+  test('serializes manual fixed points with traversal-local fallback labels', () => {
+    const point = []
+    point[0] = point
+    point[1] = 'a'
+
+    assert.equal(serialize(point), '0')
+  })
+
+  test('serializes projection fallbacks inside folding templates', () => {
+    const pair = compile('(defn P (x y) (x y))\n((P a) b)')
+    const inner = compile('(defn I (x) x)\n(I q)')
+    const point = []
+    point[0] = point
+    point[1] = 'm'
+
+    assert.equal(serialize([[pair[0], []], pair[1]]),
+                 '((((0 ()) 1) a) b)')
+    assert.equal(serialize([[pair[0], inner], pair[1]]),
+                 '((((0 (0 q)) 1) a) b)')
+    assert.equal(serialize([[pair[0], point], pair[1]]),
+                 '((((0 0) 1) a) b)')
+    assert.equal(serialize([inner, point]), '((0 q) 0)')
+    assert.equal(serialize([inner, []]), '((0 q) ())')
+  })
+
+  test('rejects non-pair arrays inside projected output', () => {
+    const pair = compile('(defn P (x y) (x y))\n((P a) b)')
+    const inner = compile('(defn I (x) x)\n(I q)')
+
+    assert.throws(() => serialize([[pair[0], ['bad']], pair[1]]),
+                  /empty or pairs/i)
+    assert.throws(() => serialize([inner, ['bad']]), /empty or pairs/i)
+  })
 })
 
 describe('compiler', () => {
@@ -109,6 +165,12 @@ describe('compiler', () => {
     assert.equal(compile('7'), 7)
   })
 
+  test('leaves bare non-zero-argument defn symbols alone', () =>
+    assert.equal(compile(`
+      (defn I (x) x)
+      I
+    `), 'I'))
+
   test('leaves a plain expression alone', () =>
     assert.deepEqual(compile('(((f x) y) z)'),
                      parse('(((f x) y) z)')))
@@ -123,6 +185,96 @@ describe('compiler', () => {
       (def id I)
       ((id a) b)
     `), parse('(((() 0) a) b)')))
+
+  test('compiles fully applied defn parameters as fixed points', () => {
+    const motif = compile(`
+      (defn S (x y z) ((x z) (y z)))
+      (((S a) b) c)
+    `)
+
+    const p0 = motif[0][0]
+    const p1 = motif[1][0]
+    const p2 = motif[0][1]
+
+    assert.equal(p0[0], p0)
+    assert.equal(p0[1], 'a')
+    assert.equal(p1[0], p1)
+    assert.equal(p1[1], 'b')
+    assert.equal(p2[0], p2)
+    assert.equal(p2[1], 'c')
+    assert.equal(motif[1][1], p2)
+  })
+
+  test('compiles numeric def templates as shared fixed points', () => {
+    const motif = compile(`
+      (def S ((0 2) (1 2)))
+      (((S a) b) c)
+    `)
+
+    const p0 = motif[0][0]
+    const p1 = motif[1][0]
+    const p2 = motif[0][1]
+
+    assert.equal(p0[0], p0)
+    assert.equal(p0[1], 'a')
+    assert.equal(p1[0], p1)
+    assert.equal(p1[1], 'b')
+    assert.equal(p2[0], p2)
+    assert.equal(p2[1], 'c')
+    assert.equal(motif[1][1], p2)
+  })
+
+  test('shares repeated numeric template slots', () => {
+    const motif = compile(`
+      (def D (0 0))
+      (D a)
+    `)
+
+    assert.equal(motif[0], motif[1])
+    assert.equal(motif[0][0], motif[0])
+    assert.equal(motif[0][1], 'a')
+    assert.equal(serialize(motif), '((0 0) a)')
+  })
+
+  test('reapplies extra arguments after fully applied defns', () => {
+    const motif = compile(`
+      (defn I (x) x)
+      ((I a) b)
+    `)
+
+    assert.equal(motif[0][0], motif[0])
+    assert.equal(motif[0][1], 'a')
+    assert.equal(motif[1], 'b')
+  })
+
+  test('consumes unused defn parameters without reapplying them', () => {
+    const motif = compile(`
+      (defn K (x y) x)
+      ((K a) b)
+    `)
+
+    assert.equal(motif[0], motif)
+    assert.equal(motif[1], 'a')
+    assert.equal(serialize(motif), '(0 a)')
+  })
+
+  test('compiles non-template defn bodies with fixed-point locals', () =>
+    assert.equal(serialize(compile(`
+      (defn F (x) (x y))
+      ((F a) b)
+    `)), '(((0 a) y) b)'))
+
+  test('compiles empty non-template defn bodies', () =>
+    assert.equal(serialize(compile(`
+      (defn E (x) ())
+      (E a)
+    `)), '()'))
+
+  test('reapplies extra arguments after numeric templates', () =>
+    assert.equal(serialize(compile(`
+      (def S ((0 2) (1 2)))
+      ((((S a) b) c) d)
+    `)), '((((((0 2) (1 2)) a) b) c) d)'))
 
   test('expands zero-argument defns', () =>
     assert.equal(compile(`
@@ -189,9 +341,37 @@ describe('compiler', () => {
     assert.match(mock.calls[0].arguments[0].message, /params must be symbols/i)
   })
 
+  test('rejects sparse numeric slot templates', t => {
+    const { mock } = t.mock.method(console, 'error', () => {})
+    compile('(def bad (0 2))\n(((bad a) b) c)')
+    assert.equal(mock.callCount(), 1)
+    assert.match(mock.calls[0].arguments[0].message, /dense slots/i)
+  })
+
+  test('rejects negative numeric slot templates', t => {
+    const { mock } = t.mock.method(console, 'error', () => {})
+    compile('(def bad (0 -1))\n((bad a) b)')
+    assert.equal(mock.callCount(), 1)
+    assert.match(mock.calls[0].arguments[0].message, /non-negative integer/i)
+  })
+
+  test('rejects non-integer numeric slot templates', t => {
+    const { mock } = t.mock.method(console, 'error', () => {})
+    compile('(def bad (0 1.5))\n((bad a) b)')
+    assert.equal(mock.callCount(), 1)
+    assert.match(mock.calls[0].arguments[0].message, /non-negative integer/i)
+  })
+
   test('rejects recursive definitions', t => {
     const { mock } = t.mock.method(console, 'error', () => {})
     compile('(def loop loop)\nloop')
+    assert.equal(mock.callCount(), 1)
+    assert.match(mock.calls[0].arguments[0].message, /recursive definitions/i)
+  })
+
+  test('rejects recursive function aliases during application', t => {
+    const { mock } = t.mock.method(console, 'error', () => {})
+    compile('(def loop loop)\n(loop a)')
     assert.equal(mock.callCount(), 1)
     assert.match(mock.calls[0].arguments[0].message, /recursive definitions/i)
   })

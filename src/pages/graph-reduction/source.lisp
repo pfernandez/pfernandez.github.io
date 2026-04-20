@@ -1,6 +1,6 @@
 ; Basis-style program source.
-; The compiler expands `def` and `defn` forms, wrapping function bodies in
-; nested `(() ...)` pairs so that `observe` can feed one argument at a time.
+; The compiler expands `def` and fully applied `defn` forms into pair motifs
+; that `observe` can expose one tick at a time.
 
 (defn I (x) x)
 (def id I)
