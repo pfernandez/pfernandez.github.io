@@ -3,6 +3,16 @@ import { describe, test } from 'node:test'
 import { compile, parse, serialize } from './sexpr.js'
 import { observe } from './observe.js'
 
+const observeUntilStable = (term, remaining = 32) => {
+  const next = observe(term)
+  if (next === term) return term
+  if (remaining <= 0) throw new Error('Expression did not settle')
+  return observeUntilStable(next, remaining - 1)
+}
+
+const settle = source =>
+  serialize(observeUntilStable(compile(source)))
+
 describe('pair parser', () => {
   test('parses empty input as empty list', () => {
     assert.deepEqual(parse(''), [])
@@ -127,6 +137,7 @@ describe('pair serializer', () => {
   test('serializes projection fallbacks inside folding templates', () => {
     const pair = compile('(defn P (x y) (x y))\n((P a) b)')
     const inner = compile('(defn I (x) x)\n(I q)')
+    const innerEmpty = compile('(defn I (x) x)\n(I ())')
     const point = []
     point[0] = point
     point[1] = 'm'
@@ -135,6 +146,10 @@ describe('pair serializer', () => {
                  '((((0 ()) 1) a) b)')
     assert.equal(serialize([[pair[0], inner], pair[1]]),
                  '((((0 (0 q)) 1) a) b)')
+    assert.equal(serialize([[pair[0], ['x', inner]], pair[1]]),
+                 '((((0 (x q)) 1) a) b)')
+    assert.equal(serialize([[pair[0], ['x', innerEmpty]], pair[1]]),
+                 '((((0 (x ())) 1) a) b)')
     assert.equal(serialize([[pair[0], point], pair[1]]),
                  '((((0 0) 1) a) b)')
     assert.equal(serialize([inner, point]), '((0 q) 0)')
@@ -144,10 +159,14 @@ describe('pair serializer', () => {
   test('rejects non-pair arrays inside projected output', () => {
     const pair = compile('(defn P (x y) (x y))\n((P a) b)')
     const inner = compile('(defn I (x) x)\n(I q)')
+    const filled = compile('(defn I (x) x)\n(I (a b))')
+    filled[1].pop()
 
     assert.throws(() => serialize([[pair[0], ['bad']], pair[1]]),
                   /empty or pairs/i)
     assert.throws(() => serialize([inner, ['bad']]), /empty or pairs/i)
+    assert.throws(() => serialize([[pair[0], ['x', filled]], pair[1]]),
+                  /empty or pairs/i)
   })
 })
 
@@ -165,11 +184,17 @@ describe('compiler', () => {
     assert.equal(compile('7'), 7)
   })
 
-  test('leaves bare non-zero-argument defn symbols alone', () =>
-    assert.equal(compile(`
+  test('serializes bare non-zero-argument defn symbols as names', () =>
+    assert.equal(serialize(compile(`
       (defn I (x) x)
       I
-    `), 'I'))
+    `)), 'I'))
+
+  test('leaves bare non-template defn symbols alone', () =>
+    assert.equal(compile(`
+      (defn F (x) (x y))
+      F
+    `), 'F'))
 
   test('leaves a plain expression alone', () =>
     assert.deepEqual(compile('(((f x) y) z)'),
@@ -185,6 +210,12 @@ describe('compiler', () => {
       (def id I)
       ((id a) b)
     `), parse('(((() 0) a) b)')))
+
+  test('expands def aliases to plain atoms', () =>
+    assert.equal(compile(`
+      (def answer value)
+      answer
+    `), 'value'))
 
   test('compiles fully applied defn parameters as fixed points', () => {
     const motif = compile(`
@@ -236,6 +267,14 @@ describe('compiler', () => {
     assert.equal(serialize(motif), '((0 0) a)')
   })
 
+  test('compiles direct numeric slot applications as fixed points', () => {
+    const motif = compile('(0 a)')
+
+    assert.equal(motif[0], motif)
+    assert.equal(motif[1], 'a')
+    assert.equal(serialize(motif), '(0 a)')
+  })
+
   test('reapplies extra arguments after fully applied defns', () => {
     const motif = compile(`
       (defn I (x) x)
@@ -258,6 +297,13 @@ describe('compiler', () => {
     assert.equal(serialize(motif), '(0 a)')
   })
 
+  test('applies fold values passed through higher-order templates', () =>
+    assert.equal(settle(`
+      (defn K (x y) x)
+      (defn S (x y z) ((x z) (y z)))
+      (((S K) K) a)
+    `), 'a'))
+
   test('compiles non-template defn bodies with fixed-point locals', () =>
     assert.equal(serialize(compile(`
       (defn F (x) (x y))
@@ -275,6 +321,24 @@ describe('compiler', () => {
       (def S ((0 2) (1 2)))
       ((((S a) b) c) d)
     `)), '((((((0 2) (1 2)) a) b) c) d)'))
+
+  test('keeps partially applied folding definitions as source applications', () => {
+    assert.equal(serialize(compile(`
+      (defn S (x y z) ((x z) (y z)))
+      (S a)
+    `)), '(S a)')
+    assert.equal(serialize(compile(`
+      (def S ((0 2) (1 2)))
+      (S a)
+    `)), '(S a)')
+  })
+
+  test('lowers dynamic fold applications inside ordinary right branches', () =>
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn return-I (x) I)
+      (x ((return-I q) a))
+    `)), '(x a)'))
 
   test('expands zero-argument defns', () =>
     assert.equal(compile(`

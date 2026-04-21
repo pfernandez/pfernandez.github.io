@@ -24,15 +24,25 @@ const isPair = node => isList(node) && node.length === 2
 const isFixed = node => isPair(node) && node[0] === node
 const foldSlots = new WeakMap()
 
+// Compiler-only fold instructions for higher-order source terms. `compile`
+// lowers and reifies them before returning, so `observe` still sees pairs.
+const foldValues = new WeakMap()
+
 const tokenize = source =>
   source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
 
-const fixed = (value, slot = null, group = null) => {
+const fixed = (value, slot, group) => {
   const pair = []
   pair[0] = pair
   pair[1] = value
-  if (group) foldSlots.set(pair, { group, slot, value })
+  foldSlots.set(pair, { group, slot, value })
   return pair
+}
+
+const foldValue = meta => {
+  const value = {}
+  foldValues.set(value, meta)
+  return value
 }
 
 const applyArgs = (head, args) =>
@@ -40,6 +50,9 @@ const applyArgs = (head, args) =>
 
 const applySerializedArgs = (head, args) =>
   args.reduce((left, right) => `(${left} ${right})`, head)
+
+const applyFoldArgs = (head, args) =>
+  args.reduce(applyFoldValue, head)
 
 const atom = token => {
   const number = Number(token)
@@ -147,12 +160,11 @@ const childFoldCounts = node =>
     ? [visibleFoldCounts(node[0]), visibleFoldCounts(node[1])]
     : []
 
-const foldBoundaryGroup = (node, totals, counts) =>
-  [...counts]
-    .map(([group]) => group)
-    .find(group =>
-      counts.get(group) === totals.get(group) &&
-      !childFoldCounts(node).some(child => child.get(group) === totals.get(group)))
+const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
+  [...counts.keys()].find(group =>
+    activeGroups.has(group) &&
+    counts.get(group) === totals.get(group) &&
+    !childFoldCounts(node).some(child => child.get(group) === totals.get(group)))
 
 const collectFoldClosures = (node, group) => {
   const meta = foldSlots.get(node)
@@ -227,13 +239,40 @@ const instantiateTemplate = (template, args, compileArg, arity = null) => {
   return applyArgs(body, rest)
 }
 
+const instantiateFold = (template, args, arity) =>
+  instantiateTemplate(template, args, value => value, arity)
+
+const atomBoundary = node => !isList(node)
+
+const sharedContinuation = node =>
+  isPair(node) && isPair(node[0]) && isPair(node[1]) && node[0][1] === node[1][1]
+
+const foldForDefinition = (name, entry) => {
+  if (entry.kind === 'def') {
+    const profile = slotProfile(entry.body)
+    return profile
+      ? foldValue({ name, template: entry.body, arity: profile.arity, args: [] })
+      : null
+  }
+
+  if (entry.params.length === 0) return null
+
+  const { node: template, pure } =
+    paramTemplate(entry.body, slotLocals(entry.params))
+
+  return pure
+    ? foldValue({ name, template, arity: entry.params.length, args: [] })
+    : null
+}
+
 const resolveDefinition = (name, env, stack) => {
   const entry = env.get(name)
   if (!entry) return null
   if (stack.includes(name)) {
     throw new Error(`Recursive definitions are not supported: ${name}`)
   }
-  if (entry.kind === 'def' && typeof entry.body === 'string') {
+  if (entry.kind === 'def' && typeof entry.body === 'string' &&
+      env.has(entry.body)) {
     return resolveDefinition(entry.body, env, [...stack, name])
   }
   return { name, entry }
@@ -245,19 +284,19 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
 
     if (locals.has(expr)) return locals.get(expr)
 
-    const entry = env.get(expr)
-    if (!entry) return expr
+    const resolved = resolveDefinition(expr, env, stack)
+    if (!resolved) return expr
 
-    if (stack.includes(expr)) {
-      throw new Error(`Recursive definitions are not supported: ${expr}`)
-    }
+    const { name, entry } = resolved
+    const fold = foldForDefinition(name, entry)
+    if (fold) return fold
 
     if (entry.kind === 'def') {
-      return compileExpr(entry.body, env, new Map(), [...stack, expr])
+      return compileExpr(entry.body, env, new Map(), [...stack, name])
     }
 
     if (entry.params.length === 0) {
-      return compileExpr(entry.body, env, new Map(), [...stack, expr])
+      return compileExpr(entry.body, env, new Map(), [...stack, name])
     }
 
     return expr
@@ -301,8 +340,74 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
   if (templated) return templated
 
   const compiledHead = compileExpr(head, env, locals, stack)
+  const compiledArgs = args.map(compileArg)
+  if (isFoldValue(compiledHead)) {
+    return applyFoldArgs(compiledHead, compiledArgs)
+  }
+
   return instantiateTemplate(compiledHead, args, compileArg) ??
-    applyArgs(compiledHead, args.map(compileArg))
+    applyArgs(compiledHead, compiledArgs)
+}
+
+const isFoldValue = value =>
+  Boolean(value) && typeof value === 'object' && foldValues.has(value)
+
+const applyFoldValue = (value, arg) => {
+  const meta = foldValues.get(value)
+  const args = [...meta.args, arg]
+  return args.length < meta.arity
+    ? foldValue({ ...meta, args })
+    : instantiateFold(meta.template, args, meta.arity)
+}
+
+const foldHead = value => {
+  if (isFoldValue(value)) return value
+  return isFixed(value) && isFoldValue(value[1]) ? value[1] : null
+}
+
+const lowerFoldApplications = value => {
+  if (!isPair(value) || isFixed(value)) return value
+
+  const left = lowerFoldApplications(value[0])
+  const head = foldHead(left)
+  if (head) return lowerFoldApplications(applyFoldValue(head, value[1]))
+
+  const right = lowerFoldApplications(value[1])
+  return left === value[0] && right === value[1] ? value : [left, right]
+}
+
+const reifiedFoldValue = (value, seen) => {
+  const meta = foldValues.get(value)
+  return applyArgs(meta.name, meta.args.map(arg => reifyFoldValues(arg, seen)))
+}
+
+const reifiedFixed = (value, seen) => {
+  const meta = foldSlots.get(value)
+  const next = []
+  next[0] = next
+  seen.set(value, next)
+  next[1] = reifyFoldValues(lowerFoldApplications(value[1]), seen)
+  foldSlots.set(next, { ...meta, value: next[1] })
+  return next
+}
+
+const reifiedPair = (value, seen) => {
+  const next = [null, null]
+  seen.set(value, next)
+  next[0] = reifyFoldValues(value[0], seen)
+  next[1] = reifyFoldValues(value[1], seen)
+  return next
+}
+
+const reifyFoldValues = (value, seen = new WeakMap()) => {
+  if (isFoldValue(value)) return reifiedFoldValue(value, seen)
+  if (!isPair(value)) return value
+
+  const existing = seen.get(value)
+  if (existing) return existing
+  return isFixed(value)
+    ? reifiedFixed(value, seen)
+    : reifiedPair(value, seen)
 }
 
 /**
@@ -345,9 +450,11 @@ export const parse = source => {
  * to left-associated binary pairs. Fully applied numeric templates and
  * parameter-only `defn` bodies lower through the same folding path: each slot
  * becomes one shared fixed-point closure carrying hidden fill-order metadata
- * for `serialize`. Non-template `defn` bodies still receive fixed-point
- * locals, so their arguments exist in the graph even when the body also
- * contains ordinary symbols. Partial or unresolved applications remain
+ * for `serialize`. Pure functions can be staged as compiler-only fold values
+ * while lowering higher-order source expressions, but those values are reified
+ * before this function returns. Non-template `defn` bodies still receive
+ * fixed-point locals, so their arguments exist in the graph even when the body
+ * also contains ordinary symbols. Partial or unresolved applications remain
  * ordinary left-associated pairs.
  *
  * Returns the thrown error after logging it, matching `parse` and preserving
@@ -361,7 +468,7 @@ export const compile = source => {
     const forms = collectProgram(source)
     if (!forms.length) return []
     const { env, expr } = programTable(forms)
-    return compileExpr(expr, env)
+    return reifyFoldValues(lowerFoldApplications(compileExpr(expr, env)))
   }
   catch (error) {
     console.error(error)
@@ -384,41 +491,80 @@ const canonicalSerialize = (pair, slots = new Map()) => {
   return String(pair)
 }
 
-const serializeFoldTemplate = (pair, group, slots) => {
+const activeFoldGroups = (node, blocked = false) => {
+  const meta = foldSlots.get(node)
+  const groups = meta && !blocked ? [meta.group] : []
+  if (!isPair(node) || isFixed(node)) return new Set(groups)
+
+  const sharedGroups = !blocked && sharedContinuation(node)
+    ? visibleFoldCounts(node[0][1]).keys()
+    : []
+
+  return new Set([...groups,
+                  ...sharedGroups,
+                  ...activeFoldGroups(node[0], blocked),
+                  ...activeFoldGroups(node[1], blocked || atomBoundary(node[0]))])
+}
+
+const serializeFilled = pair => {
   const meta = foldSlots.get(pair)
-  if (meta?.group === group) return String(slots.get(pair))
-  if (meta) return serialize(pair)
-  if (isFixed(pair)) return canonicalSerialize(pair)
+  if (meta) return serializeFilled(meta.value)
 
   if (isList(pair)) {
     if (pair.length === 0) return '()'
     if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${serializeFoldTemplate(pair[0], group, slots)} ${serializeFoldTemplate(pair[1], group, slots)})`
+    return `(${serializeFilled(pair[0])} ${serializeFilled(pair[1])})`
   }
 
   return String(pair)
 }
 
-const serializeFold = (pair, group) => {
-  const closures = uniqueByIdentity(collectFoldClosures(pair, group))
-    .sort((left, right) => foldSlots.get(left).slot - foldSlots.get(right).slot)
-  const slots = new Map(closures.map((closure, index) => [closure, index]))
-  const template = serializeFoldTemplate(pair, group, slots)
-  const args = closures.map(closure => serialize(foldSlots.get(closure).value))
-
-  return applySerializedArgs(template, args)
-}
-
-const serializeProjected = (pair, totals = visibleFoldCounts(pair)) => {
-  const counts = visibleFoldCounts(pair)
-  const group = foldBoundaryGroup(pair, totals, counts)
-  if (group) return serializeFold(pair, group)
+const serializeFoldTemplate = (pair, group, slots, activeGroups) => {
+  const meta = foldSlots.get(pair)
+  if (meta?.group === group) return String(slots.get(pair))
+  if (meta) {
+    return activeGroups.has(meta.group)
+      ? serializeProjected(pair, visibleFoldCounts(pair), activeGroups)
+      : serializeFilled(meta.value)
+  }
   if (isFixed(pair)) return canonicalSerialize(pair)
 
   if (isList(pair)) {
     if (pair.length === 0) return '()'
     if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${serializeProjected(pair[0], totals)} ${serializeProjected(pair[1], totals)})`
+    return `(${serializeFoldTemplate(pair[0], group, slots, activeGroups)} ${serializeFoldTemplate(pair[1], group, slots, activeGroups)})`
+  }
+
+  return String(pair)
+}
+
+const serializeFold = (pair, group, activeGroups) => {
+  const closures = uniqueByIdentity(collectFoldClosures(pair, group))
+    .sort((left, right) => foldSlots.get(left).slot - foldSlots.get(right).slot)
+  const slots = new Map(closures.map((closure, index) => [closure, index]))
+  const template = serializeFoldTemplate(pair, group, slots, activeGroups)
+  const args = closures.map(closure => serialize(foldSlots.get(closure).value))
+
+  return applySerializedArgs(template, args)
+}
+
+const serializeProjected = (
+  pair,
+  totals = visibleFoldCounts(pair),
+  activeGroups = activeFoldGroups(pair),
+) => {
+  const meta = foldSlots.get(pair)
+  if (meta && !activeGroups.has(meta.group)) return serializeFilled(meta.value)
+
+  const counts = visibleFoldCounts(pair)
+  const group = foldBoundaryGroup(pair, totals, counts, activeGroups)
+  if (group) return serializeFold(pair, group, activeGroups)
+  if (isFixed(pair)) return canonicalSerialize(pair)
+
+  if (isList(pair)) {
+    if (pair.length === 0) return '()'
+    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
+    return `(${serializeProjected(pair[0], totals, activeGroups)} ${serializeProjected(pair[1], totals, activeGroups)})`
   }
 
   return String(pair)
@@ -429,18 +575,24 @@ const serializeProjected = (pair, totals = visibleFoldCounts(pair)) => {
  *
  * Plain atoms, empty lists, and ordinary pairs serialize as canonical binary
  * S-expressions. Compiler-created fixed-point argument closures carry hidden
- * fill-order metadata; when such closures are visible, serialization projects
- * the graph back into a reversible folding instruction by replacing the
- * remaining closures with dense slot numbers and appending their stored
- * argument payloads in fill order.
+ * fill-order metadata. Active closures serialize as reversible folding
+ * instructions by replacing the remaining closures with dense slot numbers and
+ * appending their stored argument payloads in fill order. A closure is active
+ * when it remains on an observer-visible path or is the shared continuation of
+ * the current pair shape.
  *
  * This projection is intentionally not a literal object-graph dump. The graph
  * still contains shared self-referential closures, and `observe` still rewrites
  * those closures by identity. The folding form is the paper/worked-example
  * view: repeated slot numbers describe where the same remaining argument will
  * be folded, while the staged arguments after the template show the values
- * already present inside the closure payloads. Manually constructed closures
- * without compiler metadata fall back to traversal-local labels so serialization
+ * already present inside the closure payloads.
+ *
+ * Passive compiler closures, such as arguments under an atom-headed pair that
+ * the observer will not enter, serialize as their filled source values. This
+ * keeps settled source-level terms readable without giving `observe` any
+ * knowledge of definitions or folds. Manually constructed closures without
+ * compiler metadata fall back to traversal-local labels so serialization
  * remains finite for arbitrary pair graphs.
  *
  * @param {*} pair

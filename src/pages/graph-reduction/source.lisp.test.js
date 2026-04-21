@@ -15,47 +15,46 @@ const definitionCases =
     ['const', '((const a) b)', 'a'],
     ['S', '(((S a) b) c)', '((a c) (b c))'],
     ['spread', '(((spread a) b) c)', '((a c) (b c))'],
-    ['B', '(((B f) g) x)', '(f (((0 1) g) x))'],
-    ['compose', '(((compose f) g) x)', '(f (((0 1) g) x))'],
-    ['C', '(((C f) x) y)', '((f (0 y)) x)'],
-    ['flip', '(((flip f) x) y)', '((f (0 y)) x)'],
-    ['W', '((W f) x)', '((f (0 x)) x)'],
-    ['split', '((split f) x)', '((f (0 x)) x)'],
+    ['B', '(((B f) g) x)', '(f (g x))'],
+    ['compose', '(((compose f) g) x)', '(f (g x))'],
+    ['C', '(((C f) x) y)', '((f y) x)'],
+    ['flip', '(((flip f) x) y)', '((f y) x)'],
+    ['W', '((W f) x)', '((f x) x)'],
+    ['split', '((split f) x)', '((f x) x)'],
     ['true', '((true a) b)', 'a'],
     ['false', '((false a) b)', 'b'],
-    ['if', '(((if p) th) el)', '((p (0 th)) el)'],
-    ['not', '(((not p) x) y)', '((p (0 y)) x)'],
-    ['and', '((((and p) q) x) y)',
-     '((p (((((0 1) 2) q) x) y)) y)'],
-    ['or', '((((or p) q) x) y)', '(((p 0) ((q 0) y)) x)'],
-    ['pair', '(((pair a) b) f)', '((f (0 a)) b)'],
+    ['if', '(((if p) th) el)', '((p th) el)'],
+    ['not', '(((not p) x) y)', '((p y) x)'],
+    ['and', '((((and p) q) x) y)', '((p ((q x) y)) y)'],
+    ['or', '((((or p) q) x) y)', '((p x) ((q x) y))'],
+    ['pair', '(((pair a) b) f)', '((f a) b)'],
     ['first', '(first p)', '(p true)'],
     ['second', '(second p)', '(p false)'],
-    ['curry', '(((curry f) x) y)', '(f ((((pair 0) 1) x) y))'],
-    ['uncurry', '((uncurry f) p)', '((f ((0 (0 p)) true)) (p false))'],
+    ['curry', '(((curry f) x) y)', '(f ((pair x) y))'],
+    ['uncurry', '((uncurry f) p)', '((f (p true)) (p false))'],
     ['left', '((left x) y)', 'x'],
     ['right', '((right x) y)', 'y'],
     ['self', '(self x)', 'x'],
     ['zero', '((zero f) x)', 'x'],
-    ['one', '((one f) x)', '(f (0 x))'],
-    ['two', '((two f) x)', '(f (((0 1) f) x))'],
-    ['succ', '(((succ n) f) x)', '(f (((((0 1) 2) n) f) x))'],
-    ['add', '((((add m) n) f) x)', '(((m 0) ((n 0) x)) f)'],
-    ['mul', '((((mul m) n) f) x)', '((m (((0 1) n) f)) x)'],
+    ['one', '((one f) x)', '(f x)'],
+    ['two', '((two f) x)', '(f (f x))'],
+    ['succ', '(((succ n) f) x)', '(f ((n f) x))'],
+    ['add', '((((add m) n) f) x)', '((m f) ((n f) x))'],
+    ['mul', '((((mul m) n) f) x)', '((m (n f)) x)'],
     ['is-zero', '(is-zero n)', '((n (K false)) true)'],
-    ['APPLY-SELF', '((APPLY-SELF x) v)', '((x (0 x)) v)'],
-    ['apply-self', '((apply-self x) v)', '((x (0 x)) v)'],
-    ['THETA', '((THETA f) x)', '(f (APPLY-SELF (0 x)))'],
-    ['theta', '((theta f) x)', '(f (APPLY-SELF (0 x)))'],
-    ['Z', '(Z f)', '(f (APPLY-SELF (0 (THETA (0 f)))))'],
-    ['fix', '(fix f)', '(f (APPLY-SELF (0 (THETA (0 f)))))']
+    ['APPLY-SELF', '((APPLY-SELF x) v)', '((x x) v)'],
+    ['apply-self', '((apply-self x) v)', '((x x) v)'],
+    ['THETA', '((THETA f) x)', '(f (APPLY-SELF x))'],
+    ['theta', '((theta f) x)', '(f (APPLY-SELF x))'],
+    ['Z', '(Z f)', '(f (APPLY-SELF (THETA f)))'],
+    ['fix', '(fix f)', '(f (APPLY-SELF (THETA f)))']
   ]
 
 const tryCases =
   [
     ['(((S a) b) c)', '((a c) (b c))'],
-    ['(((pair a) b) left)', '((left (0 a)) b)'],
-    ['((((add one) two) f) x)', '(((one 0) ((two 0) x)) f)'],
+    ['(((pair a) b) left)', 'a'],
+    ['((((add one) two) f) x)', '(f (f (f x)))'],
     ['((I a) b)', '(a b)']
   ]
 
@@ -88,6 +87,15 @@ const serializeSteps = (term, remaining = 64) => {
 const settle = expression =>
   serialize(observeUntilStable(compile(program(expression))))
 
+const apply = (fn, arg = 'a') =>
+  `(${fn} ${arg})`
+
+const assertExposesEqual = (left, right) =>
+  assert.equal(settle(left), settle(right), `${left} = ${right}`)
+
+const assertActsEqual = (left, right, arg = 'a') =>
+  assertExposesEqual(apply(left, arg), apply(right, arg))
+
 describe('source.lisp examples', () => {
   test('covers every definition in source.lisp', () =>
     assert.deepEqual(definitionCases.map(([name]) => name).sort(),
@@ -95,9 +103,15 @@ describe('source.lisp examples', () => {
 
   test('names the empty boundary as source-level identity', () => {
     assert.equal(serialize(compile(program('I'))), '()')
-    assert.equal(settle('(() a)'), 'a')
-    assert.equal(settle('(I a)'), 'a')
-    assert.equal(settle('(id a)'), 'a')
+    assertExposesEqual('()', 'I')
+    assertExposesEqual('I', 'id')
+    assertActsEqual('()', 'I')
+    assertActsEqual('I', 'id')
+  })
+
+  test('recognizes SKK as observational identity', () => {
+    assert.equal(settle(apply('I')), 'a')
+    assertActsEqual('I', '((S K) K)')
   })
 
   test('keeps the commented Try list covered', () =>
@@ -110,11 +124,13 @@ describe('source.lisp examples', () => {
                       '(((a 0) (b 0)) c)',
                       '((a c) (b c))']))
 
-  test('exposes each source definition under the current observer', () =>
-    definitionCases.forEach(([name, expression, expected]) =>
-      assert.equal(settle(expression), expected, name)))
+  definitionCases.forEach(([name, expression, expected]) => {
+    test(`reduces ${name} to the desired source-level output`, () =>
+      assert.equal(settle(expression), expected))
+  })
 
-  test('documents the current Try expression outcomes', () =>
-    tryCases.forEach(([expression, expected]) =>
-      assert.equal(settle(expression), expected, expression)))
+  tryCases.forEach(([expression, expected]) => {
+    test(`reduces Try expression ${expression} to desired output`, () =>
+      assert.equal(settle(expression), expected))
+  })
 })
