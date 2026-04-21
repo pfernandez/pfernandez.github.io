@@ -2,7 +2,7 @@
 ; The compiler expands `def` and fully applied `defn` forms into pair motifs
 ; that `observe` can expose one tick at a time.
 
-(defn I (x) x)
+(def I ())
 (def id I)
 
 (defn K (x y) x)
