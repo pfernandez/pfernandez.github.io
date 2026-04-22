@@ -30,6 +30,11 @@ describe('observe', () => {
     assert.equal(observe(empty), empty)
   })
 
+  test('leaves non-pair arrays alone', () => {
+    const malformed = [[[], []]]
+    assert.equal(observe(malformed), malformed)
+  })
+
   test('fires a fixed point pair', () =>
     assert.equal(observe(fixed('a')), 'a'))
 
