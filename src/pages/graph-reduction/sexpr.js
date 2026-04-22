@@ -1,22 +1,23 @@
 /**
  * @module sexpr
  *
- * Parsing, folding-template lowering, graph materialization, and serialization
+ * Parsing, folding-template encoding, graph materialization, and serialization
  * for pair-encoded S-expressions.
  *
- * We intentionally restrict surface S-expressions to a *binary* discipline:
- * every list must be either `()` or a 2-tuple `(a b)`. This keeps the output
- * isomorphic to a full binary tree / pairs encoding.
+ * Surface S-expressions are read literally, then `encode` left-associates
+ * application and rewrites definitions to one Lisp-facing folding projection.
+ * `construct` is the public helper that turns dense numeric folding terms into
+ * shared in-memory pair graphs.
  *
  * Supported:
- * - Binary expressions: `(a b)` → `['a', 'b']`
+ * - Lists and applications: `(f x y)` → `['f', 'x', 'y']`
  * - Source programs with `(def ...)` / `(defn ...)` forms and one final
  *   expression
  * - Numbers: `42` → `42`
  * - Symbols: everything else as strings
  * - Line comments starting with `;`
- * - Compiler lowering for definitions
- * - Folding instructions such as `(def S ((0 2) (1 2)))`
+ * - Compiler encoding for definitions
+ * - Folding instructions such as `(((((0 2) (1 2)) a) b) c)`
  *
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
@@ -71,7 +72,7 @@ const fixedTemplates = new WeakMap()
  * }} FoldInstruction
  */
 
-// Compiler-only lowering instructions. Materialization removes them before
+// Compiler-only encoding instructions. Materialization removes them before
 // `compile` returns, so `observe` still sees only pairs.
 const foldInstructions = new WeakMap()
 
@@ -117,6 +118,12 @@ const applySerializedArgs = (head, args) =>
 const applyFoldInstructionArgs = (head, args) =>
   args.reduce(applyFoldInstruction, head)
 
+const serializeList = (pair, serializeChild) => {
+  if (pair.length === 0) return '()'
+  if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
+  return `(${serializeChild(pair[0])} ${serializeChild(pair[1])})`
+}
+
 const atom = token => {
   const number = Number(token)
   return Number.isNaN(number) ? token : number
@@ -139,13 +146,6 @@ const read = (tokens, i = 0) => {
   }
 }
 
-const toBinary = expr => {
-  if (!isList(expr)) return expr
-  if (expr.length === 0) return []
-  if (expr.length !== 2) throw new Error('Lists must have exactly 2 elements')
-  return [toBinary(expr[0]), toBinary(expr[1])]
-}
-
 const normalizeParamList = params => {
   if (!isList(params)) throw new Error('defn params must be a list')
   if (params.some(param => typeof param !== 'string')) {
@@ -166,9 +166,11 @@ const makeProgramEntry = (name, body) => ({ kind: 'def', name, body })
 const makeProgramFunction = (name, params, body) =>
   ({ kind: 'defn', name, params, body })
 
+const isDefinitionForm = form =>
+  isList(form) && (form[0] === 'def' || form[0] === 'defn')
+
 const normalizeDefinitionForm = form => {
-  if (!isList(form) || !form.length) return null
-  if (form[0] !== 'def' && form[0] !== 'defn') return null
+  if (!isDefinitionForm(form)) return null
 
   if (form[0] === 'def') {
     if (form.length < 3) throw new Error('Each form must be (def name body)')
@@ -302,23 +304,23 @@ const slotLocals = params =>
 const functionLocals = (params, args, fixedArg) =>
   new Map(params.map((param, index) => [param, fixedArg(args[index], index)]))
 
-const lowerTemplateApplication = (template, args, lowerArg, arity = null) => {
+const encodeTemplateApplication = (template, args, encodeArg, arity = null) => {
   const profile = slotProfile(template, arity)
   if (!profile || args.length < profile.arity) return null
 
   const group = {}
   const slots = args.slice(0, profile.arity)
-    .map((arg, slot) => fixedTemplate(lowerArg(arg), slot, group))
+    .map((arg, slot) => fixedTemplate(encodeArg(arg), slot, group))
   const fill = node =>
     isList(node) ? [fill(node[0]), fill(node[1])] : slots[node]
   const body = fill(template)
-  const rest = args.slice(profile.arity).map(lowerArg)
+  const rest = args.slice(profile.arity).map(encodeArg)
 
   return applyArgs(body, rest)
 }
 
-const lowerFoldTemplate = (template, args, arity) =>
-  lowerTemplateApplication(template, args, value => value, arity)
+const encodeFoldTemplate = (template, args, arity) =>
+  encodeTemplateApplication(template, args, value => value, arity)
 
 const atomBoundary = node => !isList(node)
 
@@ -371,10 +373,10 @@ const resolveDefinition = (name, env, stack) => {
 const hasCompleteFunctionApplication = (resolved, args) =>
   resolved?.entry.kind === 'defn' && args.length >= resolved.entry.params.length
 
-const lowerFunctionApplication = (
+const encodeFunctionApplication = (
   resolved,
   args,
-  lowerArg,
+  encodeArg,
   env,
   locals,
   stack,
@@ -383,7 +385,7 @@ const lowerFunctionApplication = (
   const { node: template, pure } =
     paramTemplate(entry.body, slotLocals(entry.params))
   const templated = pure
-    ? lowerTemplateApplication(template, args, lowerArg, entry.params.length)
+    ? encodeTemplateApplication(template, args, encodeArg, entry.params.length)
     : null
 
   if (templated) return templated
@@ -393,17 +395,17 @@ const lowerFunctionApplication = (
     new Map([...locals,
              ...functionLocals(entry.params,
                                args.slice(0, entry.params.length),
-                               (arg, slot) => fixedTemplate(lowerArg(arg),
+                               (arg, slot) => fixedTemplate(encodeArg(arg),
                                                             slot,
                                                             group))])
-  const body = lowerExpression(entry.body,
+  const body = encodeExpression(entry.body,
                                env,
                                nextLocals,
                                [...stack, resolved.name])
-  return applyArgs(body, args.slice(entry.params.length).map(lowerArg))
+  return applyArgs(body, args.slice(entry.params.length).map(encodeArg))
 }
 
-const lowerExpression = (expr, env, locals = new Map(), stack = []) => {
+const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
     if (typeof expr !== 'string') return expr
 
@@ -416,7 +418,7 @@ const lowerExpression = (expr, env, locals = new Map(), stack = []) => {
     const fold = foldInstructionForDefinition(name, entry, env, stack)
     if (fold) return fold
 
-    return lowerExpression(entry.body, env, new Map(), [...stack, name])
+    return encodeExpression(entry.body, env, new Map(), [...stack, name])
   }
 
   if (expr.length === 0) return []
@@ -425,30 +427,30 @@ const lowerExpression = (expr, env, locals = new Map(), stack = []) => {
   const resolved = typeof head === 'string'
     ? resolveDefinition(head, env, stack)
     : null
-  const lowerArg = arg => lowerExpression(arg, env, locals, stack)
+  const encodeArg = arg => encodeExpression(arg, env, locals, stack)
 
   if (hasCompleteFunctionApplication(resolved, args)) {
-    return lowerFunctionApplication(resolved,
+    return encodeFunctionApplication(resolved,
                                     args,
-                                    lowerArg,
+                                    encodeArg,
                                     env,
                                     locals,
                                     stack)
   }
 
   const templated = resolved?.entry.kind === 'def'
-    ? lowerTemplateApplication(resolved.entry.body, args, lowerArg)
+    ? encodeTemplateApplication(resolved.entry.body, args, encodeArg)
     : null
   if (templated) return templated
 
-  const loweredHead = lowerExpression(head, env, locals, stack)
-  const loweredArgs = args.map(lowerArg)
-  if (isFoldInstruction(loweredHead)) {
-    return applyFoldInstructionArgs(loweredHead, loweredArgs)
+  const encodedHead = encodeExpression(head, env, locals, stack)
+  const encodedArgs = args.map(encodeArg)
+  if (isFoldInstruction(encodedHead)) {
+    return applyFoldInstructionArgs(encodedHead, encodedArgs)
   }
 
-  return lowerTemplateApplication(loweredHead, args, lowerArg) ??
-    applyArgs(loweredHead, loweredArgs)
+  return encodeTemplateApplication(encodedHead, args, encodeArg) ??
+    applyArgs(encodedHead, encodedArgs)
 }
 
 const isFoldInstruction = value =>
@@ -472,14 +474,14 @@ const remainingFoldArgs = meta =>
 const foldComplete = meta =>
   meta.args.length >= meta.arity
 
-const lowerFunctionBody = (meta, locals) =>
-  lowerExpression(meta.entry.body,
+const encodeFunctionBody = (meta, locals) =>
+  encodeExpression(meta.entry.body,
                   meta.env,
                   locals,
                   [...meta.stack, meta.name])
 
-const lowerTemplateFold = meta =>
-  lowerFoldTemplate(meta.template, meta.args, meta.arity)
+const encodeTemplateFold = meta =>
+  encodeFoldTemplate(meta.template, meta.args, meta.arity)
 
 const transitionLoop = (meta, args, updates) => {
   if (!foldInstructionHead(args[0])) return null
@@ -494,33 +496,33 @@ const transitionLoop = (meta, args, updates) => {
       : slot === 1
         ? state
         : fixedTemplate(value, slot, group))
-  const loweredUpdates = updates.map(update =>
-    lowerExpression(update, meta.env, locals, [...meta.stack, meta.name]))
+  const encodedUpdates = updates.map(update =>
+    encodeExpression(update, meta.env, locals, [...meta.stack, meta.name]))
 
-  return [withCycleBody(loop, applyArgs(loop, loweredUpdates)), state]
+  return [withCycleBody(loop, applyArgs(loop, encodedUpdates)), state]
 }
 
-const lowerTransitionFold = meta => {
+const encodeTransitionFold = meta => {
   const updates = statePrefixedUpdates(meta.entry)
   return updates && transitionLoop(meta, completeFoldArgs(meta), updates)
 }
 
-const lowerFunctionFold = meta => {
+const encodeFunctionFold = meta => {
   const group = {}
   const locals = functionLocals(meta.entry.params, completeFoldArgs(meta),
                                 (value, slot) =>
                                   fixedTemplate(value, slot, group))
-  return applyArgs(lowerFunctionBody(meta, locals), remainingFoldArgs(meta))
+  return applyArgs(encodeFunctionBody(meta, locals), remainingFoldArgs(meta))
 }
 
-const lowerCompleteFold = meta =>
+const encodeCompleteFold = meta =>
   hasTemplate(meta)
-    ? lowerTemplateFold(meta)
-    : lowerTransitionFold(meta) ?? lowerFunctionFold(meta)
+    ? encodeTemplateFold(meta)
+    : encodeTransitionFold(meta) ?? encodeFunctionFold(meta)
 
 const applyFoldInstruction = (value, arg) => {
   const meta = withFoldArg(foldInstructions.get(value), arg)
-  return foldComplete(meta) ? lowerCompleteFold(meta) : foldInstruction(meta)
+  return foldComplete(meta) ? encodeCompleteFold(meta) : foldInstruction(meta)
 }
 
 const foldInstructionHead = (value, seen = new WeakSet()) => {
@@ -544,23 +546,23 @@ const recursiveFoldApplication = (head, applications) => {
   applications.set(head, loop)
   return withCycleBody(
     loop,
-    lowerFoldApplications(applyFoldInstruction(head, loop), applications)
+    encodeFoldApplications(applyFoldInstruction(head, loop), applications)
   )
 }
 
-const lowerFoldApplications = (value, applications = new WeakMap()) => {
+const encodeFoldApplications = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
 
-  const left = lowerFoldApplications(value[0], applications)
+  const left = encodeFoldApplications(value[0], applications)
   const head = foldInstructionHead(left)
   if (head && selfApplication(left, value[1])) {
     return recursiveFoldApplication(head, applications)
   }
   if (head && !selfApplication(left, value[1])) {
-    return lowerFoldApplications(applyFoldInstruction(head, value[1]), applications)
+    return encodeFoldApplications(applyFoldInstruction(head, value[1]), applications)
   }
 
-  const right = lowerFoldApplications(value[1], applications)
+  const right = encodeFoldApplications(value[1], applications)
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
@@ -573,7 +575,7 @@ const materializeFixedTemplate = (value, seen) => {
   const meta = fixedTemplates.get(value)
   const next = fixedClosure(null)
   seen.set(value, next)
-  next[1] = materializeGraph(lowerFoldApplications(meta.value), seen)
+  next[1] = materializeGraph(encodeFoldApplications(meta.value), seen)
   foldSlots.set(next, { ...meta, value: next[1] })
   return next
 }
@@ -596,38 +598,89 @@ const materializeGraph = (value, seen = new WeakMap()) => {
   return materializePair(value, seen)
 }
 
-const constructProgram = forms => {
+const materializeProgram = forms => {
   if (!forms.length) return []
 
   const { env, expr } = indexProgram(forms)
-  const lowered = lowerExpression(expr, env)
-  const folded = lowerFoldApplications(lowered)
+  const encoded = encodeExpression(expr, env)
+  const folded = encodeFoldApplications(encoded)
   return materializeGraph(folded)
 }
 
+const encodePlainExpression = expr => {
+  if (!isList(expr)) return expr
+  if (expr.length === 0) return []
+
+  const [head, ...args] = expr
+  return applyArgs(encodePlainExpression(head), args.map(encodePlainExpression))
+}
+
+const encodeProgramProjection = forms =>
+  readSourceForms(serialize(materializeProgram(forms)))[0]
+
+const encodeProgram = forms =>
+  !forms.length
+    ? []
+    : forms.length === 1 && !isDefinitionForm(forms[0])
+      ? encodePlainExpression(forms[0])
+      : encodeProgramProjection(forms)
+
+const applicationSplits = term =>
+  isPair(term)
+    ? [[term, []],
+       ...applicationSplits(term[0]).map(([head, args]) =>
+         [head, [...args, term[1]]])]
+    : [[term, []]]
+
+const denseSlotError = error =>
+  /dense slots/i.test(error.message)
+
+const constructTemplateApplication = term =>
+  applicationSplits(term).reduce((match, [head, args]) => {
+    if (match) return match
+
+    try {
+      return encodeTemplateApplication(head, args, constructTerm)
+    }
+    catch (error) {
+      if (denseSlotError(error)) return null
+      throw error
+    }
+  }, null)
+
+const constructOrdinaryApplication = term => {
+  const [head, args] = application(term)
+  const constructedHead = constructTerm(head)
+  const constructedArgs = args.map(constructTerm)
+  return applyArgs(constructedHead, constructedArgs)
+}
+
+const constructTerm = term => {
+  if (!isList(term)) return term
+  if (term.length === 0) return []
+
+  const templated = constructTemplateApplication(term)
+  return templated ?? constructOrdinaryApplication(term)
+}
+
 /**
- * Parses one canonical binary S-expression into nested JS arrays, numbers,
- * and strings.
+ * Parses source text into top-level Lisp forms.
  *
- * `parse` is the strict single-term reader used by tests and by plain pair
- * round-tripping: every list must be either `()` or a two-item pair. It does
- * not understand program forms, n-ary application, or definitions; use
- * `compile` for full source programs.
+ * `parse` is intentionally literal: it tokenizes comments and parentheses,
+ * turns numeric atoms into numbers, and returns the top-level forms exactly as
+ * arrays, numbers, and symbols. A single term is therefore returned as a
+ * one-form program, while definitions and a final expression are returned as
+ * several forms. Semantic rewriting belongs to `encode`.
  *
  * Returns the thrown error after logging it, to preserve the current parser
  * contract used by the tests.
  *
  * @param {string} source
- * @returns {*|Error}
+ * @returns {SourceForm[]|Error}
  */
 export const parse = source => {
   try {
-    const tokens = tokenize(source)
-    if (!tokens.length) return []
-
-    const [pair, i] = read(tokens)
-    if (i !== tokens.length) throw new Error('Extra content after expression')
-    return toBinary(pair)
+    return readSourceForms(source)
   }
   catch (error) {
     console.error(error)
@@ -636,55 +689,66 @@ export const parse = source => {
 }
 
 /**
- * Constructs the graph consumed by `observe` from parsed source forms.
+ * Encodes parsed source forms as one Lisp-facing folding term.
  *
- * `construct` is the explicit construction half of `compile`: it accepts the
- * arrays, numbers, and symbols produced by the source reader, indexes
- * definitions, lowers the final expression to folding instructions and graph
- * templates, then materializes those templates into the in-memory pair graph.
- * It is useful when tests or tools already have source forms and want to skip
- * text tokenization.
+ * `encode` is the semantic Lisp step: definitions, aliases, `defn` parameter
+ * templates, n-ary applications, partial folds, and recursive source calls are
+ * rewritten to the folding projection shown by `serialize`. Dense numeric
+ * template applications, such as the staged S form, can be passed to
+ * `construct` to recover the shared graph. Some source-level projections omit
+ * passive closure identity by design, so `compile` materializes from the
+ * semantic encoding directly when the full graph is required.
  *
  * Unlike `parse` and `compile`, this helper is not a text-input boundary; it
- * throws construction errors directly so callers can decide how to surface
- * them.
+ * throws encoding errors directly so callers can decide how to surface them.
  *
  * @param {SourceForm[]} forms
+ * @returns {SourceForm}
+ */
+export const encode = forms => encodeProgram(forms)
+
+/**
+ * Constructs the graph consumed by `observe` from one folding-instruction term.
+ *
+ * `construct` is intentionally small. It knows arrays, numbers, and temporary
+ * atoms; numeric pair shapes are read as folding instructions, and everything
+ * else is materialized as ordinary pair structure. Program constructs such as
+ * `def` and `defn` are handled by `encode`, not here.
+ *
+ * @param {SourceForm} term
  * @returns {*}
  */
-export const construct = forms => constructProgram(forms)
+export const construct = term =>
+  materializeGraph(encodeFoldApplications(constructTerm(term)))
 
 /**
  * Compiles a multi-form source program to the pair graph consumed by
  * `observe`.
  *
- * `compile` is source parsing plus `construct`: it reads source text into
- * plain arrays, numbers, and symbols, then delegates to construction. Source
- * forms lower to folding instructions: numeric templates, parameter templates,
- * staged fold applications, fixed-slot templates, recursive knot templates,
- * and ordinary left-associated pairs. Finally `materializeGraph` materializes
- * the returned graph: fixed-slot templates become fixed closures with
- * serializer metadata, staged fold instructions become source-shaped pairs,
- * and pair/knot templates are cloned with sharing preserved.
+ * `compile` reads source text into plain arrays, numbers, and symbols, then
+ * runs the same semantic encoder used by `encode` directly into graph
+ * materialization. This keeps recursive knots and shared closure identity
+ * intact even where the current serialized projection is not yet a complete
+ * reconstruction format for every source-level function.
  *
  * Source programs may contain `(def name body)` aliases, numeric folding
  * definitions such as `(def S ((0 2) (1 2)))`, `(defn name (x ...) body)`
  * functions, and one final expression. Fully applied numeric templates and
- * parameter-only `defn` bodies lower through the same folding path: each slot
+ * parameter-only `defn` bodies encode through the same folding path: each slot
  * becomes one shared fixed-point closure carrying hidden fill-order metadata
  * for `serialize`. Named functions can be staged as compiler-only fold
- * instructions while lowering higher-order source expressions, but those
+ * instructions while encoding higher-order source expressions, but those
  * instructions are materialized before this function returns. Template bodies
- * lower directly; other `defn` bodies still receive fixed-point locals, so their
+ * encode directly; other `defn` bodies still receive fixed-point locals, so their
  * arguments exist in the graph even when the body also contains ordinary
  * symbols. Partial or unresolved applications remain ordinary left-associated
  * pairs.
  *
  * When delayed source self-application would otherwise expand forever during
- * compilation, lowering records a recursive knot and materialization returns
+ * compilation, encoding records a recursive knot and materialization returns
  * it as a fixed-point pair so `observe` sees the loop. Recursive state
  * transitions of the form `(self (state x ...))`, where `self` is the first
- * parameter and `state` is the second, lower to a live transition loop with
+ * parameter and `state` is the second, encode to a live transition loop with
  * the state carried beside it. This keeps the recursive path pair-structured
  * and observer-visible without teaching `observe` about Lisp names or calls;
  * atom-headed transitions remain ordinary pairs and stop at the atom boundary.
@@ -697,7 +761,7 @@ export const construct = forms => constructProgram(forms)
  */
 export const compile = source => {
   try {
-    return constructProgram(readSourceForms(source))
+    return materializeProgram(readSourceForms(source))
   }
   catch (error) {
     console.error(error)
@@ -712,9 +776,7 @@ const canonicalSerialize = (pair, slots = new Map()) => {
   }
 
   if (isList(pair)) {
-    if (pair.length === 0) return '()'
-    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${canonicalSerialize(pair[0], slots)} ${canonicalSerialize(pair[1], slots)})`
+    return serializeList(pair, node => canonicalSerialize(node, slots))
   }
 
   return String(pair)
@@ -740,9 +802,7 @@ const serializeFilled = pair => {
   if (meta) return serializeFilled(meta.value)
 
   if (isList(pair)) {
-    if (pair.length === 0) return '()'
-    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${serializeFilled(pair[0])} ${serializeFilled(pair[1])})`
+    return serializeList(pair, serializeFilled)
   }
 
   return String(pair)
@@ -759,9 +819,8 @@ const serializeFoldTemplate = (pair, group, slots, activeGroups) => {
   if (isFixed(pair)) return canonicalSerialize(pair)
 
   if (isList(pair)) {
-    if (pair.length === 0) return '()'
-    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${serializeFoldTemplate(pair[0], group, slots, activeGroups)} ${serializeFoldTemplate(pair[1], group, slots, activeGroups)})`
+    return serializeList(pair, node =>
+      serializeFoldTemplate(node, group, slots, activeGroups))
   }
 
   return String(pair)
@@ -791,9 +850,8 @@ const serializeProjected = (
   if (isFixed(pair)) return canonicalSerialize(pair)
 
   if (isList(pair)) {
-    if (pair.length === 0) return '()'
-    if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-    return `(${serializeProjected(pair[0], totals, activeGroups)} ${serializeProjected(pair[1], totals, activeGroups)})`
+    return serializeList(pair, node =>
+      serializeProjected(node, totals, activeGroups))
   }
 
   return String(pair)

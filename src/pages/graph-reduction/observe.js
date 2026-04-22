@@ -85,7 +85,6 @@ const changed = (next, previous) => next !== previous
  */
 const hasSharedContinuation = (first, rest) => first[1] === rest[1]
 
-
 /**
  * Performs one immutable observation step.
  *

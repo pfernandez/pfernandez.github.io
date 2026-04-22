@@ -40,9 +40,6 @@ const NODE_STYLES =
     fixed: { radius: 0.12, color: '0.86 0.56 0.22' },
     pair: { radius: 0.075, color: '0.16 0.16 0.16' } }
 
-const nodeStyle = kind =>
-  NODE_STYLES[kind]
-
 const childrenOf = node =>
   isEmpty(node) ? [] : isFixed(node) ? [node[1]] : isPair(node) ? node : []
 
@@ -180,7 +177,7 @@ const label = text =>
                       size: '.13' })))))
 
 const nodeAt = ({ node, kind, point }) => {
-  const style = nodeStyle(kind)
+  const style = NODE_STYLES[kind]
 
   return transform(
     { translation: pos(point) },

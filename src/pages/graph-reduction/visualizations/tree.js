@@ -10,9 +10,8 @@ const scene = pair => {
   if (pair === null) return pre('Parse an expression to view it.')
 
   const key = serialize(pair)
-  const projected = parse(key)
+  const projected = parse(key)[0]
   const tree = layout(projected)
-  const bounds = tree
   const pad = 1
   const scale = 2
   const pos = new Map(tree.nodes.map(node => [node.id, node]))
@@ -22,10 +21,10 @@ const scene = pair => {
   const nodes = tree.nodes
     .slice()
     .sort((a, b) => compare(a.id, b.id))
-  const width = (bounds.width + pad * 2) * scale
-  const height = (bounds.height + pad * 2) * scale
-  const centerX = bounds.minX + bounds.width / 2
-  const centerY = bounds.minY + bounds.height / 0.9
+  const width = (tree.width + pad * 2) * scale
+  const height = (tree.height + pad * 2) * scale
+  const centerX = tree.minX + tree.width / 2
+  const centerY = tree.minY + tree.height / 0.9
   const minX = centerX - width / 2
   const minY = centerY - height / 2
 

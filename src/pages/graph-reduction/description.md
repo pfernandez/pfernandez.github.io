@@ -1,6 +1,6 @@
 # Graph Reduction
 
-This page lowers a tiny Lisp surface syntax to *binary pairs*:
+This page encodes a tiny Lisp surface syntax as *binary pairs*:
 
 - `()` is the empty list
 - `(a b)` is a pair (also used as an application node)
@@ -10,7 +10,7 @@ This page lowers a tiny Lisp surface syntax to *binary pairs*:
 
 The current mechanics are:
 
-- The compiler lowers numeric `def` templates and fully applied
+- The compiler encodes numeric `def` templates and fully applied
   parameter-only `defn` bodies to shared fixed-point argument closures.
 - `serialize` shows those closures as folding instructions: remaining
   closures become dense slot numbers, and the staged argument payloads are
@@ -52,7 +52,7 @@ There are three layers in the current lab:
 - `observe` is the machine. It sees only atoms, `()`, pairs, reference
   identity, and shared continuations. It does not know Lisp names, definitions,
   arity, substitution, or folding instructions.
-- `compile` is the source loader. It expands the Lisp prelude, lowers n-ary
+- `compile` is the source loader. It expands the Lisp prelude, encodes n-ary
   application to pairs, and builds shared fixed-point closures when a complete
   source form gives it enough arguments.
 - `serialize` is a projection. It can show the live graph as reversible

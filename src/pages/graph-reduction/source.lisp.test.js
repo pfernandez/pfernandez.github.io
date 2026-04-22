@@ -90,6 +90,12 @@ const serializeTicks = (term, count) =>
   count <= 0 ? [] : [serialize(term),
                      ...serializeTicks(observe(term), count - 1)]
 
+const tokenCounts = (ticks, token) =>
+  ticks.map(tick => tick.match(new RegExp(token, 'g'))?.length ?? 0)
+
+const assertDoesNotSettle = term =>
+  assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+
 const settle = expression =>
   serialize(observeUntilStable(compile(program(expression))))
 
@@ -147,7 +153,7 @@ describe('source.lisp examples', () => {
       ((Z STEP) seed)
     `))
     const ticks = serializeTicks(term, 12)
-    const tickCounts = ticks.map(tick => tick.match(/tick/g)?.length ?? 0)
+    const tickCounts = tokenCounts(ticks, 'tick')
 
     assert.deepEqual(ticks.slice(0, 4),
                      ['(0 (0 seed))',
@@ -157,7 +163,7 @@ describe('source.lisp examples', () => {
     assert(ticks.every(tick => tick.includes('seed')))
     assert(tickCounts.at(-1) > tickCounts[2])
     assert(new Set(ticks).size > 4)
-    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+    assertDoesNotSettle(term)
   })
 
   test('lets Z state updates carry extra transition inputs', () => {
@@ -166,12 +172,12 @@ describe('source.lisp examples', () => {
       (((Z STEP) seed) mark)
     `))
     const ticks = serializeTicks(term, 12)
-    const tickCounts = ticks.map(tick => tick.match(/tick/g)?.length ?? 0)
+    const tickCounts = tokenCounts(ticks, 'tick')
 
     assert(ticks.slice(1).every(tick => tick.includes('mark')))
     assert(ticks.every(tick => tick.includes('seed')))
     assert(tickCounts.at(-1) > tickCounts[2])
-    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+    assertDoesNotSettle(term)
   })
 
   test('lets Z state return and settle', () =>
@@ -193,7 +199,7 @@ describe('source.lisp examples', () => {
                       '((((0 0) 0) (0 0)) (0 (0 (0 (0 seed)))))',
                       '(((((0 0) 0) 0) (0 0)) (0 (0 (0 (0 seed)))))'])
     assert(ticks.every(tick => tick.includes('seed')))
-    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+    assertDoesNotSettle(term)
   })
 
   test('keeps the stateless Y fixed point cycling', () => {
@@ -204,7 +210,7 @@ describe('source.lisp examples', () => {
                       '((0 ()) 0)',
                       '(() 0)',
                       '0'])
-    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+    assertDoesNotSettle(term)
   })
 
   test('keeps applied stateless Y loops on the ordinary path', () =>
