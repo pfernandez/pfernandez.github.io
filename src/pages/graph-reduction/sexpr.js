@@ -39,14 +39,6 @@ const fixed = (value, slot, group) => {
   return pair
 }
 
-const recursiveFixed = fill => {
-  const pair = []
-  pair[0] = pair
-  pair[1] = undefined
-  pair[1] = fill(pair)
-  return pair
-}
-
 const foldValue = meta => {
   const value = {}
   foldValues.set(value, meta)
@@ -390,20 +382,30 @@ const foldHead = (value, seen = new WeakSet()) => {
 const selfApplication = (left, right) =>
   isFixed(left) && left === right
 
-const lowerFoldApplications = value => {
+const recursiveFoldApplication = (head, applications) => {
+  const existing = applications.get(head)
+  if (existing) return existing
+
+  const pair = []
+  pair[0] = pair
+  applications.set(head, pair)
+  pair[1] = lowerFoldApplications(applyFoldValue(head, pair), applications)
+  return pair
+}
+
+const lowerFoldApplications = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
 
-  const left = lowerFoldApplications(value[0])
+  const left = lowerFoldApplications(value[0], applications)
   const head = foldHead(left)
   if (head && selfApplication(left, value[1])) {
-    return recursiveFixed(point =>
-      lowerFoldApplications(applyFoldValue(head, point)))
+    return recursiveFoldApplication(head, applications)
   }
   if (head && !selfApplication(left, value[1])) {
-    return lowerFoldApplications(applyFoldValue(head, value[1]))
+    return lowerFoldApplications(applyFoldValue(head, value[1]), applications)
   }
 
-  const right = lowerFoldApplications(value[1])
+  const right = lowerFoldApplications(value[1], applications)
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
@@ -613,6 +615,12 @@ const serializeProjected = (
  * appending their stored argument payloads in fill order. A closure is active
  * when it remains on an observer-visible path or is the shared continuation of
  * the current pair shape.
+ *
+ * The numeric atoms in this projection always name fixed pairs. In a folding
+ * instruction they are ordered slots from one compiler-created closure group;
+ * outside such a group they are traversal-local labels for raw fixed pairs.
+ * This keeps the notation graph-honest: both uses point at the same primitive
+ * `[self, value]` shape, while their role is determined by projection context.
  *
  * This projection is intentionally not a literal object-graph dump. The graph
  * still contains shared self-referential closures, and `observe` still rewrites

@@ -151,6 +151,28 @@ describe('source.lisp examples', () => {
     assert.equal(new Set(ticks.slice(1)).size, 1)
   })
 
+  test('lets Z state return and settle', () =>
+    assert.equal(settle(`
+      (defn DONE (self state) state)
+      ((Z DONE) seed)
+    `), 'seed'))
+
+  test('keeps Z state visible while carrying it unchanged', () => {
+    const term = compile(program(`
+      (defn HOLD (self state) (self state))
+      ((Z HOLD) seed)
+    `))
+    const ticks = serializeTicks(term, 12)
+
+    assert.deepEqual(ticks.slice(0, 4),
+                     ['(0 (0 (0 (0 (0 seed)))))',
+                      '((0 (0 (0 0))) (0 (0 (0 (0 seed)))))',
+                      '((((0 0) 0) (0 0)) (0 (0 (0 (0 seed)))))',
+                      '(((((0 0) 0) 0) (0 0)) (0 (0 (0 (0 seed)))))'])
+    assert(ticks.every(tick => tick.includes('seed')))
+    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+  })
+
   test('keeps the stateless Y fixed point cycling', () => {
     const term = compile(program('(Y I)'))
 

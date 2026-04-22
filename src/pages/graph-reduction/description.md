@@ -15,6 +15,9 @@ The current mechanics are:
 - `serialize` shows those closures as folding instructions: remaining
   closures become dense slot numbers, and the staged argument payloads are
   appended in fill order.
+- Numeric atoms in serialized output name fixed pairs. In a fold they are
+  ordered slots from one closure group; outside a fold they are traversal-local
+  labels for raw fixed pairs.
 - `observe` performs one leftmost-outermost step over a whole term
 - `[self, value]` is the fixed-point motif, and observing it fires to `value`
 
@@ -60,9 +63,10 @@ This is enough for `Z` to build contractive fixed points from named source
 functions. For example, `(fix (K a))` exposes `(0 a)` and then `a`, and
 `((fix (K a)) b)` exposes `((0 a) b)` and then `(a b)`.
 The stateless `Y` form can also tie an active fixed-point loop; `(Y I)` keeps
-producing observer steps rather than settling.
+producing observer steps rather than settling. `Z` can carry state unchanged:
+`(defn HOLD (self state) (self state))` keeps `seed` visible through the loop.
 
-It is not yet enough for an unbounded state loop. A transition such as
+It is not yet enough for a changing state loop. A transition such as
 `(defn STEP (self state) (self (next state)))` can expose one transition:
 `((Z STEP) seed)` becomes `(0 (next seed))` and then `(next seed)`. Observation
 stops there because `next` is an atom boundary. A state-carrying machine will
