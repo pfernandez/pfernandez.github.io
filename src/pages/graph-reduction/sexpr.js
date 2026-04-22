@@ -247,7 +247,7 @@ const atomBoundary = node => !isList(node)
 const sharedContinuation = node =>
   isPair(node) && isPair(node[0]) && isPair(node[1]) && node[0][1] === node[1][1]
 
-const foldForDefinition = (name, entry) => {
+const foldForDefinition = (name, entry, env, stack) => {
   if (entry.kind === 'def') {
     const profile = slotProfile(entry.body)
     return profile
@@ -262,7 +262,14 @@ const foldForDefinition = (name, entry) => {
 
   return pure
     ? foldValue({ name, template, arity: entry.params.length, args: [] })
-    : null
+    : foldValue({
+        name,
+        entry,
+        env,
+        stack,
+        arity: entry.params.length,
+        args: []
+      })
 }
 
 const resolveDefinition = (name, env, stack) => {
@@ -288,18 +295,10 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
     if (!resolved) return expr
 
     const { name, entry } = resolved
-    const fold = foldForDefinition(name, entry)
+    const fold = foldForDefinition(name, entry, env, stack)
     if (fold) return fold
 
-    if (entry.kind === 'def') {
-      return compileExpr(entry.body, env, new Map(), [...stack, name])
-    }
-
-    if (entry.params.length === 0) {
-      return compileExpr(entry.body, env, new Map(), [...stack, name])
-    }
-
-    return expr
+    return compileExpr(entry.body, env, new Map(), [...stack, name])
   }
 
   if (expr.length === 0) return []
@@ -352,17 +351,30 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
 const isFoldValue = value =>
   Boolean(value) && typeof value === 'object' && foldValues.has(value)
 
+const hasTemplate = meta =>
+  Object.hasOwn(meta, 'template')
+
 const applyFoldValue = (value, arg) => {
   const meta = foldValues.get(value)
   const args = [...meta.args, arg]
-  return args.length < meta.arity
-    ? foldValue({ ...meta, args })
-    : instantiateFold(meta.template, args, meta.arity)
+  if (args.length < meta.arity) return foldValue({ ...meta, args })
+  if (hasTemplate(meta)) return instantiateFold(meta.template, args, meta.arity)
+
+  const group = {}
+  const localArgs = args.slice(0, meta.arity)
+    .map((value, slot) => fixed(value, slot, group))
+  const locals = new Map(meta.entry.params.map((param, index) =>
+    [param, localArgs[index]]))
+  const body = compileExpr(meta.entry.body,
+                           meta.env,
+                           locals,
+                           [...meta.stack, meta.name])
+  return applyArgs(body, args.slice(meta.arity))
 }
 
 const foldHead = value => {
   if (isFoldValue(value)) return value
-  return isFixed(value) && isFoldValue(value[1]) ? value[1] : null
+  return isFixed(value) ? foldHead(value[1]) : null
 }
 
 const lowerFoldApplications = value => {
@@ -450,12 +462,12 @@ export const parse = source => {
  * to left-associated binary pairs. Fully applied numeric templates and
  * parameter-only `defn` bodies lower through the same folding path: each slot
  * becomes one shared fixed-point closure carrying hidden fill-order metadata
- * for `serialize`. Pure functions can be staged as compiler-only fold values
+ * for `serialize`. Named functions can be staged as compiler-only fold values
  * while lowering higher-order source expressions, but those values are reified
- * before this function returns. Non-template `defn` bodies still receive
- * fixed-point locals, so their arguments exist in the graph even when the body
- * also contains ordinary symbols. Partial or unresolved applications remain
- * ordinary left-associated pairs.
+ * before this function returns. Template bodies lower directly; other `defn`
+ * bodies still receive fixed-point locals, so their arguments exist in the
+ * graph even when the body also contains ordinary symbols. Partial or
+ * unresolved applications remain ordinary left-associated pairs.
  *
  * Returns the thrown error after logging it, matching `parse` and preserving
  * the test-facing API.

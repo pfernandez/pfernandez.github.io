@@ -84,6 +84,9 @@ const serializeSteps = (term, remaining = 64) => {
   return [serialize(term), ...serializeSteps(next, remaining - 1)]
 }
 
+const serializeTicks = (term, count) =>
+  count <= 0 ? [] : [serialize(term), ...serializeTicks(observe(term), count - 1)]
+
 const settle = expression =>
   serialize(observeUntilStable(compile(program(expression))))
 
@@ -115,7 +118,8 @@ describe('source.lisp examples', () => {
   })
 
   test('keeps the commented Try list covered', () =>
-    assert.deepEqual(tryExpressions(), tryCases.map(([expression]) => expression)))
+    assert.deepEqual(tryExpressions(),
+                     tryCases.map(([expression]) => expression)))
 
   test('runs the default S expression one observed fold at a time', () =>
     assert.deepEqual(serializeSteps(compile(source)),
@@ -123,6 +127,26 @@ describe('source.lisp examples', () => {
                       '((((a 1) (0 1)) b) c)',
                       '(((a 0) (b 0)) c)',
                       '((a c) (b c))']))
+
+  test('builds Z fixpoints for contractive functions over many ticks', () => {
+    const fixedValue = serializeTicks(compile(program('(fix (K a))')), 12)
+    const appliedValue = serializeTicks(compile(program('((fix (K a)) b)')), 12)
+
+    assert.deepEqual(fixedValue.slice(0, 2), ['(0 a)', 'a'])
+    assert.equal(new Set(fixedValue.slice(1)).size, 1)
+    assert.deepEqual(appliedValue.slice(0, 2), ['((0 a) b)', '(a b)'])
+    assert.equal(new Set(appliedValue.slice(1)).size, 1)
+  })
+
+  test('tracks the current Z boundary for state transitions', () => {
+    const ticks = serializeTicks(compile(program(`
+      (defn STEP (self state) (self (next state)))
+      ((Z STEP) seed)
+    `)), 24)
+
+    assert.deepEqual(ticks.slice(0, 2), ['(0 (next seed))', '(next seed)'])
+    assert.equal(new Set(ticks.slice(1)).size, 1)
+  })
 
   definitionCases.forEach(([name, expression, expected]) => {
     test(`reduces ${name} to the desired source-level output`, () =>
