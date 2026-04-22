@@ -340,6 +340,42 @@ describe('compiler', () => {
       (x ((return-I q) a))
     `)), '(x a)'))
 
+  test('keeps non-transition dynamic folds on the ordinary path', () => {
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn F (x) (x y))
+      ((I F) a)
+    `)), '((0 a) y)')
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn F (x y) ((x y) z))
+      (((I F) a) b)
+    `)), '((((0 1) a) b) z)')
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn F (x y) (helper x))
+      (((I F) a) b)
+    `)), '(helper a)')
+  })
+
+  test('does not force ordinary calls into state loops', () => {
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn STEP (self state) (self (state tick)))
+      (((I STEP) f) seed)
+    `)), '(((0 (1 tick)) f) seed)')
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn STEP (self state other) (self (other tick)))
+      ((((I STEP) f) seed) spare)
+    `)), '(((0 (1 tick)) f) spare)')
+    assert.equal(serialize(compile(`
+      (defn I (x) x)
+      (defn STEP (self state) (self state))
+      (((I STEP) f) seed)
+    `)), '(((0 1) f) seed)')
+  })
+
   test('expands zero-argument defns', () =>
     assert.equal(compile(`
       (defn answer () 42)

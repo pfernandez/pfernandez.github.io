@@ -141,14 +141,37 @@ describe('source.lisp examples', () => {
     assert.equal(new Set(appliedValue.slice(1)).size, 1)
   })
 
-  test('tracks the current Z boundary for state transitions', () => {
-    const ticks = serializeTicks(compile(program(`
-      (defn STEP (self state) (self (next state)))
+  test('keeps Z cycling through state-prefixed structural updates', () => {
+    const term = compile(program(`
+      (defn STEP (self state) (self (state tick)))
       ((Z STEP) seed)
-    `)), 24)
+    `))
+    const ticks = serializeTicks(term, 12)
+    const tickCounts = ticks.map(tick => tick.match(/tick/g)?.length ?? 0)
 
-    assert.deepEqual(ticks.slice(0, 2), ['(0 (next seed))', '(next seed)'])
-    assert.equal(new Set(ticks.slice(1)).size, 1)
+    assert.deepEqual(ticks.slice(0, 4),
+                     ['(0 (0 seed))',
+                      '((0 tick) (0 seed))',
+                      '(((0 tick) tick) (0 seed))',
+                      '((((0 tick) tick) tick) (0 seed))'])
+    assert(ticks.every(tick => tick.includes('seed')))
+    assert(tickCounts.at(-1) > tickCounts[2])
+    assert(new Set(ticks).size > 4)
+    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
+  })
+
+  test('lets Z state updates carry extra transition inputs', () => {
+    const term = compile(program(`
+      (defn STEP (self state marker) (self ((state marker) tick)))
+      (((Z STEP) seed) mark)
+    `))
+    const ticks = serializeTicks(term, 12)
+    const tickCounts = ticks.map(tick => tick.match(/tick/g)?.length ?? 0)
+
+    assert(ticks.slice(1).every(tick => tick.includes('mark')))
+    assert(ticks.every(tick => tick.includes('seed')))
+    assert(tickCounts.at(-1) > tickCounts[2])
+    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
   })
 
   test('lets Z state return and settle', () =>

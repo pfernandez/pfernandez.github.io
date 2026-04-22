@@ -143,6 +143,21 @@ const application = expr => {
   return [base, [...args, ...rest]]
 }
 
+const unaryApplication = expr => {
+  const [head, args] = application(expr)
+  return args.length === 1 ? { head, arg: args[0] } : null
+}
+
+const recursiveStateUpdate = entry => {
+  const call = unaryApplication(entry.body)
+  if (!call || call.head !== entry.params[0] || entry.params.length < 2) {
+    return null
+  }
+
+  const [state, updates] = application(call.arg)
+  return state === entry.params[1] && updates.length ? updates : null
+}
+
 const mergeCounts = (left, right) =>
   [...right].reduce((counts, [group, count]) =>
     new Map(counts).set(group, (counts.get(group) ?? 0) + count),
@@ -354,11 +369,36 @@ const isFoldValue = value =>
 const hasTemplate = meta =>
   Object.hasOwn(meta, 'template')
 
+const stateLoop = (meta, args, updates) => {
+  if (!foldHead(args[0])) return null
+
+  const group = {}
+  const loop = []
+  const state = fixed(args[1], 1, group)
+  loop[0] = loop
+
+  const locals = new Map(meta.entry.params.map((param, index) =>
+    [param, index === 0
+      ? loop
+      : index === 1
+        ? state
+        : fixed(args[index], index, group)]))
+  const compiledUpdates = updates.map(update =>
+    compileExpr(update, meta.env, locals, [...meta.stack, meta.name]))
+
+  loop[1] = applyArgs(loop, compiledUpdates)
+  return [loop, state]
+}
+
 const applyFoldValue = (value, arg) => {
   const meta = foldValues.get(value)
   const args = [...meta.args, arg]
   if (args.length < meta.arity) return foldValue({ ...meta, args })
   if (hasTemplate(meta)) return instantiateFold(meta.template, args, meta.arity)
+
+  const updates = recursiveStateUpdate(meta.entry)
+  const loop = updates && stateLoop(meta, args, updates)
+  if (loop) return loop
 
   const group = {}
   const localArgs = args.slice(0, meta.arity)
@@ -491,6 +531,12 @@ export const parse = source => {
  * unresolved applications remain ordinary left-associated pairs. When delayed
  * source self-application would otherwise expand forever during compilation,
  * the compiler ties a real fixed-point pair so `observe` sees the loop.
+ * Recursive state transitions of the form `(self (state x ...))`, where
+ * `self` is the first parameter and `state` is the second, lower to a live
+ * transition loop with the state carried beside it. This keeps the recursive
+ * path pair-structured and observer-visible without teaching `observe` about
+ * Lisp names or calls; atom-headed transitions remain ordinary pairs and stop
+ * at the atom boundary.
  *
  * Returns the thrown error after logging it, matching `parse` and preserving
  * the test-facing API.

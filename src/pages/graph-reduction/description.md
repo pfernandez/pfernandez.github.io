@@ -66,9 +66,17 @@ The stateless `Y` form can also tie an active fixed-point loop; `(Y I)` keeps
 producing observer steps rather than settling. `Z` can carry state unchanged:
 `(defn HOLD (self state) (self state))` keeps `seed` visible through the loop.
 
-It is not yet enough for a changing state loop. A transition such as
-`(defn STEP (self state) (self (next state)))` can expose one transition:
-`((Z STEP) seed)` becomes `(0 (next seed))` and then `(next seed)`. Observation
-stops there because `next` is an atom boundary. A state-carrying machine will
-need its transition function and state update represented as pair structure the
-observer can keep entering, rather than as source names or atom-headed output.
+Structural state transitions stay live when the recursive call receives a
+left-associated update of its state parameter. For example,
+`(defn STEP (self state) (self (state tick)))` keeps the carried `seed` visible
+while the transition side grows:
+
+```
+(0 (0 seed))
+((0 tick) (0 seed))
+(((0 tick) tick) (0 seed))
+```
+
+Atom-headed updates are still observation boundaries. A transition such as
+`(defn STEP (self state) (self (next state)))` can expose `(next seed)`, but
+observation stops there because `next` is an atom.
