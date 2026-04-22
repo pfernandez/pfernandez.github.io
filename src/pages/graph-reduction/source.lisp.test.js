@@ -207,6 +207,10 @@ describe('source.lisp examples', () => {
     assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
   })
 
+  test('keeps applied stateless Y loops on the ordinary path', () =>
+    assert.equal(serialize(compile(program('(def y (Y I))\n(y a)'))),
+                 '(((0 (0 ())) 0) a)'))
+
   definitionCases.forEach(([name, expression, expected]) => {
     test(`reduces ${name} to the desired source-level output`, () =>
       assert.equal(settle(expression), expected))

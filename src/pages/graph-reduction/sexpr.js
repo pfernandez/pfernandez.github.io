@@ -1,7 +1,8 @@
 /**
  * @module sexpr
  *
- * Parsing and serialization for pair-encoded S-expressions.
+ * Parsing, folding-template lowering, graph materialization, and serialization
+ * for pair-encoded S-expressions.
  *
  * We intentionally restrict surface S-expressions to a *binary* discipline:
  * every list must be either `()` or a 2-tuple `(a b)`. This keeps the output
@@ -14,7 +15,7 @@
  * - Numbers: `42` → `42`
  * - Symbols: everything else as strings
  * - Line comments starting with `;`
- * - Compiler expansion for definitions
+ * - Compiler lowering for definitions
  * - Folding instructions such as `(def S ((0 2) (1 2)))`
  *
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
@@ -23,25 +24,87 @@ const isList = Array.isArray
 const isPair = node => isList(node) && node.length === 2
 const isFixed = node => isPair(node) && node[0] === node
 const foldSlots = new WeakMap()
+const fixedTemplates = new WeakMap()
 
-// Compiler-only fold instructions for higher-order source terms. `compile`
-// lowers and reifies them before returning, so `observe` still sees pairs.
-const foldValues = new WeakMap()
+/**
+ * A Lisp source value after tokenization and list reading.
+ *
+ * @typedef {string|number|Array<SourceForm>} SourceForm
+ */
+
+/**
+ * A normalized source definition.
+ *
+ * @typedef {{
+ *   kind: 'def',
+ *   name: string,
+ *   body: SourceForm
+ * }|{
+ *   kind: 'defn',
+ *   name: string,
+ *   params: string[],
+ *   body: SourceForm
+ * }} ProgramEntry
+ */
+
+/**
+ * Metadata for one compiler-owned fixed slot before graph materialization.
+ *
+ * @typedef {{
+ *   group: object,
+ *   slot: number,
+ *   value: *
+ * }} FixedTemplate
+ */
+
+/**
+ * A staged source-level fold waiting for enough arguments to become a graph.
+ *
+ * @typedef {{
+ *   name: string,
+ *   template?: SourceForm,
+ *   entry?: ProgramEntry,
+ *   env?: Map<string, ProgramEntry>,
+ *   stack?: string[],
+ *   arity: number,
+ *   args: *[]
+ * }} FoldInstruction
+ */
+
+// Compiler-only lowering instructions. Materialization removes them before
+// `compile` returns, so `observe` still sees only pairs.
+const foldInstructions = new WeakMap()
 
 const tokenize = source =>
   source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
 
-const fixed = (value, slot, group) => {
+const fixedClosure = value => {
   const pair = []
   pair[0] = pair
   pair[1] = value
-  foldSlots.set(pair, { group, slot, value })
   return pair
 }
 
-const foldValue = meta => {
+const fixedTemplate = (value, slot, group) => {
+  const template = {}
+  fixedTemplates.set(template, { group, slot, value })
+  return template
+}
+
+const cycleTemplate = () => {
+  const template = []
+  template[0] = template
+  return template
+}
+
+const withCycleBody = (template, body) => {
+  template[1] = body
+  return template
+}
+
+const foldInstruction = meta => {
   const value = {}
-  foldValues.set(value, meta)
+  foldInstructions.set(value, meta)
   return value
 }
 
@@ -51,8 +114,8 @@ const applyArgs = (head, args) =>
 const applySerializedArgs = (head, args) =>
   args.reduce((left, right) => `(${left} ${right})`, head)
 
-const applyFoldArgs = (head, args) =>
-  args.reduce(applyFoldValue, head)
+const applyFoldInstructionArgs = (head, args) =>
+  args.reduce(applyFoldInstruction, head)
 
 const atom = token => {
   const number = Number(token)
@@ -97,7 +160,7 @@ const collectForms = (tokens, index = 0, forms = []) => {
   return collectForms(tokens, next, [...forms, form])
 }
 
-const collectProgram = source => collectForms(tokenize(source))
+const readSourceForms = source => collectForms(tokenize(source))
 
 const makeProgramEntry = (name, body) => ({ kind: 'def', name, body })
 const makeProgramFunction = (name, params, body) =>
@@ -122,7 +185,7 @@ const normalizeDefinitionForm = form => {
   }
 }
 
-const programTable = forms => {
+const indexProgram = forms => {
   const { env, expr } = forms.reduce((program, form) => {
     const definition = normalizeDefinitionForm(form)
     return definition
@@ -191,7 +254,6 @@ const uniqueByIdentity = values =>
   values.filter((value, index) => values.indexOf(value) === index)
 
 const collectSlotIndexes = node => {
-  if (isFixed(node)) return null
   if (isList(node)) {
     if (node.length !== 2) return null
     const left = collectSlotIndexes(node[0])
@@ -240,35 +302,33 @@ const slotLocals = params =>
 const functionLocals = (params, args, fixedArg) =>
   new Map(params.map((param, index) => [param, fixedArg(args[index], index)]))
 
-const instantiateTemplate = (template, args, compileArg, arity = null) => {
+const lowerTemplateApplication = (template, args, lowerArg, arity = null) => {
   const profile = slotProfile(template, arity)
   if (!profile || args.length < profile.arity) return null
 
   const group = {}
   const slots = args.slice(0, profile.arity)
-    .map((arg, slot) => fixed(compileArg(arg), slot, group))
+    .map((arg, slot) => fixedTemplate(lowerArg(arg), slot, group))
   const fill = node =>
     isList(node) ? [fill(node[0]), fill(node[1])] : slots[node]
   const body = fill(template)
-  const rest = args.slice(profile.arity).map(compileArg)
+  const rest = args.slice(profile.arity).map(lowerArg)
 
   return applyArgs(body, rest)
 }
 
-const instantiateFold = (template, args, arity) =>
-  instantiateTemplate(template, args, value => value, arity)
+const lowerFoldTemplate = (template, args, arity) =>
+  lowerTemplateApplication(template, args, value => value, arity)
 
 const atomBoundary = node => !isList(node)
 
 const sharedContinuation = node =>
   isPair(node) && isPair(node[0]) && isPair(node[1]) && node[0][1] === node[1][1]
 
-const foldForDefinition = (name, entry, env, stack) => {
+const templateForDefinition = entry => {
   if (entry.kind === 'def') {
     const profile = slotProfile(entry.body)
-    return profile
-      ? foldValue({ name, template: entry.body, arity: profile.arity, args: [] })
-      : null
+    return profile && { template: entry.body, arity: profile.arity }
   }
 
   if (entry.params.length === 0) return null
@@ -276,9 +336,15 @@ const foldForDefinition = (name, entry, env, stack) => {
   const { node: template, pure } =
     paramTemplate(entry.body, slotLocals(entry.params))
 
-  return pure
-    ? foldValue({ name, template, arity: entry.params.length, args: [] })
-    : foldValue({
+  return pure && { template, arity: entry.params.length }
+}
+
+const foldInstructionForDefinition = (name, entry, env, stack) => {
+  const template = templateForDefinition(entry)
+  if (template) return foldInstruction({ name, ...template, args: [] })
+
+  return entry.kind === 'defn' && entry.params.length
+    ? foldInstruction({
         name,
         entry,
         env,
@@ -286,6 +352,7 @@ const foldForDefinition = (name, entry, env, stack) => {
         arity: entry.params.length,
         args: []
       })
+    : null
 }
 
 const resolveDefinition = (name, env, stack) => {
@@ -307,7 +374,7 @@ const hasCompleteFunctionApplication = (resolved, args) =>
 const lowerFunctionApplication = (
   resolved,
   args,
-  compileArg,
+  lowerArg,
   env,
   locals,
   stack,
@@ -316,7 +383,7 @@ const lowerFunctionApplication = (
   const { node: template, pure } =
     paramTemplate(entry.body, slotLocals(entry.params))
   const templated = pure
-    ? instantiateTemplate(template, args, compileArg, entry.params.length)
+    ? lowerTemplateApplication(template, args, lowerArg, entry.params.length)
     : null
 
   if (templated) return templated
@@ -326,17 +393,17 @@ const lowerFunctionApplication = (
     new Map([...locals,
              ...functionLocals(entry.params,
                                args.slice(0, entry.params.length),
-                               (arg, slot) => fixed(compileArg(arg),
-                                                    slot,
-                                                    group))])
-  const body = compileExpr(entry.body,
-                           env,
-                           nextLocals,
-                           [...stack, resolved.name])
-  return applyArgs(body, args.slice(entry.params.length).map(compileArg))
+                               (arg, slot) => fixedTemplate(lowerArg(arg),
+                                                            slot,
+                                                            group))])
+  const body = lowerExpression(entry.body,
+                               env,
+                               nextLocals,
+                               [...stack, resolved.name])
+  return applyArgs(body, args.slice(entry.params.length).map(lowerArg))
 }
 
-const compileExpr = (expr, env, locals = new Map(), stack = []) => {
+const lowerExpression = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
     if (typeof expr !== 'string') return expr
 
@@ -346,10 +413,10 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
     if (!resolved) return expr
 
     const { name, entry } = resolved
-    const fold = foldForDefinition(name, entry, env, stack)
+    const fold = foldInstructionForDefinition(name, entry, env, stack)
     if (fold) return fold
 
-    return compileExpr(entry.body, env, new Map(), [...stack, name])
+    return lowerExpression(entry.body, env, new Map(), [...stack, name])
   }
 
   if (expr.length === 0) return []
@@ -358,34 +425,37 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
   const resolved = typeof head === 'string'
     ? resolveDefinition(head, env, stack)
     : null
-  const compileArg = arg => compileExpr(arg, env, locals, stack)
+  const lowerArg = arg => lowerExpression(arg, env, locals, stack)
 
   if (hasCompleteFunctionApplication(resolved, args)) {
     return lowerFunctionApplication(resolved,
                                     args,
-                                    compileArg,
+                                    lowerArg,
                                     env,
                                     locals,
                                     stack)
   }
 
   const templated = resolved?.entry.kind === 'def'
-    ? instantiateTemplate(resolved.entry.body, args, compileArg)
+    ? lowerTemplateApplication(resolved.entry.body, args, lowerArg)
     : null
   if (templated) return templated
 
-  const compiledHead = compileExpr(head, env, locals, stack)
-  const compiledArgs = args.map(compileArg)
-  if (isFoldValue(compiledHead)) {
-    return applyFoldArgs(compiledHead, compiledArgs)
+  const loweredHead = lowerExpression(head, env, locals, stack)
+  const loweredArgs = args.map(lowerArg)
+  if (isFoldInstruction(loweredHead)) {
+    return applyFoldInstructionArgs(loweredHead, loweredArgs)
   }
 
-  return instantiateTemplate(compiledHead, args, compileArg) ??
-    applyArgs(compiledHead, compiledArgs)
+  return lowerTemplateApplication(loweredHead, args, lowerArg) ??
+    applyArgs(loweredHead, loweredArgs)
 }
 
-const isFoldValue = value =>
-  Boolean(value) && typeof value === 'object' && foldValues.has(value)
+const isFoldInstruction = value =>
+  Boolean(value) && typeof value === 'object' && foldInstructions.has(value)
+
+const isFixedTemplate = value =>
+  Boolean(value) && typeof value === 'object' && fixedTemplates.has(value)
 
 const hasTemplate = meta =>
   Object.hasOwn(meta, 'template')
@@ -402,34 +472,32 @@ const remainingFoldArgs = meta =>
 const foldComplete = meta =>
   meta.args.length >= meta.arity
 
-const compileFunctionBody = (meta, locals) =>
-  compileExpr(meta.entry.body,
-              meta.env,
-              locals,
-              [...meta.stack, meta.name])
+const lowerFunctionBody = (meta, locals) =>
+  lowerExpression(meta.entry.body,
+                  meta.env,
+                  locals,
+                  [...meta.stack, meta.name])
 
 const lowerTemplateFold = meta =>
-  instantiateFold(meta.template, meta.args, meta.arity)
+  lowerFoldTemplate(meta.template, meta.args, meta.arity)
 
 const transitionLoop = (meta, args, updates) => {
-  if (!foldHead(args[0])) return null
+  if (!foldInstructionHead(args[0])) return null
 
   const group = {}
-  const loop = []
-  const state = fixed(args[1], 1, group)
-  loop[0] = loop
+  const loop = cycleTemplate()
+  const state = fixedTemplate(args[1], 1, group)
 
   const locals = functionLocals(meta.entry.params, args, (value, slot) =>
     slot === 0
       ? loop
       : slot === 1
         ? state
-        : fixed(value, slot, group))
-  const compiledUpdates = updates.map(update =>
-    compileExpr(update, meta.env, locals, [...meta.stack, meta.name]))
+        : fixedTemplate(value, slot, group))
+  const loweredUpdates = updates.map(update =>
+    lowerExpression(update, meta.env, locals, [...meta.stack, meta.name]))
 
-  loop[1] = applyArgs(loop, compiledUpdates)
-  return [loop, state]
+  return [withCycleBody(loop, applyArgs(loop, loweredUpdates)), state]
 }
 
 const lowerTransitionFold = meta => {
@@ -440,8 +508,9 @@ const lowerTransitionFold = meta => {
 const lowerFunctionFold = meta => {
   const group = {}
   const locals = functionLocals(meta.entry.params, completeFoldArgs(meta),
-                                (value, slot) => fixed(value, slot, group))
-  return applyArgs(compileFunctionBody(meta, locals), remainingFoldArgs(meta))
+                                (value, slot) =>
+                                  fixedTemplate(value, slot, group))
+  return applyArgs(lowerFunctionBody(meta, locals), remainingFoldArgs(meta))
 }
 
 const lowerCompleteFold = meta =>
@@ -449,80 +518,91 @@ const lowerCompleteFold = meta =>
     ? lowerTemplateFold(meta)
     : lowerTransitionFold(meta) ?? lowerFunctionFold(meta)
 
-const applyFoldValue = (value, arg) => {
-  const meta = withFoldArg(foldValues.get(value), arg)
-  return foldComplete(meta) ? lowerCompleteFold(meta) : foldValue(meta)
+const applyFoldInstruction = (value, arg) => {
+  const meta = withFoldArg(foldInstructions.get(value), arg)
+  return foldComplete(meta) ? lowerCompleteFold(meta) : foldInstruction(meta)
 }
 
-const foldHead = (value, seen = new WeakSet()) => {
-  if (isFoldValue(value)) return value
+const foldInstructionHead = (value, seen = new WeakSet()) => {
+  if (isFoldInstruction(value)) return value
+  if (isFixedTemplate(value)) {
+    return foldInstructionHead(fixedTemplates.get(value).value, seen)
+  }
   if (!isFixed(value) || seen.has(value)) return null
   seen.add(value)
-  return foldHead(value[1], seen)
+  return foldInstructionHead(value[1], seen)
 }
 
 const selfApplication = (left, right) =>
-  isFixed(left) && left === right
+  left === right && (isFixedTemplate(left) || isFixed(left))
 
 const recursiveFoldApplication = (head, applications) => {
   const existing = applications.get(head)
   if (existing) return existing
 
-  const pair = []
-  pair[0] = pair
-  applications.set(head, pair)
-  pair[1] = lowerFoldApplications(applyFoldValue(head, pair), applications)
-  return pair
+  const loop = cycleTemplate()
+  applications.set(head, loop)
+  return withCycleBody(
+    loop,
+    lowerFoldApplications(applyFoldInstruction(head, loop), applications)
+  )
 }
 
 const lowerFoldApplications = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
 
   const left = lowerFoldApplications(value[0], applications)
-  const head = foldHead(left)
+  const head = foldInstructionHead(left)
   if (head && selfApplication(left, value[1])) {
     return recursiveFoldApplication(head, applications)
   }
   if (head && !selfApplication(left, value[1])) {
-    return lowerFoldApplications(applyFoldValue(head, value[1]), applications)
+    return lowerFoldApplications(applyFoldInstruction(head, value[1]), applications)
   }
 
   const right = lowerFoldApplications(value[1], applications)
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
-const reifiedFoldValue = (value, seen) => {
-  const meta = foldValues.get(value)
-  return applyArgs(meta.name, meta.args.map(arg => reifyFoldValues(arg, seen)))
+const materializeFoldInstruction = (value, seen) => {
+  const meta = foldInstructions.get(value)
+  return applyArgs(meta.name, meta.args.map(arg => materializeGraph(arg, seen)))
 }
 
-const reifiedFixed = (value, seen) => {
-  const meta = foldSlots.get(value)
-  const next = []
-  next[0] = next
+const materializeFixedTemplate = (value, seen) => {
+  const meta = fixedTemplates.get(value)
+  const next = fixedClosure(null)
   seen.set(value, next)
-  next[1] = reifyFoldValues(lowerFoldApplications(value[1]), seen)
-  if (meta) foldSlots.set(next, { ...meta, value: next[1] })
+  next[1] = materializeGraph(lowerFoldApplications(meta.value), seen)
+  foldSlots.set(next, { ...meta, value: next[1] })
   return next
 }
 
-const reifiedPair = (value, seen) => {
+const materializePair = (value, seen) => {
   const next = [null, null]
   seen.set(value, next)
-  next[0] = reifyFoldValues(value[0], seen)
-  next[1] = reifyFoldValues(value[1], seen)
+  next[0] = materializeGraph(value[0], seen)
+  next[1] = materializeGraph(value[1], seen)
   return next
 }
 
-const reifyFoldValues = (value, seen = new WeakMap()) => {
-  if (isFoldValue(value)) return reifiedFoldValue(value, seen)
-  if (!isPair(value)) return value
-
+const materializeGraph = (value, seen = new WeakMap()) => {
   const existing = seen.get(value)
   if (existing) return existing
-  return isFixed(value)
-    ? reifiedFixed(value, seen)
-    : reifiedPair(value, seen)
+  if (isFoldInstruction(value)) return materializeFoldInstruction(value, seen)
+  if (isFixedTemplate(value)) return materializeFixedTemplate(value, seen)
+  if (!isPair(value)) return value
+
+  return materializePair(value, seen)
+}
+
+const constructProgram = forms => {
+  if (!forms.length) return []
+
+  const { env, expr } = indexProgram(forms)
+  const lowered = lowerExpression(expr, env)
+  const folded = lowerFoldApplications(lowered)
+  return materializeGraph(folded)
 }
 
 /**
@@ -556,29 +636,58 @@ export const parse = source => {
 }
 
 /**
+ * Constructs the graph consumed by `observe` from parsed source forms.
+ *
+ * `construct` is the explicit construction half of `compile`: it accepts the
+ * arrays, numbers, and symbols produced by the source reader, indexes
+ * definitions, lowers the final expression to folding instructions and graph
+ * templates, then materializes those templates into the in-memory pair graph.
+ * It is useful when tests or tools already have source forms and want to skip
+ * text tokenization.
+ *
+ * Unlike `parse` and `compile`, this helper is not a text-input boundary; it
+ * throws construction errors directly so callers can decide how to surface
+ * them.
+ *
+ * @param {SourceForm[]} forms
+ * @returns {*}
+ */
+export const construct = forms => constructProgram(forms)
+
+/**
  * Compiles a multi-form source program to the pair graph consumed by
  * `observe`.
  *
+ * `compile` is source parsing plus `construct`: it reads source text into
+ * plain arrays, numbers, and symbols, then delegates to construction. Source
+ * forms lower to folding instructions: numeric templates, parameter templates,
+ * staged fold applications, fixed-slot templates, recursive knot templates,
+ * and ordinary left-associated pairs. Finally `materializeGraph` materializes
+ * the returned graph: fixed-slot templates become fixed closures with
+ * serializer metadata, staged fold instructions become source-shaped pairs,
+ * and pair/knot templates are cloned with sharing preserved.
+ *
  * Source programs may contain `(def name body)` aliases, numeric folding
  * definitions such as `(def S ((0 2) (1 2)))`, `(defn name (x ...) body)`
- * functions, and one final expression. N-ary source applications are lowered
- * to left-associated binary pairs. Fully applied numeric templates and
+ * functions, and one final expression. Fully applied numeric templates and
  * parameter-only `defn` bodies lower through the same folding path: each slot
  * becomes one shared fixed-point closure carrying hidden fill-order metadata
- * for `serialize`. Named functions can be staged as compiler-only fold values
- * while lowering higher-order source expressions, but those values are reified
- * before this function returns. Template bodies lower directly; other `defn`
- * bodies still receive fixed-point locals, so their arguments exist in the
- * graph even when the body also contains ordinary symbols. Partial or
- * unresolved applications remain ordinary left-associated pairs. When delayed
- * source self-application would otherwise expand forever during compilation,
- * the compiler ties a real fixed-point pair so `observe` sees the loop.
- * Recursive state transitions of the form `(self (state x ...))`, where
- * `self` is the first parameter and `state` is the second, lower to a live
- * transition loop with the state carried beside it. This keeps the recursive
- * path pair-structured and observer-visible without teaching `observe` about
- * Lisp names or calls; atom-headed transitions remain ordinary pairs and stop
- * at the atom boundary.
+ * for `serialize`. Named functions can be staged as compiler-only fold
+ * instructions while lowering higher-order source expressions, but those
+ * instructions are materialized before this function returns. Template bodies
+ * lower directly; other `defn` bodies still receive fixed-point locals, so their
+ * arguments exist in the graph even when the body also contains ordinary
+ * symbols. Partial or unresolved applications remain ordinary left-associated
+ * pairs.
+ *
+ * When delayed source self-application would otherwise expand forever during
+ * compilation, lowering records a recursive knot and materialization returns
+ * it as a fixed-point pair so `observe` sees the loop. Recursive state
+ * transitions of the form `(self (state x ...))`, where `self` is the first
+ * parameter and `state` is the second, lower to a live transition loop with
+ * the state carried beside it. This keeps the recursive path pair-structured
+ * and observer-visible without teaching `observe` about Lisp names or calls;
+ * atom-headed transitions remain ordinary pairs and stop at the atom boundary.
  *
  * Returns the thrown error after logging it, matching `parse` and preserving
  * the test-facing API.
@@ -588,10 +697,7 @@ export const parse = source => {
  */
 export const compile = source => {
   try {
-    const forms = collectProgram(source)
-    if (!forms.length) return []
-    const { env, expr } = programTable(forms)
-    return reifyFoldValues(lowerFoldApplications(compileExpr(expr, env)))
+    return constructProgram(readSourceForms(source))
   }
   catch (error) {
     console.error(error)

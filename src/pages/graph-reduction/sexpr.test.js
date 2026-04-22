@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { compile, parse, serialize } from './sexpr.js'
+import { compile, construct, parse, serialize } from './sexpr.js'
 import { observe } from './observe.js'
 
 const observeUntilStable = (term, remaining = 32) => {
@@ -174,6 +174,14 @@ describe('compiler', () => {
   test('compiles empty program input as empty list', () => {
     assert.deepEqual(compile(''), [])
     assert.deepEqual(compile(' \n\t '), [])
+  })
+
+  test('constructs parsed source forms directly', () => {
+    assert.deepEqual(construct([]), [])
+    assert.equal(serialize(construct([
+      ['def', 'S', [[0, 2], [1, 2]]],
+      ['S', 'a', 'b', 'c']
+    ])), '(((((0 2) (1 2)) a) b) c)')
   })
 
   test('compiles an empty final expression', () =>
@@ -359,6 +367,10 @@ describe('compiler', () => {
   })
 
   test('does not force ordinary calls into state loops', () => {
+    assert.equal(serialize(compile(`
+      (defn STEP (self state) (self (state tick)))
+      ((STEP f) seed)
+    `)), '(((0 (1 tick)) f) seed)')
     assert.equal(serialize(compile(`
       (defn I (x) x)
       (defn STEP (self state) (self (state tick)))
