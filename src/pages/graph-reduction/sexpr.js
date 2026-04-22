@@ -143,18 +143,16 @@ const application = expr => {
   return [base, [...args, ...rest]]
 }
 
-const unaryApplication = expr => {
-  const [head, args] = application(expr)
-  return args.length === 1 ? { head, arg: args[0] } : null
+const recursiveArgument = entry => {
+  const [head, args] = application(entry.body)
+  return head === entry.params[0] && args.length === 1 ? args[0] : null
 }
 
-const recursiveStateUpdate = entry => {
-  const call = unaryApplication(entry.body)
-  if (!call || call.head !== entry.params[0] || entry.params.length < 2) {
-    return null
-  }
+const statePrefixedUpdates = entry => {
+  const argument = recursiveArgument(entry)
+  if (!argument || entry.params.length < 2) return null
 
-  const [state, updates] = application(call.arg)
+  const [state, updates] = application(argument)
   return state === entry.params[1] && updates.length ? updates : null
 }
 
@@ -239,6 +237,9 @@ const paramTemplate = (expr, locals) => {
 const slotLocals = params =>
   new Map(params.map((param, index) => [param, index]))
 
+const functionLocals = (params, args, fixedArg) =>
+  new Map(params.map((param, index) => [param, fixedArg(args[index], index)]))
+
 const instantiateTemplate = (template, args, compileArg, arity = null) => {
   const profile = slotProfile(template, arity)
   if (!profile || args.length < profile.arity) return null
@@ -300,6 +301,41 @@ const resolveDefinition = (name, env, stack) => {
   return { name, entry }
 }
 
+const hasCompleteFunctionApplication = (resolved, args) =>
+  resolved?.entry.kind === 'defn' && args.length >= resolved.entry.params.length
+
+const lowerFunctionApplication = (
+  resolved,
+  args,
+  compileArg,
+  env,
+  locals,
+  stack,
+) => {
+  const { entry } = resolved
+  const { node: template, pure } =
+    paramTemplate(entry.body, slotLocals(entry.params))
+  const templated = pure
+    ? instantiateTemplate(template, args, compileArg, entry.params.length)
+    : null
+
+  if (templated) return templated
+
+  const group = {}
+  const nextLocals =
+    new Map([...locals,
+             ...functionLocals(entry.params,
+                               args.slice(0, entry.params.length),
+                               (arg, slot) => fixed(compileArg(arg),
+                                                    slot,
+                                                    group))])
+  const body = compileExpr(entry.body,
+                           env,
+                           nextLocals,
+                           [...stack, resolved.name])
+  return applyArgs(body, args.slice(entry.params.length).map(compileArg))
+}
+
 const compileExpr = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
     if (typeof expr !== 'string') return expr
@@ -324,28 +360,13 @@ const compileExpr = (expr, env, locals = new Map(), stack = []) => {
     : null
   const compileArg = arg => compileExpr(arg, env, locals, stack)
 
-  if (resolved?.entry.kind === 'defn' &&
-      args.length >= resolved.entry.params.length) {
-    const params = resolved.entry.params
-    const { node: template, pure } =
-      paramTemplate(resolved.entry.body, slotLocals(params))
-    const templated = pure
-      ? instantiateTemplate(template, args, compileArg, params.length)
-      : null
-
-    if (templated) return templated
-
-    const group = {}
-    const localArgs = args.slice(0, params.length)
-      .map((arg, slot) => fixed(compileArg(arg), slot, group))
-    const nextLocals = new Map([...locals,
-                                ...params.map((param, index) =>
-                                  [param, localArgs[index]])])
-    const body = compileExpr(resolved.entry.body,
-                             env,
-                             nextLocals,
-                             [...stack, resolved.name])
-    return applyArgs(body, args.slice(params.length).map(compileArg))
+  if (hasCompleteFunctionApplication(resolved, args)) {
+    return lowerFunctionApplication(resolved,
+                                    args,
+                                    compileArg,
+                                    env,
+                                    locals,
+                                    stack)
   }
 
   const templated = resolved?.entry.kind === 'def'
@@ -369,7 +390,28 @@ const isFoldValue = value =>
 const hasTemplate = meta =>
   Object.hasOwn(meta, 'template')
 
-const stateLoop = (meta, args, updates) => {
+const withFoldArg = (meta, arg) =>
+  ({ ...meta, args: [...meta.args, arg] })
+
+const completeFoldArgs = meta =>
+  meta.args.slice(0, meta.arity)
+
+const remainingFoldArgs = meta =>
+  meta.args.slice(meta.arity)
+
+const foldComplete = meta =>
+  meta.args.length >= meta.arity
+
+const compileFunctionBody = (meta, locals) =>
+  compileExpr(meta.entry.body,
+              meta.env,
+              locals,
+              [...meta.stack, meta.name])
+
+const lowerTemplateFold = meta =>
+  instantiateFold(meta.template, meta.args, meta.arity)
+
+const transitionLoop = (meta, args, updates) => {
   if (!foldHead(args[0])) return null
 
   const group = {}
@@ -377,12 +419,12 @@ const stateLoop = (meta, args, updates) => {
   const state = fixed(args[1], 1, group)
   loop[0] = loop
 
-  const locals = new Map(meta.entry.params.map((param, index) =>
-    [param, index === 0
+  const locals = functionLocals(meta.entry.params, args, (value, slot) =>
+    slot === 0
       ? loop
-      : index === 1
+      : slot === 1
         ? state
-        : fixed(args[index], index, group)]))
+        : fixed(value, slot, group))
   const compiledUpdates = updates.map(update =>
     compileExpr(update, meta.env, locals, [...meta.stack, meta.name]))
 
@@ -390,26 +432,26 @@ const stateLoop = (meta, args, updates) => {
   return [loop, state]
 }
 
-const applyFoldValue = (value, arg) => {
-  const meta = foldValues.get(value)
-  const args = [...meta.args, arg]
-  if (args.length < meta.arity) return foldValue({ ...meta, args })
-  if (hasTemplate(meta)) return instantiateFold(meta.template, args, meta.arity)
+const lowerTransitionFold = meta => {
+  const updates = statePrefixedUpdates(meta.entry)
+  return updates && transitionLoop(meta, completeFoldArgs(meta), updates)
+}
 
-  const updates = recursiveStateUpdate(meta.entry)
-  const loop = updates && stateLoop(meta, args, updates)
-  if (loop) return loop
-
+const lowerFunctionFold = meta => {
   const group = {}
-  const localArgs = args.slice(0, meta.arity)
-    .map((value, slot) => fixed(value, slot, group))
-  const locals = new Map(meta.entry.params.map((param, index) =>
-    [param, localArgs[index]]))
-  const body = compileExpr(meta.entry.body,
-                           meta.env,
-                           locals,
-                           [...meta.stack, meta.name])
-  return applyArgs(body, args.slice(meta.arity))
+  const locals = functionLocals(meta.entry.params, completeFoldArgs(meta),
+                                (value, slot) => fixed(value, slot, group))
+  return applyArgs(compileFunctionBody(meta, locals), remainingFoldArgs(meta))
+}
+
+const lowerCompleteFold = meta =>
+  hasTemplate(meta)
+    ? lowerTemplateFold(meta)
+    : lowerTransitionFold(meta) ?? lowerFunctionFold(meta)
+
+const applyFoldValue = (value, arg) => {
+  const meta = withFoldArg(foldValues.get(value), arg)
+  return foldComplete(meta) ? lowerCompleteFold(meta) : foldValue(meta)
 }
 
 const foldHead = (value, seen = new WeakSet()) => {
