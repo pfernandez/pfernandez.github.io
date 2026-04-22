@@ -59,6 +59,8 @@ There are three layers in the current lab:
 This is enough for `Z` to build contractive fixed points from named source
 functions. For example, `(fix (K a))` exposes `(0 a)` and then `a`, and
 `((fix (K a)) b)` exposes `((0 a) b)` and then `(a b)`.
+The stateless `Y` form can also tie an active fixed-point loop; `(Y I)` keeps
+producing observer steps rather than settling.
 
 It is not yet enough for an unbounded state loop. A transition such as
 `(defn STEP (self state) (self (next state)))` can expose one transition:

@@ -39,6 +39,14 @@ const fixed = (value, slot, group) => {
   return pair
 }
 
+const recursiveFixed = fill => {
+  const pair = []
+  pair[0] = pair
+  pair[1] = undefined
+  pair[1] = fill(pair)
+  return pair
+}
+
 const foldValue = meta => {
   const value = {}
   foldValues.set(value, meta)
@@ -372,17 +380,28 @@ const applyFoldValue = (value, arg) => {
   return applyArgs(body, args.slice(meta.arity))
 }
 
-const foldHead = value => {
+const foldHead = (value, seen = new WeakSet()) => {
   if (isFoldValue(value)) return value
-  return isFixed(value) ? foldHead(value[1]) : null
+  if (!isFixed(value) || seen.has(value)) return null
+  seen.add(value)
+  return foldHead(value[1], seen)
 }
+
+const selfApplication = (left, right) =>
+  isFixed(left) && left === right
 
 const lowerFoldApplications = value => {
   if (!isPair(value) || isFixed(value)) return value
 
   const left = lowerFoldApplications(value[0])
   const head = foldHead(left)
-  if (head) return lowerFoldApplications(applyFoldValue(head, value[1]))
+  if (head && selfApplication(left, value[1])) {
+    return recursiveFixed(point =>
+      lowerFoldApplications(applyFoldValue(head, point)))
+  }
+  if (head && !selfApplication(left, value[1])) {
+    return lowerFoldApplications(applyFoldValue(head, value[1]))
+  }
 
   const right = lowerFoldApplications(value[1])
   return left === value[0] && right === value[1] ? value : [left, right]
@@ -399,7 +418,7 @@ const reifiedFixed = (value, seen) => {
   next[0] = next
   seen.set(value, next)
   next[1] = reifyFoldValues(lowerFoldApplications(value[1]), seen)
-  foldSlots.set(next, { ...meta, value: next[1] })
+  if (meta) foldSlots.set(next, { ...meta, value: next[1] })
   return next
 }
 
@@ -467,7 +486,9 @@ export const parse = source => {
  * before this function returns. Template bodies lower directly; other `defn`
  * bodies still receive fixed-point locals, so their arguments exist in the
  * graph even when the body also contains ordinary symbols. Partial or
- * unresolved applications remain ordinary left-associated pairs.
+ * unresolved applications remain ordinary left-associated pairs. When delayed
+ * source self-application would otherwise expand forever during compilation,
+ * the compiler ties a real fixed-point pair so `observe` sees the loop.
  *
  * Returns the thrown error after logging it, matching `parse` and preserving
  * the test-facing API.

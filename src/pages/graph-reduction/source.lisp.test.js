@@ -46,6 +46,8 @@ const definitionCases =
     ['apply-self', '((apply-self x) v)', '((x x) v)'],
     ['THETA', '((THETA f) x)', '(f (APPLY-SELF x))'],
     ['theta', '((theta f) x)', '(f (APPLY-SELF x))'],
+    ['Y-THETA', '((Y-THETA f) x)', '(f (x x))'],
+    ['Y', '(Y f)', '(f 0)'],
     ['Z', '(Z f)', '(f (APPLY-SELF (THETA f)))'],
     ['fix', '(fix f)', '(f (APPLY-SELF (THETA f)))']
   ]
@@ -85,7 +87,8 @@ const serializeSteps = (term, remaining = 64) => {
 }
 
 const serializeTicks = (term, count) =>
-  count <= 0 ? [] : [serialize(term), ...serializeTicks(observe(term), count - 1)]
+  count <= 0 ? [] : [serialize(term),
+                     ...serializeTicks(observe(term), count - 1)]
 
 const settle = expression =>
   serialize(observeUntilStable(compile(program(expression))))
@@ -146,6 +149,17 @@ describe('source.lisp examples', () => {
 
     assert.deepEqual(ticks.slice(0, 2), ['(0 (next seed))', '(next seed)'])
     assert.equal(new Set(ticks.slice(1)).size, 1)
+  })
+
+  test('keeps the stateless Y fixed point cycling', () => {
+    const term = compile(program('(Y I)'))
+
+    assert.deepEqual(serializeTicks(term, 4),
+                     ['((0 (0 ())) 0)',
+                      '((0 ()) 0)',
+                      '(() 0)',
+                      '0'])
+    assert.throws(() => observeUntilStable(term, 32), /did not settle/i)
   })
 
   definitionCases.forEach(([name, expression, expected]) => {

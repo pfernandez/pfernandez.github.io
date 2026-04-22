@@ -52,6 +52,10 @@
 (def apply-self APPLY-SELF)
 (def theta THETA)
 
+; Stateless fixed point: (lambda x. f (x x)) (lambda x. f (x x)).
+(defn Y-THETA (f x) (f (x x)))
+(defn Y (f) ((Y-THETA f) (Y-THETA f)))
+
 (defn Z (f) ((THETA f) (THETA f)))
 (def fix Z)
 
