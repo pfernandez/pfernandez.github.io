@@ -30,7 +30,8 @@ const fixedTemplates = new WeakMap()
 /**
  * A Lisp source value after tokenization and list reading.
  *
- * @typedef {string|number|Array<SourceForm>} SourceForm
+ * @typedef {SourceForm[]} SourceFormArray
+ * @typedef {string | number | SourceFormArray} SourceForm
  */
 
 /**
@@ -313,13 +314,13 @@ const foldInstructionForDefinition = (name, entry, env, stack) => {
 
   return entry.kind === 'defn' && entry.params.length
     ? foldInstruction({
-        name,
-        entry,
-        env,
-        stack,
-        arity: entry.params.length,
-        args: []
-      })
+      name,
+      entry,
+      env,
+      stack,
+      arity: entry.params.length,
+      args: []
+    })
     : null
 }
 
@@ -329,8 +330,8 @@ const resolveDefinition = (name, env, stack) => {
   if (stack.includes(name)) {
     throw new Error(`Recursive definitions are not supported: ${name}`)
   }
-  if (entry.kind === 'def' && typeof entry.body === 'string' &&
-      env.has(entry.body)) {
+  if (entry.kind === 'def' && typeof entry.body === 'string'
+      && env.has(entry.body)) {
     return resolveDefinition(entry.body, env, [...stack, name])
   }
   return { name, entry }
@@ -345,7 +346,7 @@ const encodeFunctionApplication = (
   encodeArg,
   env,
   locals,
-  stack,
+  stack
 ) => {
   const { entry } = resolved
   const { node: template, pure } =
@@ -365,9 +366,9 @@ const encodeFunctionApplication = (
                                                             slot,
                                                             group))])
   const body = encodeExpression(entry.body,
-                               env,
-                               nextLocals,
-                               [...stack, resolved.name])
+                                env,
+                                nextLocals,
+                                [...stack, resolved.name])
   return applyArgs(body, args.slice(entry.params.length).map(encodeArg))
 }
 
@@ -397,11 +398,11 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
 
   if (hasCompleteFunctionApplication(resolved, args)) {
     return encodeFunctionApplication(resolved,
-                                    args,
-                                    encodeArg,
-                                    env,
-                                    locals,
-                                    stack)
+                                     args,
+                                     encodeArg,
+                                     env,
+                                     locals,
+                                     stack)
   }
 
   const templated = resolved?.entry.kind === 'def'
@@ -415,8 +416,8 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
     return applyFoldInstructionArgs(encodedHead, encodedArgs)
   }
 
-  return encodeTemplateApplication(encodedHead, args, encodeArg) ??
-    applyArgs(encodedHead, encodedArgs)
+  return encodeTemplateApplication(encodedHead, args, encodeArg)
+    ?? applyArgs(encodedHead, encodedArgs)
 }
 
 // Fold instruction application and recursive knots.
@@ -443,9 +444,9 @@ const foldComplete = meta =>
 
 const encodeFunctionBody = (meta, locals) =>
   encodeExpression(meta.entry.body,
-                  meta.env,
-                  locals,
-                  [...meta.stack, meta.name])
+                   meta.env,
+                   locals,
+                   [...meta.stack, meta.name])
 
 const encodeTemplateFold = meta =>
   encodeFoldTemplate(meta.template, meta.args, meta.arity)
@@ -708,8 +709,8 @@ export const construct = term =>
  * for `serialize`. Named functions can be staged as compiler-only fold
  * instructions while encoding higher-order source expressions, but those
  * instructions are materialized before this function returns. Template bodies
- * encode directly; other `defn` bodies still receive fixed-point locals, so their
- * arguments exist in the graph even when the body also contains ordinary
+ * encode directly; other `defn` bodies still receive fixed-point locals, so
+ * their arguments exist in the graph even when the body also contains ordinary
  * symbols. Partial or unresolved applications remain ordinary left-associated
  * pairs.
  *
@@ -758,7 +759,7 @@ const canonicalSerialize = (pair, slots = new Map()) => {
 const mergeCounts = (left, right) =>
   [...right].reduce((counts, [group, count]) =>
     new Map(counts).set(group, (counts.get(group) ?? 0) + count),
-  left)
+                    left)
 
 const visibleFoldCounts = node => {
   const meta = foldSlots.get(node)
@@ -774,9 +775,10 @@ const childFoldCounts = node =>
 
 const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
   [...counts.keys()].find(group =>
-    activeGroups.has(group) &&
-    counts.get(group) === totals.get(group) &&
-    !childFoldCounts(node).some(child => child.get(group) === totals.get(group)))
+    activeGroups.has(group)
+    && counts.get(group) === totals.get(group)
+    && !childFoldCounts(node).some(child =>
+      child.get(group) === totals.get(group)))
 
 const collectFoldClosures = (node, group) => {
   const meta = foldSlots.get(node)
@@ -789,7 +791,10 @@ const collectFoldClosures = (node, group) => {
 const atomBoundary = node => !isList(node)
 
 const sharedContinuation = node =>
-  isPair(node) && isPair(node[0]) && isPair(node[1]) && node[0][1] === node[1][1]
+  isPair(node)
+    && isPair(node[0])
+    && isPair(node[1])
+    && node[0][1] === node[1][1]
 
 const activeFoldGroups = (node, blocked = false) => {
   const meta = foldSlots.get(node)
@@ -803,7 +808,8 @@ const activeFoldGroups = (node, blocked = false) => {
   return new Set([...groups,
                   ...sharedGroups,
                   ...activeFoldGroups(node[0], blocked),
-                  ...activeFoldGroups(node[1], blocked || atomBoundary(node[0]))])
+                  ...activeFoldGroups(node[1],
+                                      blocked || atomBoundary(node[0]))])
 }
 
 const serializeFilled = (pair, seen = []) => {
@@ -850,7 +856,7 @@ const serializeFold = (pair, group, activeGroups) => {
 const serializeProjected = (
   pair,
   totals = visibleFoldCounts(pair),
-  activeGroups = activeFoldGroups(pair),
+  activeGroups = activeFoldGroups(pair)
 ) => {
   const meta = foldSlots.get(pair)
   if (meta && !activeGroups.has(meta.group)) return serializeFilled(meta.value)
