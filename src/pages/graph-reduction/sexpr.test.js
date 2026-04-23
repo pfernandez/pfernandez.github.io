@@ -149,7 +149,7 @@ describe('pair serializer', () => {
       (((S a) b) c)
     `)), '(((((0 2) (1 2)) a) b) c)'))
 
-  test('serialize shows S frames with one shared c event', () => {
+  test('serialize shows S frames with one hidden shared c', () => {
     const step0 = compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
@@ -164,10 +164,10 @@ describe('pair serializer', () => {
     assert.equal(step1[1][1], c)
     assert.equal(step2[0][1], c)
     assert.equal(step2[1][1], c)
+    assert.equal(step3, step2)
     assert.equal(serialize(step0), '(((((0 2) (1 2)) a) b) c)')
     assert.equal(serialize(step1), '((((a 1) (0 1)) b) c)')
-    assert.equal(serialize(step2), '(((a 0) (b 0)) c)')
-    assert.equal(serialize(step3), '((a c) (b c))')
+    assert.equal(serialize(step2), '((a c) (b c))')
   })
 
   test('serialize labels raw fixed points by traversal order', () => {

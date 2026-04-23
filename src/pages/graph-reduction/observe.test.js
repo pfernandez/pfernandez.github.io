@@ -76,7 +76,7 @@ describe('observe', () => {
   })
 })
 
-describe('current observer behavior', () => {
+describe('observer legality contract', () => {
   test('off-path branches keep their identity', () => {
     const left = [[[], 'a'], 'x']
     const right = [[[], 'b'], 'y']
@@ -103,15 +103,17 @@ describe('current observer behavior', () => {
     assert.deepEqual(observe(step), [['a', 'x'], ['b', 'y']])
   })
 
-  test('current bridge fires shared continuations as one event', () => {
+  test('hidden shared continuations keep their identity', () => {
     const shared = [[[], 'c'], 'd']
-    const observed = observe([['a', shared], ['b', shared]])
+    const root = [['a', shared], ['b', shared]]
+    const observed = observe(root)
 
-    assert.deepEqual(observed, [['a', ['c', 'd']], ['b', ['c', 'd']]])
-    assert.equal(observed[0][1], observed[1][1])
+    assert.equal(observed, root)
+    assert.equal(observed[0][1], shared)
+    assert.equal(observed[1][1], shared)
   })
 
-  test('current bridge observes S argument events in order', () => {
+  test('S observes reachable argument events in order', () => {
     // S uses one primitive kind of delayed identity, instantiated as three
     // argument events. The third event is shared by graph identity.
     const p0 = fixed('a')
@@ -130,7 +132,7 @@ describe('current observer behavior', () => {
     assert.equal(step1[1][1], p2)
 
     const step2 = observe(step1)
-    assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
+    assert.equal(step2, step1)
   })
 
   test('one fixed object represents one event', () => {
@@ -139,7 +141,7 @@ describe('current observer behavior', () => {
     const point = fixed('a')
 
     assert.deepEqual(reduce([[point, point], [point, point]]),
-                     [['a', 'a'], ['a', 'a']])
+                     [['a', point], ['a', point]])
   })
 
   test('duplicated labels do not create shared events', () => {
@@ -150,17 +152,17 @@ describe('current observer behavior', () => {
     const shared = [['a', sharedC], ['b', sharedC]]
     const copied = [['a', fixed('c')], ['b', fixed('c')]]
 
-    assert.deepEqual(observe(shared), [['a', 'c'], ['b', 'c']])
+    assert.equal(observe(shared), shared)
     assert.equal(observe(copied), copied)
   })
 
-  test('current bridge projects one shared fixed payload', () => {
+  test('hidden shared fixed continuations remain shared', () => {
     const payload = ['c', 'd']
     const sharedC = fixed(payload)
     const observed = observe([['a', sharedC], ['b', sharedC]])
 
-    assert.equal(observed[0][1], payload)
-    assert.equal(observed[1][1], payload)
+    assert.equal(observed[0][1], sharedC)
+    assert.equal(observed[1][1], sharedC)
   })
 
   test('disjoint reachable steps commute', () => {
@@ -177,14 +179,12 @@ describe('current observer behavior', () => {
 })
 
 describe('single active I proof target', () => {
-  test('hidden shared futures are not observer events',
-       { todo: 'remove the shared-continuation future read' },
-       () => {
-         const future = [activeIdentity(), 'c']
-         const root = [['a', future], ['b', future]]
+  test('hidden shared futures are not observer events', () => {
+    const future = [activeIdentity(), 'c']
+    const root = [['a', future], ['b', future]]
 
-         assert.equal(observe(root), root)
-       })
+    assert.equal(observe(root), root)
+  })
 
   test('S is a finite passive wiring around one active I',
        { todo: 'find the wiring after the observer contract is minimal' },

@@ -758,23 +758,12 @@ const collectFoldClosures = (node, group) => {
 
 const atomBoundary = node => !isList(node)
 
-const sharedContinuation = node =>
-  isPair(node)
-    && isPair(node[0])
-    && isPair(node[1])
-    && node[0][1] === node[1][1]
-
 const activeFoldGroups = (node, blocked = false) => {
   const meta = argumentClosures.get(node)
   const groups = meta && !blocked ? [meta.group] : []
   if (!isPair(node) || isFixed(node)) return new Set(groups)
 
-  const sharedGroups = !blocked && sharedContinuation(node)
-    ? visibleFoldCounts(node[0][1]).keys()
-    : []
-
   return new Set([...groups,
-                  ...sharedGroups,
                   ...activeFoldGroups(node[0], blocked),
                   ...activeFoldGroups(node[1],
                                       blocked || atomBoundary(node[0]))])
@@ -852,8 +841,7 @@ const serializeProjected = (
  * fill-order metadata. Active closures serialize as reversible folding
  * instructions by replacing the remaining closures with dense slot numbers and
  * appending their stored argument payloads in fill order. A closure is active
- * when it remains on an observer-visible path or is the shared continuation of
- * the current pair shape.
+ * when it remains on an observer-visible path.
  *
  * The numeric atoms in this projection always name fixed pairs. In a folding
  * instruction they are ordered slots from one compiler-created closure group;

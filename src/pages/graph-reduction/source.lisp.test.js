@@ -131,7 +131,6 @@ describe('source.lisp examples', () => {
     assert.deepEqual(serializeSteps(compile(source)),
                      ['(((((0 2) (1 2)) a) b) c)',
                       '((((a 1) (0 1)) b) c)',
-                      '(((a 0) (b 0)) c)',
                       '((a c) (b c))']))
 
   test('Z settles when the body returns a constant', () => {

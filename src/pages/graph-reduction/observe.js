@@ -8,16 +8,11 @@
  * collapses to its right side.
  *
  * Focus is left before right, but atom-headed pairs are observation
- * boundaries: their right side is not forced. The current implementation still
- * includes a provisional shared-continuation bridge for `[[x, k], [y, k]]`: it
- * observes `k` once and projects the result through both branches. That bridge
- * is useful for the current S projection, but it reads a hidden future and is a
- * removal target.
- *
- * Without that bridge, a legal observer step is pair-local and Markov: it
- * depends only on the current graph, fires one focused boundary event,
- * preserves off-path object identity, and treats duplicated structure as shared
- * only when reference identity already says it is shared.
+ * boundaries: their right side is not forced. A legal observer step is
+ * pair-local and Markov: it depends only on the current graph, fires one
+ * focused boundary event, preserves off-path object identity, and treats
+ * duplicated structure as shared only when reference identity already says it
+ * is shared.
  */
 
 /**
@@ -84,15 +79,6 @@ const hasAtomHead = pair => isAtom(pair[0])
 const changed = (next, previous) => next !== previous
 
 /**
- * Shared continuation means two prefixes reconverge on one future object.
- *
- * @param {Pair} first
- * @param {Pair} rest
- * @returns {boolean}
- */
-const hasSharedContinuation = (first, rest) => first[1] === rest[1]
-
-/**
  * Performs one immutable observation step.
  *
  * If a rewrite fires below the root, the changed path is returned as fresh
@@ -116,13 +102,6 @@ export const observe = root => {
 
   const nextRest = observe(rest)
   if (changed(nextRest, rest)) return [first, nextRest]
-
-  if (isPair(first) && isPair(rest) && hasSharedContinuation(first, rest)) {
-    const next = observe(first[1])
-    if (changed(next, first[1])) {
-      return [[first[0], next], [rest[0], next]]
-    }
-  }
 
   return root
 }
