@@ -9,16 +9,11 @@ const fixed = value => {
   return pair
 }
 
-const reduce = (term, maxSteps = 16) => {
-  let next = term
-
-  for (let i = 0; i < maxSteps; i++) {
-    const observed = observe(next)
-    if (observed === next) return next
-    next = observed
-  }
-
-  throw new Error(`Did not settle after ${maxSteps} steps`)
+const reduce = (term, remaining = 16) => {
+  const observed = observe(term)
+  if (observed === term) return term
+  if (remaining <= 0) throw new Error('Did not settle')
+  return reduce(observed, remaining - 1)
 }
 
 describe('observe', () => {
@@ -105,6 +100,15 @@ describe('fixed point motifs', () => {
 
     assert.deepEqual(observe(shared), [['a', 'c'], ['b', 'c']])
     assert.equal(observe(copied), copied)
+  })
+
+  test('observes a shared continuation as one event', () => {
+    const payload = ['c', 'd']
+    const sharedC = fixed(payload)
+    const observed = observe([['a', sharedC], ['b', sharedC]])
+
+    assert.equal(observed[0][1], payload)
+    assert.equal(observed[1][1], payload)
   })
 
   test('reduces S to its exposed shape', () => {

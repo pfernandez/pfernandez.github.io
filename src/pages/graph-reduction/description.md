@@ -42,8 +42,12 @@ The folding projection exposes each staged step:
 ((a c) (b c))
 ```
 
-The Lisp and tree views show this reversible projection. The lattice view is
-a literal graph sketch of pair nodes, shared arguments, and fixed-point loops.
+The Lisp and tree views show this reversible projection. In the last line, the
+two `c` positions are equal as text; in the live `S` graph they may also be one
+shared event by reference identity. A 2D tree can repeat the label, but the
+extra graph dimension is what represents sharing without copying. The lattice
+view is a literal graph sketch of pair nodes, shared arguments, and fixed-point
+loops.
 
 ## Boundary
 
