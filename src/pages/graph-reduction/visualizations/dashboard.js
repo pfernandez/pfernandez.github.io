@@ -4,6 +4,30 @@ import DEFAULT_SOURCE from '../source.lisp?raw'
 import './style.css'
 import { observe } from '../observe.js'
 
+/**
+ * @module dashboard
+ *
+ * Interactive host for stepping pair graphs in the browser.
+ */
+
+/**
+ * Wraps a scene renderer with a source editor and step controls.
+ *
+ * The dashboard currently owns "observer time" state such as history and focus.
+ * This keeps `observe` pure and pair-local while still letting the UI replay
+ * snapshots, undo, and reset.
+ *
+ * @typedef {(graph: unknown) => unknown} Scene
+ * @typedef {{
+ *   className: string,
+ *   title: string,
+ *   description: string,
+ *   scene: Scene
+ * }} DashboardOptions
+ *
+ * @param {DashboardOptions} options
+ * @returns {Function}
+ */
 export default ({ className, title, description, scene }) => {
   // The dashboard is the host-side observer for now: it carries focus,
   // history, and observer time until those can be represented as pair motifs.

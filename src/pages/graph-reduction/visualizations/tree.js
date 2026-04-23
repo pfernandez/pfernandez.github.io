@@ -3,6 +3,12 @@ import dashboard from './dashboard.js'
 import { layout } from '../layout.js'
 import { parse, serialize } from '../sexpr.js'
 
+/**
+ * @module tree
+ *
+ * 2D tree rendering of the folding projection.
+ */
+
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
 
@@ -57,6 +63,14 @@ const scene = pair => {
                            node.kind === 'pair' ? '·' : node.label)))))
 }
 
+/**
+ * Displays the current graph as a duplicated tree projection.
+ *
+ * The underlying live graph may share continuations; this view intentionally
+ * duplicates shared nodes so the folding order stays readable.
+ *
+ * @returns {Function}
+ */
 export default dashboard(
   { className: 'tree',
     title: 'Tree',

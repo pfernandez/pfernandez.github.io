@@ -4,6 +4,12 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
   '@pfern/elements-x3dom'
 import dashboard from './dashboard.js'
 
+/**
+ * @module lattice
+ *
+ * Literal 3D sketch of the pair graph.
+ */
+
 const isList = Array.isArray
 const isPair = node => isList(node) && node.length === 2
 const isEmpty = node => isList(node) && node.length === 0
@@ -238,6 +244,12 @@ const latticeScene = pair => {
       ...graph.nodes.map(nodeAt)))
 }
 
+/**
+ * Displays the current focus graph as a 3D lattice: spheres are vertices,
+ * line segments are pair links, and fixed points render as standing loops.
+ *
+ * @returns {Function}
+ */
 export default dashboard(
   { className: 'lattice',
     title: 'Lattice',
