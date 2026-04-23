@@ -9,21 +9,15 @@ const fixed = value => {
   return pair
 }
 
-const activeIdentity = () => fixed([])
-
-const fixedPairs = (node, seen = new Set()) => {
+const collectFixedPairs = (node, seen = new Set()) => {
   if (!Array.isArray(node) || seen.has(node)) return []
   seen.add(node)
   if (node.length !== 2) return []
   return [
     ...(node[0] === node ? [node] : []),
-    ...fixedPairs(node[0], seen),
-    ...fixedPairs(node[1], seen)
+    ...collectFixedPairs(node[0], seen),
+    ...collectFixedPairs(node[1], seen)
   ]
-}
-
-const wireSFromOneActiveIdentity = () => {
-  throw new Error('Proof target: discover the passive S wiring')
 }
 
 const reduce = (term, remaining = 16) => {
@@ -178,23 +172,29 @@ describe('observer legality contract', () => {
   })
 })
 
-describe('single active I proof target', () => {
+describe('single active identity proof target', () => {
   test('hidden shared futures are not observer events', () => {
-    const future = [activeIdentity(), 'c']
+    const future = [fixed([]), 'c']
     const root = [['a', future], ['b', future]]
 
     assert.equal(observe(root), root)
   })
 
-  test('S is a finite passive wiring around one active I',
-       { todo: 'find the wiring after the observer contract is minimal' },
-       () => {
-         const identity = activeIdentity()
-         const term = wireSFromOneActiveIdentity(identity, 'a', 'b', 'c')
-         const result = reduce(term, 64)
+  test('S can be wired with ordinary pairs and one active identity', () => {
+    const activeIdentity = fixed([])
+    const c = ['c', 'payload']
+    const applyA = [activeIdentity, 'a']
+    const applyB = [activeIdentity, 'b']
+    const left = [applyA, c]
+    const right = [applyB, c]
+    const term = [left, right]
+    const result = reduce(term, 64)
+    const active = collectFixedPairs(term)
 
-         assert.deepEqual(fixedPairs(term), [identity])
-         assert.deepEqual(result, [['a', 'c'], ['b', 'c']])
-         assert.equal(result[0][1], result[1][1])
-       })
+    assert.equal(active.length, 1)
+    assert.equal(active[0], activeIdentity)
+    assert.deepEqual(result, [['a', c], ['b', c]])
+    assert.equal(result[0][1], c)
+    assert.equal(result[0][1], result[1][1])
+  })
 })
