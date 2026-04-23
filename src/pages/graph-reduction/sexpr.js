@@ -536,7 +536,7 @@ const foldInstructionHead = (value, seen = new WeakSet()) => {
 }
 
 const selfApplication = (left, right) =>
-  left === right && (isFixedTemplate(left) || isFixed(left))
+  left === right
 
 const recursiveFoldApplication = (head, applications) => {
   const existing = applications.get(head)
@@ -797,12 +797,14 @@ const activeFoldGroups = (node, blocked = false) => {
                   ...activeFoldGroups(node[1], blocked || atomBoundary(node[0]))])
 }
 
-const serializeFilled = pair => {
+const serializeFilled = (pair, seen = []) => {
+  if (seen.includes(pair)) return canonicalSerialize(pair)
+
   const meta = foldSlots.get(pair)
-  if (meta) return serializeFilled(meta.value)
+  if (meta) return serializeFilled(meta.value, [...seen, pair])
 
   if (isList(pair)) {
-    return serializeList(pair, serializeFilled)
+    return serializeList(pair, node => serializeFilled(node, [...seen, pair]))
   }
 
   return String(pair)

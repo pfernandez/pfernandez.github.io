@@ -10,6 +10,10 @@ const observeUntilStable = (term, remaining = 32) => {
   return observeUntilStable(next, remaining - 1)
 }
 
+const serializeTicks = (term, count) =>
+  count <= 0 ? [] : [serialize(term),
+                     ...serializeTicks(observe(term), count - 1)]
+
 const settle = source =>
   serialize(observeUntilStable(compile(source)))
 
@@ -20,6 +24,15 @@ const projection = source =>
 
 const encoded = source =>
   encode(parse(source))
+
+const zPrelude = `
+  (defn APPLY-SELF (x v) ((x x) v))
+  (defn THETA (f x) (f (APPLY-SELF x)))
+  (defn Z (f) ((THETA f) (THETA f)))
+`
+
+const zProgram = source =>
+  `${zPrelude}\n${source}`
 
 const loggedErrors = (t, actions) => {
   const { mock } = t.mock.method(console, 'error', () => {})
@@ -461,6 +474,47 @@ describe('compiler', () => {
       (((return-STEP q) f) seed)
     `)), '(((0 (1 tick)) f) seed)')
   })
+
+  test('keeps state-prefixed Z updates on the transition loop', () => {
+    const ticks = serializeTicks(compile(zProgram(`
+      (defn STEP (self state) (self ((state tick) tock)))
+      ((Z STEP) seed)
+    `)), 4)
+
+    assert.deepEqual(ticks,
+                     ['(0 (0 seed))',
+                      '(((0 tick) tock) (0 seed))',
+                      '(((((0 tick) tock) tick) tock) (0 seed))',
+                      '(((((((0 tick) tock) tick) tock) tick) tock) (0 seed))'])
+  })
+
+  test('leaves nearby recursive Z shapes on the ordinary path', () => {
+    const swapped = serializeTicks(compile(zProgram(`
+      (defn STEP (state self) (self (state tick)))
+      ((Z STEP) seed)
+    `)), 3)
+    const atomHeaded = serializeTicks(compile(zProgram(`
+      (defn STEP (self state) (self (next state)))
+      ((Z STEP) seed)
+    `)), 3)
+
+    assert.deepEqual(swapped,
+                     ['((0 seed) ((0 (0 tick)) (0 (0 tick))))',
+                      '(seed (tick (0 tick)))',
+                      '(seed (tick (0 tick)))'])
+    assert.deepEqual(atomHeaded,
+                     ['(0 (0 (next (next seed))))',
+                      '((0 (0 (next (0 (0 (next 0)))))) ' +
+                        '(0 (next (next seed))))',
+                      '((((0 0) 0) (next (0 (0 (next 0))))) ' +
+                        '(0 (next (next seed))))'])
+  })
+
+  test('keeps nested generated self-application finite', () =>
+    assert.equal(serialize(compile(`
+      (defn F (x) (x (x x)))
+      (F F)
+    `)), '((0 (0 0)) 0)'))
 
   test('expands zero-argument defns', () =>
     assert.equal(compile(`
