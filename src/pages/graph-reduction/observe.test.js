@@ -32,7 +32,10 @@ describe('observe', () => {
 
   test('leaves non-pair arrays alone', () => {
     const malformed = [[[], []]]
+    const unary = ['x']
+
     assert.equal(observe(malformed), malformed)
+    assert.equal(observe(unary), unary)
   })
 
   test('fires a fixed point pair', () =>
@@ -70,12 +73,27 @@ describe('fixed point motifs', () => {
 
     const step0 = observe(s)
     assert.deepEqual(step0, [['a', p2], [p1, p2]])
+    assert.equal(step0[0][1], p2)
+    assert.equal(step0[1][1], p2)
 
     const step1 = observe(step0)
     assert.deepEqual(step1, [['a', p2], ['b', p2]])
+    assert.equal(step1[0][1], p2)
+    assert.equal(step1[1][1], p2)
 
     const step2 = observe(step1)
     assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
+  })
+
+  test('needs graph identity beyond a two-dimensional projection to share c', () => {
+    // The 2D tree shape can duplicate a label, but it cannot express that both
+    // branches point to one future event. The extra dimension is graph identity.
+    const sharedC = fixed('c')
+    const shared = [['a', sharedC], ['b', sharedC]]
+    const copied = [['a', fixed('c')], ['b', fixed('c')]]
+
+    assert.deepEqual(observe(shared), [['a', 'c'], ['b', 'c']])
+    assert.equal(observe(copied), copied)
   })
 
   test('reduces S to its exposed shape', () => {

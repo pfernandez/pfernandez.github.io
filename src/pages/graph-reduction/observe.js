@@ -2,15 +2,16 @@
  * One observer step for the pair graph.
  *
  * The machine sees only binary array pairs, the empty array, atoms, and
- * reference identity. Non-pairs are stable boundaries. A fixed pair
- * `p = [p, value]` fires to `value`, and a pair with `()` on the left collapses
- * to its right side.
+ * reference identity. Non-pairs and malformed arrays are stable boundaries;
+ * malformed arrays should not be produced by the source compiler. A fixed
+ * pair `p = [p, value]` fires to `value`, and a pair with `()` on the left
+ * collapses to its right side.
  *
  * Focus is left before right, but atom-headed pairs are observation
  * boundaries: their right side is not forced. When both branches share the
- * same continuation object, one observation of that continuation is projected
- * through both branches. This keeps shared structure causal without giving
- * atoms any extra behavior.
+ * same continuation object, the join-focus rule observes that continuation
+ * once and projects the result through both branches. This keeps shared
+ * structure causal without giving atoms any extra behavior.
  */
 
 /**

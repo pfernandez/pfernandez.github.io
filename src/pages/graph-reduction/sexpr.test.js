@@ -73,6 +73,7 @@ describe('source parser', () => {
   })
 
   test('parses n-ary source lists and multiple top-level forms', () => {
+    assert.deepEqual(parse('(x)'), [['x']])
     assert.deepEqual(parse('(a b c)'), [['a', 'b', 'c']])
     assert.deepEqual(parse('a b'), ['a', 'b'])
     assert.deepEqual(parse('(() x) y'), [[[], 'x'], 'y'])
@@ -225,6 +226,7 @@ describe('compiler', () => {
   })
 
   test('constructs ordinary terms when no dense template boundary exists', () => {
+    assert.equal(construct(['x']), 'x')
     assert.equal(serialize(construct(['f', 'x'])), '(f x)')
     assert.equal(serialize(construct([[[2, 1], 'f'], 'x'])),
                  '(((2 1) f) x)')
@@ -239,6 +241,7 @@ describe('compiler', () => {
   test('leaves atom-only programs alone', () => {
     assert.equal(compile('name'), 'name')
     assert.equal(compile('7'), 7)
+    assert.equal(compile('(name)'), 'name')
   })
 
   test('serializes bare non-zero-argument defn symbols as names', () =>
