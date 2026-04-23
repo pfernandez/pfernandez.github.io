@@ -24,8 +24,8 @@
 const isList = Array.isArray
 const isPair = node => isList(node) && node.length === 2
 const isFixed = node => isPair(node) && node[0] === node
-const foldSlots = new WeakMap()
-const fixedTemplates = new WeakMap()
+const argumentClosures = new WeakMap()
+const argumentSlotTemplates = new WeakMap()
 
 /**
  * A Lisp source value after tokenization and list reading.
@@ -50,13 +50,13 @@ const fixedTemplates = new WeakMap()
  */
 
 /**
- * Metadata for one compiler-owned fixed slot before graph materialization.
+ * Metadata for one compiler-owned argument slot before graph materialization.
  *
  * @typedef {{
  *   group: object,
  *   slot: number,
  *   value: *
- * }} FixedTemplate
+ * }} ArgumentSlotTemplate
  */
 
 /**
@@ -70,12 +70,12 @@ const fixedTemplates = new WeakMap()
  *   stack?: string[],
  *   arity: number,
  *   args: *[]
- * }} FoldInstruction
+ * }} StagedFold
  */
 
-// Compiler-only encoding instructions. Materialization removes them before
-// `compile` returns, so `observe` still sees only pairs.
-const foldInstructions = new WeakMap()
+// Compiler-only staged folds. Materialization removes them before `compile`
+// returns, so `observe` still sees only pairs.
+const stagedFolds = new WeakMap()
 
 // Reader.
 const tokenize = source =>
@@ -88,8 +88,8 @@ const applyArgs = (head, args) =>
 const applySerializedArgs = (head, args) =>
   args.reduce((left, right) => `(${left} ${right})`, head)
 
-const applyFoldInstructionArgs = (head, args) =>
-  args.reduce(applyFoldInstruction, head)
+const applyStagedFoldArgs = (head, args) =>
+  args.reduce(applyStagedFold, head)
 
 const serializeList = (pair, serializeChild) => {
   if (pair.length === 0) return '()'
@@ -127,7 +127,7 @@ const collectForms = (tokens, index = 0, forms = []) => {
 
 const readSourceForms = source => collectForms(tokenize(source))
 
-// Graph and fold-instruction constructors.
+// Graph and compiler-placeholder constructors.
 const fixedClosure = value => {
   const pair = []
   pair[0] = pair
@@ -135,9 +135,9 @@ const fixedClosure = value => {
   return pair
 }
 
-const fixedTemplate = (value, slot, group) => {
+const argumentSlotTemplate = (value, slot, group) => {
   const template = {}
-  fixedTemplates.set(template, { group, slot, value })
+  argumentSlotTemplates.set(template, { group, slot, value })
   return template
 }
 
@@ -152,9 +152,9 @@ const withCycleBody = (template, body) => {
   return template
 }
 
-const foldInstruction = meta => {
+const stagedFold = meta => {
   const value = {}
-  foldInstructions.set(value, meta)
+  stagedFolds.set(value, meta)
   return value
 }
 
@@ -185,7 +185,9 @@ const normalizeDefinitionForm = form => {
   }
 
   if (form[0] === 'defn') {
-    if (form.length < 4) throw new Error('Each form must be (defn name (x ...) body)')
+    if (form.length < 4) {
+      throw new Error('Each form must be (defn name (x ...) body)')
+    }
     const [, name, params, body] = form
     if (typeof name !== 'string') throw new Error('defn name must be a symbol')
     return makeProgramFunction(name, normalizeParamList(params), body)
@@ -205,7 +207,7 @@ const indexProgram = forms => {
   return { env, expr }
 }
 
-// Source encoding to fold instructions.
+// Source encoding to staged folds.
 const application = expr => {
   if (!isList(expr) || expr.length === 0) return [expr, []]
 
@@ -269,7 +271,7 @@ const encodeTemplateApplication = (template, args, encodeArg, arity = null) => {
 
   const group = {}
   const slots = args.slice(0, profile.arity)
-    .map((arg, slot) => fixedTemplate(encodeArg(arg), slot, group))
+    .map((arg, slot) => argumentSlotTemplate(encodeArg(arg), slot, group))
   const fill = node =>
     isList(node) ? [fill(node[0]), fill(node[1])] : slots[node]
   const body = fill(template)
@@ -295,12 +297,12 @@ const templateForDefinition = entry => {
   return pure && { template, arity: entry.params.length }
 }
 
-const foldInstructionForDefinition = (name, entry, env, stack) => {
+const stagedFoldForDefinition = (name, entry, env, stack) => {
   const template = templateForDefinition(entry)
-  if (template) return foldInstruction({ name, ...template, args: [] })
+  if (template) return stagedFold({ name, ...template, args: [] })
 
   return entry.kind === 'defn' && entry.params.length
-    ? foldInstruction({
+    ? stagedFold({
       name,
       entry,
       env,
@@ -349,9 +351,10 @@ const encodeFunctionApplication = (
     new Map([...locals,
              ...functionLocals(entry.params,
                                args.slice(0, entry.params.length),
-                               (arg, slot) => fixedTemplate(encodeArg(arg),
-                                                            slot,
-                                                            group))])
+                               (arg, slot) =>
+                                 argumentSlotTemplate(encodeArg(arg),
+                                                      slot,
+                                                      group))])
   const body = encodeExpression(entry.body,
                                 env,
                                 nextLocals,
@@ -369,7 +372,7 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
     if (!resolved) return expr
 
     const { name, entry } = resolved
-    const fold = foldInstructionForDefinition(name, entry, env, stack)
+    const fold = stagedFoldForDefinition(name, entry, env, stack)
     if (fold) return fold
 
     return encodeExpression(entry.body, env, new Map(), [...stack, name])
@@ -399,20 +402,22 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
 
   const encodedHead = encodeExpression(head, env, locals, stack)
   const encodedArgs = args.map(encodeArg)
-  if (isFoldInstruction(encodedHead)) {
-    return applyFoldInstructionArgs(encodedHead, encodedArgs)
+  if (isStagedFold(encodedHead)) {
+    return applyStagedFoldArgs(encodedHead, encodedArgs)
   }
 
   return encodeTemplateApplication(encodedHead, args, encodeArg)
     ?? applyArgs(encodedHead, encodedArgs)
 }
 
-// Fold instruction application and recursive knots.
-const isFoldInstruction = value =>
-  Boolean(value) && typeof value === 'object' && foldInstructions.has(value)
+// Staged fold application and recursive knots.
+const isStagedFold = value =>
+  Boolean(value) && typeof value === 'object' && stagedFolds.has(value)
 
-const isFixedTemplate = value =>
-  Boolean(value) && typeof value === 'object' && fixedTemplates.has(value)
+const isArgumentSlotTemplate = value =>
+  Boolean(value)
+  && typeof value === 'object'
+  && argumentSlotTemplates.has(value)
 
 const hasTemplate = meta =>
   Object.hasOwn(meta, 'template')
@@ -442,7 +447,7 @@ const encodeFunctionFold = meta => {
   const group = {}
   const locals = functionLocals(meta.entry.params, completeFoldArgs(meta),
                                 (value, slot) =>
-                                  fixedTemplate(value, slot, group))
+                                  argumentSlotTemplate(value, slot, group))
   return applyArgs(encodeFunctionBody(meta, locals), remainingFoldArgs(meta))
 }
 
@@ -451,25 +456,25 @@ const encodeCompleteFold = meta =>
     ? encodeTemplateFold(meta)
     : encodeFunctionFold(meta)
 
-const applyFoldInstruction = (value, arg) => {
-  const meta = withFoldArg(foldInstructions.get(value), arg)
-  return foldComplete(meta) ? encodeCompleteFold(meta) : foldInstruction(meta)
+const applyStagedFold = (value, arg) => {
+  const meta = withFoldArg(stagedFolds.get(value), arg)
+  return foldComplete(meta) ? encodeCompleteFold(meta) : stagedFold(meta)
 }
 
-const foldInstructionHead = (value, seen = new WeakSet()) => {
-  if (isFoldInstruction(value)) return value
-  if (isFixedTemplate(value)) {
-    return foldInstructionHead(fixedTemplates.get(value).value, seen)
+const stagedFoldHead = (value, seen = new WeakSet()) => {
+  if (isStagedFold(value)) return value
+  if (isArgumentSlotTemplate(value)) {
+    return stagedFoldHead(argumentSlotTemplates.get(value).value, seen)
   }
   if (!isFixed(value) || seen.has(value)) return null
   seen.add(value)
-  return foldInstructionHead(value[1], seen)
+  return stagedFoldHead(value[1], seen)
 }
 
 const selfApplication = (left, right) =>
   left === right
 
-const recursiveFoldApplication = (head, applications) => {
+const recursiveStagedFold = (head, applications) => {
   const existing = applications.get(head)
   if (existing) return existing
 
@@ -477,38 +482,38 @@ const recursiveFoldApplication = (head, applications) => {
   applications.set(head, loop)
   return withCycleBody(
     loop,
-    encodeFoldApplications(applyFoldInstruction(head, loop), applications)
+    resolveStagedFolds(applyStagedFold(head, loop), applications)
   )
 }
 
-const encodeFoldApplications = (value, applications = new WeakMap()) => {
+const resolveStagedFolds = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
 
-  const left = encodeFoldApplications(value[0], applications)
-  const head = foldInstructionHead(left)
+  const left = resolveStagedFolds(value[0], applications)
+  const head = stagedFoldHead(left)
   if (head && selfApplication(left, value[1])) {
-    return recursiveFoldApplication(head, applications)
+    return recursiveStagedFold(head, applications)
   }
   if (head && !selfApplication(left, value[1])) {
-    return encodeFoldApplications(applyFoldInstruction(head, value[1]), applications)
+    return resolveStagedFolds(applyStagedFold(head, value[1]), applications)
   }
 
-  const right = encodeFoldApplications(value[1], applications)
+  const right = resolveStagedFolds(value[1], applications)
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
 // Graph materialization.
-const materializeFoldInstruction = (value, seen) => {
-  const meta = foldInstructions.get(value)
+const materializeStagedFold = (value, seen) => {
+  const meta = stagedFolds.get(value)
   return applyArgs(meta.name, meta.args.map(arg => materializeGraph(arg, seen)))
 }
 
-const materializeFixedTemplate = (value, seen) => {
-  const meta = fixedTemplates.get(value)
+const materializeArgumentSlotTemplate = (value, seen) => {
+  const meta = argumentSlotTemplates.get(value)
   const next = fixedClosure(null)
   seen.set(value, next)
-  next[1] = materializeGraph(encodeFoldApplications(meta.value), seen)
-  foldSlots.set(next, { ...meta, value: next[1] })
+  next[1] = materializeGraph(resolveStagedFolds(meta.value), seen)
+  argumentClosures.set(next, { ...meta, value: next[1] })
   return next
 }
 
@@ -523,8 +528,10 @@ const materializePair = (value, seen) => {
 const materializeGraph = (value, seen = new WeakMap()) => {
   const existing = seen.get(value)
   if (existing) return existing
-  if (isFoldInstruction(value)) return materializeFoldInstruction(value, seen)
-  if (isFixedTemplate(value)) return materializeFixedTemplate(value, seen)
+  if (isStagedFold(value)) return materializeStagedFold(value, seen)
+  if (isArgumentSlotTemplate(value)) {
+    return materializeArgumentSlotTemplate(value, seen)
+  }
   if (!isPair(value)) return value
 
   return materializePair(value, seen)
@@ -535,7 +542,7 @@ const materializeProgram = forms => {
 
   const { env, expr } = indexProgram(forms)
   const encoded = encodeExpression(expr, env)
-  const folded = encodeFoldApplications(encoded)
+  const folded = resolveStagedFolds(encoded)
   return materializeGraph(folded)
 }
 
@@ -625,7 +632,7 @@ export const parse = source => {
  * Encodes parsed source forms as one Lisp-facing folding term.
  *
  * `encode` is the semantic Lisp step: definitions, aliases, `defn` parameter
- * templates, n-ary applications, partial folds, and recursive source calls are
+ * templates, n-ary applications, staged folds, and source self-applications are
  * rewritten to the folding projection shown by `serialize`. Dense numeric
  * template applications, such as the staged S form, can be passed to
  * `construct` to recover the shared graph. Some source-level projections omit
@@ -652,7 +659,7 @@ export const encode = forms => encodeProgram(forms)
  * @returns {*}
  */
 export const construct = term =>
-  materializeGraph(encodeFoldApplications(constructTerm(term)))
+  materializeGraph(resolveStagedFolds(constructTerm(term)))
 
 /**
  * Compiles a multi-form source program to the pair graph consumed by
@@ -669,9 +676,9 @@ export const construct = term =>
  * functions, and one final expression. Fully applied numeric templates and
  * parameter-only `defn` bodies encode through the same folding path: each slot
  * becomes one shared fixed-point closure carrying hidden fill-order metadata
- * for `serialize`. Named functions can be staged as compiler-only fold
- * instructions while encoding higher-order source expressions, but those
- * instructions are materialized before this function returns. Template bodies
+ * for `serialize`. Named functions can be held as compiler-only staged folds
+ * while encoding higher-order source expressions, but those placeholders are
+ * materialized before this function returns. Template bodies
  * encode directly; other `defn` bodies still receive fixed-point locals, so
  * their arguments exist in the graph even when the body also contains ordinary
  * symbols. Partial or unresolved applications remain ordinary left-associated
@@ -723,7 +730,7 @@ const mergeCounts = (left, right) =>
                     left)
 
 const visibleFoldCounts = node => {
-  const meta = foldSlots.get(node)
+  const meta = argumentClosures.get(node)
   if (meta) return new Map([[meta.group, 1]])
   if (!isPair(node) || isFixed(node)) return new Map()
   return mergeCounts(visibleFoldCounts(node[0]), visibleFoldCounts(node[1]))
@@ -742,7 +749,7 @@ const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
       child.get(group) === totals.get(group)))
 
 const collectFoldClosures = (node, group) => {
-  const meta = foldSlots.get(node)
+  const meta = argumentClosures.get(node)
   if (meta?.group === group) return [node]
   if (!isPair(node) || isFixed(node)) return []
   return [...collectFoldClosures(node[0], group),
@@ -758,7 +765,7 @@ const sharedContinuation = node =>
     && node[0][1] === node[1][1]
 
 const activeFoldGroups = (node, blocked = false) => {
-  const meta = foldSlots.get(node)
+  const meta = argumentClosures.get(node)
   const groups = meta && !blocked ? [meta.group] : []
   if (!isPair(node) || isFixed(node)) return new Set(groups)
 
@@ -776,7 +783,7 @@ const activeFoldGroups = (node, blocked = false) => {
 const serializeFilled = (pair, seen = []) => {
   if (seen.includes(pair)) return canonicalSerialize(pair)
 
-  const meta = foldSlots.get(pair)
+  const meta = argumentClosures.get(pair)
   if (meta) return serializeFilled(meta.value, [...seen, pair])
 
   if (isList(pair)) {
@@ -787,7 +794,7 @@ const serializeFilled = (pair, seen = []) => {
 }
 
 const serializeFoldTemplate = (pair, group, slots, activeGroups) => {
-  const meta = foldSlots.get(pair)
+  const meta = argumentClosures.get(pair)
   if (meta?.group === group) return String(slots.get(pair))
   if (meta) {
     return activeGroups.has(meta.group)
@@ -806,10 +813,12 @@ const serializeFoldTemplate = (pair, group, slots, activeGroups) => {
 
 const serializeFold = (pair, group, activeGroups) => {
   const closures = uniqueByIdentity(collectFoldClosures(pair, group))
-    .sort((left, right) => foldSlots.get(left).slot - foldSlots.get(right).slot)
+    .sort((left, right) =>
+      argumentClosures.get(left).slot - argumentClosures.get(right).slot)
   const slots = new Map(closures.map((closure, index) => [closure, index]))
   const template = serializeFoldTemplate(pair, group, slots, activeGroups)
-  const args = closures.map(closure => serialize(foldSlots.get(closure).value))
+  const args = closures.map(closure =>
+    serialize(argumentClosures.get(closure).value))
 
   return applySerializedArgs(template, args)
 }
@@ -819,7 +828,7 @@ const serializeProjected = (
   totals = visibleFoldCounts(pair),
   activeGroups = activeFoldGroups(pair)
 ) => {
-  const meta = foldSlots.get(pair)
+  const meta = argumentClosures.get(pair)
   if (meta && !activeGroups.has(meta.group)) return serializeFilled(meta.value)
 
   const counts = visibleFoldCounts(pair)

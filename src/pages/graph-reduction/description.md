@@ -63,24 +63,29 @@ There are three layers in the current lab:
   folding instructions, or show passive compiler closures as their filled
   source values so settled expressions stay readable.
 
-This is enough for `Z` to build contractive fixed points from named source
-functions. For example, `(fix (K a))` exposes `(0 a)` and then `a`, and
-`((fix (K a)) b)` exposes `((0 a) b)` and then `(a b)`.
-The stateless `Y` form can also tie an active fixed-point loop; `(Y I)` keeps
-producing observer steps rather than settling. `Z` can carry state unchanged:
-`(defn HOLD (self state) (self state))` keeps `seed` visible through the loop.
+This is enough for `Z` to build fixed points from named source functions. For
+example, `(fix (K a))` exposes `(0 a)` and then `a`, and
+`((fix (K a)) b)` exposes `((0 a) b)` and then `(a b)`. The stateless `Y` form
+can also tie an active fixed-point loop; `(Y I)` keeps producing observer steps
+rather than settling.
 
-Structural state transitions stay live when the recursive call receives a
-left-associated update of its state parameter. For example,
-`(defn STEP (self state) (self (state tick)))` keeps the carried `seed` visible
-while the transition side grows:
+There is no separate transition form in the compiler. A recursive-looking
+function call such as:
 
 ```
-(0 (0 seed))
-((0 tick) (0 seed))
-(((0 tick) tick) (0 seed))
+(defn STEP (self state) (self (state tick)))
+((STEP f) seed)
 ```
 
-Atom-headed updates are still observation boundaries. A transition such as
-`(defn STEP (self state) (self (next state)))` can expose `(next seed)`, but
-observation stops there because `next` is an atom.
+settles normally to `(f (seed tick))`; `self` is just a parameter bound to `f`.
+State stays live only when the graph contains a fixed-point knot, as with:
+
+```
+(defn STEP (self state) (self (state tick)))
+((Z STEP) seed)
+```
+
+That expression does not settle, and its projected frames keep both `seed` and
+later `tick` events visible. Atom-headed updates are still observation
+boundaries. A body such as `(self (next state))` can carry `seed`, but
+observation stops at `next` because atoms are terminals.
