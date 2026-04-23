@@ -66,6 +66,8 @@ describe('observe', () => {
 
 describe('fixed point motifs', () => {
   test('feeds S through a shared continuation', () => {
+    // S uses one primitive kind of delayed identity, instantiated as three
+    // argument events. The third event is shared by graph identity.
     const p0 = fixed('a')
     const p1 = fixed('b')
     const p2 = fixed('c')
@@ -83,6 +85,15 @@ describe('fixed point motifs', () => {
 
     const step2 = observe(step1)
     assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
+  })
+
+  test('one self-referential object cannot stand for all S arguments', () => {
+    // Reusing one object gives one event, not three argument slots. This is
+    // why S needs distinct event vertices even when they share one primitive.
+    const point = fixed('a')
+
+    assert.deepEqual(reduce([[point, point], [point, point]]),
+                     [['a', 'a'], ['a', 'a']])
   })
 
   test('needs graph identity beyond a two-dimensional projection to share c', () => {
