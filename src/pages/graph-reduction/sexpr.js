@@ -214,19 +214,6 @@ const application = expr => {
   return [base, [...args, ...rest]]
 }
 
-const recursiveArgument = entry => {
-  const [head, args] = application(entry.body)
-  return head === entry.params[0] && args.length === 1 ? args[0] : null
-}
-
-const statePrefixedUpdates = entry => {
-  const argument = recursiveArgument(entry)
-  if (!argument || entry.params.length < 2) return null
-
-  const [state, updates] = application(argument)
-  return state === entry.params[1] && updates.length ? updates : null
-}
-
 const collectSlotIndexes = node => {
   if (isList(node)) {
     if (node.length !== 2) return null
@@ -391,7 +378,7 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
   if (expr.length === 0) return []
 
   const [head, args] = application(expr)
-  const resolved = typeof head === 'string'
+  const resolved = typeof head === 'string' && !locals.has(head)
     ? resolveDefinition(head, env, stack)
     : null
   const encodeArg = arg => encodeExpression(arg, env, locals, stack)
@@ -451,30 +438,6 @@ const encodeFunctionBody = (meta, locals) =>
 const encodeTemplateFold = meta =>
   encodeFoldTemplate(meta.template, meta.args, meta.arity)
 
-const transitionLoop = (meta, args, updates) => {
-  if (!foldInstructionHead(args[0])) return null
-
-  const group = {}
-  const loop = cycleTemplate()
-  const state = fixedTemplate(args[1], 1, group)
-
-  const locals = functionLocals(meta.entry.params, args, (value, slot) =>
-    slot === 0
-      ? loop
-      : slot === 1
-        ? state
-        : fixedTemplate(value, slot, group))
-  const encodedUpdates = updates.map(update =>
-    encodeExpression(update, meta.env, locals, [...meta.stack, meta.name]))
-
-  return [withCycleBody(loop, applyArgs(loop, encodedUpdates)), state]
-}
-
-const encodeTransitionFold = meta => {
-  const updates = statePrefixedUpdates(meta.entry)
-  return updates && transitionLoop(meta, completeFoldArgs(meta), updates)
-}
-
 const encodeFunctionFold = meta => {
   const group = {}
   const locals = functionLocals(meta.entry.params, completeFoldArgs(meta),
@@ -486,7 +449,7 @@ const encodeFunctionFold = meta => {
 const encodeCompleteFold = meta =>
   hasTemplate(meta)
     ? encodeTemplateFold(meta)
-    : encodeTransitionFold(meta) ?? encodeFunctionFold(meta)
+    : encodeFunctionFold(meta)
 
 const applyFoldInstruction = (value, arg) => {
   const meta = withFoldArg(foldInstructions.get(value), arg)
