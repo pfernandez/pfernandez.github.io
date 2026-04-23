@@ -8,10 +8,16 @@
  * collapses to its right side.
  *
  * Focus is left before right, but atom-headed pairs are observation
- * boundaries: their right side is not forced. When both branches share the
- * same continuation object, the join-focus rule observes that continuation
- * once and projects the result through both branches. This keeps shared
- * structure causal without giving atoms any extra behavior.
+ * boundaries: their right side is not forced. The current implementation still
+ * includes a provisional shared-continuation bridge for `[[x, k], [y, k]]`: it
+ * observes `k` once and projects the result through both branches. That bridge
+ * is useful for the current S projection, but it reads a hidden future and is a
+ * removal target.
+ *
+ * Without that bridge, a legal observer step is pair-local and Markov: it
+ * depends only on the current graph, fires one focused boundary event,
+ * preserves off-path object identity, and treats duplicated structure as shared
+ * only when reference identity already says it is shared.
  */
 
 /**

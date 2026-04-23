@@ -49,6 +49,15 @@ extra graph dimension is what represents sharing without copying. The lattice
 view is a literal graph sketch of pair nodes, shared arguments, and fixed-point
 loops.
 
+## Design Principle
+
+Potential is the space of admissible futures. Observation is a local boundary
+event that reduces that space without inventing history. In this project, fixed
+pairs are not substitutions or shortcuts: they are graph-local ways to keep
+potential visible until `observe` reaches the boundary where one event may fire.
+Shared continuations matter only when observation reaches the shared object;
+forcing a hidden future early would invent history.
+
 ## Boundary
 
 There are three layers in the current lab:
