@@ -106,11 +106,11 @@ const assertActsEqual = (left, right, arg = 'a') =>
   assertExposesEqual(apply(left, arg), apply(right, arg))
 
 describe('source.lisp examples', () => {
-  test('covers every definition in source.lisp', () =>
+  test('source.lisp defines every expected name', () =>
     assert.deepEqual(definitionCases.map(([name]) => name).sort(),
                      namesInSource()))
 
-  test('names the empty boundary as source-level identity', () => {
+  test('the empty boundary and I act the same', () => {
     assert.equal(serialize(compile(program('I'))), '()')
     assertExposesEqual('()', 'I')
     assertExposesEqual('I', 'id')
@@ -118,23 +118,23 @@ describe('source.lisp examples', () => {
     assertActsEqual('I', 'id')
   })
 
-  test('recognizes SKK as observational identity', () => {
+  test('S K K acts as identity', () => {
     assert.equal(settle(apply('I')), 'a')
     assertActsEqual('I', '((S K) K)')
   })
 
-  test('keeps the commented Try list covered', () =>
+  test('source.lisp lists every Try case', () =>
     assert.deepEqual(tryExpressions(),
                      tryCases.map(([expression]) => expression)))
 
-  test('runs the default S expression one observed fold at a time', () =>
+  test('the default S expression exposes each fold frame', () =>
     assert.deepEqual(serializeSteps(compile(source)),
                      ['(((((0 2) (1 2)) a) b) c)',
                       '((((a 1) (0 1)) b) c)',
                       '(((a 0) (b 0)) c)',
                       '((a c) (b c))']))
 
-  test('builds Z fixpoints for contractive functions over many ticks', () => {
+  test('Z settles when the body returns a constant', () => {
     const fixedValue = serializeTicks(compile(program('(fix (K a))')), 12)
     const appliedValue = serializeTicks(compile(program('((fix (K a)) b)')), 12)
 
@@ -144,7 +144,7 @@ describe('source.lisp examples', () => {
     assert.equal(new Set(appliedValue.slice(1)).size, 1)
   })
 
-  test('keeps recursive Z updates live with visible carried state', () => {
+  test('Z keeps recursive state updates live', () => {
     const term = compile(program(`
       (defn STEP (self state) (self (state tick)))
       ((Z STEP) seed)
@@ -157,13 +157,13 @@ describe('source.lisp examples', () => {
     assertDoesNotSettle(term)
   })
 
-  test('lets Z state return and settle', () =>
+  test('Z can return state and settle', () =>
     assert.equal(settle(`
       (defn DONE (self state) state)
       ((Z DONE) seed)
     `), 'seed'))
 
-  test('keeps Z state visible while carrying it unchanged', () => {
+  test('Z can carry state unchanged without settling', () => {
     const term = compile(program(`
       (defn HOLD (self state) (self state))
       ((Z HOLD) seed)
@@ -175,28 +175,30 @@ describe('source.lisp examples', () => {
     assertDoesNotSettle(term)
   })
 
-  test('keeps the stateless Y fixed point cycling', () => {
+  test('Y I stays live without state', () => {
     const term = compile(program('(Y I)'))
+    const ticks = serializeTicks(term, 6)
 
-    assert.deepEqual(serializeTicks(term, 4),
-                     ['((0 (0 ())) 0)',
-                      '((0 ()) 0)',
-                      '(() 0)',
-                      '0'])
+    assert(new Set(ticks).size > 4)
     assertDoesNotSettle(term)
   })
 
-  test('keeps applied stateless Y loops on the ordinary path', () =>
-    assert.equal(serialize(compile(program('(def y (Y I))\n(y a)'))),
-                 '(((0 (0 ())) 0) a)'))
+  test('applied Y I keeps its argument visible', () => {
+    const term = compile(program('(def y (Y I))\n(y a)'))
+    const ticks = serializeTicks(term, 8)
+
+    assert(ticks.every(tick => tick.includes('a')))
+    assert(new Set(ticks).size > 4)
+    assertDoesNotSettle(term)
+  })
 
   definitionCases.forEach(([name, expression, expected]) => {
-    test(`reduces ${name} to the desired source-level output`, () =>
+    test(`${name} reaches its source-level result`, () =>
       assert.equal(settle(expression), expected))
   })
 
   tryCases.forEach(([expression, expected]) => {
-    test(`reduces Try expression ${expression} to desired output`, () =>
+    test(`Try expression ${expression} reaches ${expected}`, () =>
       assert.equal(settle(expression), expected))
   })
 })

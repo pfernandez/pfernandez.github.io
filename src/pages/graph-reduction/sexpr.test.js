@@ -63,42 +63,43 @@ const assertSShape = motif => {
 }
 
 describe('source parser', () => {
-  test('parses empty input as empty list', () => {
+  test('parse returns no forms for blank input', () => {
     assert.deepEqual(parse(''), [])
     assert.deepEqual(parse('   \n\t'), [])
   })
 
-  test('parses atoms (symbols and numbers)', () => {
+  test('parse returns symbol and number atoms', () => {
     assert.deepEqual(parse('foo'), ['foo'])
     assert.deepEqual(parse('42'), [42])
     assert.deepEqual(parse('-3'), [-3])
     assert.deepEqual(parse('3.14'), [3.14])
   })
 
-  test('parses empty list', () => assert.deepEqual(parse('()'), [[]]))
+  test('parse reads () as one empty-list form', () =>
+    assert.deepEqual(parse('()'), [[]]))
 
-  test('parses binary list', () =>
+  test('parse reads binary lists', () =>
     assert.deepEqual(parse('(a b)'), [['a', 'b']]))
 
-  test('parses nested binary lists', () => assert.deepEqual(
+  test('parse preserves nested binary lists', () => assert.deepEqual(
     parse('((() a) (b (c ())))'), [[[[], 'a'], ['b', ['c', []]]]]))
 
-  test('strips line breaks', () => assert.deepEqual(
+  test('parse ignores line breaks', () => assert.deepEqual(
     parse('\n(\na\n(\n(\n)\nb\n)\n)\n'), [['a', [[], 'b']]]))
 
-  test('strips comments', () => {
+  test('parse ignores comments', () => {
     assert.deepEqual(parse('; comment\n(a b)'), [['a', 'b']])
     assert.deepEqual(parse('(a ; inline\n b)'), [['a', 'b']])
   })
 
-  test('parses n-ary source lists and multiple top-level forms', () => {
+  test('parse preserves n-ary lists and top-level order', () => {
     assert.deepEqual(parse('(x)'), [['x']])
     assert.deepEqual(parse('(a b c)'), [['a', 'b', 'c']])
     assert.deepEqual(parse('a b'), ['a', 'b'])
     assert.deepEqual(parse('(() x) y'), [[[], 'x'], 'y'])
   })
 
-  test('rejects malformed parentheses', t => {
+  test('parse reports malformed parentheses', t => {
     const messages = loggedErrors(t, [
       () => parse(')'),
       () => parse('('),
@@ -113,7 +114,7 @@ describe('source parser', () => {
 })
 
 describe('pair serializer', () => {
-  test('serializes atoms and pairs canonically', () => {
+  test('serialize writes canonical atoms and pairs', () => {
     assert.equal(serialize('foo'), 'foo')
     assert.equal(serialize(42), '42')
     assert.equal(serialize([]), '()')
@@ -122,7 +123,7 @@ describe('pair serializer', () => {
                  '((a b) (c (d e)))')
   })
 
-  test('round-trips valid terms through parse and serialize', () =>
+  test('serialize round-trips parsed terms', () =>
     ['foo',
      '42',
      '()',
@@ -133,22 +134,22 @@ describe('pair serializer', () => {
       assert.deepEqual(parseTerm(serialize(pair)), pair)
     }))
 
-  test('rejects non-pair arrays', () => {
+  test('serialize rejects malformed arrays', () => {
     assert.throws(() => serialize(['a']), /empty or pairs/i)
     assert.throws(() => serialize(['a', 'b', 'c']), /empty or pairs/i)
   })
 
-  test('serializes numeric slot motifs', () =>
+  test('serialize writes numeric slot motifs', () =>
     assert.equal(serialize([[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']),
                  '(((((0 2) (1 2)) a) b) c)'))
 
-  test('serializes compiled slots as folding instructions', () =>
+  test('serialize projects compiled slots as folding instructions', () =>
     assert.equal(serialize(compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
     `)), '(((((0 2) (1 2)) a) b) c)'))
 
-  test('serializes S projection while preserving one shared c event', () => {
+  test('serialize shows S frames with one shared c event', () => {
     const step0 = compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
@@ -169,7 +170,7 @@ describe('pair serializer', () => {
     assert.equal(serialize(step3), '((a c) (b c))')
   })
 
-  test('serializes manual fixed points with traversal-local fallback labels', () => {
+  test('serialize labels raw fixed points by traversal order', () => {
     const point = []
     point[0] = point
     point[1] = 'a'
@@ -177,7 +178,7 @@ describe('pair serializer', () => {
     assert.equal(serialize(point), '0')
   })
 
-  test('serializes projection fallbacks inside folding templates', () => {
+  test('serialize fills inactive closures inside projections', () => {
     const pair = compile('(defn P (x y) (x y))\n((P a) b)')
     const inner = compile('(defn I (x) x)\n(I q)')
     const innerEmpty = compile('(defn I (x) x)\n(I ())')
@@ -199,7 +200,7 @@ describe('pair serializer', () => {
     assert.equal(serialize([inner, []]), '((0 q) ())')
   })
 
-  test('rejects non-pair arrays inside projected output', () => {
+  test('serialize rejects malformed arrays inside projections', () => {
     const pair = compile('(defn P (x y) (x y))\n((P a) b)')
     const inner = compile('(defn I (x) x)\n(I q)')
     const filled = compile('(defn I (x) x)\n(I (a b))')
@@ -212,7 +213,7 @@ describe('pair serializer', () => {
                   /empty or pairs/i)
   })
 
-  test('serializes passive filled closures under atom-headed pairs', () => {
+  test('serialize fills closures hidden behind atom heads', () => {
     const empty = compile('(defn I (x) x)\n(x (I ()))')
     const malformed = compile('(defn I (x) x)\n(x (I (a b)))')
 
@@ -223,12 +224,12 @@ describe('pair serializer', () => {
 })
 
 describe('compiler', () => {
-  test('compiles empty program input as empty list', () => {
+  test('compile returns () for blank programs', () => {
     assert.deepEqual(compile(''), [])
     assert.deepEqual(compile(' \n\t '), [])
   })
 
-  test('encodes source forms and constructs folding terms', () => {
+  test('encode and construct share the folding surface', () => {
     const encoded = [[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']
     const source = `
       (def S ((0 2) (1 2)))
@@ -250,7 +251,7 @@ describe('compiler', () => {
                  '(((((0 2) (1 2)) a) b) c)')
   })
 
-  test('encodes source as the serialized compile projection', () =>
+  test('encode matches the serialized compile projection', () =>
     ['',
      '()',
      '(f x y)',
@@ -265,7 +266,7 @@ describe('compiler', () => {
        '(Z f)'].forEach(source =>
       assert.deepEqual(encoded(source), projection(source), source)))
 
-  test('construct rebuilds the projected graph, not hidden closure identity', () => {
+  test('construct rebuilds projection without closure metadata', () => {
     const source = '(defn I (x) x)\n(x (I a))'
     const graph = compile(source)
     const rebuilt = construct(encoded(source))
@@ -275,59 +276,59 @@ describe('compiler', () => {
     assert.equal(rebuilt[1], 'a')
   })
 
-  test('constructs ordinary terms when no dense template boundary exists', () => {
+  test('construct leaves non-template applications ordinary', () => {
     assert.equal(construct(['x']), 'x')
     assert.equal(serialize(construct(['f', 'x'])), '(f x)')
     assert.equal(serialize(construct([[[2, 1], 'f'], 'x'])),
                  '(((2 1) f) x)')
   })
 
-  test('construct rejects invalid numeric template atoms', () =>
+  test('construct rejects invalid numeric slots', () =>
     assert.throws(() => construct([[0, -1], 'a']), /non-negative integer/i))
 
-  test('compiles an empty final expression', () =>
+  test('compile reads () as the final expression', () =>
     assert.deepEqual(compile('()'), []))
 
-  test('leaves atom-only programs alone', () => {
+  test('compile leaves atom-only programs unchanged', () => {
     assert.equal(compile('name'), 'name')
     assert.equal(compile('7'), 7)
     assert.equal(compile('(name)'), 'name')
   })
 
-  test('serializes bare non-zero-argument defn symbols as names', () =>
+  test('compile leaves unapplied functions as names', () =>
     assert.equal(serialize(compile(`
       (defn I (x) x)
       I
     `)), 'I'))
 
-  test('leaves bare non-template defn symbols alone', () =>
+  test('compile leaves unapplied non-template functions as names', () =>
     assert.equal(compile(`
       (defn F (x) (x y))
       F
     `), 'F'))
 
-  test('leaves a plain expression alone', () =>
+  test('compile preserves plain binary expressions', () =>
     assert.deepEqual(compile('(((f x) y) z)'),
                      parseTerm('(((f x) y) z)')))
 
-  test('left-associates n-ary applications', () =>
+  test('compile left-associates n-ary applications', () =>
     assert.deepEqual(compile('(f x y z)'),
                      parseTerm('(((f x) y) z)')))
 
-  test('expands def aliases into the final expression', () =>
+  test('compile expands def aliases in applications', () =>
     assert.deepEqual(compile(`
       (def I (() 0))
       (def id I)
       ((id a) b)
     `), parseTerm('(((() 0) a) b)')))
 
-  test('expands def aliases to plain atoms', () =>
+  test('compile expands def aliases to atoms', () =>
     assert.equal(compile(`
       (def answer value)
       answer
     `), 'value'))
 
-  test('compiles fully applied defn parameters as fixed points', () => {
+  test('compile maps defn parameters to fixed slots', () => {
     const motif = compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
@@ -336,7 +337,7 @@ describe('compiler', () => {
     assertSShape(motif)
   })
 
-  test('compiles numeric def templates as shared fixed points', () => {
+  test('compile maps numeric templates to shared fixed slots', () => {
     const motif = compile(`
       (def S ((0 2) (1 2)))
       (((S a) b) c)
@@ -345,7 +346,7 @@ describe('compiler', () => {
     assertSShape(motif)
   })
 
-  test('shares repeated numeric template slots', () => {
+  test('compile shares repeated numeric slots', () => {
     const motif = compile(`
       (def D (0 0))
       (D a)
@@ -357,7 +358,7 @@ describe('compiler', () => {
     assert.equal(serialize(motif), '((0 0) a)')
   })
 
-  test('compiles direct numeric slot applications as fixed points', () => {
+  test('compile maps direct numeric slots to fixed pairs', () => {
     const motif = compile('(0 a)')
 
     assert.equal(motif[0], motif)
@@ -365,7 +366,7 @@ describe('compiler', () => {
     assert.equal(serialize(motif), '(0 a)')
   })
 
-  test('reapplies extra arguments after fully applied defns', () => {
+  test('compile applies extra arguments after defn folds', () => {
     const motif = compile(`
       (defn I (x) x)
       ((I a) b)
@@ -376,7 +377,7 @@ describe('compiler', () => {
     assert.equal(motif[1], 'b')
   })
 
-  test('consumes unused defn parameters without reapplying them', () => {
+  test('compile fills unused defn slots without reapplying them', () => {
     const motif = compile(`
       (defn K (x y) x)
       ((K a) b)
@@ -387,32 +388,32 @@ describe('compiler', () => {
     assert.equal(serialize(motif), '(0 a)')
   })
 
-  test('applies fold values passed through higher-order templates', () =>
+  test('compile lets higher-order folds reduce through S K K', () =>
     assert.equal(settle(`
       (defn K (x y) x)
       (defn S (x y z) ((x z) (y z)))
       (((S K) K) a)
     `), 'a'))
 
-  test('compiles non-template defn bodies with fixed-point locals', () =>
+  test('compile gives non-template defns fixed locals', () =>
     assert.equal(serialize(compile(`
       (defn F (x) (x y))
       ((F a) b)
     `)), '(((0 a) y) b)'))
 
-  test('compiles empty non-template defn bodies', () =>
+  test('compile expands empty function bodies to ()', () =>
     assert.equal(serialize(compile(`
       (defn E (x) ())
       (E a)
     `)), '()'))
 
-  test('reapplies extra arguments after numeric templates', () =>
+  test('compile applies extra arguments after numeric folds', () =>
     assert.equal(serialize(compile(`
       (def S ((0 2) (1 2)))
       ((((S a) b) c) d)
     `)), '((((((0 2) (1 2)) a) b) c) d)'))
 
-  test('keeps partially applied folding definitions as source applications', () => {
+  test('compile keeps partial fold applications ordinary', () => {
     assert.equal(serialize(compile(`
       (defn S (x y z) ((x z) (y z)))
       (S a)
@@ -423,14 +424,14 @@ describe('compiler', () => {
     `)), '(S a)')
   })
 
-  test('encodes dynamic fold applications inside ordinary right branches', () =>
+  test('compile resolves folds behind ordinary right branches', () =>
     assert.equal(serialize(compile(`
       (defn I (x) x)
       (defn return-I (x) I)
       (x ((return-I q) a))
     `)), '(x a)'))
 
-  test('keeps non-transition dynamic folds on the ordinary path', () => {
+  test('compile keeps dynamic function bodies ordinary', () => {
     assert.equal(serialize(compile(`
       (defn I (x) x)
       (defn F (x) (x y))
@@ -448,41 +449,41 @@ describe('compiler', () => {
     `)), '(helper a)')
   })
 
-  test('does not force ordinary calls into recursive loops', () => {
-    assert.equal(serialize(compile(`
+  test('recursive-looking ordinary calls settle normally', () => {
+    assert.equal(settle(`
       (defn STEP (self state) (self (state tick)))
       ((STEP f) seed)
-    `)), '(((0 (1 tick)) f) seed)')
-    assert.equal(serialize(compile(`
+    `), '(f (seed tick))')
+    assert.equal(settle(`
       (defn I (x) x)
       (defn STEP (self state) (self (state tick)))
       (((I STEP) f) seed)
-    `)), '(((0 (1 tick)) f) seed)')
-    assert.equal(serialize(compile(`
+    `), '(f (seed tick))')
+    assert.equal(settle(`
       (defn I (x) x)
       (defn STEP (self state other) (self (other tick)))
       ((((I STEP) f) seed) spare)
-    `)), '(((0 (1 tick)) f) spare)')
-    assert.equal(serialize(compile(`
+    `), '(f (spare tick))')
+    assert.equal(settle(`
       (defn I (x) x)
       (defn STEP (self state) (self state))
       (((I STEP) f) seed)
-    `)), '(((0 1) f) seed)')
-    assert.equal(serialize(compile(`
+    `), '(f seed)')
+    assert.equal(settle(`
       (defn STEP (self state) (self (state tick)))
       (defn return-STEP (x) STEP)
       (((return-STEP q) f) seed)
-    `)), '(((0 (1 tick)) f) seed)')
+    `), '(f (seed tick))')
   })
 
-  test('lets parameters shadow definitions in call position', () =>
+  test('compile lets parameters shadow definitions', () =>
     assert.equal(serialize(compile(`
       (defn self (x) x)
       (defn F (self state) (self state))
       ((F f) seed)
     `)), '(((0 1) f) seed)'))
 
-  test('recursive continuations carry the next state', () => {
+  test('Z carries visible state through recursive updates', () => {
     const ticks = serializeTicks(compile(zProgram(`
       (defn STEP (self state) (self ((state tick) tock)))
       ((Z STEP) seed)
@@ -494,7 +495,7 @@ describe('compiler', () => {
     assert(ticks.at(-1).includes('tock'))
   })
 
-  test('recursive state carrying is not tied to the Z name', () => {
+  test('fixed-point behavior does not depend on the name Z', () => {
     const renamed = serializeTicks(compile(`
       (defn U (x v) ((x x) v))
       (defn DELAY (f x) (f (U x)))
@@ -510,7 +511,7 @@ describe('compiler', () => {
     assert.deepEqual(renamed, z)
   })
 
-  test('serializes passive recursive continuations finitely', () => {
+  test('serialize keeps passive recursive continuations finite', () => {
     const ticks = serializeTicks(compile(zProgram(`
       (defn STEP (self state) (self (next state)))
       ((Z STEP) seed)
@@ -520,19 +521,19 @@ describe('compiler', () => {
     assert(ticks.every(tick => tick.includes('seed')))
   })
 
-  test('keeps nested generated self-application finite', () =>
+  test('compile keeps nested self-application finite', () =>
     assert.equal(serialize(compile(`
       (defn F (x) (x (x x)))
       (F F)
     `)), '((0 (0 0)) 0)'))
 
-  test('expands zero-argument defns', () =>
+  test('compile expands zero-argument defns', () =>
     assert.equal(compile(`
       (defn answer () 42)
       answer
     `), 42))
 
-  test('clones repeated definition expansions', () => {
+  test('compile clones repeated def expansions', () => {
     const tree = compile(`
       (def pair-ab (a b))
       (pair-ab pair-ab)
@@ -542,56 +543,56 @@ describe('compiler', () => {
     assert.notStrictEqual(tree[0], tree[1])
   })
 
-  test('rejects programs without a final expression', t =>
+  test('compile rejects programs without a final expression', t =>
     assertCompileError(t,
                        '(def I (() 0))',
                        /must end with an expression/i))
 
-  test('rejects non-list defn params', t =>
+  test('compile rejects non-list defn params', t =>
     assertCompileError(t,
                        '(defn I x x)\n(I a)',
                        /params must be a list/i))
 
-  test('rejects short def forms', t =>
+  test('compile rejects short def forms', t =>
     assertCompileError(t, '(def I)\nI', /def name body/i))
 
-  test('rejects short defn forms', t =>
+  test('compile rejects short defn forms', t =>
     assertCompileError(t, '(defn I (x))\n(I a)', /defn name/i))
 
-  test('rejects non-symbol def names', t =>
+  test('compile rejects non-symbol def names', t =>
     assertCompileError(t, '(def 0 a)\na', /def name must be a symbol/i))
 
-  test('rejects non-symbol defn names', t =>
+  test('compile rejects non-symbol defn names', t =>
     assertCompileError(t,
                        '(defn 0 (x) x)\n(0 a)',
                        /defn name must be a symbol/i))
 
-  test('rejects non-symbol defn params', t =>
+  test('compile rejects non-symbol defn params', t =>
     assertCompileError(t,
                        '(defn I (x 0) x)\n(I a)',
                        /params must be symbols/i))
 
-  test('rejects sparse numeric slot templates', t =>
+  test('compile rejects sparse numeric slots', t =>
     assertCompileError(t,
                        '(def bad (0 2))\n(((bad a) b) c)',
                        /dense slots/i))
 
-  test('rejects negative numeric slot templates', t =>
+  test('compile rejects negative numeric slots', t =>
     assertCompileError(t,
                        '(def bad (0 -1))\n((bad a) b)',
                        /non-negative integer/i))
 
-  test('rejects non-integer numeric slot templates', t =>
+  test('compile rejects non-integer numeric slots', t =>
     assertCompileError(t,
                        '(def bad (0 1.5))\n((bad a) b)',
                        /non-negative integer/i))
 
-  test('rejects recursive definitions', t =>
+  test('compile rejects recursive definitions', t =>
     assertCompileError(t,
                        '(def loop loop)\nloop',
                        /recursive definitions/i))
 
-  test('rejects recursive function aliases during application', t =>
+  test('compile rejects recursive function aliases in applications', t =>
     assertCompileError(t,
                        '(def loop loop)\n(loop a)',
                        /recursive definitions/i))

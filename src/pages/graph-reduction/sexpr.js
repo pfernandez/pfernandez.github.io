@@ -679,12 +679,10 @@ export const construct = term =>
  *
  * When delayed source self-application would otherwise expand forever during
  * compilation, encoding records a recursive knot and materialization returns
- * it as a fixed-point pair so `observe` sees the loop. Recursive state
- * transitions of the form `(self (state x ...))`, where `self` is the first
- * parameter and `state` is the second, encode to a live transition loop with
- * the state carried beside it. This keeps the recursive path pair-structured
- * and observer-visible without teaching `observe` about Lisp names or calls;
- * atom-headed transitions remain ordinary pairs and stop at the atom boundary.
+ * it as a fixed-point pair so `observe` sees the loop. This is a graph rule,
+ * not a Lisp-name rule: recursive-looking calls with ordinary heads compile as
+ * ordinary applications, and state persists only when the resulting pair graph
+ * keeps it on observer-visible paths.
  *
  * Returns the thrown error after logging it, matching `parse` and preserving
  * the test-facing API.

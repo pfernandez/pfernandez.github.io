@@ -17,15 +17,15 @@ const reduce = (term, remaining = 16) => {
 }
 
 describe('observe', () => {
-  test('leaves atoms alone', () =>
+  test('atoms are stable', () =>
     assert.equal(observe('a'), 'a'))
 
-  test('leaves the null boundary alone', () => {
+  test('the empty boundary is stable', () => {
     const empty = []
     assert.equal(observe(empty), empty)
   })
 
-  test('leaves non-pair arrays alone', () => {
+  test('malformed arrays are stable', () => {
     const malformed = [[[], []]]
     const unary = ['x']
 
@@ -33,34 +33,34 @@ describe('observe', () => {
     assert.equal(observe(unary), unary)
   })
 
-  test('fires a fixed point pair', () =>
+  test('fixed pairs expose their payload', () =>
     assert.equal(observe(fixed('a')), 'a'))
 
-  test('collapses an empty-left boundary', () => {
+  test('empty-headed pairs collapse to the right', () => {
     assert.deepEqual(observe([[], []]), [])
     assert.equal(observe([[], 'a']), 'a')
   })
 
-  test('steps left before right', () =>
+  test('pair focus starts on the left', () =>
     assert.deepEqual(observe([[[], []], 'a']), [[], 'a']))
 
-  test('shifts right once the left pair is stable', () =>
+  test('pair focus shifts right after a stable pair head', () =>
     assert.deepEqual(observe([['a', 'b'], fixed('c')]),
                      [['a', 'b'], 'c']))
 
-  test('does not force the right branch of an atom-headed pair', () => {
+  test('atom-headed pairs hide their right branch', () => {
     const root = ['a', fixed('b')]
     assert.equal(observe(root), root)
   })
 
-  test('preserves stable pair identity', () => {
+  test('stable pairs keep their identity', () => {
     const stable = ['a', 'b']
     assert.equal(observe(stable), stable)
   })
 })
 
-describe('fixed point motifs', () => {
-  test('feeds S through a shared continuation', () => {
+describe('shared continuations', () => {
+  test('S observes three argument events in order', () => {
     // S uses one primitive kind of delayed identity, instantiated as three
     // argument events. The third event is shared by graph identity.
     const p0 = fixed('a')
@@ -82,7 +82,7 @@ describe('fixed point motifs', () => {
     assert.deepEqual(step2, [['a', 'c'], ['b', 'c']])
   })
 
-  test('one self-referential object cannot stand for all S arguments', () => {
+  test('one fixed object represents one event', () => {
     // Reusing one object gives one event, not three argument slots. This is
     // why S needs distinct event vertices even when they share one primitive.
     const point = fixed('a')
@@ -91,7 +91,7 @@ describe('fixed point motifs', () => {
                      [['a', 'a'], ['a', 'a']])
   })
 
-  test('needs graph identity beyond a two-dimensional projection to share c', () => {
+  test('duplicated labels do not create shared events', () => {
     // The 2D tree shape can duplicate a label, but it cannot express that both
     // branches point to one future event. The extra dimension is graph identity.
     const sharedC = fixed('c')
@@ -102,21 +102,12 @@ describe('fixed point motifs', () => {
     assert.equal(observe(copied), copied)
   })
 
-  test('observes a shared continuation as one event', () => {
+  test('shared continuations project one observed payload', () => {
     const payload = ['c', 'd']
     const sharedC = fixed(payload)
     const observed = observe([['a', sharedC], ['b', sharedC]])
 
     assert.equal(observed[0][1], payload)
     assert.equal(observed[1][1], payload)
-  })
-
-  test('reduces S to its exposed shape', () => {
-    const p0 = fixed('a')
-    const p1 = fixed('b')
-    const p2 = fixed('c')
-
-    assert.deepEqual(reduce([[p0, p2], [p1, p2]]),
-                     [['a', 'c'], ['b', 'c']])
   })
 })
