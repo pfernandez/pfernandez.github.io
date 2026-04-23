@@ -76,39 +76,11 @@ const fixedTemplates = new WeakMap()
 // `compile` returns, so `observe` still sees only pairs.
 const foldInstructions = new WeakMap()
 
+// Reader.
 const tokenize = source =>
   source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
 
-const fixedClosure = value => {
-  const pair = []
-  pair[0] = pair
-  pair[1] = value
-  return pair
-}
-
-const fixedTemplate = (value, slot, group) => {
-  const template = {}
-  fixedTemplates.set(template, { group, slot, value })
-  return template
-}
-
-const cycleTemplate = () => {
-  const template = []
-  template[0] = template
-  return template
-}
-
-const withCycleBody = (template, body) => {
-  template[1] = body
-  return template
-}
-
-const foldInstruction = meta => {
-  const value = {}
-  foldInstructions.set(value, meta)
-  return value
-}
-
+// Shared term builders.
 const applyArgs = (head, args) =>
   args.reduce((left, right) => [left, right], head)
 
@@ -146,14 +118,6 @@ const read = (tokens, i = 0) => {
   }
 }
 
-const normalizeParamList = params => {
-  if (!isList(params)) throw new Error('defn params must be a list')
-  if (params.some(param => typeof param !== 'string')) {
-    throw new Error('defn params must be symbols')
-  }
-  return params
-}
-
 const collectForms = (tokens, index = 0, forms = []) => {
   if (index >= tokens.length) return forms
   const [form, next] = read(tokens, index)
@@ -161,6 +125,46 @@ const collectForms = (tokens, index = 0, forms = []) => {
 }
 
 const readSourceForms = source => collectForms(tokenize(source))
+
+// Graph and fold-instruction constructors.
+const fixedClosure = value => {
+  const pair = []
+  pair[0] = pair
+  pair[1] = value
+  return pair
+}
+
+const fixedTemplate = (value, slot, group) => {
+  const template = {}
+  fixedTemplates.set(template, { group, slot, value })
+  return template
+}
+
+const cycleTemplate = () => {
+  const template = []
+  template[0] = template
+  return template
+}
+
+const withCycleBody = (template, body) => {
+  template[1] = body
+  return template
+}
+
+const foldInstruction = meta => {
+  const value = {}
+  foldInstructions.set(value, meta)
+  return value
+}
+
+// Program indexing and source normalization.
+const normalizeParamList = params => {
+  if (!isList(params)) throw new Error('defn params must be a list')
+  if (params.some(param => typeof param !== 'string')) {
+    throw new Error('defn params must be symbols')
+  }
+  return params
+}
 
 const makeProgramEntry = (name, body) => ({ kind: 'def', name, body })
 const makeProgramFunction = (name, params, body) =>
@@ -200,6 +204,7 @@ const indexProgram = forms => {
   return { env, expr }
 }
 
+// Source encoding to fold instructions.
 const application = expr => {
   if (!isList(expr) || expr.length === 0) return [expr, []]
 
@@ -220,40 +225,6 @@ const statePrefixedUpdates = entry => {
   const [state, updates] = application(argument)
   return state === entry.params[1] && updates.length ? updates : null
 }
-
-const mergeCounts = (left, right) =>
-  [...right].reduce((counts, [group, count]) =>
-    new Map(counts).set(group, (counts.get(group) ?? 0) + count),
-  left)
-
-const visibleFoldCounts = node => {
-  const meta = foldSlots.get(node)
-  if (meta) return new Map([[meta.group, 1]])
-  if (!isPair(node) || isFixed(node)) return new Map()
-  return mergeCounts(visibleFoldCounts(node[0]), visibleFoldCounts(node[1]))
-}
-
-const childFoldCounts = node =>
-  isPair(node) && !isFixed(node)
-    ? [visibleFoldCounts(node[0]), visibleFoldCounts(node[1])]
-    : []
-
-const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
-  [...counts.keys()].find(group =>
-    activeGroups.has(group) &&
-    counts.get(group) === totals.get(group) &&
-    !childFoldCounts(node).some(child => child.get(group) === totals.get(group)))
-
-const collectFoldClosures = (node, group) => {
-  const meta = foldSlots.get(node)
-  if (meta?.group === group) return [node]
-  if (!isPair(node) || isFixed(node)) return []
-  return [...collectFoldClosures(node[0], group),
-          ...collectFoldClosures(node[1], group)]
-}
-
-const uniqueByIdentity = values =>
-  values.filter((value, index) => values.indexOf(value) === index)
 
 const collectSlotIndexes = node => {
   if (isList(node)) {
@@ -321,11 +292,6 @@ const encodeTemplateApplication = (template, args, encodeArg, arity = null) => {
 
 const encodeFoldTemplate = (template, args, arity) =>
   encodeTemplateApplication(template, args, value => value, arity)
-
-const atomBoundary = node => !isList(node)
-
-const sharedContinuation = node =>
-  isPair(node) && isPair(node[0]) && isPair(node[1]) && node[0][1] === node[1][1]
 
 const templateForDefinition = entry => {
   if (entry.kind === 'def') {
@@ -453,6 +419,7 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
     applyArgs(encodedHead, encodedArgs)
 }
 
+// Fold instruction application and recursive knots.
 const isFoldInstruction = value =>
   Boolean(value) && typeof value === 'object' && foldInstructions.has(value)
 
@@ -566,6 +533,7 @@ const encodeFoldApplications = (value, applications = new WeakMap()) => {
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
+// Graph materialization.
 const materializeFoldInstruction = (value, seen) => {
   const meta = foldInstructions.get(value)
   return applyArgs(meta.name, meta.args.map(arg => materializeGraph(arg, seen)))
@@ -607,6 +575,7 @@ const materializeProgram = forms => {
   return materializeGraph(folded)
 }
 
+// Public projection and construction helpers.
 const encodePlainExpression = expr => {
   if (!isList(expr)) return expr
   if (expr.length === 0) return []
@@ -769,6 +738,10 @@ export const compile = source => {
   }
 }
 
+// Serialization and Lisp-facing graph projection.
+const uniqueByIdentity = values =>
+  values.filter((value, index) => values.indexOf(value) === index)
+
 const canonicalSerialize = (pair, slots = new Map()) => {
   if (isFixed(pair)) {
     if (!slots.has(pair)) slots.set(pair, slots.size)
@@ -781,6 +754,42 @@ const canonicalSerialize = (pair, slots = new Map()) => {
 
   return String(pair)
 }
+
+const mergeCounts = (left, right) =>
+  [...right].reduce((counts, [group, count]) =>
+    new Map(counts).set(group, (counts.get(group) ?? 0) + count),
+  left)
+
+const visibleFoldCounts = node => {
+  const meta = foldSlots.get(node)
+  if (meta) return new Map([[meta.group, 1]])
+  if (!isPair(node) || isFixed(node)) return new Map()
+  return mergeCounts(visibleFoldCounts(node[0]), visibleFoldCounts(node[1]))
+}
+
+const childFoldCounts = node =>
+  isPair(node) && !isFixed(node)
+    ? [visibleFoldCounts(node[0]), visibleFoldCounts(node[1])]
+    : []
+
+const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
+  [...counts.keys()].find(group =>
+    activeGroups.has(group) &&
+    counts.get(group) === totals.get(group) &&
+    !childFoldCounts(node).some(child => child.get(group) === totals.get(group)))
+
+const collectFoldClosures = (node, group) => {
+  const meta = foldSlots.get(node)
+  if (meta?.group === group) return [node]
+  if (!isPair(node) || isFixed(node)) return []
+  return [...collectFoldClosures(node[0], group),
+          ...collectFoldClosures(node[1], group)]
+}
+
+const atomBoundary = node => !isList(node)
+
+const sharedContinuation = node =>
+  isPair(node) && isPair(node[0]) && isPair(node[1]) && node[0][1] === node[1][1]
 
 const activeFoldGroups = (node, blocked = false) => {
   const meta = foldSlots.get(node)
