@@ -15,6 +15,12 @@ const settle = source =>
 
 const parseTerm = source => parse(source)[0]
 
+const projection = source =>
+  parseTerm(serialize(compile(source)))
+
+const encoded = source =>
+  encode(parse(source))
+
 const loggedErrors = (t, actions) => {
   const { mock } = t.mock.method(console, 'error', () => {})
   actions.forEach(action => action())
@@ -229,6 +235,31 @@ describe('compiler', () => {
                  '(((((0 2) (1 2)) a) b) c)')
     assert.equal(serialize(construct(encode(parse(source)))),
                  '(((((0 2) (1 2)) a) b) c)')
+  })
+
+  test('encodes source as the serialized compile projection', () =>
+    ['',
+     '()',
+     '(f x y)',
+     '(defn I (x) x)\n(I a)',
+     '(defn K (x y) x)\n((K a) b)',
+     '(defn S (x y z) ((x z) (y z)))\n(((S a) b) c)',
+     '(def S ((0 2) (1 2)))\n(((S a) b) c)',
+     '(defn F (x) (x y))\n((F a) b)',
+     '(defn APPLY-SELF (x v) ((x x) v))\n' +
+       '(defn THETA (f x) (f (APPLY-SELF x)))\n' +
+       '(defn Z (f) ((THETA f) (THETA f)))\n' +
+       '(Z f)'].forEach(source =>
+      assert.deepEqual(encoded(source), projection(source), source)))
+
+  test('construct rebuilds the projected graph, not hidden closure identity', () => {
+    const source = '(defn I (x) x)\n(x (I a))'
+    const graph = compile(source)
+    const rebuilt = construct(encoded(source))
+
+    assert.equal(serialize(rebuilt), serialize(graph))
+    assert.equal(graph[1][0], graph[1])
+    assert.equal(rebuilt[1], 'a')
   })
 
   test('constructs ordinary terms when no dense template boundary exists', () => {
