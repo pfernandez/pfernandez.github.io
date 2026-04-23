@@ -129,15 +129,21 @@ describe('pair serializer', () => {
       (((S a) b) c)
     `)), '(((((0 2) (1 2)) a) b) c)'))
 
-  test('serializes observed folding steps by remaining fill order', () => {
+  test('serializes S projection while preserving one shared c event', () => {
     const step0 = compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
     `)
+    const c = step0[0][1]
     const step1 = observe(step0)
     const step2 = observe(step1)
     const step3 = observe(step2)
 
+    assert.equal(step0[1][1], c)
+    assert.equal(step1[0][1], c)
+    assert.equal(step1[1][1], c)
+    assert.equal(step2[0][1], c)
+    assert.equal(step2[1][1], c)
     assert.equal(serialize(step0), '(((((0 2) (1 2)) a) b) c)')
     assert.equal(serialize(step1), '((((a 1) (0 1)) b) c)')
     assert.equal(serialize(step2), '(((a 0) (b 0)) c)')
