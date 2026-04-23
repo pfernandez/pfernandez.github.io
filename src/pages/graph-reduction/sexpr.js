@@ -729,16 +729,16 @@ const mergeCounts = (left, right) =>
     new Map(counts).set(group, (counts.get(group) ?? 0) + count),
                     left)
 
-const visibleFoldCounts = node => {
+const foldCounts = node => {
   const meta = argumentClosures.get(node)
   if (meta) return new Map([[meta.group, 1]])
   if (!isPair(node) || isFixed(node)) return new Map()
-  return mergeCounts(visibleFoldCounts(node[0]), visibleFoldCounts(node[1]))
+  return mergeCounts(foldCounts(node[0]), foldCounts(node[1]))
 }
 
 const childFoldCounts = node =>
   isPair(node) && !isFixed(node)
-    ? [visibleFoldCounts(node[0]), visibleFoldCounts(node[1])]
+    ? [foldCounts(node[0]), foldCounts(node[1])]
     : []
 
 const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
@@ -756,17 +756,16 @@ const collectFoldClosures = (node, group) => {
           ...collectFoldClosures(node[1], group)]
 }
 
-const atomBoundary = node => !isList(node)
-
 const activeFoldGroups = (node, blocked = false) => {
+  if (blocked) return new Set()
+
   const meta = argumentClosures.get(node)
-  const groups = meta && !blocked ? [meta.group] : []
+  const groups = meta ? [meta.group] : []
   if (!isPair(node) || isFixed(node)) return new Set(groups)
 
   return new Set([...groups,
-                  ...activeFoldGroups(node[0], blocked),
-                  ...activeFoldGroups(node[1],
-                                      blocked || atomBoundary(node[0]))])
+                  ...activeFoldGroups(node[0]),
+                  ...activeFoldGroups(node[1], !isList(node[0]))])
 }
 
 const serializeFilled = (pair, seen = []) => {
@@ -787,7 +786,7 @@ const serializeFoldTemplate = (pair, group, slots, activeGroups) => {
   if (meta?.group === group) return String(slots.get(pair))
   if (meta) {
     return activeGroups.has(meta.group)
-      ? serializeProjected(pair, visibleFoldCounts(pair), activeGroups)
+      ? serializeProjected(pair, foldCounts(pair), activeGroups)
       : serializeFilled(meta.value)
   }
   if (isFixed(pair)) return canonicalSerialize(pair)
@@ -814,13 +813,13 @@ const serializeFold = (pair, group, activeGroups) => {
 
 const serializeProjected = (
   pair,
-  totals = visibleFoldCounts(pair),
+  totals = foldCounts(pair),
   activeGroups = activeFoldGroups(pair)
 ) => {
   const meta = argumentClosures.get(pair)
   if (meta && !activeGroups.has(meta.group)) return serializeFilled(meta.value)
 
-  const counts = visibleFoldCounts(pair)
+  const counts = foldCounts(pair)
   const group = foldBoundaryGroup(pair, totals, counts, activeGroups)
   if (group) return serializeFold(pair, group, activeGroups)
   if (isFixed(pair)) return canonicalSerialize(pair)
@@ -866,7 +865,7 @@ const serializeProjected = (
  * @param {*} pair
  * @returns {string}
  */
-export const serialize = pair =>
-  visibleFoldCounts(pair).size
-    ? serializeProjected(pair)
-    : canonicalSerialize(pair)
+export const serialize = pair => {
+  const totals = foldCounts(pair)
+  return totals.size ? serializeProjected(pair, totals) : canonicalSerialize(pair)
+}
