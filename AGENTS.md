@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Core application code lives in `src/`. `src/index.js` boots the site, `src/components/` holds shared UI/rendering helpers, and `src/pages/` contains page-specific modules and assets. The graph reduction work is isolated under `src/pages/graph-reduction/` with colocated tests such as `sexpr.test.js` and `collapse.test.js`. Build and utility scripts live in `scripts/`. Static content and post markdown belong in `public/`, especially `public/posts/`.
+Core application code lives in `src/`. `src/index.js` boots the site, `src/components/` holds shared UI/rendering helpers, and `src/pages/` contains page-specific modules and assets. The graph reduction work is isolated under `src/pages/graph-reduction/` with colocated tests such as `graph/*.test.js`, `observer/*.test.js`, and `visualizations/*.test.js`. Build and utility scripts live in `scripts/`. Static content and post markdown belong in `public/`, especially `public/posts/`.
 
 ## Build, Test, and Development Commands
 Use `npm run dev` to start the Vite dev server. Use `npm run build` to create the production bundle and run prerendering. Use `npm run preview` to serve the built output locally. Use `npm test` to run all `*.test.js` files with Node’s built-in test runner. Use `npm run proofs` for the graph-reduction proof generator, and `npm run prerender` if you only need the prerender step.

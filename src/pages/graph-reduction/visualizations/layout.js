@@ -88,7 +88,7 @@ export function layout(pair) {
     ({ minX: Math.min(box.minX, node.x),
        maxX: Math.max(box.maxX, node.x),
        maxY: Math.max(box.maxY, node.y) }),
-  { minX: 0, maxX: 0, maxY: 0 })
+                              { minX: 0, maxX: 0, maxY: 0 })
 
   return {
     nodes,

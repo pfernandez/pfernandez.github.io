@@ -2,7 +2,7 @@ import { appearance, billboard, coordinate, fontStyle, indexedLineSet,
          material, shape, sphere, transform, viewpoint, worldInfo, x3d,
          x3dtext, scene as x3scene } from
   '@pfern/elements-x3dom'
-import dashboard from './dashboard.js'
+import dashboard from '../observer/dashboard.js'
 
 /**
  * @module lattice

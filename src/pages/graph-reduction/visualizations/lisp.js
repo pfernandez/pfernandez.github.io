@@ -1,5 +1,5 @@
-import { serialize } from '../sexpr.js'
-import dashboard from './dashboard.js'
+import { serialize } from '../graph/index.js'
+import dashboard from '../observer/dashboard.js'
 
 /**
  * @module lisp

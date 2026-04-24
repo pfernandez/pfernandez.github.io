@@ -1,37 +1,24 @@
-/**
- * @module sexpr
- *
- * Parsing, folding-template encoding, graph materialization, and serialization
- * for pair-encoded S-expressions.
- *
- * Surface S-expressions are read literally, then `encode` left-associates
- * application and rewrites definitions to one Lisp-facing folding projection.
- * `construct` is the public helper that turns dense numeric folding terms into
- * shared in-memory pair graphs.
- *
- * Supported:
- * - Lists and applications: `(f x y)` → `['f', 'x', 'y']`
- * - Source programs with `(def ...)` / `(defn ...)` forms and one final
- *   expression
- * - Numbers: `42` → `42`
- * - Symbols: everything else as strings
- * - Line comments starting with `;`
- * - Compiler encoding for definitions
- * - Folding instructions such as `(((((0 2) (1 2)) a) b) c)`
- *
- * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
- */
-const isList = Array.isArray
-const isPair = node => isList(node) && node.length === 2
-const isFixed = node => isPair(node) && node[0] === node
-const argumentClosures = new WeakMap()
-const argumentSlotTemplates = new WeakMap()
+import {
+  applyArgs,
+  argumentClosures,
+  argumentSlotTemplate,
+  argumentSlotTemplates,
+  cycleTemplate,
+  fixedClosure,
+  isArgumentSlotTemplate,
+  isFixed,
+  isList,
+  isPair,
+  isStagedFold,
+  stagedFold,
+  stagedFolds,
+  withCycleBody
+} from './shared.js'
+import { readSourceForms } from './parse.js'
+import { project } from './serialize.js'
 
 /**
- * A Lisp source value after tokenization and list reading.
- *
- * @typedef {SourceForm[]} SourceFormArray
- * @typedef {string | number | SourceFormArray} SourceForm
+ * @typedef {import('./parse.js').SourceForm} SourceForm
  */
 
 /**
@@ -72,88 +59,6 @@ const argumentSlotTemplates = new WeakMap()
  *   args: *[]
  * }} StagedFold
  */
-
-// Compiler-only staged folds. Materialization removes them before `compile`
-// returns, so `observe` still sees only pairs.
-const stagedFolds = new WeakMap()
-
-// Reader.
-const tokenize = source =>
-  source.replace(/;.*$/gm, '').match(/[()]|[^()\s]+/g) ?? []
-
-// Shared term builders.
-const applyArgs = (head, args) =>
-  args.reduce((left, right) => [left, right], head)
-
-const applyStagedFoldArgs = (head, args) =>
-  args.reduce(applyStagedFold, head)
-
-const serializeList = (pair, serializeChild) => {
-  if (pair.length === 0) return '()'
-  if (pair.length !== 2) throw new Error('Lists must be empty or pairs')
-  return `(${serializeChild(pair[0])} ${serializeChild(pair[1])})`
-}
-
-const atom = token => {
-  const number = Number(token)
-  return Number.isNaN(number) ? token : number
-}
-
-const read = (tokens, i = 0) => {
-  const token = tokens[i]
-  if (token === ')') throw new Error('Unexpected )')
-  if (token !== '(') return [atom(token), i + 1]
-
-  const list = []
-  let cursor = i + 1
-
-  while (true) {
-    if (cursor >= tokens.length) throw new Error('Missing )')
-    if (tokens[cursor] === ')') return [list, cursor + 1]
-    const [value, next] = read(tokens, cursor)
-    list.push(value)
-    cursor = next
-  }
-}
-
-const collectForms = (tokens, index = 0, forms = []) => {
-  if (index >= tokens.length) return forms
-  const [form, next] = read(tokens, index)
-  return collectForms(tokens, next, [...forms, form])
-}
-
-const readSourceForms = source => collectForms(tokenize(source))
-
-// Graph and compiler-placeholder constructors.
-const fixedClosure = value => {
-  const pair = []
-  pair[0] = pair
-  pair[1] = value
-  return pair
-}
-
-const argumentSlotTemplate = (value, slot, group) => {
-  const template = {}
-  argumentSlotTemplates.set(template, { group, slot, value })
-  return template
-}
-
-const cycleTemplate = () => {
-  const template = []
-  template[0] = template
-  return template
-}
-
-const withCycleBody = (template, body) => {
-  template[1] = body
-  return template
-}
-
-const stagedFold = meta => {
-  const value = {}
-  stagedFolds.set(value, meta)
-  return value
-}
 
 // Program indexing and source normalization.
 const normalizeParamList = params => {
@@ -205,7 +110,7 @@ const indexProgram = forms => {
 }
 
 // Source encoding to staged folds.
-const application = expr => {
+export const application = expr => {
   if (!isList(expr) || expr.length === 0) return [expr, []]
 
   const [head, ...rest] = expr
@@ -262,7 +167,12 @@ const slotLocals = params =>
 const functionLocals = (params, args, fixedArg) =>
   new Map(params.map((param, index) => [param, fixedArg(args[index], index)]))
 
-const encodeTemplateApplication = (template, args, encodeArg, arity = null) => {
+export const encodeTemplateApplication = (
+  template,
+  args,
+  encodeArg,
+  arity = null
+) => {
   const profile = slotProfile(template, arity)
   if (!profile || args.length < profile.arity) return null
 
@@ -359,6 +269,9 @@ const encodeFunctionApplication = (
   return applyArgs(body, args.slice(entry.params.length).map(encodeArg))
 }
 
+const applyStagedFoldArgs = (head, args) =>
+  args.reduce(applyStagedFold, head)
+
 const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
     if (typeof expr !== 'string') return expr
@@ -408,14 +321,6 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
 }
 
 // Staged fold application and recursive knots.
-const isStagedFold = value =>
-  Boolean(value) && typeof value === 'object' && stagedFolds.has(value)
-
-const isArgumentSlotTemplate = value =>
-  Boolean(value)
-  && typeof value === 'object'
-  && argumentSlotTemplates.has(value)
-
 const applyStagedFold = (value, arg) => {
   const meta = stagedFolds.get(value)
   const next = { ...meta, args: [...meta.args, arg] }
@@ -463,7 +368,7 @@ const recursiveStagedFold = (head, applications) => {
   )
 }
 
-const resolveStagedFolds = (value, applications = new WeakMap()) => {
+export const resolveStagedFolds = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
 
   const left = resolveStagedFolds(value[0], applications)
@@ -500,7 +405,7 @@ const materializePair = (value, seen) => {
   return next
 }
 
-const materializeGraph = (value, seen = new WeakMap()) => {
+export const materializeGraph = (value, seen = new WeakMap()) => {
   const existing = seen.get(value)
   if (existing) return existing
   if (isStagedFold(value)) return materializeStagedFold(value, seen)
@@ -521,7 +426,6 @@ const materializeProgram = forms => {
   return materializeGraph(folded)
 }
 
-// Public projection and construction helpers.
 const encodePlainExpression = expr => {
   if (!isList(expr)) return expr
   if (expr.length === 0) return []
@@ -539,69 +443,6 @@ const encodeProgram = forms =>
     : forms.length === 1 && !isDefinitionForm(forms[0])
       ? encodePlainExpression(forms[0])
       : encodeProgramProjection(forms)
-
-const applicationSplits = term =>
-  isPair(term)
-    ? [[term, []],
-       ...applicationSplits(term[0]).map(([head, args]) =>
-         [head, [...args, term[1]]])]
-    : [[term, []]]
-
-const denseSlotError = error =>
-  /dense slots/i.test(error.message)
-
-const constructTemplateApplication = term =>
-  applicationSplits(term).reduce((match, [head, args]) => {
-    if (match) return match
-
-    try {
-      return encodeTemplateApplication(head, args, constructTerm)
-    }
-    catch (error) {
-      if (denseSlotError(error)) return null
-      throw error
-    }
-  }, null)
-
-const constructOrdinaryApplication = term => {
-  const [head, args] = application(term)
-  const constructedHead = constructTerm(head)
-  const constructedArgs = args.map(constructTerm)
-  return applyArgs(constructedHead, constructedArgs)
-}
-
-const constructTerm = term => {
-  if (!isList(term)) return term
-  if (term.length === 0) return []
-
-  const templated = constructTemplateApplication(term)
-  return templated ?? constructOrdinaryApplication(term)
-}
-
-/**
- * Parses source text into top-level Lisp forms.
- *
- * `parse` is intentionally literal: it tokenizes comments and parentheses,
- * turns numeric atoms into numbers, and returns the top-level forms exactly as
- * arrays, numbers, and symbols. A single term is therefore returned as a
- * one-form program, while definitions and a final expression are returned as
- * several forms. Semantic rewriting belongs to `encode`.
- *
- * Returns the thrown error after logging it, to preserve the current parser
- * contract used by the tests.
- *
- * @param {string} source
- * @returns {SourceForm[]|Error}
- */
-export const parse = source => {
-  try {
-    return readSourceForms(source)
-  }
-  catch (error) {
-    console.error(error)
-    return error
-  }
-}
 
 /**
  * Encodes parsed source forms as one Lisp-facing folding term.
@@ -623,20 +464,6 @@ export const parse = source => {
  * @returns {SourceForm}
  */
 export const encode = forms => encodeProgram(forms)
-
-/**
- * Constructs the graph consumed by `observe` from one folding-instruction term.
- *
- * `construct` is intentionally small. It knows arrays, numbers, and temporary
- * atoms; numeric pair shapes are read as folding instructions, and everything
- * else is materialized as ordinary pair structure. Program constructs such as
- * `def` and `defn` are handled by `encode`, not here.
- *
- * @param {SourceForm} term
- * @returns {*}
- */
-export const construct = term =>
-  materializeGraph(resolveStagedFolds(constructTerm(term)))
 
 /**
  * Compiles a multi-form source program to the pair graph consumed by
@@ -683,175 +510,3 @@ export const compile = source => {
     return error
   }
 }
-
-// Serialization and Lisp-facing graph projection.
-const uniqueByIdentity = values => [...new Set(values)]
-
-const mapBinary = (pair, mapChild) => {
-  if (pair.length === 0) return []
-  if (pair.length !== 2) return pair
-  return [mapChild(pair[0]), mapChild(pair[1])]
-}
-
-const serializeTerm = term =>
-  isList(term) ? serializeList(term, serializeTerm) : String(term)
-
-const canonicalProject = (node, labels = new Map()) => {
-  if (isFixed(node)) {
-    if (!labels.has(node)) labels.set(node, labels.size)
-    return labels.get(node)
-  }
-
-  if (isList(node)) {
-    return mapBinary(node, child => canonicalProject(child, labels))
-  }
-
-  return node
-}
-
-const mergeCounts = (left, right) =>
-  [...right].reduce((counts, [group, count]) =>
-    new Map(counts).set(group, (counts.get(group) ?? 0) + count),
-                    left)
-
-const foldCounts = node => {
-  const meta = argumentClosures.get(node)
-  if (meta) return new Map([[meta.group, 1]])
-  if (!isPair(node) || isFixed(node)) return new Map()
-  return mergeCounts(foldCounts(node[0]), foldCounts(node[1]))
-}
-
-const childFoldCounts = node =>
-  isPair(node) && !isFixed(node)
-    ? [foldCounts(node[0]), foldCounts(node[1])]
-    : []
-
-const foldBoundaryGroup = (node, totals, counts, activeGroups) =>
-  [...counts.keys()].find(group =>
-    activeGroups.has(group)
-    && counts.get(group) === totals.get(group)
-    && !childFoldCounts(node).some(child =>
-      child.get(group) === totals.get(group)))
-
-const collectFoldClosures = (node, group) => {
-  const meta = argumentClosures.get(node)
-  if (meta?.group === group) return [node]
-  if (!isPair(node) || isFixed(node)) return []
-  return [...collectFoldClosures(node[0], group),
-          ...collectFoldClosures(node[1], group)]
-}
-
-const activeFoldGroups = (node, blocked = false) => {
-  if (blocked) return new Set()
-
-  const meta = argumentClosures.get(node)
-  const groups = meta ? [meta.group] : []
-  if (!isPair(node) || isFixed(node)) return new Set(groups)
-
-  return new Set([...groups,
-                  ...activeFoldGroups(node[0]),
-                  ...activeFoldGroups(node[1], !isList(node[0]))])
-}
-
-const projectFilled = (node, seen = []) => {
-  if (seen.includes(node)) return canonicalProject(node)
-
-  const meta = argumentClosures.get(node)
-  if (meta) return projectFilled(meta.value, [...seen, node])
-
-  if (isList(node)) {
-    const nextSeen = [...seen, node]
-    return mapBinary(node, child => projectFilled(child, nextSeen))
-  }
-
-  return node
-}
-
-const projectFoldTemplate = (node, group, slots, activeGroups) => {
-  const meta = argumentClosures.get(node)
-  if (meta?.group === group) return slots.get(node)
-  if (meta) {
-    return activeGroups.has(meta.group)
-      ? projectProjected(node, foldCounts(node), activeGroups)
-      : projectFilled(meta.value)
-  }
-  if (isFixed(node)) return canonicalProject(node)
-
-  if (isList(node)) {
-    return mapBinary(node, child =>
-      projectFoldTemplate(child, group, slots, activeGroups))
-  }
-
-  return node
-}
-
-const projectFold = (node, group, activeGroups) => {
-  const closures = uniqueByIdentity(collectFoldClosures(node, group))
-    .sort((left, right) =>
-      argumentClosures.get(left).slot - argumentClosures.get(right).slot)
-  const slots = new Map(closures.map((closure, index) => [closure, index]))
-  const template = projectFoldTemplate(node, group, slots, activeGroups)
-  const args = closures.map(closure =>
-    project(argumentClosures.get(closure).value))
-
-  return applyArgs(template, args)
-}
-
-const projectProjected = (node, totals, activeGroups) => {
-  const meta = argumentClosures.get(node)
-  if (meta && !activeGroups.has(meta.group)) return projectFilled(meta.value)
-
-  const counts = foldCounts(node)
-  const group = foldBoundaryGroup(node, totals, counts, activeGroups)
-  if (group) return projectFold(node, group, activeGroups)
-  if (isFixed(node)) return canonicalProject(node)
-
-  if (isList(node)) {
-    return mapBinary(node, child =>
-      projectProjected(child, totals, activeGroups))
-  }
-
-  return node
-}
-
-function project(node) {
-  const totals = foldCounts(node)
-  return totals.size
-    ? projectProjected(node, totals, activeFoldGroups(node))
-    : canonicalProject(node)
-}
-
-/**
- * Serializes a term to the Lisp-facing folding-instruction notation.
- *
- * Plain atoms, empty lists, and ordinary pairs serialize as canonical binary
- * S-expressions. Compiler-created fixed-point argument closures carry hidden
- * fill-order metadata. Active closures serialize as reversible folding
- * instructions by replacing the remaining closures with dense slot numbers and
- * appending their stored argument payloads in fill order. A closure is active
- * when it remains on an observer-visible path.
- *
- * The numeric atoms in this projection always name fixed pairs. In a folding
- * instruction they are ordered slots from one compiler-created closure group;
- * outside such a group they are traversal-local labels for raw fixed pairs.
- * This keeps the notation graph-honest: both uses point at the same primitive
- * `[self, value]` shape, while their role is determined by projection context.
- *
- * This projection is intentionally not a literal object-graph dump. The graph
- * still contains shared self-referential closures, and `observe` still rewrites
- * those closures by identity. The folding form is the paper/worked-example
- * view: repeated slot numbers describe where the same remaining argument will
- * be folded, while the staged arguments after the template show the values
- * already present inside the closure payloads.
- *
- * Passive compiler closures, such as arguments under an atom-headed pair that
- * the observer will not enter, serialize as their filled source values. This
- * keeps settled source-level terms readable without giving `observe` any
- * knowledge of definitions or folds. Manually constructed closures without
- * compiler metadata fall back to traversal-local labels so serialization
- * remains finite for arbitrary pair graphs.
- *
- * @param {*} pair
- * @returns {string}
- */
-export const serialize = pair => serializeTerm(project(pair))

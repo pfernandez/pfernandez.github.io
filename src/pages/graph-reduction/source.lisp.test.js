@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
-import { observe } from './observe.js'
-import { compile, serialize } from './sexpr.js'
+import { observe } from './observer/observe.js'
+import { compile, serialize } from './graph/index.js'
 
 const source = readFileSync(new URL('./source.lisp', import.meta.url), 'utf8')
 const finalExpression = '(((S a) b) c)'

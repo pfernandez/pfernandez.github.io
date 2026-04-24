@@ -1,7 +1,7 @@
 import { circle, g, line, pre, svg, text as svgText } from '@pfern/elements'
-import dashboard from './dashboard.js'
-import { layout } from '../layout.js'
-import { parse, serialize } from '../sexpr.js'
+import dashboard from '../observer/dashboard.js'
+import { layout } from './layout.js'
+import { parse, serialize } from '../graph/index.js'
 
 /**
  * @module tree

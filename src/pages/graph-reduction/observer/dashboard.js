@@ -1,8 +1,8 @@
 import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { compile } from '../sexpr.js'
+import { compile } from '../graph/index.js'
 import DEFAULT_SOURCE from '../source.lisp?raw'
-import './style.css'
-import { observe } from '../observe.js'
+import '../visualizations/style.css'
+import { observe } from './observe.js'
 
 /**
  * @module dashboard
