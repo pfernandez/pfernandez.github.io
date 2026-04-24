@@ -17,7 +17,7 @@ import { observe } from './observe.js'
  * This keeps `observe` pure and pair-local while still letting the UI replay
  * snapshots, undo, and reset.
  *
- * @typedef {(graph: unknown) => unknown} Scene
+ * @typedef {(graph: unknown, sequence: unknown[], witness: unknown[]) => unknown} Scene
  * @typedef {{
  *   className: string,
  *   title: string,
@@ -29,29 +29,40 @@ import { observe } from './observe.js'
  * @returns {Function}
  */
 export default ({ className, title, description, scene }) => {
-  // The dashboard is the host-side observer for now: it carries focus,
-  // history, and observer time until those can be represented as pair motifs.
+  // The dashboard carries source text, serialization inputs, graph history,
+  // and observer time. The observer itself stays a pure graph step.
   const dashboard = component(({
     source = DEFAULT_SOURCE,
-    graph = compile(source),
+    graph: initialGraph = compile(source),
+    sequence: initialSequence = null,
+    witness: initialWitness = null,
     history = []
   } = {}) => {
-    const focus = graph
+    const state = initialGraph?.graph
+      ? initialGraph
+      : { graph: initialGraph,
+          sequence: initialSequence ?? [],
+          witness: initialWitness ?? [] }
+    const { graph: focus, sequence, witness = [] } = state
     const time = history.length
     const previous = history[time - 1]
     const error =
       typeof focus === 'object' && !Array.isArray(focus) && String(focus)
 
-    const stable = !!time && previous === focus
+    const stable = !!time && previous?.graph === focus
 
     const view = () =>
       dashboard({ source,
                   graph: observe(focus),
-                  history: [...history, focus] })
+                  sequence,
+                  witness,
+                  history: [...history, state] })
 
     const undo = () =>
       dashboard({ source,
-                  graph: previous,
+                  graph: previous?.graph,
+                  sequence: previous?.sequence,
+                  witness: previous?.witness,
                   history: history.slice(0, -1) })
 
     const reset = () => dashboard({ source: DEFAULT_SOURCE })
@@ -79,7 +90,7 @@ export default ({ className, title, description, scene }) => {
 
           div({ class: 'description' }, `Steps: ${time}`)),
 
-      div({ class: 'panel scene' }, error || scene(focus)))
+      div({ class: 'panel scene' }, error || scene(focus, sequence, witness)))
   })
 
   return dashboard

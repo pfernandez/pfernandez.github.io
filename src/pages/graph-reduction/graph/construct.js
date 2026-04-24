@@ -1,9 +1,11 @@
 import {
   application,
   encodeTemplateApplication,
-  materializeGraph,
-  resolveStagedFolds
-} from './compiler.js'
+  resolveDelayedCalls,
+  templateArity,
+  templateSlotCount
+} from './encode.js'
+import { materialize } from './materialize.js'
 import { applyArgs, isList, isPair } from './shared.js'
 
 const applicationSplits = term =>
@@ -16,18 +18,47 @@ const applicationSplits = term =>
 const denseSlotError = error =>
   /dense slots/i.test(error.message)
 
-const constructTemplateApplication = term =>
-  applicationSplits(term).reduce((match, [head, args]) => {
-    if (match) return match
+const templateCandidate = ([head, args], index) => {
+  try {
+    const arity = templateArity(head)
+    return arity !== null && args.length >= arity
+      ? { head, args, arity, index, slotCount: templateSlotCount(head) }
+      : null
+  }
+  catch (error) {
+    if (denseSlotError(error)) return null
+    throw error
+  }
+}
 
-    try {
-      return encodeTemplateApplication(head, args, constructTerm)
-    }
-    catch (error) {
-      if (denseSlotError(error)) return null
-      throw error
-    }
-  }, null)
+const betterCandidate = (left, right) => {
+  if (!left) return right
+  if (!right) return left
+  if (right.arity !== left.arity) {
+    return right.arity > left.arity ? right : left
+  }
+  if (right.slotCount !== left.slotCount) {
+    return right.slotCount > left.slotCount ? right : left
+  }
+  return right.index < left.index ? right : left
+}
+
+const constructTemplateApplication = term => {
+  const match = applicationSplits(term)
+    .map(templateCandidate)
+    .reduce(betterCandidate, null)
+
+  if (!match) return null
+
+  const { head, args } = match
+  try {
+    return encodeTemplateApplication(head, args, constructTerm)
+  }
+  catch (error) {
+    if (denseSlotError(error)) return null
+    throw error
+  }
+}
 
 const constructOrdinaryApplication = term => {
   const [head, args] = application(term)
@@ -45,15 +76,14 @@ const constructTerm = term => {
 }
 
 /**
- * Constructs the graph consumed by `observe` from one folding-instruction term.
+ * Constructs the graph consumed by `observe` from one encoded term.
  *
- * `construct` is intentionally small. It knows arrays, numbers, and temporary
- * atoms; numeric pair shapes are read as folding instructions, and everything
- * else is materialized as ordinary pair structure. Program constructs such as
- * `def` and `defn` are handled by `encode`, not here.
+ * `construct` knows only arrays, numbers, and atoms. Numeric pair shapes are
+ * read as argument templates, then materialized as ordinary pair structure.
+ * Program constructs such as `def` and `defn` belong to `encode`, not here.
  *
  * @param {import('./parse.js').SourceForm} term
- * @returns {*}
+ * @returns {{graph: *, sequence: *[], witness: *[]}}
  */
 export const construct = term =>
-  materializeGraph(resolveStagedFolds(constructTerm(term)))
+  materialize(resolveDelayedCalls(constructTerm(term)), resolveDelayedCalls)

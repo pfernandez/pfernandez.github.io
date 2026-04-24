@@ -1,20 +1,18 @@
 import {
   applyArgs,
-  argumentClosures,
   argumentSlotTemplate,
   argumentSlotTemplates,
   cycleTemplate,
-  fixedClosure,
+  delayedCall,
+  delayedCalls,
   isArgumentSlotTemplate,
+  isDelayedCall,
   isFixed,
   isList,
   isPair,
-  isStagedFold,
-  stagedFold,
-  stagedFolds,
   withCycleBody
 } from './shared.js'
-import { readSourceForms } from './parse.js'
+import { materialize } from './materialize.js'
 import { project } from './serialize.js'
 
 /**
@@ -37,7 +35,7 @@ import { project } from './serialize.js'
  */
 
 /**
- * Metadata for one compiler-owned argument slot before graph materialization.
+ * Metadata for one argument slot before graph materialization.
  *
  * @typedef {{
  *   group: object,
@@ -47,7 +45,7 @@ import { project } from './serialize.js'
  */
 
 /**
- * A staged source-level fold waiting for enough arguments to become a graph.
+ * A source-level call waiting for enough arguments to be inlined.
  *
  * @typedef {{
  *   name: string,
@@ -57,7 +55,7 @@ import { project } from './serialize.js'
  *   stack?: string[],
  *   arity: number,
  *   args: *[]
- * }} StagedFold
+ * }} DelayedCall
  */
 
 // Program indexing and source normalization.
@@ -109,7 +107,7 @@ const indexProgram = forms => {
   return { env, expr }
 }
 
-// Source encoding to staged folds.
+// Source encoding.
 export const application = expr => {
   if (!isList(expr) || expr.length === 0) return [expr, []]
 
@@ -118,14 +116,17 @@ export const application = expr => {
   return [base, [...args, ...rest]]
 }
 
-const collectSlotIndexes = node => {
+const collectSlotIndexes = (node, seen = new WeakSet()) => {
   if (isList(node)) {
+    if (seen.has(node)) return null
+    seen.add(node)
+    if (node.length === 0) return null
     if (node.length !== 2) return null
-    const left = collectSlotIndexes(node[0])
-    const right = collectSlotIndexes(node[1])
+    const left = collectSlotIndexes(node[0], seen)
+    const right = collectSlotIndexes(node[1], seen)
     return left && right ? [...left, ...right] : null
   }
-  if (typeof node !== 'number') return null
+  if (typeof node !== 'number') return []
   if (!Number.isInteger(node) || node < 0) {
     throw new Error('Slot templates must use non-negative integer slots')
   }
@@ -134,7 +135,7 @@ const collectSlotIndexes = node => {
 
 const slotProfile = (template, arity = null) => {
   const indexes = collectSlotIndexes(template)
-  if (!indexes) return null
+  if (!indexes || indexes.length === 0) return null
 
   const slots = [...new Set(indexes)].sort((a, b) => a - b)
   const sparse = slots.some((slot, index) => slot !== index)
@@ -144,6 +145,9 @@ const slotProfile = (template, arity = null) => {
 
   return { arity: arity ?? slots.length }
 }
+
+export const templateArity = template => slotProfile(template)?.arity ?? null
+export const templateSlotCount = template => collectSlotIndexes(template)?.length ?? 0
 
 const paramTemplate = (expr, locals) => {
   if (!isList(expr)) {
@@ -180,14 +184,20 @@ export const encodeTemplateApplication = (
   const slots = args.slice(0, profile.arity)
     .map((arg, slot) => argumentSlotTemplate(encodeArg(arg), slot, group))
   const fill = node =>
-    isList(node) ? [fill(node[0]), fill(node[1])] : slots[node]
+    isList(node)
+      ? node.length === 0
+        ? []
+        : [fill(node[0]), fill(node[1])]
+      : typeof node === 'number'
+        ? slots[node]
+        : node
   const body = fill(template)
   const rest = args.slice(profile.arity).map(encodeArg)
 
   return applyArgs(body, rest)
 }
 
-const encodeFoldTemplate = (template, args, arity) =>
+const fillNumericTemplate = (template, args, arity) =>
   encodeTemplateApplication(template, args, value => value, arity)
 
 const templateForDefinition = entry => {
@@ -204,12 +214,12 @@ const templateForDefinition = entry => {
   return pure && { template, arity: entry.params.length }
 }
 
-const stagedFoldForDefinition = (name, entry, env, stack) => {
+const delayedCallForDefinition = (name, entry, env, stack) => {
   const template = templateForDefinition(entry)
-  if (template) return stagedFold({ name, ...template, args: [] })
+  if (template) return delayedCall({ name, ...template, args: [] })
 
   return entry.kind === 'defn' && entry.params.length
-    ? stagedFold({
+    ? delayedCall({
       name,
       entry,
       env,
@@ -269,8 +279,8 @@ const encodeFunctionApplication = (
   return applyArgs(body, args.slice(entry.params.length).map(encodeArg))
 }
 
-const applyStagedFoldArgs = (head, args) =>
-  args.reduce(applyStagedFold, head)
+const applyDelayedArgs = (head, args) =>
+  args.reduce(applyDelayedCall, head)
 
 const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
@@ -282,8 +292,8 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
     if (!resolved) return expr
 
     const { name, entry } = resolved
-    const fold = stagedFoldForDefinition(name, entry, env, stack)
-    if (fold) return fold
+    const call = delayedCallForDefinition(name, entry, env, stack)
+    if (call) return call
 
     return encodeExpression(entry.body, env, new Map(), [...stack, name])
   }
@@ -312,23 +322,23 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
 
   const encodedHead = encodeExpression(head, env, locals, stack)
   const encodedArgs = args.map(encodeArg)
-  if (isStagedFold(encodedHead)) {
-    return applyStagedFoldArgs(encodedHead, encodedArgs)
+  if (isDelayedCall(encodedHead)) {
+    return applyDelayedArgs(encodedHead, encodedArgs)
   }
 
   return encodeTemplateApplication(encodedHead, args, encodeArg)
     ?? applyArgs(encodedHead, encodedArgs)
 }
 
-// Staged fold application and recursive knots.
-const applyStagedFold = (value, arg) => {
-  const meta = stagedFolds.get(value)
+// Delayed call application and recursive knots.
+const applyDelayedCall = (value, arg) => {
+  const meta = delayedCalls.get(value)
   const next = { ...meta, args: [...meta.args, arg] }
 
-  if (next.args.length < next.arity) return stagedFold(next)
+  if (next.args.length < next.arity) return delayedCall(next)
 
   if (Object.hasOwn(next, 'template')) {
-    return encodeFoldTemplate(next.template, next.args, next.arity)
+    return fillNumericTemplate(next.template, next.args, next.arity)
   }
 
   const group = {}
@@ -346,17 +356,17 @@ const applyStagedFold = (value, arg) => {
   return applyArgs(body, next.args.slice(next.arity))
 }
 
-const stagedFoldHead = (value, seen = new WeakSet()) => {
-  if (isStagedFold(value)) return value
+const delayedCallHead = (value, seen = new WeakSet()) => {
+  if (isDelayedCall(value)) return value
   if (isArgumentSlotTemplate(value)) {
-    return stagedFoldHead(argumentSlotTemplates.get(value).value, seen)
+    return delayedCallHead(argumentSlotTemplates.get(value).value, seen)
   }
   if (!isFixed(value) || seen.has(value)) return null
   seen.add(value)
-  return stagedFoldHead(value[1], seen)
+  return delayedCallHead(value[1], seen)
 }
 
-const recursiveStagedFold = (head, applications) => {
+const recursiveDelayedCall = (head, applications) => {
   const existing = applications.get(head)
   if (existing) return existing
 
@@ -364,57 +374,22 @@ const recursiveStagedFold = (head, applications) => {
   applications.set(head, loop)
   return withCycleBody(
     loop,
-    resolveStagedFolds(applyStagedFold(head, loop), applications)
+    resolveDelayedCalls(applyDelayedCall(head, loop), applications)
   )
 }
 
-export const resolveStagedFolds = (value, applications = new WeakMap()) => {
+export const resolveDelayedCalls = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
 
-  const left = resolveStagedFolds(value[0], applications)
-  const head = stagedFoldHead(left)
+  const left = resolveDelayedCalls(value[0], applications)
+  const head = delayedCallHead(left)
   if (head) {
-    if (left === value[1]) return recursiveStagedFold(head, applications)
-    return resolveStagedFolds(applyStagedFold(head, value[1]), applications)
+    if (left === value[1]) return recursiveDelayedCall(head, applications)
+    return resolveDelayedCalls(applyDelayedCall(head, value[1]), applications)
   }
 
-  const right = resolveStagedFolds(value[1], applications)
+  const right = resolveDelayedCalls(value[1], applications)
   return left === value[0] && right === value[1] ? value : [left, right]
-}
-
-// Graph materialization.
-const materializeStagedFold = (value, seen) => {
-  const meta = stagedFolds.get(value)
-  return applyArgs(meta.name, meta.args.map(arg => materializeGraph(arg, seen)))
-}
-
-const materializeArgumentSlotTemplate = (value, seen) => {
-  const meta = argumentSlotTemplates.get(value)
-  const next = fixedClosure(null)
-  seen.set(value, next)
-  next[1] = materializeGraph(resolveStagedFolds(meta.value), seen)
-  argumentClosures.set(next, { ...meta, value: next[1] })
-  return next
-}
-
-const materializePair = (value, seen) => {
-  const next = [null, null]
-  seen.set(value, next)
-  next[0] = materializeGraph(value[0], seen)
-  next[1] = materializeGraph(value[1], seen)
-  return next
-}
-
-export const materializeGraph = (value, seen = new WeakMap()) => {
-  const existing = seen.get(value)
-  if (existing) return existing
-  if (isStagedFold(value)) return materializeStagedFold(value, seen)
-  if (isArgumentSlotTemplate(value)) {
-    return materializeArgumentSlotTemplate(value, seen)
-  }
-  if (!isPair(value)) return value
-
-  return materializePair(value, seen)
 }
 
 const materializeProgram = forms => {
@@ -422,8 +397,8 @@ const materializeProgram = forms => {
 
   const { env, expr } = indexProgram(forms)
   const encoded = encodeExpression(expr, env)
-  const folded = resolveStagedFolds(encoded)
-  return materializeGraph(folded)
+  const resolved = resolveDelayedCalls(encoded)
+  return materialize(resolved, resolveDelayedCalls)
 }
 
 const encodePlainExpression = expr => {
@@ -435,7 +410,37 @@ const encodePlainExpression = expr => {
 }
 
 const encodeProgramProjection = forms =>
-  project(materializeProgram(forms))
+  {
+    const { graph, sequence } = materializeProgram(forms)
+    return compactSlots(project(graph, sequence))
+  }
+
+const collectNumericSlots = (node, slots = new Set()) => {
+  if (typeof node === 'number') slots.add(node)
+  if (isPair(node)) {
+    collectNumericSlots(node[0], slots)
+    collectNumericSlots(node[1], slots)
+  }
+  return slots
+}
+
+const remapSlots = (node, slots) => {
+  if (typeof node === 'number') return slots.get(node)
+  if (isPair(node)) {
+    return [remapSlots(node[0], slots), remapSlots(node[1], slots)]
+  }
+  return node
+}
+
+const compactSlots = node => {
+  if (!isPair(node)) return node
+
+  const values = [...collectNumericSlots(node)].sort((a, b) => a - b)
+  if (values.every((value, index) => value === index)) return node
+
+  const slots = new Map(values.map((value, index) => [value, index]))
+  return remapSlots(node, slots)
+}
 
 const encodeProgram = forms =>
   !forms.length
@@ -445,17 +450,12 @@ const encodeProgram = forms =>
       : encodeProgramProjection(forms)
 
 /**
- * Encodes parsed source forms as one Lisp-facing folding term.
+ * Encodes parsed source forms as one Lisp-facing term.
  *
- * `encode` is the semantic Lisp step: definitions, aliases, `defn` parameter
- * templates, n-ary applications, staged folds, and source self-applications are
- * rewritten to the folding projection shown by `serialize`. Dense numeric
- * template applications, such as the staged S form, can be passed to
- * `construct` to recover the shared graph. Some source-level projections omit
- * passive closure identity by design, so `compile` materializes from the
- * semantic encoding directly when the full graph is required. For multi-form
- * programs, `encode` shares the same graph projection as `serialize`, but it
- * returns arrays and numbers instead of a parenthesized string.
+ * `encode` rewrites definitions, aliases, function parameters, and n-ary calls
+ * into the numeric template form understood by `construct`. For multi-form
+ * programs it returns the same projection that `serialize` prints, but as
+ * arrays and numbers instead of a parenthesized string.
  *
  * Unlike `parse` and `compile`, this helper is not a text-input boundary; it
  * throws encoding errors directly so callers can decide how to surface them.
@@ -464,49 +464,3 @@ const encodeProgram = forms =>
  * @returns {SourceForm}
  */
 export const encode = forms => encodeProgram(forms)
-
-/**
- * Compiles a multi-form source program to the pair graph consumed by
- * `observe`.
- *
- * `compile` reads source text into plain arrays, numbers, and symbols, then
- * runs the same semantic encoder used by `encode` directly into graph
- * materialization. This keeps recursive knots and shared closure identity
- * intact even where the current serialized projection is not yet a complete
- * reconstruction format for every source-level function.
- *
- * Source programs may contain `(def name body)` aliases, numeric folding
- * definitions such as `(def S ((0 2) (1 2)))`, `(defn name (x ...) body)`
- * functions, and one final expression. Fully applied numeric templates and
- * parameter-only `defn` bodies encode through the same folding path: each slot
- * becomes one shared fixed-point closure carrying hidden fill-order metadata
- * for `serialize`. Named functions can be held as compiler-only staged folds
- * while encoding higher-order source expressions, but those placeholders are
- * materialized before this function returns. Template bodies
- * encode directly; other `defn` bodies still receive fixed-point locals, so
- * their arguments exist in the graph even when the body also contains ordinary
- * symbols. Partial or unresolved applications remain ordinary left-associated
- * pairs.
- *
- * When delayed source self-application would otherwise expand forever during
- * compilation, encoding records a recursive knot and materialization returns
- * it as a fixed-point pair so `observe` sees the loop. This is a graph rule,
- * not a Lisp-name rule: recursive-looking calls with ordinary heads compile as
- * ordinary applications, and state persists only when the resulting pair graph
- * keeps it on observer-visible paths.
- *
- * Returns the thrown error after logging it, matching `parse` and preserving
- * the test-facing API.
- *
- * @param {string} source
- * @returns {*|Error}
- */
-export const compile = source => {
-  try {
-    return materializeProgram(readSourceForms(source))
-  }
-  catch (error) {
-    console.error(error)
-    return error
-  }
-}

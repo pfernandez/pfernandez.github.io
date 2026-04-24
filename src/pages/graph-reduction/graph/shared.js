@@ -2,9 +2,8 @@ export const isList = Array.isArray
 export const isPair = node => isList(node) && node.length === 2
 export const isFixed = node => isPair(node) && node[0] === node
 
-export const argumentClosures = new WeakMap()
 export const argumentSlotTemplates = new WeakMap()
-export const stagedFolds = new WeakMap()
+export const delayedCalls = new WeakMap()
 
 export const applyArgs = (head, args) =>
   args.reduce((left, right) => [left, right], head)
@@ -22,6 +21,7 @@ export const fixedClosure = value => {
   return pair
 }
 
+// Temporary encoder object: materialize turns this into a fixed graph point.
 export const argumentSlotTemplate = (value, slot, group) => {
   const template = {}
   argumentSlotTemplates.set(template, { group, slot, value })
@@ -39,14 +39,15 @@ export const withCycleBody = (template, body) => {
   return template
 }
 
-export const stagedFold = meta => {
+// Temporary encoder object: a named call waiting for enough arguments.
+export const delayedCall = meta => {
   const value = {}
-  stagedFolds.set(value, meta)
+  delayedCalls.set(value, meta)
   return value
 }
 
-export const isStagedFold = value =>
-  Boolean(value) && typeof value === 'object' && stagedFolds.has(value)
+export const isDelayedCall = value =>
+  Boolean(value) && typeof value === 'object' && delayedCalls.has(value)
 
 export const isArgumentSlotTemplate = value =>
   Boolean(value)
