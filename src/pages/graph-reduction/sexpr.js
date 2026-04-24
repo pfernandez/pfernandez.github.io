@@ -85,9 +85,6 @@ const tokenize = source =>
 const applyArgs = (head, args) =>
   args.reduce((left, right) => [left, right], head)
 
-const applySerializedArgs = (head, args) =>
-  args.reduce((left, right) => `(${left} ${right})`, head)
-
 const applyStagedFoldArgs = (head, args) =>
   args.reduce(applyStagedFold, head)
 
@@ -419,46 +416,29 @@ const isArgumentSlotTemplate = value =>
   && typeof value === 'object'
   && argumentSlotTemplates.has(value)
 
-const hasTemplate = meta =>
-  Object.hasOwn(meta, 'template')
-
-const withFoldArg = (meta, arg) =>
-  ({ ...meta, args: [...meta.args, arg] })
-
-const completeFoldArgs = meta =>
-  meta.args.slice(0, meta.arity)
-
-const remainingFoldArgs = meta =>
-  meta.args.slice(meta.arity)
-
-const foldComplete = meta =>
-  meta.args.length >= meta.arity
-
-const encodeFunctionBody = (meta, locals) =>
-  encodeExpression(meta.entry.body,
-                   meta.env,
-                   locals,
-                   [...meta.stack, meta.name])
-
-const encodeTemplateFold = meta =>
-  encodeFoldTemplate(meta.template, meta.args, meta.arity)
-
-const encodeFunctionFold = meta => {
-  const group = {}
-  const locals = functionLocals(meta.entry.params, completeFoldArgs(meta),
-                                (value, slot) =>
-                                  argumentSlotTemplate(value, slot, group))
-  return applyArgs(encodeFunctionBody(meta, locals), remainingFoldArgs(meta))
-}
-
-const encodeCompleteFold = meta =>
-  hasTemplate(meta)
-    ? encodeTemplateFold(meta)
-    : encodeFunctionFold(meta)
-
 const applyStagedFold = (value, arg) => {
-  const meta = withFoldArg(stagedFolds.get(value), arg)
-  return foldComplete(meta) ? encodeCompleteFold(meta) : stagedFold(meta)
+  const meta = stagedFolds.get(value)
+  const next = { ...meta, args: [...meta.args, arg] }
+
+  if (next.args.length < next.arity) return stagedFold(next)
+
+  if (Object.hasOwn(next, 'template')) {
+    return encodeFoldTemplate(next.template, next.args, next.arity)
+  }
+
+  const group = {}
+  const locals = functionLocals(
+    next.entry.params,
+    next.args.slice(0, next.arity),
+    (slotValue, slot) => argumentSlotTemplate(slotValue, slot, group)
+  )
+  const body = encodeExpression(
+    next.entry.body,
+    next.env,
+    locals,
+    [...next.stack, next.name]
+  )
+  return applyArgs(body, next.args.slice(next.arity))
 }
 
 const stagedFoldHead = (value, seen = new WeakSet()) => {
@@ -470,9 +450,6 @@ const stagedFoldHead = (value, seen = new WeakSet()) => {
   seen.add(value)
   return stagedFoldHead(value[1], seen)
 }
-
-const selfApplication = (left, right) =>
-  left === right
 
 const recursiveStagedFold = (head, applications) => {
   const existing = applications.get(head)
@@ -491,10 +468,8 @@ const resolveStagedFolds = (value, applications = new WeakMap()) => {
 
   const left = resolveStagedFolds(value[0], applications)
   const head = stagedFoldHead(left)
-  if (head && selfApplication(left, value[1])) {
-    return recursiveStagedFold(head, applications)
-  }
-  if (head && !selfApplication(left, value[1])) {
+  if (head) {
+    if (left === value[1]) return recursiveStagedFold(head, applications)
     return resolveStagedFolds(applyStagedFold(head, value[1]), applications)
   }
 
@@ -556,7 +531,7 @@ const encodePlainExpression = expr => {
 }
 
 const encodeProgramProjection = forms =>
-  readSourceForms(serialize(materializeProgram(forms)))[0]
+  project(materializeProgram(forms))
 
 const encodeProgram = forms =>
   !forms.length
@@ -637,7 +612,9 @@ export const parse = source => {
  * template applications, such as the staged S form, can be passed to
  * `construct` to recover the shared graph. Some source-level projections omit
  * passive closure identity by design, so `compile` materializes from the
- * semantic encoding directly when the full graph is required.
+ * semantic encoding directly when the full graph is required. For multi-form
+ * programs, `encode` shares the same graph projection as `serialize`, but it
+ * returns arrays and numbers instead of a parenthesized string.
  *
  * Unlike `parse` and `compile`, this helper is not a text-input boundary; it
  * throws encoding errors directly so callers can decide how to surface them.
@@ -708,20 +685,28 @@ export const compile = source => {
 }
 
 // Serialization and Lisp-facing graph projection.
-const uniqueByIdentity = values =>
-  values.filter((value, index) => values.indexOf(value) === index)
+const uniqueByIdentity = values => [...new Set(values)]
 
-const canonicalSerialize = (pair, slots = new Map()) => {
-  if (isFixed(pair)) {
-    if (!slots.has(pair)) slots.set(pair, slots.size)
-    return String(slots.get(pair))
+const mapBinary = (pair, mapChild) => {
+  if (pair.length === 0) return []
+  if (pair.length !== 2) return pair
+  return [mapChild(pair[0]), mapChild(pair[1])]
+}
+
+const serializeTerm = term =>
+  isList(term) ? serializeList(term, serializeTerm) : String(term)
+
+const canonicalProject = (node, labels = new Map()) => {
+  if (isFixed(node)) {
+    if (!labels.has(node)) labels.set(node, labels.size)
+    return labels.get(node)
   }
 
-  if (isList(pair)) {
-    return serializeList(pair, node => canonicalSerialize(node, slots))
+  if (isList(node)) {
+    return mapBinary(node, child => canonicalProject(child, labels))
   }
 
-  return String(pair)
+  return node
 }
 
 const mergeCounts = (left, right) =>
@@ -768,68 +753,72 @@ const activeFoldGroups = (node, blocked = false) => {
                   ...activeFoldGroups(node[1], !isList(node[0]))])
 }
 
-const serializeFilled = (pair, seen = []) => {
-  if (seen.includes(pair)) return canonicalSerialize(pair)
+const projectFilled = (node, seen = []) => {
+  if (seen.includes(node)) return canonicalProject(node)
 
-  const meta = argumentClosures.get(pair)
-  if (meta) return serializeFilled(meta.value, [...seen, pair])
+  const meta = argumentClosures.get(node)
+  if (meta) return projectFilled(meta.value, [...seen, node])
 
-  if (isList(pair)) {
-    return serializeList(pair, node => serializeFilled(node, [...seen, pair]))
+  if (isList(node)) {
+    const nextSeen = [...seen, node]
+    return mapBinary(node, child => projectFilled(child, nextSeen))
   }
 
-  return String(pair)
+  return node
 }
 
-const serializeFoldTemplate = (pair, group, slots, activeGroups) => {
-  const meta = argumentClosures.get(pair)
-  if (meta?.group === group) return String(slots.get(pair))
+const projectFoldTemplate = (node, group, slots, activeGroups) => {
+  const meta = argumentClosures.get(node)
+  if (meta?.group === group) return slots.get(node)
   if (meta) {
     return activeGroups.has(meta.group)
-      ? serializeProjected(pair, foldCounts(pair), activeGroups)
-      : serializeFilled(meta.value)
+      ? projectProjected(node, foldCounts(node), activeGroups)
+      : projectFilled(meta.value)
   }
-  if (isFixed(pair)) return canonicalSerialize(pair)
+  if (isFixed(node)) return canonicalProject(node)
 
-  if (isList(pair)) {
-    return serializeList(pair, node =>
-      serializeFoldTemplate(node, group, slots, activeGroups))
+  if (isList(node)) {
+    return mapBinary(node, child =>
+      projectFoldTemplate(child, group, slots, activeGroups))
   }
 
-  return String(pair)
+  return node
 }
 
-const serializeFold = (pair, group, activeGroups) => {
-  const closures = uniqueByIdentity(collectFoldClosures(pair, group))
+const projectFold = (node, group, activeGroups) => {
+  const closures = uniqueByIdentity(collectFoldClosures(node, group))
     .sort((left, right) =>
       argumentClosures.get(left).slot - argumentClosures.get(right).slot)
   const slots = new Map(closures.map((closure, index) => [closure, index]))
-  const template = serializeFoldTemplate(pair, group, slots, activeGroups)
+  const template = projectFoldTemplate(node, group, slots, activeGroups)
   const args = closures.map(closure =>
-    serialize(argumentClosures.get(closure).value))
+    project(argumentClosures.get(closure).value))
 
-  return applySerializedArgs(template, args)
+  return applyArgs(template, args)
 }
 
-const serializeProjected = (
-  pair,
-  totals = foldCounts(pair),
-  activeGroups = activeFoldGroups(pair)
-) => {
-  const meta = argumentClosures.get(pair)
-  if (meta && !activeGroups.has(meta.group)) return serializeFilled(meta.value)
+const projectProjected = (node, totals, activeGroups) => {
+  const meta = argumentClosures.get(node)
+  if (meta && !activeGroups.has(meta.group)) return projectFilled(meta.value)
 
-  const counts = foldCounts(pair)
-  const group = foldBoundaryGroup(pair, totals, counts, activeGroups)
-  if (group) return serializeFold(pair, group, activeGroups)
-  if (isFixed(pair)) return canonicalSerialize(pair)
+  const counts = foldCounts(node)
+  const group = foldBoundaryGroup(node, totals, counts, activeGroups)
+  if (group) return projectFold(node, group, activeGroups)
+  if (isFixed(node)) return canonicalProject(node)
 
-  if (isList(pair)) {
-    return serializeList(pair, node =>
-      serializeProjected(node, totals, activeGroups))
+  if (isList(node)) {
+    return mapBinary(node, child =>
+      projectProjected(child, totals, activeGroups))
   }
 
-  return String(pair)
+  return node
+}
+
+function project(node) {
+  const totals = foldCounts(node)
+  return totals.size
+    ? projectProjected(node, totals, activeFoldGroups(node))
+    : canonicalProject(node)
 }
 
 /**
@@ -865,7 +854,4 @@ const serializeProjected = (
  * @param {*} pair
  * @returns {string}
  */
-export const serialize = pair => {
-  const totals = foldCounts(pair)
-  return totals.size ? serializeProjected(pair, totals) : canonicalSerialize(pair)
-}
+export const serialize = pair => serializeTerm(project(pair))
