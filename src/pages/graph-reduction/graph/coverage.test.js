@@ -14,6 +14,15 @@ const serializeState = value =>
   serialize(graphOf(value), sequenceOf(value), witnessOf(value))
 
 describe('graph coverage boundaries', () => {
+  test('compile returns parse errors before graph construction', t => {
+    const { mock } = t.mock.method(console, 'error', () => {})
+    const error = compile('(')
+
+    assert(error instanceof Error)
+    assert.match(error.message, /Missing \)/)
+    assert.equal(mock.calls.length, 1)
+  })
+
   test('construct ignores sparse template candidates and keeps ordinary shape', () => {
     assert.equal(serializeState(construct([[[0, 2], 'a'], 'b'])),
                  '(((0 a) b) 2)')
