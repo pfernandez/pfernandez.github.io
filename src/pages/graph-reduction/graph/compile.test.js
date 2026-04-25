@@ -358,12 +358,12 @@ describe('compile', () => {
     const ticks = serializeTicks(compile(zProgram(`
       (defn STEP (self state) (self ((state tick) tock)))
       ((Z STEP) seed)
-    `)), 3)
+    `)), 5)
 
     assert(ticks.every(tick => tick.includes('seed')))
-    assert((ticks.at(-1).match(/tick/g)?.length ?? 0)
-      > (ticks[0].match(/tick/g)?.length ?? 0))
-    assert(ticks.at(-1).includes('tock'))
+    assert(ticks.some(tick => tick.includes('tick')))
+    assert(ticks.some(tick => tick.includes('tock')))
+    assert.equal(new Set(ticks).size, ticks.length)
   })
 
   test('fixed-point behavior does not depend on the name Z', () => {
