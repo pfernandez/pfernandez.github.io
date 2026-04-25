@@ -170,17 +170,17 @@ describe('source.lisp examples', () => {
   test('Z keeps recursive state updates live',
        { todo: 'finite encode does not yet preserve live recursive state' },
        () => {
-    const term = compile(program(`
+         const term = compile(program(`
       (defn STEP (self state) (self (state tick)))
       ((Z STEP) seed)
     `))
-    const ticks = serializeTicks(term, 12)
+         const ticks = serializeTicks(term, 12)
 
-    assert(ticks.every(tick => tick.includes('seed')))
-    assert(ticks.slice(1).every(tick => tick.includes('tick')))
-    assert(new Set(ticks).size > 4)
-    assertDoesNotSettle(term)
-  })
+         assert(ticks.every(tick => tick.includes('seed')))
+         assert(ticks.slice(1).every(tick => tick.includes('tick')))
+         assert(new Set(ticks).size > 4)
+         assertDoesNotSettle(term)
+       })
 
   test('Z can return state and settle', () =>
     assert.equal(settle(`
@@ -191,37 +191,37 @@ describe('source.lisp examples', () => {
   test('Z can carry state unchanged without settling',
        { todo: 'finite encode currently settles this recursive loop' },
        () => {
-    const term = compile(program(`
+         const term = compile(program(`
       (defn HOLD (self state) (self state))
       ((Z HOLD) seed)
     `))
-    const ticks = serializeTicks(term, 12)
+         const ticks = serializeTicks(term, 12)
 
-    assert(ticks.every(tick => tick.includes('seed')))
-    assert(new Set(ticks).size > 4)
-    assertDoesNotSettle(term)
-  })
+         assert(ticks.every(tick => tick.includes('seed')))
+         assert(new Set(ticks).size > 4)
+         assertDoesNotSettle(term)
+       })
 
   test('Y I stays live without state',
        { todo: 'finite encode currently settles this recursive loop' },
        () => {
-    const term = compile(program('(Y I)'))
-    const ticks = serializeTicks(term, 6)
+         const term = compile(program('(Y I)'))
+         const ticks = serializeTicks(term, 6)
 
-    assert(new Set(ticks).size > 4)
-    assertDoesNotSettle(term)
-  })
+         assert(new Set(ticks).size > 4)
+         assertDoesNotSettle(term)
+       })
 
   test('applied Y I keeps its argument visible',
        { todo: 'finite encode currently settles this recursive loop' },
        () => {
-    const term = compile(program('(def y (Y I))\n(y a)'))
-    const ticks = serializeTicks(term, 8)
+         const term = compile(program('(def y (Y I))\n(y a)'))
+         const ticks = serializeTicks(term, 8)
 
-    assert(ticks.every(tick => tick.includes('a')))
-    assert(new Set(ticks).size > 4)
-    assertDoesNotSettle(term)
-  })
+         assert(ticks.every(tick => tick.includes('a')))
+         assert(new Set(ticks).size > 4)
+         assertDoesNotSettle(term)
+       })
 
   definitionCases.forEach(([name, expression, expected]) => {
     const options = name === 'Y'

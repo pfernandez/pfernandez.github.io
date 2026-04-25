@@ -344,19 +344,29 @@ describe('compile', () => {
       ((F f) seed)
     `)), '(((0 1) f) seed)'))
 
+  test('Z keeps updating recursive state', () => {
+    const ticks = serializeTicks(compile(zProgram(`
+      (defn STEP (self state) (self (state tick)))
+      ((Z STEP) seed)
+    `)), 5)
+
+    assert(ticks.every(tick => tick.includes('seed')))
+    assert.equal(new Set(ticks).size, ticks.length)
+  })
+
   test('Z carries visible state through recursive updates',
        { todo: 'finite encode does not yet preserve live recursive state' },
        () => {
-    const ticks = serializeTicks(compile(zProgram(`
+         const ticks = serializeTicks(compile(zProgram(`
       (defn STEP (self state) (self ((state tick) tock)))
       ((Z STEP) seed)
     `)), 3)
 
-    assert(ticks.every(tick => tick.includes('seed')))
-    assert((ticks.at(-1).match(/tick/g)?.length ?? 0)
+         assert(ticks.every(tick => tick.includes('seed')))
+         assert((ticks.at(-1).match(/tick/g)?.length ?? 0)
            > (ticks[0].match(/tick/g)?.length ?? 0))
-    assert(ticks.at(-1).includes('tock'))
-  })
+         assert(ticks.at(-1).includes('tock'))
+       })
 
   test('fixed-point behavior does not depend on the name Z', () => {
     const renamed = serializeTicks(compile(`
@@ -387,7 +397,7 @@ describe('compile', () => {
   test('compile keeps nested self-application finite',
        { todo: 'recursive self-application needs an explicit cyclic witness' },
        () =>
-    assert.equal(serializeState(compile(`
+         assert.equal(serializeState(compile(`
       (defn F (x) (x (x x)))
       (F F)
     `)), '((0 (0 0)) 0)'))

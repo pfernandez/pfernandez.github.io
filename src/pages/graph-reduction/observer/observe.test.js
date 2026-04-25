@@ -14,7 +14,7 @@ const collectFixedPairs = (node, seen = new Set()) => {
   seen.add(node)
   if (node.length !== 2) return []
   return [
-    ...(node[0] === node ? [node] : []),
+    ...node[0] === node ? [node] : [],
     ...collectFixedPairs(node[0], seen),
     ...collectFixedPairs(node[1], seen)
   ]
