@@ -167,20 +167,18 @@ describe('source.lisp examples', () => {
     assert.equal(new Set(appliedValue.slice(1)).size, 1)
   })
 
-  test('Z keeps recursive state updates live',
-       { todo: 'finite encode does not yet preserve live recursive state' },
-       () => {
-         const term = compile(program(`
+  test('Z keeps recursive state updates live', () => {
+    const term = compile(program(`
       (defn STEP (self state) (self (state tick)))
       ((Z STEP) seed)
     `))
-         const ticks = serializeTicks(term, 12)
+    const ticks = serializeTicks(term, 12)
 
-         assert(ticks.every(tick => tick.includes('seed')))
-         assert(ticks.slice(1).every(tick => tick.includes('tick')))
-         assert(new Set(ticks).size > 4)
-         assertDoesNotSettle(term)
-       })
+    assert(ticks.every(tick => tick.includes('seed')))
+    assert(ticks.slice(1).every(tick => tick.includes('tick')))
+    assert(new Set(ticks).size > 4)
+    assertDoesNotSettle(term)
+  })
 
   test('Z can return state and settle', () =>
     assert.equal(settle(`
@@ -188,54 +186,51 @@ describe('source.lisp examples', () => {
       ((Z DONE) seed)
     `), 'seed'))
 
-  test('Z can carry state unchanged without settling',
-       { todo: 'finite encode currently settles this recursive loop' },
-       () => {
-         const term = compile(program(`
+  test('Z can carry state unchanged without settling', () => {
+    const term = compile(program(`
       (defn HOLD (self state) (self state))
       ((Z HOLD) seed)
     `))
-         const ticks = serializeTicks(term, 12)
+    const ticks = serializeTicks(term, 12)
 
-         assert(ticks.every(tick => tick.includes('seed')))
-         assert(new Set(ticks).size > 4)
-         assertDoesNotSettle(term)
-       })
+    assert(ticks.every(tick => tick.includes('seed')))
+    assert(new Set(ticks).size > 4)
+    assertDoesNotSettle(term)
+  })
 
-  test('Y I stays live without state',
-       { todo: 'finite encode currently settles this recursive loop' },
-       () => {
-         const term = compile(program('(Y I)'))
-         const ticks = serializeTicks(term, 6)
+  test('Y I stays live without state', () => {
+    const term = compile(program('(Y I)'))
+    const ticks = serializeTicks(term, 6)
 
-         assert(new Set(ticks).size > 4)
-         assertDoesNotSettle(term)
-       })
+    assert(new Set(ticks).size > 4)
+    assertDoesNotSettle(term)
+  })
 
-  test('applied Y I keeps its argument visible',
-       { todo: 'finite encode currently settles this recursive loop' },
-       () => {
-         const term = compile(program('(def y (Y I))\n(y a)'))
-         const ticks = serializeTicks(term, 8)
+  test('applied Y I keeps its argument visible', () => {
+    const term = compile(program('(def y (Y I))\n(y a)'))
+    const ticks = serializeTicks(term, 8)
 
-         assert(ticks.every(tick => tick.includes('a')))
-         assert(new Set(ticks).size > 4)
-         assertDoesNotSettle(term)
-       })
+    assert(ticks.every(tick => tick.includes('a')))
+    assert(new Set(ticks).size > 4)
+    assertDoesNotSettle(term)
+  })
 
-  definitionCases.forEach(([name, expression, expected]) => {
-    const options = name === 'Y'
-      ? { todo: 'finite encode expands Y instead of exposing one cycle' }
-      : {}
-    test(`${name} reaches its source-level result`, options, () =>
-      assert.equal(settle(expression), expected))
+  definitionCases
+    .filter(([name]) => name !== 'Y')
+    .forEach(([name, expression, expected]) => {
+      test(`${name} reaches its source-level result`, () =>
+        assert.equal(settle(expression), expected))
+    })
+
+  test('Y exposes recursive structure behind an opaque function head', () => {
+    const exposed = settle('(Y f)')
+
+    assert.match(exposed, /^\(f /)
+    assert(exposed.includes('0'))
   })
 
   tryCases.forEach(([expression, expected]) => {
-    const options = expression.includes('add one')
-      ? { todo: 'Church numeral iteration needs live higher-order unfolding' }
-      : {}
-    test(`Try expression ${expression} reaches ${expected}`, options, () =>
+    test(`Try expression ${expression} reaches ${expected}`, () =>
       assert.equal(settle(expression), expected))
   })
 })
