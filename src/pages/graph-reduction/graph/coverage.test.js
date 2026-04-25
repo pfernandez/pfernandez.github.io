@@ -55,6 +55,14 @@ describe('graph coverage boundaries', () => {
     `)), [0, 'b'])
   })
 
+  test('serialize projects nested hidden witness payloads', () => {
+    const inner = ['inner', 'payload']
+    const outer = ['outer', inner]
+
+    assert.equal(serialize(['atom', outer], [], [outer, inner]),
+                 '(atom payload)')
+  })
+
   test('serialize projects a repeated cycle payload without recursing forever', () => {
     const cycle = ['x', null]
     cycle[1] = cycle
