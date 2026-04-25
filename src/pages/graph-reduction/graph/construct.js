@@ -2,8 +2,7 @@ import {
   application,
   encodeTemplateApplication,
   resolveDelayedCalls,
-  templateArity,
-  templateSlotCount
+  templateArity
 } from './encode.js'
 import { materialize } from './materialize.js'
 import { applyArgs, isList, isPair } from './shared.js'
@@ -22,7 +21,7 @@ const templateCandidate = ([head, args], index) => {
   try {
     const arity = templateArity(head)
     return arity !== null && args.length >= arity
-      ? { head, args, arity, index, slotCount: templateSlotCount(head) }
+      ? { head, args, arity, index }
       : null
   }
   catch (error) {
@@ -37,9 +36,6 @@ const betterCandidate = (left, right) => {
   if (right.arity !== left.arity) {
     return right.arity > left.arity ? right : left
   }
-  if (right.slotCount !== left.slotCount) {
-    return right.slotCount > left.slotCount ? right : left
-  }
   return right.index < left.index ? right : left
 }
 
@@ -48,16 +44,9 @@ const constructTemplateApplication = term => {
     .map(templateCandidate)
     .reduce(betterCandidate, null)
 
-  if (!match) return null
-
-  const { head, args } = match
-  try {
-    return encodeTemplateApplication(head, args, constructTerm)
-  }
-  catch (error) {
-    if (denseSlotError(error)) return null
-    throw error
-  }
+  return match
+    ? encodeTemplateApplication(match.head, match.args, constructTerm)
+    : null
 }
 
 const constructOrdinaryApplication = term => {
