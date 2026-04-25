@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { compile, construct, encode, parse, serialize } from './index.js'
+import { materialize } from './materialize.js'
 
 const hasGraph = value =>
   value && typeof value === 'object' && Object.hasOwn(value, 'graph')
@@ -30,6 +31,14 @@ describe('graph coverage boundaries', () => {
     `)), '(F a)')
   })
 
+  test('materialize remembers repeated non-fixed graph points as witnesses', () => {
+    const shared = ['a', 'b']
+    const state = materialize([shared, shared])
+
+    assert.equal(state.graph[0], state.graph[1])
+    assert.deepEqual(state.witness, [state.graph[0]])
+  })
+
   test('encode compacts sparse projected slots from live graph projection', () => {
     assert.deepEqual(encode(parse(`
       (defn right (x y) y)
@@ -45,5 +54,13 @@ describe('graph coverage boundaries', () => {
     fixed[1] = cycle
 
     assert.equal(serialize(['atom', fixed], [fixed]), '(atom (x (x 0)))')
+  })
+
+  test('serialize projects self-payload fixed points by traversal label', () => {
+    const fixed = []
+    fixed[0] = fixed
+    fixed[1] = fixed
+
+    assert.equal(serialize(['atom', fixed], [fixed]), '(atom 0)')
   })
 })
