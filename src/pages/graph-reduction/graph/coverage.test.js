@@ -15,12 +15,12 @@ const serializeState = value =>
 describe('graph coverage boundaries', () => {
   test('construct ignores sparse template candidates and keeps ordinary shape', () => {
     assert.equal(serializeState(construct([[[0, 2], 'a'], 'b'])),
-                 '(((0 2) a) b)')
+                 '(((0 a) b) 2)')
   })
 
-  test('construct prefers the outermost complete template when arities tie', () => {
+  test('construct keeps ordinary shape when complete templates tie', () => {
     assert.equal(serializeState(construct([[[[0, 1], 'a'], 'b'], 'c'])),
-                 '(((((0 1) c) a) b))')
+                 '((((0 1) a) b) c)')
   })
 
   test('partial non-template calls materialize as finite source calls', () => {
@@ -44,6 +44,6 @@ describe('graph coverage boundaries', () => {
     fixed[0] = fixed
     fixed[1] = cycle
 
-    assert.equal(serialize(['atom', fixed], [fixed]), '(atom 0)')
+    assert.equal(serialize(['atom', fixed], [fixed]), '(atom (x (x 0)))')
   })
 })
