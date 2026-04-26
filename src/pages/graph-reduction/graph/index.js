@@ -18,7 +18,8 @@
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
 export { compile } from './compile.js'
-export { encode, expand } from './encode.js'
+export { expand } from './expand.js'
+export { encode } from './encode.js'
 export { construct } from './construct.js'
 export { parse } from './parse.js'
 export { serialize } from './serialize.js'
