@@ -1,8 +1,6 @@
 import { applyArgs, argumentSlotTemplate, argumentSlotTemplates, cycleTemplate,
          delayedCall, delayedCalls, isArgumentSlotTemplate, isDelayedCall,
          isFixed, isList, isPair, withCycleBody } from './shared.js'
-import { materialize } from './materialize.js'
-import { project } from './serialize.js'
 
 const normalizeParamList = params => {
   if (!isList(params)) throw new Error('defn params must be a list')
@@ -219,7 +217,6 @@ const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
     return encodeFunctionApplication(
       resolved, args, encodeArg, env, locals, stack)
 
-
   const templated = resolved?.entry.kind === 'def'
     ? encodeTemplateApplication(resolved.entry.body, args, encodeArg)
     : null
@@ -293,55 +290,10 @@ export const resolveDelayedCalls = (value, applications = new WeakMap()) => {
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
-export const materializeProgram = forms => {
+const encodeProgram = forms => {
   if (!forms.length) return []
   const { env, expr } = indexProgram(forms)
-  const encoded = encodeExpression(expr, env)
-  const resolved = resolveDelayedCalls(encoded)
-  return materialize(resolved, resolveDelayedCalls)
+  return resolveDelayedCalls(encodeExpression(expr, env))
 }
-
-const encodePlainExpression = expr => {
-  if (!isList(expr)) return expr
-  if (expr.length === 0) return []
-  const [head, ...args] = expr
-  return applyArgs(encodePlainExpression(head), args.map(encodePlainExpression))
-}
-
-const encodeProgramProjection = forms => {
-  const { graph, sequence } = materializeProgram(forms)
-  return compactSlots(project(graph, sequence))
-}
-
-const collectNumericSlots = (node, slots = new Set()) => {
-  if (typeof node === 'number') slots.add(node)
-  if (isPair(node)) {
-    collectNumericSlots(node[0], slots)
-    collectNumericSlots(node[1], slots)
-  }
-  return slots
-}
-
-const remapSlots = (node, slots) => {
-  if (typeof node === 'number') return slots.get(node)
-  if (isPair(node))
-    return [remapSlots(node[0], slots), remapSlots(node[1], slots)]
-  return node
-}
-
-const compactSlots = node => {
-  if (!isPair(node)) return node
-  const values = [...collectNumericSlots(node)].sort((a, b) => a - b)
-  if (values.every((value, index) => value === index)) return node
-  const slots = new Map(values.map((value, index) => [value, index]))
-  return remapSlots(node, slots)
-}
-
-const encodeProgram = forms =>
-  !forms.length
-    ? []
-    : forms.length === 1 && !isDefinitionForm(forms[0])
-      ? encodePlainExpression(forms[0])
-      : encodeProgramProjection(forms)
 
 export const encode = forms => encodeProgram(forms)
