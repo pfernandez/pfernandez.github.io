@@ -2,7 +2,7 @@ import {
   encodeTemplateApplication,
   resolveDelayedCalls,
   templateArity
-} from './encode.js'
+} from './expand.js'
 import { materialize } from './materialize.js'
 import { application, applyArgs, isFixed, isList, isPair } from './shared.js'
 
