@@ -48,10 +48,14 @@ const indexProgram = forms => {
   return { env, expr }
 }
 
-export const application = expr => {
-  if (!isList(expr) || expr.length === 0) return [expr, []]
+export const application = (expr, seen = new WeakSet()) => {
+  if (!isList(expr) || expr.length === 0 || isFixed(expr) || seen.has(expr)) {
+    return [expr, []]
+  }
+
+  seen.add(expr)
   const [head, ...rest] = expr
-  const [base, args] = application(head)
+  const [base, args] = application(head, seen)
   return [base, [...args, ...rest]]
 }
 
