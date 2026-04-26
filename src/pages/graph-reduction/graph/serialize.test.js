@@ -144,7 +144,7 @@ describe('serialize', () => {
     const malformed = compile('(defn I (x) x)\n(x (I (a b)))')
 
     assert.equal(serializeState(empty), '(x ())')
-    graphOf(malformed)[1].pop()
+    graphOf(malformed)[1][1].pop()
     assert.throws(() => serializeState(malformed), /empty or pairs/i)
   })
 })
