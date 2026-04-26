@@ -1,4 +1,4 @@
-import { isDefinitionForm } from './expand.js'
+import { expand, isDefinitionForm } from './expand.js'
 import { construct } from './construct.js'
 import { applyArgs, isList, isPair } from './shared.js'
 import { project } from './serialize.js'
@@ -35,7 +35,7 @@ const compactSlots = node => {
 }
 
 const encodeProgramProjection = forms => {
-  const { graph, sequence } = construct(forms)
+  const { graph, sequence } = construct(expand(forms))
   return compactSlots(project(graph, sequence))
 }
 
