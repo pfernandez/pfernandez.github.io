@@ -1,11 +1,10 @@
 import {
-  application,
   encodeTemplateApplication,
   resolveDelayedCalls,
   templateArity
 } from './encode.js'
 import { materialize } from './materialize.js'
-import { applyArgs, isFixed, isList, isPair } from './shared.js'
+import { application, applyArgs, isFixed, isList, isPair } from './shared.js'
 
 const applicationSplits = (term, seen = new WeakSet()) => {
   if (!isPair(term) || isFixed(term) || seen.has(term)) return [[term, []]]
