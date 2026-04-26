@@ -1,5 +1,5 @@
 import { construct } from './construct.js'
-import { expand } from './encode.js'
+import { expand } from './expand.js'
 import { parse } from './parse.js'
 
 /**
