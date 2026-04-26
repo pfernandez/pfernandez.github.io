@@ -1,9 +1,6 @@
-import {
-  encodeTemplateApplication,
-  resolveDelayedCalls,
-  templateArity
-} from './expand.js'
+import { resolveDelayedCalls } from './expand.js'
 import { materialize } from './materialize.js'
+import { encodeTemplateApplication, templateArity } from './template.js'
 import { application, applyArgs, isFixed, isList, isPair } from './shared.js'
 
 const applicationSplits = (term, seen = new WeakSet()) => {
