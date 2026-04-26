@@ -293,13 +293,14 @@ export const resolveDelayedCalls = (value, applications = new WeakMap()) => {
   return left === value[0] && right === value[1] ? value : [left, right]
 }
 
-export const materializeProgram = forms => {
+export const expand = forms => {
   if (!forms.length) return []
   const { env, expr } = indexProgram(forms)
-  const encoded = encodeExpression(expr, env)
-  const resolved = resolveDelayedCalls(encoded)
-  return materialize(resolved, resolveDelayedCalls)
+  return resolveDelayedCalls(encodeExpression(expr, env))
 }
+
+export const materializeProgram = forms =>
+  materialize(expand(forms), resolveDelayedCalls)
 
 const encodePlainExpression = expr => {
   if (!isList(expr)) return expr
