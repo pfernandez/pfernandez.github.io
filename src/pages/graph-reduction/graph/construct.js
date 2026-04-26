@@ -7,12 +7,12 @@ import {
 import { materialize } from './materialize.js'
 import { applyArgs, isFixed, isList, isPair } from './shared.js'
 
-const applicationSplits = term =>
-  isPair(term)
-    ? [[term, []],
-       ...applicationSplits(term[0]).map(([head, args]) =>
-         [head, [...args, term[1]]])]
-    : [[term, []]]
+const applicationSplits = (term, seen = new WeakSet()) =>
+  !isPair(term) || isFixed(term) || seen.has(term)
+    ? [[term, []]]
+    : [[term, []],
+       ...applicationSplits(term[0], new WeakSet(seen).add(term))
+         .map(([head, args]) => [head, [...args, term[1]]])]
 
 const denseSlotError = error =>
   /dense slots/i.test(error.message)
