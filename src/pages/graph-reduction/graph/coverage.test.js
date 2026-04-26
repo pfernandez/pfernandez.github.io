@@ -8,19 +8,15 @@ const hasGraph = value =>
 
 const graphOf = value => hasGraph(value) ? value.graph : value
 const sequenceOf = value => hasGraph(value) ? value.sequence : []
-const witnessOf = value => hasGraph(value) ? value.witness ?? [] : []
+const crossingsOf = value => hasGraph(value) ? value.crossings ?? [] : []
 
 const serializeState = value =>
-  serialize(graphOf(value), sequenceOf(value), witnessOf(value))
+  serialize(graphOf(value), sequenceOf(value), crossingsOf(value))
 
 describe('graph coverage boundaries', () => {
-  test('compile returns parse errors before graph construction', t => {
-    const { mock } = t.mock.method(console, 'error', () => {})
-    const error = compile('(')
-
-    assert(error instanceof Error)
-    assert.match(error.message, /Missing \)/)
-    assert.equal(mock.calls.length, 1)
+  test('compile returns parse errors before graph construction', () => {
+    const state = compile('(')
+    assert.match(state.error, /Missing \)/)
   })
 
   test('construct ignores sparse template candidates and keeps ordinary shape', () => {
@@ -45,7 +41,7 @@ describe('graph coverage boundaries', () => {
     const state = materialize([shared, shared])
 
     assert.equal(state.graph[0], state.graph[1])
-    assert.deepEqual(state.witness, [state.graph[0]])
+    assert.deepEqual(state.crossings, [state.graph[0]])
   })
 
   test('encode compacts sparse projected slots from live graph projection', () => {
@@ -55,7 +51,7 @@ describe('graph coverage boundaries', () => {
     `)), [0, 'b'])
   })
 
-  test('serialize projects nested hidden witness payloads', () => {
+  test('serialize projects nested hidden crossings payloads', () => {
     const inner = ['inner', 'payload']
     const outer = ['outer', inner]
 

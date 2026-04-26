@@ -8,15 +8,15 @@ const hasGraph = value =>
 
 const graphOf = value => hasGraph(value) ? value.graph : value
 const sequenceOf = value => hasGraph(value) ? value.sequence : []
-const witnessOf = value => hasGraph(value) ? value.witness ?? [] : []
+const crossingsOf = value => hasGraph(value) ? value.crossings ?? [] : []
 
 const serializeState = value =>
-  serialize(graphOf(value), sequenceOf(value), witnessOf(value))
+  serialize(graphOf(value), sequenceOf(value), crossingsOf(value))
 
 const observeState = value =>
   ({ graph: observe(graphOf(value)),
      sequence: sequenceOf(value),
-     witness: witnessOf(value) })
+     crossings: crossingsOf(value) })
 
 const observeUntilStable = (term, remaining = 32) => {
   const graph = graphOf(term)
@@ -25,7 +25,7 @@ const observeUntilStable = (term, remaining = 32) => {
   if (remaining <= 0) throw new Error('Expression did not settle')
   return observeUntilStable({ graph: next,
                               sequence: sequenceOf(term),
-                              witness: witnessOf(term) },
+                              crossings: crossingsOf(term) },
                             remaining - 1)
 }
 
@@ -65,6 +65,7 @@ const assertCompileError = (t, source, pattern) => {
   assert.match(messages[0], pattern)
 }
 
+
 const assertFixedPayload = (point, value) => {
   assert.equal(point[0], point)
   assert.equal(point[1], value)
@@ -93,7 +94,6 @@ describe('compile', () => {
       (def S ((0 2) (1 2)))
       (((S a) b) c)
     `
-
     assert.deepEqual(encode(parse('')), [])
     assert.deepEqual(encode(parse('()')), [])
     assert.deepEqual(graphOf(construct([])), [])
@@ -101,8 +101,7 @@ describe('compile', () => {
       ['def', 'S', [[0, 2], [1, 2]]],
       ['S', 'a', 'b', 'c']
     ]), encoded)
-    assert.deepEqual(encode(parse('(((((0 2) (1 2)) a) b) c)')),
-                     encoded)
+    assert.deepEqual(encode(parse('(((((0 2) (1 2)) a) b) c)')), encoded)
     assert.equal(serializeState(construct(encoded)),
                  '(((((0 2) (1 2)) a) b) c)')
     assert.equal(serializeState(construct(encode(parse(source)))),

@@ -72,7 +72,7 @@ const constructTerm = term => {
  * Program constructs such as `def` and `defn` belong to `encode`, not here.
  *
  * @param {import('./parse.js').SourceForm} term
- * @returns {{graph: *, sequence: *[], witness: *[]}}
+ * @returns {{graph: *, sequence: *[], crossings: *[]}}
  */
 export const construct = term =>
   materialize(resolveDelayedCalls(constructTerm(term)), resolveDelayedCalls)

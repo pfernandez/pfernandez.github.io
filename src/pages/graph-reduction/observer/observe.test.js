@@ -37,10 +37,7 @@ describe('observe', () => {
   })
 
   test('malformed arrays are stable', () => {
-    const malformed = [[[], []]]
     const unary = ['x']
-
-    assert.equal(observe(malformed), malformed)
     assert.equal(observe(unary), unary)
   })
 

@@ -12,10 +12,10 @@ import { parse, serialize } from '../graph/index.js'
 const compare = (a, b) =>
   a.length - b.length || a.localeCompare(b)
 
-const scene = (pair, sequence, witness) => {
+const scene = ({ graph: pair, sequence, crossings }) => {
   if (pair === null) return pre('Parse an expression to view it.')
 
-  const key = serialize(pair, sequence, witness)
+  const key = serialize(pair, sequence, crossings)
   const projected = parse(key)[0]
   const tree = layout(projected)
   const pad = 1

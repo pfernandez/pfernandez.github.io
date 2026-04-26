@@ -2,12 +2,6 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { parse } from './index.js'
 
-const loggedErrors = (t, actions) => {
-  const { mock } = t.mock.method(console, 'error', () => {})
-  actions.forEach(action => action())
-  return mock.calls.map(call => call.arguments[0].message)
-}
-
 describe('source parser', () => {
   test('parse returns no forms for blank input', () => {
     assert.deepEqual(parse(''), [])
@@ -45,16 +39,10 @@ describe('source parser', () => {
     assert.deepEqual(parse('(() x) y'), [[[], 'x'], 'y'])
   })
 
-  test('parse reports malformed parentheses', t => {
-    const messages = loggedErrors(t, [
-      () => parse(')'),
-      () => parse('('),
-      () => parse('(a'),
-      () => parse('(a b')
-    ])
-
-    assert.equal(messages.length, 4)
-    assert.match(messages[0], /Unexpected \)/i)
-    assert(messages.slice(1).every(message => /Missing \)/i.test(message)))
+  test('parse rejects malformed parentheses', () => {
+    assert.throws(() => parse(')'), /Unexpected \)/i)
+    assert.throws(() => parse('('), /Missing \)/i)
+    assert.throws(() => parse('(a'), /Missing \)/i)
+    assert.throws(() => parse('(a b'), /Missing \)/i)
   })
 })

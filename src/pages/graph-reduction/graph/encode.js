@@ -1,28 +1,24 @@
-import {
-  applyArgs,
-  argumentSlotTemplate,
-  argumentSlotTemplates,
-  cycleTemplate,
-  delayedCall,
-  delayedCalls,
-  isArgumentSlotTemplate,
-  isDelayedCall,
-  isFixed,
-  isList,
-  isPair,
-  withCycleBody
-} from './shared.js'
+import { applyArgs, argumentSlotTemplate, argumentSlotTemplates, cycleTemplate,
+         delayedCall, delayedCalls, isArgumentSlotTemplate, isDelayedCall,
+         isFixed, isList, isPair, withCycleBody } from './shared.js'
 import { materialize } from './materialize.js'
 import { project } from './serialize.js'
 
 const normalizeParamList = params => {
   if (!isList(params)) throw new Error('defn params must be a list')
-  if (params.some(param => typeof param !== 'string')) throw new Error('defn params must be symbols')
+  if (params.some(param => typeof param !== 'string'))
+    throw new Error('defn params must be symbols')
   return params
 }
+
 const makeProgramEntry = (name, body) => ({ kind: 'def', name, body })
-const makeProgramFunction = (name, params, body) => ({ kind: 'defn', name, params, body })
-const isDefinitionForm = form => isList(form) && (form[0] === 'def' || form[0] === 'defn')
+
+const makeProgramFunction = (name, params, body) =>
+  ({ kind: 'defn', name, params, body })
+
+const isDefinitionForm = form =>
+  isList(form) && (form[0] === 'def' || form[0] === 'defn')
+
 const normalizeDefinitionForm = form => {
   if (!isDefinitionForm(form)) return null
   if (form[0] === 'def') {
@@ -32,28 +28,33 @@ const normalizeDefinitionForm = form => {
     return makeProgramEntry(name, body)
   }
   if (form[0] === 'defn') {
-    if (form.length < 4) throw new Error('Each form must be (defn name (x ...) body)')
+    if (form.length < 4)
+      throw new Error('Each form must be (defn name (x ...) body)')
     const [, name, params, body] = form
     if (typeof name !== 'string') throw new Error('defn name must be a symbol')
     return makeProgramFunction(name, normalizeParamList(params), body)
   }
 }
+
 const indexProgram = forms => {
   const { env, expr } = forms.reduce((program, form) => {
     const definition = normalizeDefinitionForm(form)
     return definition
-      ? { ...program, env: new Map(program.env).set(definition.name, definition) }
+      ? { ...program,
+          env: new Map(program.env).set(definition.name, definition) }
       : { ...program, expr: form }
   }, { env: new Map(), expr: null })
   if (expr === null) throw new Error('Program must end with an expression')
   return { env, expr }
 }
+
 export const application = expr => {
   if (!isList(expr) || expr.length === 0) return [expr, []]
   const [head, ...rest] = expr
   const [base, args] = application(head)
   return [base, [...args, ...rest]]
 }
+
 const collectSlotIndexes = (node, seen = new WeakSet()) => {
   if (isList(node)) {
     if (seen.has(node)) return null
@@ -65,19 +66,26 @@ const collectSlotIndexes = (node, seen = new WeakSet()) => {
     return left && right ? [...left, ...right] : null
   }
   if (typeof node !== 'number') return []
-  if (!Number.isInteger(node) || node < 0) throw new Error('Slot templates must use non-negative integer slots')
+  if (!Number.isInteger(node) || node < 0)
+    throw new Error('Slot templates must use non-negative integer slots')
   return [node]
 }
+
 const slotProfile = (template, arity = null) => {
   const indexes = collectSlotIndexes(template)
   if (!indexes || indexes.length === 0) return null
   const slots = [...new Set(indexes)].sort((a, b) => a - b)
   const sparse = slots.some((slot, index) => slot !== index)
-  if (arity === null && sparse) throw new Error('Slot templates must use dense slots from 0')
+  if (arity === null && sparse)
+    throw new Error('Slot templates must use dense slots from 0')
   return { arity: arity ?? slots.length }
 }
+
 export const templateArity = template => slotProfile(template)?.arity ?? null
-export const templateSlotCount = template => collectSlotIndexes(template)?.length ?? 0
+
+export const templateSlotCount = template =>
+  collectSlotIndexes(template)?.length ?? 0
+
 const paramTemplate = (expr, locals) => {
   if (!isList(expr)) {
     return locals.has(expr)
@@ -91,9 +99,12 @@ const paramTemplate = (expr, locals) => {
     pure: terms.every(term => term.pure)
   }
 }
+
 const slotLocals = params => new Map(params.map((param, index) => [param, index]))
+
 const functionLocals = (params, args, fixedArg) =>
   new Map(params.map((param, index) => [param, fixedArg(args[index], index)]))
+
 export const encodeTemplateApplication = (template, args, encodeArg, arity = null) => {
   const profile = slotProfile(template, arity)
   if (!profile || args.length < profile.arity) return null
@@ -112,8 +123,10 @@ export const encodeTemplateApplication = (template, args, encodeArg, arity = nul
   const rest = args.slice(profile.arity).map(encodeArg)
   return applyArgs(body, rest)
 }
+
 const fillNumericTemplate = (template, args, arity) =>
   encodeTemplateApplication(template, args, value => value, arity)
+
 const templateForDefinition = entry => {
   if (entry.kind === 'def') {
     const profile = slotProfile(entry.body)
@@ -123,6 +136,7 @@ const templateForDefinition = entry => {
   const { node: template, pure } = paramTemplate(entry.body, slotLocals(entry.params))
   return pure && { template, arity: entry.params.length }
 }
+
 const delayedCallForDefinition = (name, entry, env, stack) => {
   const template = templateForDefinition(entry)
   if (template) return delayedCall({ name, ...template, args: [] })
@@ -130,90 +144,132 @@ const delayedCallForDefinition = (name, entry, env, stack) => {
     ? delayedCall({ name, entry, env, stack, arity: entry.params.length, args: [] })
     : null
 }
+
 const resolveDefinition = (name, env, stack) => {
   const entry = env.get(name)
   if (!entry) return null
-  if (stack.includes(name)) throw new Error(`Recursive definitions are not supported: ${name}`)
-  if (entry.kind === 'def' && typeof entry.body === 'string' && env.has(entry.body)) {
+  if (stack.includes(name))
+    throw new Error(`Recursive definitions are not supported: ${name}`)
+  if (entry.kind === 'def'
+    && typeof entry.body === 'string'
+    && env.has(entry.body)) {
     return resolveDefinition(entry.body, env, [...stack, name])
   }
   return { name, entry }
 }
+
 const hasCompleteFunctionApplication = (resolved, args) =>
   resolved?.entry.kind === 'defn' && args.length >= resolved.entry.params.length
-const encodeFunctionApplication = (resolved, args, encodeArg, env, locals, stack) => {
-  const { entry } = resolved
-  const { node: template, pure } = paramTemplate(entry.body, slotLocals(entry.params))
-  const templated = pure
-    ? encodeTemplateApplication(template, args, encodeArg, entry.params.length)
-    : null
-  if (templated) return templated
-  const group = {}
-  const nextLocals = new Map([
-    ...locals,
-    ...functionLocals(entry.params,
-      args.slice(0, entry.params.length),
-      (arg, slot) => argumentSlotTemplate(encodeArg(arg), slot, group))
-  ])
-  const body = encodeExpression(entry.body, env, nextLocals, [...stack, resolved.name])
-  return applyArgs(body, args.slice(entry.params.length).map(encodeArg))
-}
+
+const encodeFunctionApplication =
+  (resolved, args, encodeArg, env, locals, stack) => {
+    const { entry } = resolved
+    const { node: template, pure } = paramTemplate(entry.body,
+                                                   slotLocals(entry.params))
+    const templated = pure
+      ? encodeTemplateApplication(
+        template, args, encodeArg, entry.params.length)
+      : null
+
+    if (templated) return templated
+
+    const group = {}
+    const nextLocals = new Map([
+      ...locals,
+      ...functionLocals(entry.params,
+                        args.slice(0, entry.params.length),
+                        (arg, slot) =>
+                          argumentSlotTemplate(encodeArg(arg), slot, group))
+    ])
+
+    const body = encodeExpression(
+      entry.body, env, nextLocals, [...stack, resolved.name])
+
+    return applyArgs(body, args.slice(entry.params.length).map(encodeArg))
+  }
+
 const applyDelayedArgs = (head, args) => args.reduce(applyDelayedCall, head)
+
 const encodeExpression = (expr, env, locals = new Map(), stack = []) => {
   if (!isList(expr)) {
     if (typeof expr !== 'string') return expr
+
     if (locals.has(expr)) return locals.get(expr)
+
     const resolved = resolveDefinition(expr, env, stack)
     if (!resolved) return expr
+
     const { name, entry } = resolved
+
     const call = delayedCallForDefinition(name, entry, env, stack)
     if (call) return call
+
     return encodeExpression(entry.body, env, new Map(), [...stack, name])
   }
+
   if (expr.length === 0) return []
+
   const [head, args] = application(expr)
+  const encodeArg = arg => encodeExpression(arg, env, locals, stack)
   const resolved = typeof head === 'string' && !locals.has(head)
     ? resolveDefinition(head, env, stack)
     : null
-  const encodeArg = arg => encodeExpression(arg, env, locals, stack)
-  if (hasCompleteFunctionApplication(resolved, args)) {
-    return encodeFunctionApplication(resolved, args, encodeArg, env, locals, stack)
-  }
+
+  if (hasCompleteFunctionApplication(resolved, args))
+    return encodeFunctionApplication(
+      resolved, args, encodeArg, env, locals, stack)
+
+
   const templated = resolved?.entry.kind === 'def'
     ? encodeTemplateApplication(resolved.entry.body, args, encodeArg)
     : null
+
   if (templated) return templated
+
   const encodedHead = encodeExpression(head, env, locals, stack)
   const encodedArgs = args.map(encodeArg)
-  if (isDelayedCall(encodedHead)) return applyDelayedArgs(encodedHead, encodedArgs)
+
+  if (isDelayedCall(encodedHead))
+    return applyDelayedArgs(encodedHead, encodedArgs)
+
   return encodeTemplateApplication(encodedHead, args, encodeArg)
     ?? applyArgs(encodedHead, encodedArgs)
 }
+
 const applyDelayedCall = (value, arg) => {
   const meta = delayedCalls.get(value)
   const next = { ...meta, args: [...meta.args, arg] }
+
   if (next.args.length < next.arity) return delayedCall(next)
-  if (Object.hasOwn(next, 'template')) {
+
+  if (Object.hasOwn(next, 'template'))
     return fillNumericTemplate(next.template, next.args, next.arity)
-  }
+
   const group = {}
   const locals = functionLocals(
     next.entry.params,
     next.args.slice(0, next.arity),
     (slotValue, slot) => argumentSlotTemplate(slotValue, slot, group)
   )
-  const body = encodeExpression(next.entry.body, next.env, locals, [...next.stack, next.name])
+
+  const body = encodeExpression(
+    next.entry.body, next.env, locals, [...next.stack, next.name])
+
   return applyArgs(body, next.args.slice(next.arity))
 }
+
 const delayedCallHead = (value, seen = new WeakSet()) => {
   if (isDelayedCall(value)) return value
-  if (isArgumentSlotTemplate(value)) {
+
+  if (isArgumentSlotTemplate(value))
     return delayedCallHead(argumentSlotTemplates.get(value).value, seen)
-  }
+
   if (!isFixed(value) || seen.has(value)) return null
+
   seen.add(value)
   return delayedCallHead(value[1], seen)
 }
+
 const recursiveDelayedCall = (head, applications) => {
   const existing = applications.get(head)
   if (existing) return existing
@@ -224,6 +280,7 @@ const recursiveDelayedCall = (head, applications) => {
     resolveDelayedCalls(applyDelayedCall(head, loop), applications)
   )
 }
+
 export const resolveDelayedCalls = (value, applications = new WeakMap()) => {
   if (!isPair(value) || isFixed(value)) return value
   const left = resolveDelayedCalls(value[0], applications)
@@ -235,6 +292,7 @@ export const resolveDelayedCalls = (value, applications = new WeakMap()) => {
   const right = resolveDelayedCalls(value[1], applications)
   return left === value[0] && right === value[1] ? value : [left, right]
 }
+
 export const materializeProgram = forms => {
   if (!forms.length) return []
   const { env, expr } = indexProgram(forms)
@@ -242,16 +300,19 @@ export const materializeProgram = forms => {
   const resolved = resolveDelayedCalls(encoded)
   return materialize(resolved, resolveDelayedCalls)
 }
+
 const encodePlainExpression = expr => {
   if (!isList(expr)) return expr
   if (expr.length === 0) return []
   const [head, ...args] = expr
   return applyArgs(encodePlainExpression(head), args.map(encodePlainExpression))
 }
+
 const encodeProgramProjection = forms => {
   const { graph, sequence } = materializeProgram(forms)
   return compactSlots(project(graph, sequence))
 }
+
 const collectNumericSlots = (node, slots = new Set()) => {
   if (typeof node === 'number') slots.add(node)
   if (isPair(node)) {
@@ -260,11 +321,14 @@ const collectNumericSlots = (node, slots = new Set()) => {
   }
   return slots
 }
+
 const remapSlots = (node, slots) => {
   if (typeof node === 'number') return slots.get(node)
-  if (isPair(node)) return [remapSlots(node[0], slots), remapSlots(node[1], slots)]
+  if (isPair(node))
+    return [remapSlots(node[0], slots), remapSlots(node[1], slots)]
   return node
 }
+
 const compactSlots = node => {
   if (!isPair(node)) return node
   const values = [...collectNumericSlots(node)].sort((a, b) => a - b)
@@ -272,10 +336,12 @@ const compactSlots = node => {
   const slots = new Map(values.map((value, index) => [value, index]))
   return remapSlots(node, slots)
 }
+
 const encodeProgram = forms =>
   !forms.length
     ? []
     : forms.length === 1 && !isDefinitionForm(forms[0])
       ? encodePlainExpression(forms[0])
       : encodeProgramProjection(forms)
+
 export const encode = forms => encodeProgram(forms)

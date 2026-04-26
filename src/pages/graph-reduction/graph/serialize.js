@@ -1,10 +1,4 @@
-import {
-  applyArgs,
-  isFixed,
-  isList,
-  isPair,
-  serializeList
-} from './shared.js'
+import { applyArgs, isFixed, isList, serializeList } from './shared.js'
 
 const mapPair = (pair, mapChild) => {
   if (pair.length === 0) return []
@@ -53,8 +47,8 @@ const containsNode = (root, needle) => {
 const visibleNodes = (graph, nodes) =>
   nodes.filter(node => containsNode(graph, node))
 
-const numberedLabels = (sequence, witness) =>
-  [...sequence, ...witness.filter(node => !sequence.includes(node))]
+const numberedLabels = (sequence, crossings) =>
+  [...sequence, ...crossings.filter(node => !sequence.includes(node))]
     .reduce((labels, node, index) => labels.set(node, index), new Map())
 
 const collectLabelsOutsideAtomBranches = (
@@ -129,14 +123,14 @@ const projectWithLabels = (
     ))
 }
 
-export function project(node, sequence = [], witness = [], seen = new Set()) {
+export function project(node, sequence = [], crossings = [], seen = new Set()) {
   if (isList(node) && seen.has(node)) return projectByTraversal(node)
 
   const active = visibleNodes(node, sequence)
-  const activeWitness = visibleNodes(node, witness)
-  if (!active.length && !activeWitness.length) return projectByTraversal(node)
+  const activeCrossings = visibleNodes(node, crossings)
+  if (!active.length && !activeCrossings.length) return projectByTraversal(node)
 
-  const labels = numberedLabels(active, activeWitness)
+  const labels = numberedLabels(active, activeCrossings)
   const used = new Set()
   const visible = collectLabelsOutsideAtomBranches(node, labels)
   const template =
@@ -145,7 +139,7 @@ export function project(node, sequence = [], witness = [], seen = new Set()) {
     .filter(slot => used.has(slot))
     .map(slot => {
       const nextSeen = new Set(seen).add(node).add(slot)
-      return project(slot[1], sequence, witness, nextSeen)
+      return project(slot[1], sequence, crossings, nextSeen)
     })
   return applyArgs(template, args)
 }
@@ -154,14 +148,14 @@ export function project(node, sequence = [], witness = [], seen = new Set()) {
  * Serializes a graph to Lisp-facing notation.
  *
  * Without `sequence`, cycles are numbered by graph traversal. With `sequence`,
- * labels come from the caller's chosen argument order. `witness` names any
+ * labels come from the caller's chosen argument order. `crossings` names any
  * extra cycles the caller wants printed as slots instead of reconstructed by
  * traversal.
  *
  * @param {*} graph
  * @param {*[]} [sequence]
- * @param {*[]} [witness]
+ * @param {*[]} [crossings]
  * @returns {string}
  */
-export const serialize = (graph, sequence = [], witness = []) =>
-  printTerm(project(graph, sequence, witness))
+export const serialize = (graph, sequence = [], crossings = []) =>
+  printTerm(project(graph, sequence, crossings))

@@ -36,8 +36,6 @@ const collectForms = (tokens, index = 0, forms = []) => {
   return collectForms(tokens, next, [...forms, form])
 }
 
-export const readSourceForms = source => collectForms(tokenize(source))
-
 /**
  * Parses source text into top-level Lisp forms.
  *
@@ -51,14 +49,6 @@ export const readSourceForms = source => collectForms(tokenize(source))
  * contract used by the tests.
  *
  * @param {string} source
- * @returns {SourceForm[]|Error}
+ * @returns {SourceForm[]}
  */
-export const parse = source => {
-  try {
-    return readSourceForms(source)
-  }
-  catch (error) {
-    console.error(error)
-    return error
-  }
-}
+export const parse = source => collectForms(tokenize(source))

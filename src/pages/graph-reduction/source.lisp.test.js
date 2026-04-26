@@ -77,15 +77,15 @@ const hasGraph = value =>
 
 const graphOf = value => hasGraph(value) ? value.graph : value
 const sequenceOf = value => hasGraph(value) ? value.sequence : []
-const witnessOf = value => hasGraph(value) ? value.witness ?? [] : []
+const crossingsOf = value => hasGraph(value) ? value.crossings ?? [] : []
 
 const serializeState = value =>
-  serialize(graphOf(value), sequenceOf(value), witnessOf(value))
+  serialize(graphOf(value), sequenceOf(value), crossingsOf(value))
 
 const observeState = value =>
   ({ graph: observe(graphOf(value)),
      sequence: sequenceOf(value),
-     witness: witnessOf(value) })
+     crossings: crossingsOf(value) })
 
 const observeUntilStable = (term, remaining = 64) => {
   const graph = graphOf(term)
@@ -94,7 +94,7 @@ const observeUntilStable = (term, remaining = 64) => {
   if (remaining <= 0) throw new Error('Expression did not settle')
   return observeUntilStable({ graph: next,
                               sequence: sequenceOf(term),
-                              witness: witnessOf(term) },
+                              crossings: crossingsOf(term) },
                             remaining - 1)
 }
 
@@ -106,7 +106,7 @@ const serializeSteps = (term, remaining = 64) => {
   return [serializeState(term),
           ...serializeSteps({ graph: next,
                               sequence: sequenceOf(term),
-                              witness: witnessOf(term) },
+                              crossings: crossingsOf(term) },
                             remaining - 1)]
 }
 

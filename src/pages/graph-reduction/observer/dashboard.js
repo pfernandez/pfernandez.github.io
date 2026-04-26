@@ -10,88 +10,62 @@ import { observe } from './observe.js'
  * Interactive host for stepping pair graphs in the browser.
  */
 
+const infer = (
+  { graph,
+    history,
+    time = history.length,
+    previous = history[time - 1],
+    stable = previous?.graph === graph }) => ({ time, previous, stable })
+
+const dashboard = component(state => {
+  const { graph, source, history, error, options } = state
+  const { className, title, description, scene } = options
+  const { time, previous, stable } = infer(state)
+
+  const view = () =>
+    dashboard({ ...state, graph: observe(graph), history: [...history, state] })
+  const load = source => dashboard({ ...state, ...compile(source), source })
+  const undo = () => dashboard(previous)
+  const reset = () => dashboard(history[0])
+
+  return div(
+    { class: `dashboard ${className}` },
+    div({ class: 'panel' },
+        h2(title),
+        p({ class: 'description' }, description),
+
+        label('Program / expression',
+              textarea({ value: source, onchange: load, spellcheck: false })),
+
+        div({ class: 'row' },
+            button({ onclick: view, disabled: stable || error },
+                   stable ? 'Stable' : 'Next'),
+            button({ onclick: undo, disabled: time === 0 }, 'Undo'),
+            button({ onclick: reset, disabled: time === 0 }, 'Reset')),
+
+        div({ class: 'description' }, `Steps: ${time}`)),
+    div({ class: 'panel scene' }, error || scene(state)))
+})
+
 /**
  * Wraps a scene renderer with a source editor and step controls.
  *
- * The dashboard currently owns "observer time" state such as history and focus.
- * This keeps `observe` pure and pair-local while still letting the UI replay
- * snapshots, undo, and reset.
+ * The dashboard currently owns "observer time" state such as the history and
+ * graph. This keeps `observe` pure and pair-local while still letting the UI
+ * replay snapshots, undo, and reset.
  *
- * @typedef {(graph: unknown, sequence: unknown[], witness: unknown[]) => unknown} Scene
- * @typedef {{
- *   className: string,
- *   title: string,
- *   description: string,
- *   scene: Scene
- * }} DashboardOptions
+ * @typedef {*} State
+ * @typedef {(State) => any} Scene
+ * @typedef
+ * {{ className: string, title: string, description: string, scene: Scene }}
+ * DashboardOptions
  *
  * @param {DashboardOptions} options
  * @returns {Function}
  */
-export default ({ className, title, description, scene }) => {
-  // The dashboard carries source text, serialization inputs, graph history,
-  // and observer time. The observer itself stays a pure graph step.
-  const dashboard = component(({
-    source = DEFAULT_SOURCE,
-    graph: initialGraph = compile(source),
-    sequence: initialSequence = null,
-    witness: initialWitness = null,
-    history = []
-  } = {}) => {
-    const state = initialGraph?.graph
-      ? initialGraph
-      : { graph: initialGraph,
-          sequence: initialSequence ?? [],
-          witness: initialWitness ?? [] }
-    const { graph: focus, sequence, witness = [] } = state
-    const time = history.length
-    const previous = history[time - 1]
-    const error =
-      typeof focus === 'object' && !Array.isArray(focus) && String(focus)
+export default options => () => dashboard(
+  { ...compile(DEFAULT_SOURCE),
+    source: DEFAULT_SOURCE,
+    history: [],
+    options })
 
-    const stable = !!time && previous?.graph === focus
-
-    const view = () =>
-      dashboard({ source,
-                  graph: observe(focus),
-                  sequence,
-                  witness,
-                  history: [...history, state] })
-
-    const undo = () =>
-      dashboard({ source,
-                  graph: previous?.graph,
-                  sequence: previous?.sequence,
-                  witness: previous?.witness,
-                  history: history.slice(0, -1) })
-
-    const reset = () => dashboard({ source: DEFAULT_SOURCE })
-
-    return div(
-      { class: `dashboard ${className}` },
-      div({ class: 'panel' },
-          h2(title),
-          p({ class: 'description' }, description),
-
-          label('Program / expression',
-                textarea({ value: source,
-                           onchange: value =>
-                             dashboard({
-                               source: value,
-                               graph: compile(value)
-                             }),
-                           spellcheck: false })),
-
-          div({ class: 'row' },
-              button({ onclick: view, disabled: stable || !!error },
-                     stable ? 'Stable' : 'Next'),
-              button({ onclick: undo, disabled: time === 0 }, 'Undo'),
-              button({ onclick: reset }, 'Reset')),
-
-          div({ class: 'description' }, `Steps: ${time}`)),
-
-      div({ class: 'panel scene' }, error || scene(focus, sequence, witness)))
-  })
-
-  return dashboard
-}

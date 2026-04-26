@@ -9,9 +9,9 @@ const hasGraph = value =>
 
 const graphOf = value => hasGraph(value) ? value.graph : value
 const sequenceOf = value => hasGraph(value) ? value.sequence : []
-const witnessOf = value => hasGraph(value) ? value.witness ?? [] : []
+const crossingsOf = value => hasGraph(value) ? value.crossings ?? [] : []
 const serializeState = value =>
-  serialize(graphOf(value), sequenceOf(value), witnessOf(value))
+  serialize(graphOf(value), sequenceOf(value), crossingsOf(value))
 
 describe('serialize', () => {
   test('serialize writes canonical atoms and pairs', () => {
@@ -43,7 +43,7 @@ describe('serialize', () => {
     assert.equal(serialize([[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']),
                  '(((((0 2) (1 2)) a) b) c)'))
 
-  test('witness chooses how to print an existing cycle', () => {
+  test('crossings chooses how to print an existing cycle', () => {
     const cycle = ['again', null]
     cycle[1] = cycle
     const graph = [[cycle, 'arg'], 'tail']

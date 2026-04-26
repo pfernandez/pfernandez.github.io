@@ -3,27 +3,22 @@ import { encode, materializeProgram } from './encode.js'
 import { parse } from './parse.js'
 
 /**
- * Compiles source text into the graph consumed by `observe`.
+ * Compiles source text by running the public graph pipeline.
  *
- * Single source expressions still travel through the public
- * `construct(encode(parse(source)))` path. Programs with definitions compile
- * directly to the materialized graph so live slots, shared continuations, and
- * recursive fixed points keep their object identities.
+ * Single source expressions still travel through the ordinary encoded-term
+ * construction path. Multi-form programs materialize directly so shared
+ * continuations, crossings, and live recursive structure keep graph identity.
  *
  * @param {string} source
  * @returns {*|Error}
  */
 export const compile = source => {
-  const ast = parse(source)
-  if (ast instanceof Error) return ast
-
   try {
-    return ast.length === 1
-      ? construct(encode(ast))
-      : materializeProgram(ast)
+    const ast = parse(source)
+    return ast.length === 1 ? construct(encode(ast)) : materializeProgram(ast)
   }
   catch (error) {
     console.error(error)
-    return error
+    return { error: String(error) }
   }
 }

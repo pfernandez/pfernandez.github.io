@@ -11,7 +11,7 @@ import {
 const createMaterializerState = () => ({
   groups: [],
   slotsByGroup: new WeakMap(),
-  witness: []
+  crossings: []
 })
 
 const rememberSequenceSlot = (state, meta, node) => {
@@ -27,8 +27,8 @@ const rememberSequenceSlot = (state, meta, node) => {
 const sequenceFrom = state =>
   state.groups.flatMap(slots => slots.filter(Boolean))
 
-const rememberWitness = (state, node) => {
-  if (!state.witness.includes(node)) state.witness.push(node)
+const rememberCrossing = (state, node) => {
+  if (!state.crossings.includes(node)) state.crossings.push(node)
 }
 
 const materializeDelayedCall = (value, seen, state, resolveValue) => {
@@ -67,7 +67,7 @@ const materializePair = (value, seen, state, resolveValue) => {
 const materializeNode = (value, seen, state, resolveValue) => {
   const existing = seen.get(value)
   if (existing) {
-    if (isPair(value) && value[0] !== value) rememberWitness(state, existing)
+    if (isPair(value) && value[0] !== value) rememberCrossing(state, existing)
     return existing
   }
   if (isDelayedCall(value)) {
@@ -85,15 +85,15 @@ const materializeNode = (value, seen, state, resolveValue) => {
  * Turns encoder-only placeholders into the plain pair graph used by observe.
  *
  * The returned `sequence` is the ordered argument path needed by serialize.
- * The returned `witness` names cycles that were already present in the input,
- * so serialize can print them without guessing.
+ * The returned `crossings` names graph points that participate in the same
+ * sequence through shared identity, recurrence, or another lattice dimension.
  *
  * @param {*} value
  * @param {function(*): *} [resolveValue]
- * @returns {{graph: *, sequence: *[], witness: *[]}}
+ * @returns {{graph: *, sequence: *[], crossings: *[]}}
  */
 export const materialize = (value, resolveValue = node => node) => {
   const state = createMaterializerState()
   const graph = materializeNode(value, new WeakMap(), state, resolveValue)
-  return { graph, sequence: sequenceFrom(state), witness: state.witness }
+  return { graph, sequence: sequenceFrom(state), crossings: state.crossings }
 }

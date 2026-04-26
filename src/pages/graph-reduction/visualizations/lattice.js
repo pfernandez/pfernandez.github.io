@@ -100,8 +100,8 @@ const collectGraph = (
 const childrenById = edges =>
   edges.reduce((children, edge) =>
     new Map(children).set(edge.from,
-                          [...(children.get(edge.from) ?? []), edge.to]),
-  new Map())
+                          [...children.get(edge.from) ?? [], edge.to]),
+               new Map())
 
 const rawLayout = ({ id: root, edges }) => {
   const children = childrenById(edges)
@@ -139,7 +139,7 @@ const centeredPoints = placed => {
          maxX: Math.max(box.maxX, point.x),
          minY: Math.min(box.minY, point.y),
          maxY: Math.max(box.maxY, point.y) }),
-    { minX: 0, maxX: 0, minY: 0, maxY: 0 })
+            { minX: 0, maxX: 0, minY: 0, maxY: 0 })
   const center = { x: (bounds.minX + bounds.maxX) / 2,
                    y: (bounds.minY + bounds.maxY) / 2,
                    z: 0 }
@@ -162,7 +162,7 @@ const fixedBasis = (node, child) =>
 
 const loopPoints = ({ point }, basis, radius = 0.18, steps = 32) =>
   Array.from({ length: steps }, (_, index) => {
-    const angle = (Math.PI * 2 * index) / steps
+    const angle = Math.PI * 2 * index / steps
     return add(point,
                add(scale(basis.tangent, Math.cos(angle) * radius),
                    scale(basis.surfaceNormal, Math.sin(angle) * radius)))
@@ -253,7 +253,7 @@ const latticeScene = pair => {
 export default dashboard(
   { className: 'lattice',
     title: 'Lattice',
-    description: ['Literal graph sketch: pairs are line segments,',
-                  'and fixed points are standing loops with payload spokes.']
-      .join(' '),
-    scene: latticeScene })
+    description:
+    ['Literal graph sketch: pairs are line segments,',
+     'and fixed points are standing loops with payload spokes.'].join(' '),
+    scene: ({ graph }) => latticeScene(graph) })
