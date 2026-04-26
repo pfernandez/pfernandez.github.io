@@ -5,7 +5,7 @@ import {
   templateArity
 } from './encode.js'
 import { materialize } from './materialize.js'
-import { applyArgs, isList, isPair } from './shared.js'
+import { applyArgs, isFixed, isList, isPair } from './shared.js'
 
 const applicationSplits = term =>
   isPair(term)
@@ -59,17 +59,19 @@ const constructOrdinaryApplication = term => {
 const constructTerm = term => {
   if (!isList(term)) return term
   if (term.length === 0) return []
+  if (isFixed(term)) return term
 
   const templated = constructTemplateApplication(term)
   return templated ?? constructOrdinaryApplication(term)
 }
 
 /**
- * Constructs the graph consumed by `observe` from one encoded term.
+ * Constructs the graph consumed by `observe` from one expanded term.
  *
- * `construct` knows only arrays, numbers, and atoms. Numeric pair shapes are
- * read as argument templates, then materialized as ordinary pair structure.
- * Program constructs such as `def` and `defn` belong to `encode`, not here.
+ * `construct` knows arrays, atoms, numeric templates, and explicit graph
+ * tokens. Numeric pair shapes are read as argument templates, while fixed
+ * points and delayed construction tokens are preserved for materialization.
+ * Program constructs such as `def` and `defn` belong to `expand`, not here.
  *
  * @param {import('./parse.js').SourceForm} term
  * @returns {{graph: *, sequence: *[], crossings: *[]}}
