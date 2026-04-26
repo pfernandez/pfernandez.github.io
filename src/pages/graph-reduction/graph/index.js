@@ -3,8 +3,8 @@
  *
  * Pure graph helpers for pair-encoded S-expressions.
  *
- * The public pipeline is intentionally direct:
- * `compile(source)` is `construct(encode(parse(source)))`.
+ * The public compiler pipeline is:
+ * `compile(source)` is `construct(expand(parse(source)))`.
  *
  * Supported:
  * - Lists and applications: `(f x y)`
@@ -18,6 +18,7 @@
  * Intentionally not supported: strings, quoting, dotted pairs, reader macros.
  */
 export { compile } from './compile.js'
+export { expand } from './expand.js'
 export { encode } from './encode.js'
 export { construct } from './construct.js'
 export { parse } from './parse.js'

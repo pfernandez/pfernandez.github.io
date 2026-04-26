@@ -8,6 +8,17 @@ export const delayedCalls = new WeakMap()
 export const applyArgs = (head, args) =>
   args.reduce((left, right) => [left, right], head)
 
+export const application = (expr, seen = new WeakSet()) => {
+  if (!isList(expr) || expr.length === 0 || isFixed(expr) || seen.has(expr)) {
+    return [expr, []]
+  }
+
+  seen.add(expr)
+  const [head, ...rest] = expr
+  const [base, args] = application(head, seen)
+  return [base, [...args, ...rest]]
+}
+
 export const serializeList = (pair, serializeChild) => {
   if (pair.length === 0) return '()'
   if (pair.length !== 2) throw new Error('Lists must be empty or pairs')

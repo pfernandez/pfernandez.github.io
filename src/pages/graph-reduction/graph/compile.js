@@ -1,21 +1,20 @@
 import { construct } from './construct.js'
-import { encode, materializeProgram } from './encode.js'
+import { expand } from './expand.js'
 import { parse } from './parse.js'
 
 /**
- * Compiles source text by running the public graph pipeline.
+ * Compiles source text by running the graph pipeline.
  *
- * Single source expressions still travel through the ordinary encoded-term
- * construction path. Multi-form programs materialize directly so shared
- * continuations, crossings, and live recursive structure keep graph identity.
+ * Source is parsed, expanded into a constructible symbolic term, and then
+ * constructed as a live graph with shared identity, crossings, and fixed
+ * points preserved.
  *
  * @param {string} source
- * @returns {*|Error}
+ * @returns {*|{error: string}}
  */
 export const compile = source => {
   try {
-    const ast = parse(source)
-    return ast.length === 1 ? construct(encode(ast)) : materializeProgram(ast)
+    return construct(expand(parse(source)))
   }
   catch (error) {
     console.error(error)
