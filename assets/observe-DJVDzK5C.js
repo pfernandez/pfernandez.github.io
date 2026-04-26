@@ -1,0 +1,1 @@
+const s=r=>{if(!Array.isArray(r))return r;const[t,e]=r;if(!Array.isArray(t))return r;if(t===r||!t.length)return e;const n=s(t);if(n!==t)return[n,e];const i=s(e);return i!==e?[t,i]:r};export{s as observe};

@@ -1,0 +1,1 @@
+import{construct as t}from"./construct-D8-8Ujuh.js";import{expand as e}from"./expand-eDonBi6t.js";import{parse as m}from"./parse-CllDPKqS.js";import"./materialize-D0wSvoPu.js";import"./shared-CLRPfav4.js";import"./template-DTPkhQDh.js";const f=o=>{try{return t(e(m(o)))}catch(r){return console.error(r),{error:String(r)}}};export{f as compile};
