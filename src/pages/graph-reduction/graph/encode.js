@@ -1,6 +1,6 @@
-import { applyArgs, argumentSlotTemplate, argumentSlotTemplates, cycleTemplate,
-         delayedCall, delayedCalls, isArgumentSlotTemplate, isDelayedCall,
-         isFixed, isList, isPair, withCycleBody } from './shared.js'
+import { application, applyArgs, argumentSlotTemplate, argumentSlotTemplates,
+         cycleTemplate, delayedCall, delayedCalls, isArgumentSlotTemplate,
+         isDelayedCall, isFixed, isList, isPair, withCycleBody } from './shared.js'
 import { materialize } from './materialize.js'
 import { project } from './serialize.js'
 
@@ -46,17 +46,6 @@ const indexProgram = forms => {
   }, { env: new Map(), expr: null })
   if (expr === null) throw new Error('Program must end with an expression')
   return { env, expr }
-}
-
-export const application = (expr, seen = new WeakSet()) => {
-  if (!isList(expr) || expr.length === 0 || isFixed(expr) || seen.has(expr)) {
-    return [expr, []]
-  }
-
-  seen.add(expr)
-  const [head, ...rest] = expr
-  const [base, args] = application(head, seen)
-  return [base, [...args, ...rest]]
 }
 
 const collectSlotIndexes = (node, seen = new WeakSet()) => {
