@@ -7,10 +7,13 @@ import {
 } from './shared.js'
 
 const SLOT = Symbol('slot')
+const TRIGGER = Symbol('trigger')
+
 const isSlot = x => x && typeof x === 'object' && x.kind === SLOT
+const isTrigger = x => x && typeof x === 'object' && x.kind === TRIGGER
 
 /**
- * Compiles source text using the successful logic of the original compiler.
+ * Compiles source text into a pure pair graph (no redundant definition structure).
  */
 export const compile = source => {
   try {
@@ -54,7 +57,6 @@ const expand = (expr, env, locals = new Map(), stack = []) => {
       return expand(entry[2], env, locals, [...stack, expr])
     }
     
-    // defn returns a Function Object
     return { kind: 'func', name: expr, params: entry[2], body: entry[3], args: [], env, stack: [...stack, expr] }
   }
   if (!isList(expr)) return expr
@@ -68,7 +70,6 @@ const expand = (expr, env, locals = new Map(), stack = []) => {
     if (acc && typeof acc === 'object' && acc.kind === 'func') {
       const nextArgs = [...acc.args, arg]
       if (nextArgs.length >= acc.params.length) {
-        // Fully applied! Instant wire.
         const fnParams = acc.params
         const fnBody = acc.body
         const group = {}
@@ -76,10 +77,10 @@ const expand = (expr, env, locals = new Map(), stack = []) => {
         const slots = nextArgs.slice(0, fnParams.length).map((v, i) => ({ kind: SLOT, value: v, index: i, group }))
         fnParams.forEach((p, i) => nextLocals.set(p, slots[i]))
         
-        // Recurse to expand the wired body
         const body = expand(fnBody, env, nextLocals, acc.stack)
-        // Recurse again to ensure everything is irreducible
-        return expand(body, env, new Map(), acc.stack)
+        
+        // Return a Trigger to keep the causal tick
+        return { kind: TRIGGER, payload: applyArgs(body, nextArgs.slice(fnParams.length)) }
       }
       return { ...acc, args: nextArgs }
     }
@@ -101,7 +102,14 @@ const materialize = (term) => {
       return result
     }
     
-    if (isSlot(node)) {
+    if (node && typeof node === 'object' && node.kind === TRIGGER) {
+      const fixed = fixedClosure(null)
+      seen.set(node, fixed)
+      fixed[1] = walk(node.payload)
+      return fixed
+    }
+
+    if (node && typeof node === 'object' && node.kind === SLOT) {
       const fixed = fixedClosure(null)
       seen.set(node, fixed)
       fixed[1] = walk(node.value)
