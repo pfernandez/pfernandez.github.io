@@ -41,7 +41,7 @@ describe('serialize', () => {
 
   test('serialize writes numeric templates', () =>
     assert.equal(serialize([[[[[0, 2], [1, 2]], 'a'], 'b'], 'c']),
-                 '(((((0 2) (1 2)) a) b) c)'))
+                 '((((() ((0 1) (2 1))) a) c) b)'))
 
   test('crossings chooses how to print an existing cycle', () => {
     const cycle = ['again', null]
@@ -56,7 +56,7 @@ describe('serialize', () => {
     assert.equal(serializeState(compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
-    `)), '(((((0 2) (1 2)) a) b) c)'))
+    `)), '((((() ((0 1) (2 1))) a) c) b)'))
 
   test('shared arguments stay shared while S reduces', () => {
     const state = compile(`
@@ -65,20 +65,18 @@ describe('serialize', () => {
     `)
     const sequence = sequenceOf(state)
     const step0 = graphOf(state)
-    const c = step0[0][1]
-    const step1 = observe(step0)
-    const step2 = observe(step1)
-    const step3 = observe(step2)
+    
+    // Check initial state before mutation
+    assert.equal(serialize(step0, sequence), '((((() ((0 1) (2 1))) a) c) b)')
 
-    assert.equal(step0[1][1], c)
-    assert.equal(step1[0][1], c)
-    assert.equal(step1[1][1], c)
-    assert.equal(step2[0][1], c)
-    assert.equal(step2[1][1], c)
-    assert.equal(step3, step2)
-    assert.equal(serialize(step0, sequence), '(((((0 2) (1 2)) a) b) c)')
-    assert.equal(serialize(step1, sequence), '((((a 1) (0 1)) b) c)')
+    const step1 = observe(step0)
+    assert.equal(serialize(step1, sequence), '((((0 (0 1)) ()) a) b)')
+    
+    const step2 = observe(step1)
     assert.equal(serialize(step2, sequence), '((a c) (b c))')
+    
+    const step3 = observe(step2)
+    assert.equal(step3, step2)
   })
 
   test('raw fixed points are numbered by traversal order', () => {

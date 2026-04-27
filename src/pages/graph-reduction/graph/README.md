@@ -112,7 +112,7 @@ Important invariant:
 construct(expand(parse(source)))
 ```
 
-should be the only compiler path. There should not be a separate program compiler such as `materializeProgram` hidden inside `compile`.
+should be the only compiler path. There should not be a separate program compiler hidden inside `compile`.
 
 ### `materialize.js`
 
@@ -272,9 +272,7 @@ This lets the graph carry atoms and recursive state until the system can become 
 
 ### Crossings
 
-`crossings` names graph points that appear through shared identity, recurrence, or another lattice dimension.
-
-The old name was `witness`. It was renamed to `crossings` so the graph language can eventually connect more naturally to mathematical concepts such as crossings, paths, projections, and higher-dimensional structure.
+`crossings` names graph points that appear through shared identity, recurrence, or another lattice dimension. It is named `crossings` so the graph language can eventually connect more naturally to mathematical concepts such as crossings, paths, projections, and higher-dimensional structure.
 
 ### Observation
 

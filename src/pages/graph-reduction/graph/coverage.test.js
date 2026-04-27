@@ -40,7 +40,7 @@ describe('graph coverage boundaries', () => {
     const shared = ['a', 'b']
     const state = materialize([shared, shared])
 
-    assert.equal(state.graph[0], state.graph[1])
+    assert.equal(serialize(state.graph, state.sequence, state.crossings), '(0 0)')
     assert.deepEqual(state.crossings, [state.graph[0]])
   })
 

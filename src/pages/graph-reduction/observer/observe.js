@@ -1,3 +1,19 @@
+let ticks = 0
+
+function trace(arr, path = '$', seen = new Map()) {
+  if (!Array.isArray(arr)) return arr
+
+  if (seen.has(arr)) {
+    return `${seen.get(arr)}`
+  }
+
+  seen.set(arr, path)
+
+  return arr.map((item, index) =>
+    trace(item, `${path}[${index}]`, seen)
+  )
+}
+
 /**
  * Performs one observation step.
  *
@@ -5,8 +21,11 @@
  * @returns {unknown}
  */
 export const observe = focus => {
+  console.log(JSON.stringify(trace(focus), null, 2))
+  ticks++
+
   // Atoms are stable
-  if (!Array.isArray(focus)) return focus
+  if (!Array.isArray(focus) || focus.length === 0) return focus
 
   const [first, rest] = focus
 
@@ -18,12 +37,20 @@ export const observe = focus => {
 
   // Observe the next left child
   const nextFirst = observe(first)
-  if (nextFirst !== first) return [nextFirst, rest]  // TBD: Immutability?
+
+  if (nextFirst !== first) {
+    focus[0] = nextFirst
+    return [nextFirst, rest]
+  }
 
   // Observe right if left was stable
   const nextRest = observe(rest)
-  if (nextRest !== rest) return [first, nextRest]
+  if (nextRest !== rest) {
+    focus[1] = nextRest
+    return [first, nextRest]
+  }
 
   // Both sides stable
   return focus
 }
+

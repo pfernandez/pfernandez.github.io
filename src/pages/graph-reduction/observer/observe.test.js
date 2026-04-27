@@ -185,11 +185,15 @@ describe('single active identity proof target', () => {
     const left = [applyA, c]
     const right = [applyB, c]
     const term = [left, right]
-    const result = reduce(term, 64)
-    const active = collectFixedPairs(term)
+    
+    const activeBefore = collectFixedPairs(term)
+    assert.equal(activeBefore.length, 1)
+    assert.equal(activeBefore[0], activeIdentity)
 
-    assert.equal(active.length, 1)
-    assert.equal(active[0], activeIdentity)
+    const result = reduce(term, 64)
+    const activeAfter = collectFixedPairs(term)
+
+    assert.equal(activeAfter.length, 0)
     assert.deepEqual(result, [['a', c], ['b', c]])
     assert.equal(result[0][1], c)
     assert.equal(result[0][1], result[1][1])

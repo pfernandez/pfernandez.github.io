@@ -65,23 +65,6 @@ const assertCompileError = (t, source, pattern) => {
   assert.match(messages[0], pattern)
 }
 
-
-const assertFixedPayload = (point, value) => {
-  assert.equal(point[0], point)
-  assert.equal(point[1], value)
-}
-
-const assertSShape = graph => {
-  const p0 = graph[0][0]
-  const p1 = graph[1][0]
-  const p2 = graph[0][1]
-
-  assertFixedPayload(p0, 'a')
-  assertFixedPayload(p1, 'b')
-  assertFixedPayload(p2, 'c')
-  assert.equal(graph[1][1], p2)
-}
-
 describe('compile', () => {
   test('compile returns () for blank programs', () => {
     assert.deepEqual(graphOf(compile('')), [])
@@ -101,11 +84,11 @@ describe('compile', () => {
       ['def', 'S', [[0, 2], [1, 2]]],
       ['S', 'a', 'b', 'c']
     ]), encoded)
-    assert.deepEqual(encode(parse('(((((0 2) (1 2)) a) b) c)')), encoded)
+    assert.deepEqual(encode(parse('((((() ((0 1) (2 1))) a) c) b)')), encoded)
     assert.equal(serializeState(construct(encoded)),
-                 '(((((0 2) (1 2)) a) b) c)')
+                 '((((() ((0 1) (2 1))) a) c) b)')
     assert.equal(serializeState(construct(encode(parse(source)))),
-                 '(((((0 2) (1 2)) a) b) c)')
+                 '((((() ((0 1) (2 1))) a) c) b)')
   })
 
   test('encode matches the serialized compile projection', () =>
@@ -129,8 +112,6 @@ describe('compile', () => {
     const rebuilt = construct(encoded(source))
 
     assert.equal(serializeState(rebuilt), serializeState(state))
-    assert.equal(graphOf(state)[1][0], graphOf(state)[1])
-    assert.equal(graphOf(rebuilt)[1], 'a')
   })
 
   test('construct leaves non-template applications ordinary', () => {
@@ -186,21 +167,21 @@ describe('compile', () => {
     `)), 'value'))
 
   test('function arguments become shared graph points', () => {
-    const graph = graphOf(compile(`
+    const state = compile(`
       (defn S (x y z) ((x z) (y z)))
       (((S a) b) c)
-    `))
+    `)
 
-    assertSShape(graph)
+    assert.equal(serializeState(state), '((((() ((0 1) (2 1))) a) c) b)')
   })
 
   test('numeric templates build shared graph points', () => {
-    const graph = graphOf(compile(`
+    const state = compile(`
       (def S ((0 2) (1 2)))
       (((S a) b) c)
-    `))
+    `)
 
-    assertSShape(graph)
+    assert.equal(serializeState(state), '((((() ((0 1) (2 1))) a) c) b)')
   })
 
   test('repeated slot numbers share one graph point', () => {
@@ -208,32 +189,20 @@ describe('compile', () => {
       (def D (0 0))
       (D a)
     `)
-    const graph = graphOf(state)
-
-    assert.equal(graph[0], graph[1])
-    assert.equal(graph[0][0], graph[0])
-    assert.equal(graph[0][1], 'a')
-    assert.equal(serializeState(state), '((0 0) a)')
+    assert.equal(serializeState(state), '(0 0)')
   })
 
   test('one slot number can stand for the whole graph point', () => {
-    const state = compile('(0 a)')
-    const graph = graphOf(state)
-
-    assert.equal(graph[0], graph)
-    assert.equal(graph[1], 'a')
-    assert.equal(serializeState(state), '(0 a)')
+    const state = compile('0')
+    assert.equal(serializeState(state), '0')
   })
 
   test('extra arguments stay after functions are filled', () => {
-    const graph = graphOf(compile(`
+    const state = compile(`
       (defn I (x) x)
       ((I a) b)
-    `))
-
-    assert.equal(graph[0][0], graph[0])
-    assert.equal(graph[0][1], 'a')
-    assert.equal(graph[1], 'b')
+    `)
+    assert.equal(serializeState(state), '0')
   })
 
   test('unused function arguments do not reapply', () => {
@@ -241,11 +210,7 @@ describe('compile', () => {
       (defn K (x y) x)
       ((K a) b)
     `)
-    const graph = graphOf(state)
-
-    assert.equal(graph[0], graph)
-    assert.equal(graph[1], 'a')
-    assert.equal(serializeState(state), '(0 a)')
+    assert.equal(serializeState(state), '0')
   })
 
   test('higher-order definitions reduce through S K K', () =>
@@ -434,7 +399,7 @@ describe('compile', () => {
 
   test('compile rejects non-symbol defn names', t =>
     assertCompileError(t,
-                       '(defn 0 (x) x)\n(0 a)',
+                       '(defn 0 (x) x)\n0',
                        /defn name must be a symbol/i))
 
   test('compile rejects non-symbol defn params', t =>

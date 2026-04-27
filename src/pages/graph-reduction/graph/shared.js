@@ -2,8 +2,8 @@ export const isList = Array.isArray
 export const isPair = node => isList(node) && node.length === 2
 export const isFixed = node => isPair(node) && node[0] === node
 
-export const argumentSlotTemplates = new WeakMap()
-export const delayedCalls = new WeakMap()
+const DELAYED_CALL = Symbol('delayed-call')
+const ARGUMENT_SLOT = Symbol('argument-slot')
 
 export const applyArgs = (head, args) =>
   args.reduce((left, right) => [left, right], head)
@@ -33,11 +33,12 @@ export const fixedClosure = value => {
 }
 
 // Temporary encoder object: materialize turns this into a fixed graph point.
-export const argumentSlotTemplate = (value, slot, group) => {
-  const template = {}
-  argumentSlotTemplates.set(template, { group, slot, value })
-  return template
-}
+export const argumentSlotTemplate = (value, slot, group) => ({
+  [ARGUMENT_SLOT]: true,
+  group,
+  slot,
+  value
+})
 
 export const cycleTemplate = () => {
   const template = []
@@ -51,16 +52,16 @@ export const withCycleBody = (template, body) => {
 }
 
 // Temporary encoder object: a named call waiting for enough arguments.
-export const delayedCall = meta => {
-  const value = {}
-  delayedCalls.set(value, meta)
-  return value
-}
+export const delayedCall = meta => ({
+  [DELAYED_CALL]: true,
+  ...meta
+})
 
 export const isDelayedCall = value =>
-  Boolean(value) && typeof value === 'object' && delayedCalls.has(value)
+  Boolean(value) && typeof value === 'object' && value[DELAYED_CALL]
 
 export const isArgumentSlotTemplate = value =>
-  Boolean(value)
-  && typeof value === 'object'
-  && argumentSlotTemplates.has(value)
+  Boolean(value) && typeof value === 'object' && value[ARGUMENT_SLOT]
+
+export const getDelayedCallMeta = value => value
+export const getArgumentSlotMeta = value => value
