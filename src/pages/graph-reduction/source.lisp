@@ -2,23 +2,12 @@
 ; The compiler expands `def` and fully applied `defn` forms into pair motifs
 ; that `observe` can expose one tick at a time.
 
-(def I ())
-(def id I)
-
+(defn I (x) x)
 (defn K (x y) x)
-(def const K)
-
 (defn S (x y z) ((x z) (y z)))
-(def spread S)
-
 (defn B (f g x) (f (g x)))
-(def compose B)
-
 (defn C (f x y) ((f y) x))
-(def flip C)
-
 (defn W (f x) ((f x) x))
-(def split W)
 
 (defn true (x y) x)
 (defn false (x y) y)
