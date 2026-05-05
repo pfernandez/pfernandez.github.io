@@ -1,137 +1,100 @@
 import { parse } from './parse.js'
-import {
-  applyArgs,
-  fixedClosure,
-  isList,
-  isPair
-} from './shared.js'
 
-const SLOT = Symbol('slot')
-const TRIGGER = Symbol('trigger')
+const isList = v => Array.isArray(v)
+const lookup = (env, name) => env.findLast(e => e.name === name)
 
-const isSlot = x => x && typeof x === 'object' && x.kind === SLOT
-const isTrigger = x => x && typeof x === 'object' && x.kind === TRIGGER
+const resolveAlias = (term, env, seen = []) => {
+  if (typeof term !== 'string') return term
+  if (seen.includes(term)) throw new Error(`cyclic alias: ${[...seen, term].join(' -> ')}`)
+  const entry = lookup(env, term)
+  return entry?.alias ? resolveAlias(entry.alias, env, [...seen, term]) : term
+}
 
-/**
- * Compiles source text into a pure pair graph (no redundant definition structure).
- */
+const applicationOf = term => {
+  if (!isList(term) || !term.length) return { head: term, args: [] }
+  const prefix = applicationOf(term[0])
+  return { head: prefix.head, args: [...prefix.args, ...term.slice(1)] }
+}
+
+const applyArgs = (head, args) => args.reduce((l, r) => [l, r], head)
+
+const carryForever = v => {
+  const g = [[], v]
+  g[0] = [[], g]
+  return g
+}
+
+const connectTerm = (term, env, bindings = [], active = []) => {
+  if (typeof term === 'string') {
+    const b = bindings.findLast(b => b.name === term)
+    if (b) return b.value
+    const r = resolveAlias(term, env)
+    return r === term ? term : connectTerm(r, env, bindings, active)
+  }
+  if (!isList(term) || !term.length) return []
+
+  const { head, args } = applicationOf(term)
+  const cHead = connectTerm(head, env, bindings, active)
+  const cArgs = args.map(a => connectTerm(a, env, bindings, active))
+  const connected = applyArgs(cHead, cArgs)
+
+  const app = applicationOf(connected)
+  const entry = lookup(env, resolveAlias(app.head, env))
+
+  return entry?.params && app.args.length >= entry.params.length
+    ? connectDef(entry, app.args, env, active)
+    : connected
+}
+
+export const reduceDefinition = ([params, body], args, env = [], active = []) => {
+  const bindings = params.map((name, i) => ({ name, value: args[i] }))
+  return [[], connectTerm(body, env, bindings, active)]
+}
+
+const isDirectSelf = e => {
+  if (!isList(e.body)) return false
+  const app = applicationOf(e.body)
+  return app.head === e.name && app.args.length === e.params.length
+    && app.args.every((a, i) => a === e.params[i])
+}
+
+const isFixedPoint = e => {
+  if (e.params?.length !== 1 || !isList(e.body) || e.body.length !== 2) return false
+  const [l, r] = e.body
+  return JSON.stringify(l) === JSON.stringify(r) && JSON.stringify(l).includes(JSON.stringify(e.params[0]))
+}
+
+const getPayload = (e, args, env) => {
+  if (!isFixedPoint(e) || args.length !== 1) return
+  const t = lookup(env, resolveAlias(args[0], env))
+  if (!t || t.params?.length !== 1 || !isList(t.body)) return
+  const app = applicationOf(t.body)
+  return app.head === t.params[0] && app.args.length === 1 ? connectTerm(app.args[0], env) : undefined
+}
+
+const connectDef = (e, args, env, active) => {
+  const callArgs = args.slice(0, e.params.length)
+  if (active.some(f => f.name === e.name && f.args.length === callArgs.length && f.args.every((a, i) => a === callArgs[i]))) {
+    return isDirectSelf(e) ? carryForever(callArgs.reduce((l, r) => [l, r])) : applyArgs(e.name, callArgs)
+  }
+  const payload = getPayload(e, args, env)
+  if (payload) return carryForever(payload)
+
+  return reduceDefinition(
+    [e.params, applyArgs(e.body, args.slice(e.params.length))],
+    callArgs, env, [...active, { name: e.name, args: callArgs }]
+  )
+}
+
 export const compile = source => {
   try {
-    const forms = parse(source)
-    if (!forms.length) return { graph: [], sequence: [], crossings: [] }
-
-    const { env, expression } = indexProgram(forms)
-    const expanded = expand(expression, env)
-    return materialize(expanded)
-  }
-  catch (error) {
-    console.error(error)
-    return { error: String(error) }
-  }
-}
-
-const indexProgram = forms => {
-  const env = new Map()
-  let expression = []
-
-  for (const form of forms) {
-    if (isList(form) && (form[0] === 'def' || form[0] === 'defn')) {
-      const [, name] = form
-      env.set(name, form)
-    } else {
-      expression = form
+    const env = [], forms = parse(source)
+    let expression = []
+    for (const f of forms) {
+      if (isList(f) && f[0] === 'defn') env.push({ name: f[1], params: f[2], body: f[3] })
+      else if (isList(f) && f[0] === 'def') env.push({ name: f[1], alias: f[2] })
+      else expression = f
     }
-  }
-
-  return { env, expression }
-}
-
-const expand = (expr, env, locals = new Map(), stack = []) => {
-  if (typeof expr === 'string') {
-    if (locals.has(expr)) return locals.get(expr)
-    const entry = env.get(expr)
-    if (!entry) return expr
-    if (stack.includes(expr)) return expr
-
-    if (entry[0] === 'def') {
-      return expand(entry[2], env, locals, [...stack, expr])
-    }
-
-    return { kind: 'func', name: expr, params: entry[2], body: entry[3], args: [], env, stack: [...stack, expr] }
-  }
-  if (!isList(expr)) return expr
-  if (expr.length === 0) return []
-
-  const [head, ...args] = expr
-  const expandedHead = expand(head, env, locals, stack)
-  const expandedArgs = args.map(arg => expand(arg, env, locals, stack))
-
-  return expandedArgs.reduce((acc, arg) => {
-    if (acc && typeof acc === 'object' && acc.kind === 'func') {
-      const nextArgs = [...acc.args, arg]
-      if (nextArgs.length >= acc.params.length) {
-        const fnParams = acc.params
-        const fnBody = acc.body
-        const group = {}
-        const nextLocals = new Map(acc.locals)
-        const slots = nextArgs.slice(0, fnParams.length).map((v, i) => ({ kind: SLOT, value: v, index: i, group }))
-        fnParams.forEach((p, i) => nextLocals.set(p, slots[i]))
-
-        const body = expand(fnBody, env, nextLocals, acc.stack)
-
-        // Return a Trigger to keep the causal tick
-        return { kind: TRIGGER, payload: applyArgs(body, nextArgs.slice(fnParams.length)) }
-      }
-      return { ...acc, args: nextArgs }
-    }
-    return [acc, arg]
-  }, expandedHead)
-}
-
-const materialize = term => {
-  const seen = new Map()
-  const sequence = []
-  const crossings = []
-
-  const walk = node => {
-    if (seen.has(node)) {
-      const result = seen.get(node)
-      if (isPair(result) && !crossings.includes(result)) {
-        crossings.push(result)
-      }
-      return result
-    }
-
-    if (node && typeof node === 'object' && node.kind === TRIGGER) {
-      const fixed = fixedClosure(null)
-      seen.set(node, fixed)
-      fixed[1] = walk(node.payload)
-      return fixed
-    }
-
-    if (node && typeof node === 'object' && node.kind === SLOT) {
-      const fixed = fixedClosure(null)
-      seen.set(node, fixed)
-      fixed[1] = walk(node.value)
-      sequence.push(fixed)
-      return fixed
-    }
-
-    if (node && typeof node === 'object' && node.kind === 'func') {
-      const res = applyArgs(node.name, node.args.map(walk))
-      seen.set(node, res)
-      return res
-    }
-
-    if (!isPair(node)) return node
-
-    const result = [null, null]
-    seen.set(node, result)
-    result[0] = walk(node[0])
-    result[1] = walk(node[1])
-    return result
-  }
-
-  const graph = walk(term)
-  return { graph, sequence, crossings }
+    return { graph: connectTerm(expression, env) }
+  } catch (e) { return { error: e.message } }
 }

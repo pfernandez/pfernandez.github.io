@@ -24,7 +24,7 @@ rl.on('line', (line) => {
     if (state.error) {
       console.log('Error:', state.error);
     } else {
-      console.log('Initial:', serialize(state.graph, state.sequence, state.crossings));
+      console.log('Initial:', serialize(state.graph));
       
       let i = 1;
       while (true) {
@@ -33,8 +33,8 @@ rl.on('line', (line) => {
           console.log('Stable at step', i);
           break;
         }
-        state = { graph: nextGraph, sequence: state.sequence, crossings: state.crossings };
-        console.log(`Step ${i}:`, serialize(state.graph, state.sequence, state.crossings));
+        state = { graph: nextGraph };
+        console.log(`Step ${i}:`, serialize(state.graph));
         i++;
         if (i > 64) {
           console.log('Reached step limit');

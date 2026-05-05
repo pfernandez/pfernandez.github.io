@@ -12,6 +12,7 @@
 (defn true (x y) x)
 (defn false (x y) y)
 
+(defn const (x y) x)
 (defn if (p th el) ((p th) el))
 (defn not (p x y) ((p y) x))
 (defn and (p q x y) ((p ((q x) y)) y))
@@ -47,11 +48,5 @@
 
 (defn Z (f) ((THETA f) (THETA f)))
 (def fix Z)
-
-; Try:
-; (((S a) b) c)
-; (((pair a) b) left)
-; ((((add one) two) f) x)
-; ((I a) b)
 
 (((S a) b) c)

@@ -17,5 +17,5 @@ export default dashboard(
     title: 'S-expressions',
     description: ['Folding projection of the current graph.',
                   'Observation performs one tick.'].join(' '),
-    scene: ({ graph, sequence, crossings }) =>
-      serialize(graph, sequence, crossings) })
+    scene: ({ graph }) =>
+      serialize(graph) })
