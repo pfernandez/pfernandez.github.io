@@ -9,7 +9,7 @@ export const observe = focus => {
 
   const [first, rest] = focus
 
-  if (first === focus || (Array.isArray(first) && first.length === 0)) return rest
+  if (first === focus || Array.isArray(first) && first.length === 0) return rest
 
   const nextFirst = observe(first)
   if (nextFirst !== first) return [nextFirst, rest]
