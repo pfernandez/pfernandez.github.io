@@ -54,26 +54,24 @@ describe('observe', () => {
   test('fix', async () => {
     const isAtom = pair => !Array.isArray(pair)
     const isEmpty = pair => !pair.length
-    const isChanged = (before, after) => before !== after
 
     const $ = []
     const x = [[], []]
     $[0] = [[[], $], x]
 
     assert.deepEqual(observe($), $)
-    assert.ok(isChanged($))
+    assert.equal(observe($)[0][1], x)
     assert.ok(!isAtom($))
     assert.ok(!isEmpty($))
   })
 
   test('nest', () => {
-    const f = []
-    const x = [[], []]
-    f[0] = [[], [f, [f, x]]]
+    const x = []
+    x[0] = []
+    x[1] = [[], x]
+    const $ = [[], [[], x]]
 
-    assert.deepEqual(observe(f), [f, [f, x]])
-    assert.equal(observe(f)[0], f)
-    assert.equal(observe(f)[1][0], f)
-    assert.equal(observe(f)[1][1], x)
+    assert.deepEqual(observe($), [[], x])
+    assert.deepEqual(observe(observe($)), [[], [[], x]])
   })
 })

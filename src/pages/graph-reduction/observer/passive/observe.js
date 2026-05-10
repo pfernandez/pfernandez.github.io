@@ -3,16 +3,16 @@ const isEmpty = pair => !pair.length
 /**
  * Performs one observation step.
  *
- * @param {Array | String} focus
- * @returns {Array | String}
+ * @param {Array} focus
+ * @returns {Array} focus
  */
 export const observe = focus => {
   if (isEmpty(focus)) return focus
 
-  const [left, right] = focus
+  const [first, next] = focus
 
-  if (isEmpty(left)) return right
+  if (isEmpty(first)) return next
 
-  return observe(left)
+  return observe(first)
 }
 
