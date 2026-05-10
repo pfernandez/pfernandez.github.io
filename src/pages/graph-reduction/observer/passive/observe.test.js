@@ -66,12 +66,42 @@ describe('observe', () => {
   })
 
   test('nest', () => {
-    const x = []
-    x[0] = []
-    x[1] = [[], x]
-    const $ = [[], [[], x]]
+    const $ = []
+    $[0] = []
+    $[1] = [[], $]
 
-    assert.deepEqual(observe($), [[], x])
-    assert.deepEqual(observe(observe($)), [[], [[], x]])
+    const one = observe($)
+    const two = observe(one)
+    const three = observe(two)
+
+    assert.deepEqual(one, [[], $])
+    assert.deepEqual(two, [[], [[], $]])
+    assert.deepEqual(three, [[], [[], [[], $]]])
+  })
+
+  test('depths share one fixed point', () => {
+    const $ = []
+    $[0] = []
+    $[1] = [[], $]
+
+    const one = observe($)
+    const two = observe(one)
+    const three = observe(two)
+
+    assert.equal(two, $)
+    assert.equal(three, one)
+    assert.deepEqual(one, two)
+    assert.deepEqual(two, three)
+  })
+
+  test('finite depths stay distinct', () => {
+    const zero = []
+    const one = [[], zero]
+    const two = [[], one]
+    const three = [[], two]
+
+    assert.notDeepEqual(zero, one)
+    assert.notDeepEqual(one, two)
+    assert.notDeepEqual(two, three)
   })
 })
