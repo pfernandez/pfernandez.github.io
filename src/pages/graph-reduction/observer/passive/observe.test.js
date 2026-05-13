@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { infer, observe, step } from './observe.js'
+import { observe } from './observe.js'
 
 describe('observe', () => {
   test('empty', () => assert.deepEqual(observe([]), []))
@@ -105,46 +105,6 @@ describe('observe', () => {
     assert.notDeepEqual(two, three)
   })
 
-  test('observer records boundaries', () => {
-    const empty = []
-    const graph = [[], [[], empty]]
-
-    const root = [graph, []]
-    const one = step(root)
-    const two = step(one)
-    const three = step(two)
-
-    assert.equal(one[0], graph[1])
-    assert.equal(one[1], root)
-    assert.deepEqual(infer(one), [])
-
-    assert.equal(two[0], empty)
-    assert.equal(two[1], one)
-    assert.deepEqual(infer(two), [])
-
-    assert.equal(three[0], empty)
-    assert.equal(three[1], two)
-    assert.equal(infer(three), two)
-  })
-
-  test('observer distinguishes fixed point ticks', () => {
-    const $ = []
-    $[0] = []
-    $[1] = [[], $]
-
-    const root = [$, []]
-    const one = step(root)
-    const two = step(one)
-    const three = step(two)
-
-    assert.equal(two[0], $)
-    assert.equal(three[0], one[0])
-    assert.equal(one[1], root)
-    assert.equal(two[1], one)
-    assert.equal(three[1], two)
-    assert.deepEqual(infer(three), [])
-  })
-
   test('fixed point carries a payload', () => {
     const $ = []
     const payload = [[], []]
@@ -164,15 +124,53 @@ describe('observe', () => {
     assert.equal(observer[0], system)
   })
 
-  test('self-contained system stabilizes through its observer', () => {
+  test('system collapses to its carried observer', () => {
     const system = []
     const observer = [system, []]
-    system[0] = [[[], system], observer]
+    system[0] = []
+    system[1] = observer
 
-    const next = step(observer)
+    assert.equal(observe(system), observer)
+    assert.equal(observe(observer), observer)
+    assert.equal(observer[0], system)
+  })
 
-    assert.equal(next[0], system)
-    assert.equal(next[1], observer)
-    assert.equal(infer(next), observer)
+  test('carried observer contains its history', () => {
+    const system = []
+    const first = [system, []]
+    const second = [system, first]
+    system[0] = []
+    system[1] = second
+
+    assert.equal(observe(system), second)
+    assert.equal(observe(second), second)
+    assert.equal(second[0], system)
+    assert.equal(second[1], first)
+    assert.equal(first[0], system)
+  })
+
+  test('history observes through the current root', () => {
+    const system = []
+    const first = [system, []]
+    const second = [system, first]
+    system[0] = []
+    system[1] = second
+
+    assert.equal(observe(first), second)
+    assert.equal(observe(second), second)
+  })
+
+  test('carried observer can be its own history', () => {
+    const system = []
+    const observer = []
+    system[0] = []
+    system[1] = observer
+    observer[0] = system
+    observer[1] = observer
+
+    assert.equal(observe(system), observer)
+    assert.equal(observe(observer), observer)
+    assert.equal(observer[0], system)
+    assert.equal(observer[1], observer)
   })
 })
