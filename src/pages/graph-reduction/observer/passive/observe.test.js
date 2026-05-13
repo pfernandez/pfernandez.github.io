@@ -48,7 +48,10 @@ describe('observe', () => {
     const $ = [[[[], x], y], z]
     $[0][0][0] = [[], [[$[0][0][1], $[1]], [$[0][1], $[1]]]]
 
-    assert.deepEqual(observe($), [[x, z], [y, z]])
+    const result = observe($)
+    assert.deepEqual(result, [[x, z], [y, z]])
+    assert.equal(result[0][1], z)
+    assert.equal(result[1][1], z)
   })
 
   test('fix', async () => {
@@ -105,6 +108,40 @@ describe('observe', () => {
     assert.notDeepEqual(two, three)
   })
 
+  test('fixed point carries a cons cell', () => {
+    const left = [[], []]
+    const right = [[], []]
+    const cell = [left, right]
+    const $ = []
+    $[0] = [[[], $], cell]
+
+    assert.equal(observe($), $)
+    assert.equal($[0][1], cell)
+    assert.equal(cell[0], left)
+    assert.equal(cell[1], right)
+  })
+
+  test('first reads the carried left value', () => {
+    const left = [[], []]
+    const right = [[], []]
+    const cell = [left, right]
+    const first = [[[], cell[0]], cell[1]]
+
+    assert.equal(observe(first), left)
+  })
+
+  test('rest reads the carried right value', () => {
+    const left = [[], []]
+    const right = [[], []]
+    const cell = [left, right]
+    const rest = [[[], cell[0]], cell[1]]
+
+    rest[0][0][0] = []
+    rest[0][0][1] = cell[1]
+
+    assert.equal(observe(rest), right)
+  })
+
   test('fixed point carries a payload', () => {
     const $ = []
     const payload = [[], []]
@@ -158,6 +195,21 @@ describe('observe', () => {
 
     assert.equal(observe(first), second)
     assert.equal(observe(second), second)
+  })
+
+  test('current root gives history authority', () => {
+    const system = []
+    const first = [system, []]
+    const second = [system, first]
+    const third = [system, second]
+    system[0] = []
+    system[1] = third
+
+    assert.equal(observe(first), third)
+    assert.equal(observe(second), third)
+    assert.equal(observe(third), third)
+    assert.equal(third[1], second)
+    assert.equal(second[1], first)
   })
 
   test('carried observer can be its own history', () => {
