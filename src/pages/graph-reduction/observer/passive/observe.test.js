@@ -52,6 +52,38 @@ describe('observe', () => {
     assert.deepEqual(result, [[x, z], [y, z]])
     assert.equal(result[0][1], z)
     assert.equal(result[1][1], z)
+    assert.equal(result[0][1], result[1][1])
+  })
+
+  test('keeps the same argument in both applications', () => {
+    const a = [[], []]
+    const b = [[], []]
+    const c = [[], []]
+    const $ = [[[[], a], b], c]
+    $[0][0][0] = [[], [[a, c], [b, c]]]
+
+    const result = observe($)
+    assert.deepEqual(result, [[a, c], [b, c]])
+    assert.equal(result[0][1], c)
+    assert.equal(result[1][1], c)
+    assert.equal(result[0][1], result[1][1])
+  })
+
+  test('result keeps the current root', () => {
+    const system = []
+    const a = [[], []]
+    const b = [[], []]
+    const $ = [[[[], a], b], system]
+    $[0][0][0] = [[], [[a, system], [b, system]]]
+    system[0] = []
+    system[1] = $
+
+    const result = observe($)
+    assert.deepEqual(result, [[a, system], [b, system]])
+    assert.equal(result[0][1], system)
+    assert.equal(result[1][1], system)
+    assert.equal(result[0][1], result[1][1])
+    assert.equal(observe(system), $)
   })
 
   test('fix', async () => {
@@ -197,7 +229,7 @@ describe('observe', () => {
     assert.equal(observe(second), second)
   })
 
-  test('current root gives history authority', () => {
+  test('old history sees the newest value', () => {
     const system = []
     const first = [system, []]
     const second = [system, first]
