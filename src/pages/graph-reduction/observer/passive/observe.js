@@ -9,9 +9,9 @@ const isEmpty = pair => !pair.length
 export const observe = focus => {
   if (isEmpty(focus)) return focus
 
-  const [first, next] = focus
+  const [left, right] = focus
 
-  if (isEmpty(first)) return next
+  if (isEmpty(left)) return right
 
-  return observe(first)
+  return observe(left)
 }
