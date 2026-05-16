@@ -87,6 +87,24 @@ describe('observe', () => {
       assert.equal(observe(pair(fixedI, x)), fixedI)
       assert.notEqual(observe(pair(fixedI, x)), x)
     })
+
+    test('root exposes the next frame from carried possibility', () => {
+      const root = []
+      const currentValue = value()
+      const nextValue = value()
+      const current = observation(collapse(currentValue))
+      const next = observation(collapse(nextValue))
+      const carried = pair(current, next)
+
+      root[0] = collapse(carried[1])
+      root[1] = carried
+
+      assert.equal(root[1][0], current)
+      assert.equal(root[1][1], next)
+      assert.equal(observe(root), next)
+      assert.equal(observe(observe(root)), nextValue)
+      assert.equal(observe(current), currentValue)
+    })
   })
 
   describe('slot rewrites', () => {
