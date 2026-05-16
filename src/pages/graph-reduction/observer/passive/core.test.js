@@ -1,19 +1,19 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { createBasis } from './basis.js'
 import { EMPTY, alloc, createHeap, left, observe, right, setLeft, setRight,
          size } from './core.js'
 
 const pair = (heap, leftValue = EMPTY, rightValue = EMPTY) =>
   alloc(heap, leftValue, rightValue)
 
-const createPointerBasis = heap => createBasis({
-  empty: EMPTY,
-  pair: (leftValue = EMPTY, rightValue = EMPTY) =>
-    pair(heap, leftValue, rightValue),
-  setLeft: (pointer, value) => setLeft(heap, pointer, value),
-  setRight: (pointer, value) => setRight(heap, pointer, value)
-})
+const collapse = (heap, value) => pair(heap, EMPTY, value)
+
+const share = (heap, first, second, argument) =>
+  pair(
+    heap,
+    pair(heap, first, argument),
+    pair(heap, second, argument)
+  )
 
 describe('pointer core', () => {
   describe('heap', () => {
@@ -60,13 +60,24 @@ describe('pointer core', () => {
 
     test('application is ordinary pair structure', () => {
       const heap = createHeap()
-      const { application } = createPointerBasis(heap)
       const operator = alloc(heap)
       const operand = alloc(heap)
-      const result = application(operator, operand)
+      const result = pair(heap, operator, operand)
 
       assert.equal(left(heap, result), operator)
       assert.equal(right(heap, result), operand)
+    })
+
+    test('setters mutate slots and return the pointer', () => {
+      const heap = createHeap()
+      const form = pair(heap)
+      const first = alloc(heap)
+      const second = alloc(heap)
+
+      assert.equal(setLeft(heap, form, first), form)
+      assert.equal(setRight(heap, form, second), form)
+      assert.equal(left(heap, form), first)
+      assert.equal(right(heap, form), second)
     })
   })
 
@@ -77,49 +88,32 @@ describe('pointer core', () => {
       assert.equal(observe(heap, EMPTY), EMPTY)
     })
 
-    test('stable pair returns its right child', () => {
+    test('collapse returns its rest', () => {
       const heap = createHeap()
-      const { stable } = createPointerBasis(heap)
       const value = alloc(heap)
-      const form = stable(value)
+      const form = collapse(heap, value)
 
       assert.equal(left(heap, form), EMPTY)
       assert.equal(observe(heap, form), value)
     })
 
-    test('I returns value', () => {
+    test('pair observes like its first child', () => {
       const heap = createHeap()
-      const { I } = createPointerBasis(heap)
       const value = alloc(heap)
+      const context = alloc(heap)
+      const next = collapse(heap, value)
+      const form = pair(heap, next, context)
 
-      assert.equal(observe(heap, I(value)), value)
-    })
-
-    test('keep returns left', () => {
-      const heap = createHeap()
-      const { keep } = createPointerBasis(heap)
-      const kept = alloc(heap)
-      const ignored = alloc(heap)
-
-      assert.equal(observe(heap, keep(kept, ignored)), kept)
-    })
-
-    test('right choice returns right', () => {
-      const heap = createHeap()
-      const { chooseRight } = createPointerBasis(heap)
-      const ignored = alloc(heap)
-      const kept = alloc(heap)
-
-      assert.equal(observe(heap, chooseRight(ignored, kept)), kept)
+      assert.equal(observe(heap, form), observe(heap, next))
+      assert.equal(observe(heap, form), value)
     })
 
     test('pair creation is explicit and observable', () => {
       const heap = createHeap()
-      const { exposePair } = createPointerBasis(heap)
       const before = size(heap)
       const a = alloc(heap)
       const b = alloc(heap)
-      const form = exposePair(a, b)
+      const form = collapse(heap, pair(heap, a, b))
       const result = observe(heap, form)
 
       assert.equal(size(heap), before + 4)
@@ -131,12 +125,11 @@ describe('pointer core', () => {
   describe('sharing', () => {
     test('share keeps one argument in both applications', () => {
       const heap = createHeap()
-      const { share } = createPointerBasis(heap)
       const first = alloc(heap)
       const second = alloc(heap)
       const argument = alloc(heap)
 
-      const result = observe(heap, share(first, second, argument))
+      const result = share(heap, first, second, argument)
 
       assert.equal(left(heap, left(heap, result)), first)
       assert.equal(right(heap, left(heap, result)), argument)
@@ -148,13 +141,12 @@ describe('pointer core', () => {
 
     test('shared value stays shared after another observation', () => {
       const heap = createHeap()
-      const { share, stable } = createPointerBasis(heap)
       const first = alloc(heap)
       const second = alloc(heap)
       const argument = alloc(heap)
 
-      const result = observe(heap, share(first, second, argument))
-      const next = stable(result)
+      const result = share(heap, first, second, argument)
+      const next = collapse(heap, result)
 
       assert.equal(observe(heap, next), result)
       assert.equal(right(heap, left(heap, result)),
@@ -165,9 +157,10 @@ describe('pointer core', () => {
   describe('fixed roots', () => {
     test('fix carries a payload without observing to the payload', () => {
       const heap = createHeap()
-      const { fix } = createPointerBasis(heap)
       const payload = alloc(heap)
-      const root = fix(payload)
+      const root = pair(heap)
+      const cycle = pair(heap, collapse(heap, root), payload)
+      setLeft(heap, root, cycle)
 
       assert.equal(observe(heap, root), root)
       assert.equal(right(heap, left(heap, root)), payload)
@@ -175,10 +168,9 @@ describe('pointer core', () => {
 
     test('root carries current value', () => {
       const heap = createHeap()
-      const { carry, createRoot, setCurrent } = createPointerBasis(heap)
-      const root = createRoot()
-      const current = carry(root)
-      setCurrent(root, current)
+      const root = collapse(heap, EMPTY)
+      const current = pair(heap, root)
+      setRight(heap, root, current)
 
       assert.equal(observe(heap, root), current)
       assert.equal(observe(heap, current), current)
@@ -188,12 +180,11 @@ describe('pointer core', () => {
 
     test('history observes through the current root', () => {
       const heap = createHeap()
-      const { carry, createRoot, setCurrent } = createPointerBasis(heap)
-      const root = createRoot()
-      const first = carry(root)
-      const second = carry(root, first)
-      const third = carry(root, second)
-      setCurrent(root, third)
+      const root = collapse(heap, EMPTY)
+      const first = pair(heap, root)
+      const second = pair(heap, root, first)
+      const third = pair(heap, root, second)
+      setRight(heap, root, third)
 
       assert.equal(observe(heap, first), third)
       assert.equal(observe(heap, second), third)
@@ -204,10 +195,9 @@ describe('pointer core', () => {
 
     test('the carried observer can be its own history', () => {
       const heap = createHeap()
-      const { createRoot, setCurrent } = createPointerBasis(heap)
-      const root = createRoot()
+      const root = collapse(heap, EMPTY)
       const observer = pair(heap, root, EMPTY)
-      setCurrent(root, observer)
+      setRight(heap, root, observer)
       setRight(heap, observer, observer)
 
       assert.equal(observe(heap, root), observer)

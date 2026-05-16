@@ -2,20 +2,19 @@
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { createBasis } from './basis.js'
 import {
   EMPTY,
   createWasmCore,
   wasmBytes
 } from './wasm.js'
 
-const createForms = core => createBasis({
-  empty: EMPTY,
-  pair: (leftValue = EMPTY, rightValue = EMPTY) =>
-    core.alloc(leftValue, rightValue),
-  setLeft: core.setLeft,
-  setRight: core.setRight
-})
+const collapse = (core, value) => core.alloc(EMPTY, value)
+
+const share = (core, first, second, argument) =>
+  core.alloc(
+    core.alloc(first, argument),
+    core.alloc(second, argument)
+  )
 
 describe('wasm core', () => {
   test('module bytes are real WebAssembly', async () => {
@@ -81,49 +80,32 @@ describe('wasm core', () => {
     assert.equal(core.right(pair), second)
   })
 
-  test('stable pair returns its right child', async () => {
+  test('collapse returns its rest', async () => {
     const core = await createWasmCore()
-    const { stable } = createForms(core)
     const value = core.alloc()
-    const form = stable(value)
+    const form = collapse(core, value)
 
     assert.equal(core.left(form), EMPTY)
     assert.equal(core.observe(form), value)
   })
 
-  test('I returns value', async () => {
+  test('pair observes like its first child', async () => {
     const core = await createWasmCore()
-    const { stable } = createForms(core)
     const value = core.alloc()
+    const context = core.alloc()
+    const next = collapse(core, value)
+    const form = core.alloc(next, context)
 
-    assert.equal(core.observe(stable(value)), value)
-  })
-
-  test('keep returns left', async () => {
-    const core = await createWasmCore()
-    const { keep } = createForms(core)
-    const first = core.alloc()
-    const second = core.alloc()
-
-    assert.equal(core.observe(keep(first, second)), first)
-  })
-
-  test('right choice returns right', async () => {
-    const core = await createWasmCore()
-    const { chooseRight } = createForms(core)
-    const first = core.alloc()
-    const second = core.alloc()
-
-    assert.equal(core.observe(chooseRight(first, second)), second)
+    assert.equal(core.observe(form), core.observe(next))
+    assert.equal(core.observe(form), value)
   })
 
   test('pair creation is explicit and observable', async () => {
     const core = await createWasmCore()
-    const { exposePair } = createForms(core)
     const before = core.size()
     const first = core.alloc()
     const second = core.alloc()
-    const form = exposePair(first, second)
+    const form = collapse(core, core.alloc(first, second))
     const result = core.observe(form)
 
     assert.equal(core.size(), before + 4)
@@ -133,11 +115,10 @@ describe('wasm core', () => {
 
   test('share keeps one argument pointer in both applications', async () => {
     const core = await createWasmCore()
-    const { share } = createForms(core)
     const first = core.alloc()
     const second = core.alloc()
     const argument = core.alloc()
-    const result = core.observe(share(first, second, argument))
+    const result = share(core, first, second, argument)
 
     assert.equal(core.left(core.left(result)), first)
     assert.equal(core.right(core.left(result)), argument)
@@ -151,9 +132,10 @@ describe('wasm core', () => {
 
   test('fix creates a self-observing root', async () => {
     const core = await createWasmCore()
-    const { fix } = createForms(core)
     const payload = core.alloc()
-    const root = fix(payload)
+    const root = core.alloc()
+    const cycle = core.alloc(collapse(core, root), payload)
+    core.setLeft(root, cycle)
 
     assert.equal(core.observe(root), root)
     assert.equal(core.right(core.left(root)), payload)
@@ -161,11 +143,10 @@ describe('wasm core', () => {
 
   test('root and history carry current value', async () => {
     const core = await createWasmCore()
-    const { carry, createRoot, setCurrent } = createForms(core)
-    const root = createRoot()
-    const first = carry(root, EMPTY)
-    const second = carry(root, first)
-    setCurrent(root, second)
+    const root = collapse(core, EMPTY)
+    const first = core.alloc(root, EMPTY)
+    const second = core.alloc(root, first)
+    core.setRight(root, second)
 
     assert.equal(core.observe(root), second)
     assert.equal(core.observe(first), second)
@@ -175,10 +156,9 @@ describe('wasm core', () => {
 
   test('carried observer can be its own history', async () => {
     const core = await createWasmCore()
-    const { createRoot, setCurrent } = createForms(core)
-    const root = createRoot()
+    const root = collapse(core, EMPTY)
     const observer = core.alloc(root, EMPTY)
-    setCurrent(root, observer)
+    core.setRight(root, observer)
     core.setRight(observer, observer)
 
     assert.equal(core.observe(root), observer)
