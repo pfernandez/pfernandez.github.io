@@ -154,22 +154,6 @@ const functions = [
     ])
   },
   {
-    name: 'is_stable',
-    type: 1,
-    body: body([], [
-      ...localGet(0),
-      0x45,
-      0x04,
-      I32,
-      ...i32Const(0),
-      0x05,
-      ...localGet(0),
-      ...call(1),
-      0x45,
-      0x0b
-    ])
-  },
-  {
     name: 'observe',
     type: 1,
     body: body([[2, I32]], [
@@ -203,118 +187,8 @@ const functions = [
     ])
   },
   {
-    name: 'application',
-    type: 0,
-    body: body([], [
-      ...localGet(0),
-      ...localGet(1),
-      ...call(0)
-    ])
-  },
-  {
-    name: 'stable',
-    type: 1,
-    body: body([], [
-      ...i32Const(0),
-      ...localGet(0),
-      ...call(0)
-    ])
-  },
-  {
-    name: 'keep',
-    type: 0,
-    body: body([], [
-      ...localGet(0),
-      ...call(9),
-      ...localGet(1),
-      ...call(0)
-    ])
-  },
-  {
-    name: 'choose_right',
-    type: 0,
-    body: body([], [
-      ...localGet(1),
-      ...call(9),
-      ...localGet(0),
-      ...call(0)
-    ])
-  },
-  {
-    name: 'expose_pair',
-    type: 0,
-    body: body([], [
-      ...localGet(0),
-      ...localGet(1),
-      ...call(0),
-      ...call(9)
-    ])
-  },
-  {
-    name: 'share',
-    type: 3,
-    body: body([[2, I32]], [
-      ...localGet(0),
-      ...localGet(2),
-      ...call(8),
-      ...localSet(3),
-      ...localGet(1),
-      ...localGet(2),
-      ...call(8),
-      ...localSet(4),
-      ...localGet(3),
-      ...localGet(4),
-      ...call(0),
-      ...call(9)
-    ])
-  },
-  {
-    name: 'fix',
-    type: 1,
-    body: body([[2, I32]], [
-      ...i32Const(0),
-      ...i32Const(0),
-      ...call(0),
-      ...localSet(1),
-      ...localGet(1),
-      ...call(9),
-      ...localGet(0),
-      ...call(0),
-      ...localSet(2),
-      ...localGet(1),
-      ...localGet(2),
-      ...call(3)
-    ])
-  },
-  {
-    name: 'create_root',
-    type: 1,
-    body: body([], [
-      ...localGet(0),
-      ...call(9)
-    ])
-  },
-  {
-    name: 'carry',
-    type: 0,
-    body: body([], [
-      ...localGet(0),
-      ...localGet(1),
-      ...call(0)
-    ])
-  },
-  {
-    name: 'set_current',
-    type: 0,
-    body: body([], [
-      ...localGet(0),
-      ...localGet(1),
-      ...call(4)
-    ])
-  },
-  {
     name: 'reset',
-    type: 4,
+    type: 3,
     body: body([], [
       ...i32Const(1),
       ...globalSet(0)
@@ -326,7 +200,6 @@ const types = [
   functionType([I32, I32]),
   functionType([I32]),
   functionType([]),
-  functionType([I32, I32, I32]),
   functionType([], [])
 ]
 
@@ -376,18 +249,7 @@ export const createWasmCore = async () => {
     setLeft: core.set_left,
     setRight: core.set_right,
     size: core.size,
-    isStable: core.is_stable,
     observe: core.observe,
-    application: core.application,
-    stable: core.stable,
-    keep: core.keep,
-    chooseRight: core.choose_right,
-    exposePair: core.expose_pair,
-    share: core.share,
-    fix: core.fix,
-    createRoot: core.create_root,
-    carry: core.carry,
-    setCurrent: core.set_current,
     reset: core.reset
   }
 }

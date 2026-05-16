@@ -1,115 +1,87 @@
-import {
-  EMPTY,
-  I,
-  application,
-  carry,
-  chooseRight,
-  createHeap,
-  createRoot,
-  exposePair,
-  fix,
-  keep,
-  left,
-  observe,
-  pair,
-  right,
-  setCurrent,
-  setRight,
-  share,
-  stable
-} from './core.js'
+import { createBasis } from './basis.js'
+import { EMPTY, alloc, createHeap, left, observe, right, setLeft, setRight }
+  from './core.js'
 import { observe as observeArray } from './observe.js'
 import { observeContract } from './observe.contract.js'
 import { createWasmCore } from './wasm.js'
 
 const createArrayMachine = () => {
   const empty = []
+  const pair = (left = empty, right = empty) => [left, right]
+  const setLeft = (value, next) => {
+    value[0] = next
+    return value
+  }
+  const setRight = (value, next) => {
+    value[1] = next
+    return value
+  }
+  const basis = createBasis({
+    empty,
+    pair,
+    setLeft,
+    setRight
+  })
 
   return {
     empty,
-    value: () => [[], []],
+    value: () => pair(),
     observe: observeArray,
     left: value => value[0],
     right: value => value[1],
-    setRight: (value, next) => {
-      value[1] = next
-      return value
-    },
-    pair: (left, right) => [left, right],
-    application: (operator, operand) => [operator, operand],
-    stable: value => [empty, value],
-    I: value => [empty, value],
-    keep: (left, right) => [[empty, left], right],
-    chooseRight: (left, right) => [[empty, right], left],
-    exposePair: (left, right) => [empty, [left, right]],
-    share: (first, second, argument) => (
-      [empty, [[first, argument], [second, argument]]]
-    ),
-    fix: payload => {
-      const root = []
-      root[0] = [[empty, root], payload]
-      return root
-    },
-    createRoot: (current = empty) => [empty, current],
-    carry: (root, previous = empty) => [root, previous],
-    setCurrent: (root, current) => {
-      root[1] = current
-      return root
-    }
+    setRight,
+    pair,
+    ...basis
   }
 }
 
 const createPointerMachine = () => {
   const heap = createHeap()
+  const pair = (leftValue = EMPTY, rightValue = EMPTY) =>
+    alloc(heap, leftValue, rightValue)
+
+  const setLeftValue = (value, next) => setLeft(heap, value, next)
+  const setRightValue = (value, next) => setRight(heap, value, next)
+  const basis = createBasis({
+    empty: EMPTY,
+    pair,
+    setLeft: setLeftValue,
+    setRight: setRightValue
+  })
 
   return {
     empty: EMPTY,
-    value: () => pair(heap, EMPTY, EMPTY),
+    value: () => pair(),
     observe: value => observe(heap, value),
     left: value => left(heap, value),
     right: value => right(heap, value),
-    setRight: (value, next) => setRight(heap, value, next),
-    pair: (leftValue, rightValue) => pair(heap, leftValue, rightValue),
-    application: (operator, operand) => application(heap, operator, operand),
-    stable: value => stable(heap, value),
-    I: value => I(heap, value),
-    keep: (leftValue, rightValue) => keep(heap, leftValue, rightValue),
-    chooseRight: (leftValue, rightValue) => (
-      chooseRight(heap, leftValue, rightValue)
-    ),
-    exposePair: (leftValue, rightValue) => (
-      exposePair(heap, leftValue, rightValue)
-    ),
-    share: (first, second, argument) => share(heap, first, second, argument),
-    fix: payload => fix(heap, payload),
-    createRoot: (current = EMPTY) => createRoot(heap, current),
-    carry: (root, previous = EMPTY) => carry(heap, root, previous),
-    setCurrent: (root, current) => setCurrent(heap, root, current)
+    setRight: setRightValue,
+    pair,
+    ...basis
   }
 }
 
 const createWasmMachine = async () => {
   const core = await createWasmCore()
+  const pair = (leftValue = EMPTY, rightValue = EMPTY) =>
+    core.alloc(leftValue, rightValue)
+
+  const basis = createBasis({
+    empty: EMPTY,
+    pair,
+    setLeft: core.setLeft,
+    setRight: core.setRight
+  })
 
   return {
     empty: EMPTY,
-    value: () => core.alloc(EMPTY, EMPTY),
+    value: () => pair(),
     observe: core.observe,
     left: core.left,
     right: core.right,
     setRight: core.setRight,
-    pair: core.alloc,
-    application: core.application,
-    stable: core.stable,
-    I: core.stable,
-    keep: core.keep,
-    chooseRight: core.chooseRight,
-    exposePair: core.exposePair,
-    share: core.share,
-    fix: core.fix,
-    createRoot: core.createRoot,
-    carry: core.carry,
-    setCurrent: core.setCurrent
+    pair,
+    ...basis
   }
 }
 
