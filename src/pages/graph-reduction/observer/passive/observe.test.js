@@ -10,6 +10,8 @@ const value = () => pair()
 
 const collapse = value => pair(I, value)
 
+const observation = focus => pair(focus, I)
+
 const share = (first, second, argument) => (
   pair(pair(first, argument), pair(second, argument))
 )
@@ -32,6 +34,58 @@ describe('observe', () => {
 
       assert.equal(observe(form), observe(next))
       assert.equal(observe(form), x)
+    })
+  })
+
+  describe('observer as data', () => {
+    test('an observation frame observes like its focus', () => {
+      const x = value()
+      const y = value()
+      const target = pair(collapse(x), y)
+      const frame = observation(target)
+
+      assert.equal(observe(frame), observe(target))
+      assert.equal(observe(frame), x)
+      assert.equal(frame[0], target)
+      assert.equal(frame[1], I)
+    })
+
+    test('a data observer can carry the current focus', () => {
+      const observer = []
+      const x = value()
+      const y = value()
+      const first = collapse(x)
+      const second = pair(collapse(y), value())
+
+      observer[0] = first
+      observer[1] = I
+      assert.equal(observe(observer), x)
+
+      observer[0] = second
+      assert.equal(observe(observer), y)
+      assert.equal(observer[1], I)
+    })
+
+    test('a fixed first-position function cannot inspect its rest', () => {
+      const x = value()
+      const y = value()
+      const fixed = pair(collapse(x), value())
+
+      assert.equal(observe(pair(fixed, x)), observe(fixed))
+      assert.equal(observe(pair(fixed, y)), observe(fixed))
+      assert.equal(observe(pair(I, x)), x)
+      assert.equal(observe(pair(I, y)), y)
+    })
+
+    test('fixed I observes to itself instead of consuming rest', () => {
+      const fixedI = []
+      const x = value()
+      fixedI[0] = I
+      fixedI[1] = fixedI
+
+      assert.equal(observe(fixedI), fixedI)
+      assert.equal(observe(pair(fixedI, x)), fixedI)
+      assert.notEqual(observe(pair(fixedI, x)), x)
     })
   })
 
@@ -187,6 +241,17 @@ describe('observe', () => {
   })
 
   describe('fixed roots', () => {
+    test('root evaluates to itself through its own collapse', () => {
+      const root = []
+      root[0] = collapse(root)
+      root[1] = I
+
+      assert.equal(observe(root), root)
+      assert.equal(observe(observe(root)), root)
+      assert.equal(root[0][0], I)
+      assert.equal(root[0][1], root)
+    })
+
     test('fixed root observes to itself while carrying a payload', () => {
       const root = []
       const left = value()
