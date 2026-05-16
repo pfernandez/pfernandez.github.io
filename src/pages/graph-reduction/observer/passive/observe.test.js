@@ -2,179 +2,183 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { observe } from './observe.js'
 
+const I = []
+
+const pair = (first = I, rest = I) => [first, rest]
+
+const value = () => pair()
+
+const collapse = value => pair(I, value)
+
+const share = (first, second, argument) => (
+  pair(pair(first, argument), pair(second, argument))
+)
+
 describe('observe', () => {
-  describe('core', () => {
-    test('empty', () => assert.deepEqual(observe([]), []))
+  describe('core equivalence', () => {
+    test('I observes to itself', () => assert.equal(observe(I), I))
 
-    test('empty left returns right', () => {
-      assert.deepEqual(observe([[], []]), [])
-      assert.deepEqual(observe([[], [[], []]]), [[], []])
+    test('collapse returns its rest', () => {
+      const x = value()
+
+      assert.equal(observe(collapse(x)), x)
     })
 
-    test('I returns value', () => {
-      const x = [[], []]
-      assert.equal(observe([[], x]), x)
-    })
+    test('pair observes like its first child', () => {
+      const x = value()
+      const context = value()
+      const next = collapse(x)
+      const form = pair(next, context)
 
-    test('keep returns left', () => {
-      const left = [[], []]
-      const right = [[], []]
-      const keep = [[[], left], right]
-
-      assert.equal(observe(keep), left)
+      assert.equal(observe(form), observe(next))
+      assert.equal(observe(form), x)
     })
   })
 
-  describe('left and right', () => {
-    test('left path returns left value', () => {
-      const x = [[], []]
-      const y = [[], []]
-      assert.equal(observe([[[], x], y]), x)
+  describe('slot rewrites', () => {
+    test('a collapse slot can be rewritten from context', () => {
+      const left = value()
+      const right = value()
+      const form = pair(collapse(left), right)
+      const oldValue = form[0][1]
+
+      form[0][0] = I
+      form[0][1] = form[1]
+
+      assert.equal(oldValue, left)
+      assert.equal(form[0][1], right)
+      assert.equal(observe(form), right)
     })
 
-    test('rewired left path returns right value', () => {
-      const x = [[], []]
-      const y = [[], []]
-      const $ = [[[], x], y]
-      $[0][0][0] = []
-      $[0][0][1] = $[1]
+    test('a pair can be assembled from carried slots', () => {
+      const left = value()
+      const right = value()
+      const result = []
+      const form = pair(pair(collapse(result), left), right)
 
-      assert.equal(observe($), y)
-    })
+      result[0] = form[0][1]
+      result[1] = form[1]
 
-    test('pair exposes left and right', () => {
-      const x = [[], []]
-      const y = [[], []]
-      const $ = [[[[], []], x], y]
-
-      $[0][0][1][0] = $[0][1]
-      $[0][0][1][1] = $[1]
-
-      const result = observe($)
-      assert.deepEqual(result, [x, y])
-      assert.equal(result, $[0][0][1])
-      assert.equal(result[0], x)
-      assert.equal(result[1], y)
+      assert.equal(observe(form), result)
+      assert.deepEqual(result, [left, right])
+      assert.equal(result[0], left)
+      assert.equal(result[1], right)
     })
   })
 
   describe('sharing', () => {
-    test('share', () => {
-      const x = [[], []]
-      const y = [[], []]
-      const z = [[], []]
-      const $ = [[[[], x], y], z]
-      $[0][0][0] = [[], [[$[0][0][1], $[1]], [$[0][1], $[1]]]]
+    test('share can replace the collapsed value from current slots', () => {
+      const x = value()
+      const y = value()
+      const z = value()
+      const form = pair(pair(collapse(x), y), z)
+      const oldValue = form[0][0][1]
+      const result = share(form[0][0][1], form[0][1], form[1])
 
-      const result = observe($)
-      assert.deepEqual(result, [[x, z], [y, z]])
+      form[0][0][0] = I
+      form[0][0][1] = result
+
+      assert.equal(oldValue, x)
+      assert.equal(form[0][0][1], result)
+      assert.deepEqual(observe(form), share(x, y, z))
+      assert.equal(result[0][0], oldValue)
       assert.equal(result[0][1], z)
+      assert.equal(result[1][0], y)
       assert.equal(result[1][1], z)
       assert.equal(result[0][1], result[1][1])
     })
 
-    test('keeps the same argument in both applications', () => {
-      const a = [[], []]
-      const b = [[], []]
-      const c = [[], []]
-      const $ = [[[[], a], b], c]
-      $[0][0][0] = [[], [[a, c], [b, c]]]
+    test('share can also be installed as a left wrapper', () => {
+      const x = value()
+      const y = value()
+      const z = value()
+      const form = pair(pair(collapse(x), y), z)
+      const oldValue = form[0][0][1]
+      const result = share(form[0][0][1], form[0][1], form[1])
 
-      const result = observe($)
-      assert.deepEqual(result, [[a, c], [b, c]])
-      assert.equal(result[0][1], c)
-      assert.equal(result[1][1], c)
+      form[0][0][0] = collapse(result)
+
+      assert.equal(form[0][0][1], oldValue)
+      assert.equal(observe(form), result)
+      assert.deepEqual(result, share(x, y, z))
       assert.equal(result[0][1], result[1][1])
     })
 
     test('shared value stays shared after another observation', () => {
-      const a = [[], []]
-      const b = [[], []]
-      const c = [[], []]
-      const $ = [[[[], a], b], c]
-      $[0][0][0] = [[], [[a, c], [b, c]]]
-
-      const result = observe($)
-      const next = [[], result]
+      const x = value()
+      const y = value()
+      const z = value()
+      const result = share(x, y, z)
+      const next = collapse(result)
 
       assert.equal(observe(next), result)
       assert.equal(result[0][1], result[1][1])
     })
 
-    test('result carries root forward', () => {
+    test('result can carry a root forward', () => {
       const root = []
-      const a = [[], []]
-      const b = [[], []]
-      const $ = [[[[], a], b], root]
-      $[0][0][0] = [[], [[a, root], [b, root]]]
-      root[0] = []
-      root[1] = $
+      const a = value()
+      const b = value()
+      const form = pair(pair(collapse(a), b), root)
+      const result = share(a, b, root)
+      form[0][0][1] = result
+      root[0] = I
+      root[1] = form
 
-      const result = observe($)
-      assert.deepEqual(result, [[a, root], [b, root]])
+      assert.deepEqual(observe(form), share(a, b, root))
       assert.equal(result[0][1], root)
       assert.equal(result[1][1], root)
       assert.equal(result[0][1], result[1][1])
-      assert.equal(observe(root), $)
+      assert.equal(observe(root), form)
     })
   })
 
-  describe('choice wiring', () => {
-    test('left reads left', () => {
-      const left = [[], []]
-      const right = [[], []]
-      const choice = [[[], left], right]
+  describe('selectors', () => {
+    test('left and right are collapse reads of pair slots', () => {
+      const left = value()
+      const right = value()
+      const subject = pair(left, right)
 
-      assert.equal(observe(choice), left)
-    })
-
-    test('right reads right', () => {
-      const left = [[], []]
-      const right = [[], []]
-      const choice = [[[], left], right]
-
-      choice[0][0][0] = []
-      choice[0][0][1] = choice[1]
-
-      assert.equal(observe(choice), right)
+      assert.equal(observe(collapse(subject[0])), left)
+      assert.equal(observe(collapse(subject[1])), right)
     })
   })
 
   describe('depth', () => {
     test('succ', () => {
-      const $ = []
-      $[0] = []
-      $[1] = [[], $]
+      const root = []
+      root[0] = I
+      root[1] = collapse(root)
 
-      const one = observe($)
+      const one = observe(root)
       const two = observe(one)
       const three = observe(two)
 
-      assert.deepEqual(one, [[], $])
-      assert.deepEqual(two, [[], [[], $]])
-      assert.deepEqual(three, [[], [[], [[], $]]])
+      assert.deepEqual(one, collapse(root))
+      assert.deepEqual(two, collapse(collapse(root)))
+      assert.deepEqual(three, collapse(collapse(collapse(root))))
     })
 
     test('depths share one fixed point', () => {
-      const $ = []
-      $[0] = []
-      $[1] = [[], $]
+      const root = []
+      root[0] = I
+      root[1] = collapse(root)
 
-      const one = observe($)
+      const one = observe(root)
       const two = observe(one)
       const three = observe(two)
 
-      assert.equal(two, $)
+      assert.equal(two, root)
       assert.equal(three, one)
       assert.deepEqual(one, two)
       assert.deepEqual(two, three)
     })
 
     test('finite depths stay distinct', () => {
-      const zero = []
-      const one = [[], zero]
-      const two = [[], one]
-      const three = [[], two]
+      const zero = I
+      const one = collapse(zero)
+      const two = collapse(one)
+      const three = collapse(two)
 
       assert.notDeepEqual(zero, one)
       assert.notDeepEqual(one, two)
@@ -182,66 +186,25 @@ describe('observe', () => {
     })
   })
 
-  describe('core pairs', () => {
-    test('fix carries a pair', () => {
-      const left = [[], []]
-      const right = [[], []]
-      const pair = [left, right]
-      const $ = []
-      $[0] = [[[], $], pair]
+  describe('fixed roots', () => {
+    test('fixed root observes to itself while carrying a payload', () => {
+      const root = []
+      const left = value()
+      const right = value()
+      const payload = pair(left, right)
+      root[0] = pair(collapse(root), payload)
+      root[1] = root
 
-      assert.equal(observe($), $)
-      assert.equal($[0][1], pair)
-      assert.equal(pair[0], left)
-      assert.equal(pair[1], right)
-    })
-
-    test('left reads left', () => {
-      const left = [[], []]
-      const right = [[], []]
-      const pair = [left, right]
-      const leftSelector = [[[], pair[0]], pair[1]]
-
-      assert.equal(observe(leftSelector), left)
-    })
-
-    test('right reads right', () => {
-      const left = [[], []]
-      const right = [[], []]
-      const pair = [left, right]
-      const rightSelector = [[[], pair[0]], pair[1]]
-
-      rightSelector[0][0][0] = []
-      rightSelector[0][0][1] = pair[1]
-
-      assert.equal(observe(rightSelector), right)
-    })
-
-    test('fix carries a payload', () => {
-      const $ = []
-      const payload = [[], []]
-      $[0] = [[[], $], payload]
-
-      assert.equal(observe($), $)
-      assert.equal($[0][1], payload)
-    })
-  })
-
-  describe('carried observer', () => {
-    test('fix can carry an observer', () => {
-      const system = []
-      const observer = [system, []]
-      system[0] = [[[], system], observer]
-
-      assert.equal(observe(system), system)
-      assert.equal(system[0][1], observer)
-      assert.equal(observer[0], system)
+      assert.equal(observe(root), root)
+      assert.equal(root[0][1], payload)
+      assert.equal(payload[0], left)
+      assert.equal(payload[1], right)
     })
 
     test('root carries current value', () => {
       const root = []
-      const current = [root, []]
-      root[0] = []
+      const current = pair(root)
+      root[0] = I
       root[1] = current
 
       assert.equal(observe(root), current)
@@ -250,38 +213,13 @@ describe('observe', () => {
       assert.equal(current[0], root)
     })
 
-    test('carried observer contains its history', () => {
-      const system = []
-      const first = [system, []]
-      const second = [system, first]
-      system[0] = []
-      system[1] = second
-
-      assert.equal(observe(system), second)
-      assert.equal(observe(second), second)
-      assert.equal(second[0], system)
-      assert.equal(second[1], first)
-      assert.equal(first[0], system)
-    })
-
     test('history observes through the current root', () => {
-      const system = []
-      const first = [system, []]
-      const second = [system, first]
-      system[0] = []
-      system[1] = second
-
-      assert.equal(observe(first), second)
-      assert.equal(observe(second), second)
-    })
-
-    test('old history sees the newest value', () => {
-      const system = []
-      const first = [system, []]
-      const second = [system, first]
-      const third = [system, second]
-      system[0] = []
-      system[1] = third
+      const root = []
+      const first = pair(root)
+      const second = pair(root, first)
+      const third = pair(root, second)
+      root[0] = I
+      root[1] = third
 
       assert.equal(observe(first), third)
       assert.equal(observe(second), third)
@@ -290,17 +228,17 @@ describe('observe', () => {
       assert.equal(second[1], first)
     })
 
-    test('carried observer can be its own history', () => {
-      const system = []
+    test('observer can carry itself as history', () => {
+      const root = []
       const observer = []
-      system[0] = []
-      system[1] = observer
-      observer[0] = system
+      root[0] = I
+      root[1] = observer
+      observer[0] = root
       observer[1] = observer
 
-      assert.equal(observe(system), observer)
+      assert.equal(observe(root), observer)
       assert.equal(observe(observer), observer)
-      assert.equal(observer[0], system)
+      assert.equal(observer[0], root)
       assert.equal(observer[1], observer)
     })
   })

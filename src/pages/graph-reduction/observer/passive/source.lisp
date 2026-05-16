@@ -8,6 +8,7 @@
 (defn share (x y z) ((x z) (y z)))
 
 (defn if (p x y) ((p x) y))
+(def not (p x y) ((p y) x))
 (defn and (p q x y) ((p ((q x) y)) y))
 (defn or (p q x y) ((p x) ((q x) y)))
 
