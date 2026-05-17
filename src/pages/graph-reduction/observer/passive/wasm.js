@@ -82,17 +82,8 @@ const functions = [
     name: 'pair',
     type: 0,
     body: body([[1, I32]], [
-      ...globalGet(0),
-      ...localTee(2),
-      ...i32Const(3),
-      0x74,
-      ...localGet(0),
-      ...i32Store(0),
-      ...globalGet(0),
-      ...i32Const(3),
-      0x74,
-      ...localGet(1),
-      ...i32Store(4),
+      ...storeSlot([...globalGet(0), ...localTee(2)], localGet(0), 0),
+      ...storeSlot(localGet(2), localGet(1), 4),
       ...globalGet(0),
       ...i32Const(1),
       0x6a,
@@ -104,28 +95,14 @@ const functions = [
     name: 'left',
     type: 1,
     body: body([], [
-      ...localGet(0),
-      0x45,
-      0x04,
-      I32,
-      ...i32Const(0),
-      0x05,
-      ...loadSlot(localGet(0), 0),
-      0x0b
+      ...loadSlot(localGet(0), 0)
     ])
   },
   {
     name: 'right',
     type: 1,
     body: body([], [
-      ...localGet(0),
-      0x45,
-      0x04,
-      I32,
-      ...i32Const(0),
-      0x05,
-      ...loadSlot(localGet(0), 4),
-      0x0b
+      ...loadSlot(localGet(0), 4)
     ])
   },
   {
@@ -156,38 +133,25 @@ const functions = [
   {
     name: 'observe',
     type: 1,
-    body: body([[2, I32]], [
-      ...localGet(0),
-      ...localSet(1),
-      0x02,
-      0x40,
+    body: body([[1, I32]], [
       0x03,
       0x40,
-      ...localGet(1),
+      ...localGet(0),
       ...call(1),
-      ...localTee(2),
+      ...localTee(1),
       0x45,
       0x04,
       0x40,
-      ...localGet(1),
+      ...localGet(0),
       ...call(2),
       0x0f,
       0x0b,
-      ...localGet(2),
-      ...localSet(1),
+      ...localGet(1),
+      ...localSet(0),
       0x0c,
       0,
       0x0b,
-      0x0b,
       ...i32Const(0)
-    ])
-  },
-  {
-    name: 'reset',
-    type: 3,
-    body: body([], [
-      ...i32Const(1),
-      ...globalSet(0)
     ])
   }
 ]
@@ -195,8 +159,7 @@ const functions = [
 const types = [
   functionType([I32, I32]),
   functionType([I32]),
-  functionType([]),
-  functionType([], [])
+  functionType([])
 ]
 
 const exportEntry = (name, kind, index) => [
@@ -205,7 +168,7 @@ const exportEntry = (name, kind, index) => [
   ...u32(index)
 ]
 
-const moduleBytes = () => new Uint8Array([
+export const wasmBytes = new Uint8Array([
   0x00,
   0x61,
   0x73,
@@ -230,8 +193,6 @@ const moduleBytes = () => new Uint8Array([
   ...section(10, vector(functions.map(entry => entry.body)))
 ])
 
-export const wasmBytes = moduleBytes()
-
 export const createWasmCore = async () => {
   const { instance } = await WebAssembly.instantiate(wasmBytes)
   const core = instance.exports
@@ -245,7 +206,6 @@ export const createWasmCore = async () => {
     setLeft: core.set_left,
     setRight: core.set_right,
     size: core.size,
-    observe: core.observe,
-    reset: core.reset
+    observe: core.observe
   }
 }
