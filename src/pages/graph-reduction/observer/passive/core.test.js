@@ -5,7 +5,7 @@ import { I, alloc, collapse, createHeap, fix, left, observe, pair, right,
 
 describe('pointer core', () => {
   describe('heap', () => {
-    test('I is the terminal pointer, not an allocated pair', () => {
+    test('I is the root fixed point, not an allocated pair', () => {
       const heap = createHeap()
 
       assert.equal(I, 0)

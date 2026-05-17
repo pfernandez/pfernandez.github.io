@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { observe } from './observe.js'
-
-const I = []
+import { I, observe } from './observe.js'
 
 const pair = (first = I, next = I) => [first, next]
 
@@ -11,7 +9,7 @@ const value = () => pair()
 const collapse = next => pair(I, next)
 
 const fix = (next = I) => {
-  const root = []
+  const root = pair()
   root[0] = collapse(root)
   root[1] = next
   return root
@@ -57,7 +55,7 @@ describe('observe', () => {
     })
 
     test('a data observer can carry the current focus', () => {
-      const observer = []
+      const observer = pair()
       const x = value()
       const y = value()
       const first = collapse(x)
@@ -83,8 +81,8 @@ describe('observe', () => {
       assert.equal(observe(pair(I, y)), y)
     })
 
-    test('fixed I observes to itself instead of consuming next', () => {
-      const fixedI = []
+    test('a fixed collapse observes to itself instead of consuming next', () => {
+      const fixedI = pair()
       const x = value()
       fixedI[0] = I
       fixedI[1] = fixedI
@@ -95,7 +93,7 @@ describe('observe', () => {
     })
 
     test('root exposes the next frame from carried possibility', () => {
-      const root = []
+      const root = pair()
       const currentValue = value()
       const nextValue = value()
       const current = observation(collapse(currentValue))
@@ -131,7 +129,7 @@ describe('observe', () => {
     test('a pair can be assembled from carried slots', () => {
       const left = value()
       const right = value()
-      const result = []
+      const result = pair()
       const form = pair(pair(collapse(result), left), right)
 
       result[0] = form[0][1]
@@ -194,7 +192,7 @@ describe('observe', () => {
     })
 
     test('result can carry a root forward', () => {
-      const root = []
+      const root = pair()
       const a = value()
       const b = value()
       const form = pair(pair(collapse(a), b), root)
@@ -224,7 +222,7 @@ describe('observe', () => {
 
   describe('depth', () => {
     test('succ', () => {
-      const root = []
+      const root = pair()
       root[0] = I
       root[1] = collapse(root)
 
@@ -238,7 +236,7 @@ describe('observe', () => {
     })
 
     test('depths share one fixed point', () => {
-      const root = []
+      const root = pair()
       root[0] = I
       root[1] = collapse(root)
 
@@ -252,15 +250,18 @@ describe('observe', () => {
       assert.deepEqual(two, three)
     })
 
-    test('finite depths stay distinct', () => {
+    test('finite depths keep distinct identity', () => {
       const zero = I
       const one = collapse(zero)
       const two = collapse(one)
       const three = collapse(two)
 
-      assert.notDeepEqual(zero, one)
-      assert.notDeepEqual(one, two)
-      assert.notDeepEqual(two, three)
+      assert.notEqual(zero, one)
+      assert.notEqual(one, two)
+      assert.notEqual(two, three)
+      assert.equal(observe(one), zero)
+      assert.equal(observe(two), one)
+      assert.equal(observe(three), two)
     })
   })
 
@@ -287,7 +288,7 @@ describe('observe', () => {
     })
 
     test('root carries current value', () => {
-      const root = []
+      const root = pair()
       const current = pair(root)
       root[0] = I
       root[1] = current
@@ -299,7 +300,7 @@ describe('observe', () => {
     })
 
     test('history observes through the current root', () => {
-      const root = []
+      const root = pair()
       const first = pair(root)
       const second = pair(root, first)
       const third = pair(root, second)
@@ -314,8 +315,8 @@ describe('observe', () => {
     })
 
     test('observer can carry itself as history', () => {
-      const root = []
-      const observer = []
+      const root = pair()
+      const observer = pair()
       root[0] = I
       root[1] = observer
       observer[0] = root

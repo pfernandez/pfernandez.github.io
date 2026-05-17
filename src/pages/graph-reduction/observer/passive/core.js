@@ -48,11 +48,9 @@ export const share = (heap, first, second, argument) =>
 export const observe = (heap, focus) => {
   let current = focus
 
-  while (current !== I) {
-    const next = left(heap, current)
-    if (next === I) return right(heap, current)
-    current = next
+  while (true) {
+    const first = left(heap, current)
+    if (first === I) return right(heap, current)
+    current = first
   }
-
-  return I
 }

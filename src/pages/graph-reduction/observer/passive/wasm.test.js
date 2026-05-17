@@ -25,7 +25,7 @@ describe('wasm core', () => {
     assert.equal(core.size(), 0)
   })
 
-  test('I is the terminal pointer, not an allocated pair', async () => {
+  test('I is the root fixed point, not an allocated pair', async () => {
     const core = await createWasmCore()
 
     assert.equal(I, 0)

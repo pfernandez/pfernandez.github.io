@@ -1,4 +1,6 @@
-const isEmpty = pair => !pair.length
+export const I = []
+I[0] = I
+I[1] = I
 
 /**
  * Performs one observation step.
@@ -7,11 +9,9 @@ const isEmpty = pair => !pair.length
  * @returns {Array} focus
  */
 export const observe = focus => {
-  if (isEmpty(focus)) return focus
+  const [first, next] = focus
 
-  const [left, right] = focus
+  if (first === I) return next
 
-  if (isEmpty(left)) return right
-
-  return observe(left)
+  return observe(first)
 }
