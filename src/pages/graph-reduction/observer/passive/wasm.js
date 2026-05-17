@@ -1,4 +1,4 @@
-export const EMPTY = 0
+export const I = 0
 
 const I32 = 0x7f
 const FUNCTION = 0x60
@@ -241,7 +241,7 @@ export const createWasmCore = async () => {
   const core = instance.exports
 
   return {
-    EMPTY,
+    I,
     memory: core.memory,
     alloc: core.alloc,
     left: core.left,

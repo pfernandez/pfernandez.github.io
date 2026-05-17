@@ -3,12 +3,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  EMPTY,
+  I,
   createWasmCore,
   wasmBytes
 } from './wasm.js'
 
-const collapse = (core, next) => core.alloc(EMPTY, next)
+const collapse = (core, next) => core.alloc(I, next)
 
 const share = (core, first, second, argument) =>
   core.alloc(
@@ -25,13 +25,13 @@ describe('wasm core', () => {
     assert.equal(core.size(), 0)
   })
 
-  test('empty is a pointer sentinel, not an allocated pair', async () => {
+  test('I is the terminal pointer, not an allocated pair', async () => {
     const core = await createWasmCore()
 
-    assert.equal(EMPTY, 0)
-    assert.equal(core.left(EMPTY), EMPTY)
-    assert.equal(core.right(EMPTY), EMPTY)
-    assert.equal(core.observe(EMPTY), EMPTY)
+    assert.equal(I, 0)
+    assert.equal(core.left(I), I)
+    assert.equal(core.right(I), I)
+    assert.equal(core.observe(I), I)
   })
 
   test('allocation writes flat left and right slots', async () => {
@@ -50,8 +50,8 @@ describe('wasm core', () => {
 
   test('equal shape is not the same pointer', async () => {
     const core = await createWasmCore()
-    const first = core.alloc(EMPTY, EMPTY)
-    const second = core.alloc(EMPTY, EMPTY)
+    const first = core.alloc(I, I)
+    const second = core.alloc(I, I)
 
     assert.notEqual(first, second)
     assert.equal(core.left(first), core.left(second))
@@ -85,7 +85,7 @@ describe('wasm core', () => {
     const value = core.alloc()
     const form = collapse(core, value)
 
-    assert.equal(core.left(form), EMPTY)
+    assert.equal(core.left(form), I)
     assert.equal(core.observe(form), value)
   })
 
@@ -143,8 +143,8 @@ describe('wasm core', () => {
 
   test('root and history carry current value', async () => {
     const core = await createWasmCore()
-    const root = collapse(core, EMPTY)
-    const first = core.alloc(root, EMPTY)
+    const root = collapse(core, I)
+    const first = core.alloc(root, I)
     const second = core.alloc(root, first)
     core.setRight(root, second)
 
@@ -156,8 +156,8 @@ describe('wasm core', () => {
 
   test('carried observer can be its own history', async () => {
     const core = await createWasmCore()
-    const root = collapse(core, EMPTY)
-    const observer = core.alloc(root, EMPTY)
+    const root = collapse(core, I)
+    const observer = core.alloc(root, I)
     core.setRight(root, observer)
     core.setRight(observer, observer)
 

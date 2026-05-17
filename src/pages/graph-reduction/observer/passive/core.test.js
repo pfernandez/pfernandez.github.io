@@ -1,29 +1,17 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { EMPTY, alloc, createHeap, left, observe, right, setLeft, setRight,
-         size } from './core.js'
-
-const pair = (heap, leftValue = EMPTY, rightValue = EMPTY) =>
-  alloc(heap, leftValue, rightValue)
-
-const collapse = (heap, next) => pair(heap, EMPTY, next)
-
-const share = (heap, first, second, argument) =>
-  pair(
-    heap,
-    pair(heap, first, argument),
-    pair(heap, second, argument)
-  )
+import { I, alloc, collapse, createHeap, fix, left, observe, pair, right,
+         setLeft, setRight, share, size } from './core.js'
 
 describe('pointer core', () => {
   describe('heap', () => {
-    test('empty is the empty pointer, not an allocated pair', () => {
+    test('I is the terminal pointer, not an allocated pair', () => {
       const heap = createHeap()
 
-      assert.equal(EMPTY, 0)
+      assert.equal(I, 0)
       assert.equal(size(heap), 0)
-      assert.equal(left(heap, EMPTY), EMPTY)
-      assert.equal(right(heap, EMPTY), EMPTY)
+      assert.equal(left(heap, I), I)
+      assert.equal(right(heap, I), I)
     })
 
     test('allocation creates pointer identity', () => {
@@ -31,8 +19,8 @@ describe('pointer core', () => {
       const a = alloc(heap)
       const b = alloc(heap)
 
-      assert.notEqual(a, EMPTY)
-      assert.notEqual(b, EMPTY)
+      assert.notEqual(a, I)
+      assert.notEqual(b, I)
       assert.notEqual(a, b)
       assert.equal(size(heap), 2)
     })
@@ -40,8 +28,8 @@ describe('pointer core', () => {
     test('shared child stays shared by pointer', () => {
       const heap = createHeap()
       const child = alloc(heap)
-      const first = pair(heap, child, EMPTY)
-      const second = pair(heap, EMPTY, child)
+      const first = pair(heap, child, I)
+      const second = pair(heap, I, child)
 
       assert.equal(left(heap, first), child)
       assert.equal(right(heap, second), child)
@@ -50,8 +38,8 @@ describe('pointer core', () => {
 
     test('equal shape is not the same pair', () => {
       const heap = createHeap()
-      const first = pair(heap, EMPTY, EMPTY)
-      const second = pair(heap, EMPTY, EMPTY)
+      const first = pair(heap, I, I)
+      const second = pair(heap, I, I)
 
       assert.notEqual(first, second)
       assert.equal(left(heap, first), left(heap, second))
@@ -82,10 +70,10 @@ describe('pointer core', () => {
   })
 
   describe('passive collapse', () => {
-    test('empty observes to empty', () => {
+    test('I observes to itself', () => {
       const heap = createHeap()
 
-      assert.equal(observe(heap, EMPTY), EMPTY)
+      assert.equal(observe(heap, I), I)
     })
 
     test('collapse returns its next', () => {
@@ -93,7 +81,7 @@ describe('pointer core', () => {
       const value = alloc(heap)
       const form = collapse(heap, value)
 
-      assert.equal(left(heap, form), EMPTY)
+      assert.equal(left(heap, form), I)
       assert.equal(observe(heap, form), value)
     })
 
@@ -158,17 +146,15 @@ describe('pointer core', () => {
     test('fix carries a payload without observing to the payload', () => {
       const heap = createHeap()
       const payload = alloc(heap)
-      const root = pair(heap)
-      const cycle = pair(heap, collapse(heap, root), payload)
-      setLeft(heap, root, cycle)
+      const root = fix(heap, payload)
 
       assert.equal(observe(heap, root), root)
-      assert.equal(right(heap, left(heap, root)), payload)
+      assert.equal(right(heap, root), payload)
     })
 
     test('root carries current value', () => {
       const heap = createHeap()
-      const root = collapse(heap, EMPTY)
+      const root = collapse(heap)
       const current = pair(heap, root)
       setRight(heap, root, current)
 
@@ -180,7 +166,7 @@ describe('pointer core', () => {
 
     test('history observes through the current root', () => {
       const heap = createHeap()
-      const root = collapse(heap, EMPTY)
+      const root = collapse(heap)
       const first = pair(heap, root)
       const second = pair(heap, root, first)
       const third = pair(heap, root, second)
@@ -195,8 +181,8 @@ describe('pointer core', () => {
 
     test('the carried observer can be its own history', () => {
       const heap = createHeap()
-      const root = collapse(heap, EMPTY)
-      const observer = pair(heap, root, EMPTY)
+      const root = collapse(heap)
+      const observer = pair(heap, root, I)
       setRight(heap, root, observer)
       setRight(heap, observer, observer)
 

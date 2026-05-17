@@ -1,8 +1,8 @@
-export const EMPTY = 0
+export const I = 0
 
-export const createHeap = () => ({ left: [EMPTY], right: [EMPTY] })
+export const createHeap = () => ({ left: [I], right: [I] })
 
-export const alloc = (heap, left = EMPTY, right = EMPTY) => {
+export const alloc = (heap, left = I, right = I) => {
   const pointer = heap.left.length
   heap.left[pointer] = left
   heap.right[pointer] = right
@@ -10,11 +10,9 @@ export const alloc = (heap, left = EMPTY, right = EMPTY) => {
   return pointer
 }
 
-export const left = (heap, pointer) =>
-  pointer === EMPTY ? EMPTY : heap.left[pointer]
+export const left = (heap, pointer) => heap.left[pointer]
 
-export const right = (heap, pointer) =>
-  pointer === EMPTY ? EMPTY : heap.right[pointer]
+export const right = (heap, pointer) => heap.right[pointer]
 
 export const setLeft = (heap, pointer, value) => {
   heap.left[pointer] = value
@@ -28,14 +26,33 @@ export const setRight = (heap, pointer, value) => {
 
 export const size = heap => heap.left.length - 1
 
+export const pair = (heap, first = I, next = I) =>
+  alloc(heap, first, next)
+
+export const collapse = (heap, next = I) => pair(heap, I, next)
+
+export const fix = (heap, next = I) => {
+  const root = pair(heap)
+  setLeft(heap, root, collapse(heap, root))
+  setRight(heap, root, next)
+  return root
+}
+
+export const share = (heap, first, second, argument) =>
+  pair(
+    heap,
+    pair(heap, first, argument),
+    pair(heap, second, argument)
+  )
+
 export const observe = (heap, focus) => {
   let current = focus
 
-  while (current !== EMPTY) {
+  while (current !== I) {
     const next = left(heap, current)
-    if (next === EMPTY) return right(heap, current)
+    if (next === I) return right(heap, current)
     current = next
   }
 
-  return EMPTY
+  return I
 }
