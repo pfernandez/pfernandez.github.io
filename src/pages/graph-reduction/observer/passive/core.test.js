@@ -6,7 +6,7 @@ import { EMPTY, alloc, createHeap, left, observe, right, setLeft, setRight,
 const pair = (heap, leftValue = EMPTY, rightValue = EMPTY) =>
   alloc(heap, leftValue, rightValue)
 
-const collapse = (heap, value) => pair(heap, EMPTY, value)
+const collapse = (heap, next) => pair(heap, EMPTY, next)
 
 const share = (heap, first, second, argument) =>
   pair(
@@ -88,7 +88,7 @@ describe('pointer core', () => {
       assert.equal(observe(heap, EMPTY), EMPTY)
     })
 
-    test('collapse returns its rest', () => {
+    test('collapse returns its next', () => {
       const heap = createHeap()
       const value = alloc(heap)
       const form = collapse(heap, value)

@@ -8,7 +8,7 @@ import {
   wasmBytes
 } from './wasm.js'
 
-const collapse = (core, value) => core.alloc(EMPTY, value)
+const collapse = (core, next) => core.alloc(EMPTY, next)
 
 const share = (core, first, second, argument) =>
   core.alloc(
@@ -80,7 +80,7 @@ describe('wasm core', () => {
     assert.equal(core.right(pair), second)
   })
 
-  test('collapse returns its rest', async () => {
+  test('collapse returns its next', async () => {
     const core = await createWasmCore()
     const value = core.alloc()
     const form = collapse(core, value)

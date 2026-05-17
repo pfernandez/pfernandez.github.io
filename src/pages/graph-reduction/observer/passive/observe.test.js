@@ -4,23 +4,29 @@ import { observe } from './observe.js'
 
 const I = []
 
-const pair = (first = I, rest = I) => [first, rest]
+const pair = (first = I, next = I) => [first, next]
 
 const value = () => pair()
 
-const collapse = value => pair(I, value)
+const collapse = next => pair(I, next)
+
+const fix = (next = I) => {
+  const root = []
+  root[0] = collapse(root)
+  root[1] = next
+  return root
+}
 
 const observation = focus => pair(focus, I)
 
-const share = (first, second, argument) => (
+const share = (first, second, argument) =>
   pair(pair(first, argument), pair(second, argument))
-)
 
 describe('observe', () => {
   describe('core equivalence', () => {
     test('I observes to itself', () => assert.equal(observe(I), I))
 
-    test('collapse returns its rest', () => {
+    test('collapse returns its next', () => {
       const x = value()
 
       assert.equal(observe(collapse(x)), x)
@@ -66,7 +72,7 @@ describe('observe', () => {
       assert.equal(observer[1], I)
     })
 
-    test('a fixed first-position function cannot inspect its rest', () => {
+    test('a fixed first-position function cannot inspect its next', () => {
       const x = value()
       const y = value()
       const fixed = pair(collapse(x), value())
@@ -77,7 +83,7 @@ describe('observe', () => {
       assert.equal(observe(pair(I, y)), y)
     })
 
-    test('fixed I observes to itself instead of consuming rest', () => {
+    test('fixed I observes to itself instead of consuming next', () => {
       const fixedI = []
       const x = value()
       fixedI[0] = I
@@ -260,9 +266,7 @@ describe('observe', () => {
 
   describe('fixed roots', () => {
     test('root evaluates to itself through its own collapse', () => {
-      const root = []
-      root[0] = collapse(root)
-      root[1] = I
+      const root = fix()
 
       assert.equal(observe(root), root)
       assert.equal(observe(observe(root)), root)
@@ -271,15 +275,13 @@ describe('observe', () => {
     })
 
     test('fixed root observes to itself while carrying a payload', () => {
-      const root = []
       const left = value()
       const right = value()
       const payload = pair(left, right)
-      root[0] = pair(collapse(root), payload)
-      root[1] = root
+      const root = fix(payload)
 
       assert.equal(observe(root), root)
-      assert.equal(root[0][1], payload)
+      assert.equal(root[1], payload)
       assert.equal(payload[0], left)
       assert.equal(payload[1], right)
     })
