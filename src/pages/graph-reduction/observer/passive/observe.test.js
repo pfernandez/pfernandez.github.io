@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { I, observe } from './observe.js'
-
-const pair = (first = I, next = I) => [first, next]
-
-const value = () => pair()
+import { I, observe, pair } from './observe.js'
 
 const collapse = next => pair(I, next)
 
@@ -22,17 +18,26 @@ const share = (first, second, argument) =>
 
 describe('observe', () => {
   describe('core equivalence', () => {
+    test('I is a pair and the root graph', () => {
+      const x = pair()
+
+      assert.equal(I[0], I)
+      assert.equal(I[1], I)
+      assert.equal(I.length, 2)
+      assert.notEqual(x, I)
+    })
+
     test('I observes to itself', () => assert.equal(observe(I), I))
 
     test('collapse returns its next', () => {
-      const x = value()
+      const x = pair()
 
       assert.equal(observe(collapse(x)), x)
     })
 
     test('pair observes like its first child', () => {
-      const x = value()
-      const context = value()
+      const x = pair()
+      const context = pair()
       const next = collapse(x)
       const form = pair(next, context)
 
@@ -43,8 +48,8 @@ describe('observe', () => {
 
   describe('observer as data', () => {
     test('an observation frame observes like its focus', () => {
-      const x = value()
-      const y = value()
+      const x = pair()
+      const y = pair()
       const target = pair(collapse(x), y)
       const frame = observation(target)
 
@@ -56,10 +61,10 @@ describe('observe', () => {
 
     test('a data observer can carry the current focus', () => {
       const observer = pair()
-      const x = value()
-      const y = value()
+      const x = pair()
+      const y = pair()
       const first = collapse(x)
-      const second = pair(collapse(y), value())
+      const second = pair(collapse(y), pair())
 
       observer[0] = first
       observer[1] = I
@@ -71,9 +76,9 @@ describe('observe', () => {
     })
 
     test('a fixed first-position function cannot inspect its next', () => {
-      const x = value()
-      const y = value()
-      const fixed = pair(collapse(x), value())
+      const x = pair()
+      const y = pair()
+      const fixed = pair(collapse(x), pair())
 
       assert.equal(observe(pair(fixed, x)), observe(fixed))
       assert.equal(observe(pair(fixed, y)), observe(fixed))
@@ -83,7 +88,7 @@ describe('observe', () => {
 
     test('a fixed collapse observes to itself instead of consuming next', () => {
       const fixedI = pair()
-      const x = value()
+      const x = pair()
       fixedI[0] = I
       fixedI[1] = fixedI
 
@@ -94,8 +99,8 @@ describe('observe', () => {
 
     test('root exposes the next frame from carried possibility', () => {
       const root = pair()
-      const currentValue = value()
-      const nextValue = value()
+      const currentValue = pair()
+      const nextValue = pair()
       const current = observation(collapse(currentValue))
       const next = observation(collapse(nextValue))
       const carried = pair(current, next)
@@ -113,8 +118,8 @@ describe('observe', () => {
 
   describe('slot rewrites', () => {
     test('a collapse slot can be rewritten from context', () => {
-      const left = value()
-      const right = value()
+      const left = pair()
+      const right = pair()
       const form = pair(collapse(left), right)
       const oldValue = form[0][1]
 
@@ -127,8 +132,8 @@ describe('observe', () => {
     })
 
     test('a pair can be assembled from carried slots', () => {
-      const left = value()
-      const right = value()
+      const left = pair()
+      const right = pair()
       const result = pair()
       const form = pair(pair(collapse(result), left), right)
 
@@ -144,9 +149,9 @@ describe('observe', () => {
 
   describe('sharing', () => {
     test('share can replace the collapsed value from current slots', () => {
-      const x = value()
-      const y = value()
-      const z = value()
+      const x = pair()
+      const y = pair()
+      const z = pair()
       const form = pair(pair(collapse(x), y), z)
       const oldValue = form[0][0][1]
       const result = share(form[0][0][1], form[0][1], form[1])
@@ -165,9 +170,9 @@ describe('observe', () => {
     })
 
     test('share can also be installed as a left wrapper', () => {
-      const x = value()
-      const y = value()
-      const z = value()
+      const x = pair()
+      const y = pair()
+      const z = pair()
       const form = pair(pair(collapse(x), y), z)
       const oldValue = form[0][0][1]
       const result = share(form[0][0][1], form[0][1], form[1])
@@ -181,9 +186,9 @@ describe('observe', () => {
     })
 
     test('shared value stays shared after another observation', () => {
-      const x = value()
-      const y = value()
-      const z = value()
+      const x = pair()
+      const y = pair()
+      const z = pair()
       const result = share(x, y, z)
       const next = collapse(result)
 
@@ -193,8 +198,8 @@ describe('observe', () => {
 
     test('result can carry a root forward', () => {
       const root = pair()
-      const a = value()
-      const b = value()
+      const a = pair()
+      const b = pair()
       const form = pair(pair(collapse(a), b), root)
       const result = share(a, b, root)
       form[0][0][1] = result
@@ -211,8 +216,8 @@ describe('observe', () => {
 
   describe('selectors', () => {
     test('left and right are collapse reads of pair slots', () => {
-      const left = value()
-      const right = value()
+      const left = pair()
+      const right = pair()
       const subject = pair(left, right)
 
       assert.equal(observe(collapse(subject[0])), left)
@@ -276,8 +281,8 @@ describe('observe', () => {
     })
 
     test('fixed root observes to itself while carrying a payload', () => {
-      const left = value()
-      const right = value()
+      const left = pair()
+      const right = pair()
       const payload = pair(left, right)
       const root = fix(payload)
 
