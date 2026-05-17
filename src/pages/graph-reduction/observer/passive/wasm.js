@@ -79,7 +79,7 @@ const loadSlot = (pointerBytes, offset) => [
 
 const functions = [
   {
-    name: 'alloc',
+    name: 'pair',
     type: 0,
     body: body([[1, I32]], [
       ...globalGet(0),
@@ -239,7 +239,7 @@ export const createWasmCore = async () => {
   return {
     I,
     memory: core.memory,
-    alloc: core.alloc,
+    pair: core.pair,
     left: core.left,
     right: core.right,
     setLeft: core.set_left,

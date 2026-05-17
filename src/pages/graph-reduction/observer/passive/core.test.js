@@ -1,195 +1,202 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { I, alloc, collapse, createHeap, fix, left, observe, pair, right,
+import { I, collapse, fix, left, observe, pair, right,
          setLeft, setRight, share, size } from './core.js'
 
-describe('pointer core', () => {
-  describe('heap', () => {
-    test('I is the root fixed point, not an allocated pair', () => {
-      const heap = createHeap()
+const reset = () => {
+  I.length = 2
+  I[0] = I
+  I[1] = I
+  return I
+}
 
-      assert.equal(I, 0)
-      assert.equal(size(heap), 0)
-      assert.equal(left(heap, I), I)
-      assert.equal(right(heap, I), I)
+describe('graph core', () => {
+  describe('graph', () => {
+    test('I is the root fixed point, not an allocated pair', () => {
+      const graph = reset()
+
+      assert.equal(graph, I)
+      assert.equal(size(), 0)
+      assert.equal(left(I), I)
+      assert.equal(right(I), I)
     })
 
-    test('allocation creates pointer identity', () => {
-      const heap = createHeap()
-      const a = alloc(heap)
-      const b = alloc(heap)
+    test('pair creates identity', () => {
+      reset()
+      const a = pair()
+      const b = pair()
 
       assert.notEqual(a, I)
       assert.notEqual(b, I)
       assert.notEqual(a, b)
-      assert.equal(size(heap), 2)
+      assert.equal(size(), 2)
     })
 
-    test('shared child stays shared by pointer', () => {
-      const heap = createHeap()
-      const child = alloc(heap)
-      const first = pair(heap, child, I)
-      const second = pair(heap, I, child)
+    test('shared child stays shared by identity', () => {
+      reset()
+      const child = pair()
+      const first = pair(child, I)
+      const second = pair(I, child)
 
-      assert.equal(left(heap, first), child)
-      assert.equal(right(heap, second), child)
-      assert.equal(left(heap, first), right(heap, second))
+      assert.equal(left(first), child)
+      assert.equal(right(second), child)
+      assert.equal(left(first), right(second))
     })
 
     test('equal shape is not the same pair', () => {
-      const heap = createHeap()
-      const first = pair(heap, I, I)
-      const second = pair(heap, I, I)
+      reset()
+      const first = pair(I, I)
+      const second = pair(I, I)
 
       assert.notEqual(first, second)
-      assert.equal(left(heap, first), left(heap, second))
-      assert.equal(right(heap, first), right(heap, second))
+      assert.equal(left(first), left(second))
+      assert.equal(right(first), right(second))
     })
 
     test('application is ordinary pair structure', () => {
-      const heap = createHeap()
-      const operator = alloc(heap)
-      const operand = alloc(heap)
-      const result = pair(heap, operator, operand)
+      reset()
+      const operator = pair()
+      const operand = pair()
+      const result = pair(operator, operand)
 
-      assert.equal(left(heap, result), operator)
-      assert.equal(right(heap, result), operand)
+      assert.equal(left(result), operator)
+      assert.equal(right(result), operand)
     })
 
-    test('setters mutate slots and return the pointer', () => {
-      const heap = createHeap()
-      const form = pair(heap)
-      const first = alloc(heap)
-      const second = alloc(heap)
+    test('setters mutate slots and return the pair', () => {
+      reset()
+      const form = pair()
+      const first = pair()
+      const second = pair()
 
-      assert.equal(setLeft(heap, form, first), form)
-      assert.equal(setRight(heap, form, second), form)
-      assert.equal(left(heap, form), first)
-      assert.equal(right(heap, form), second)
+      assert.equal(setLeft(form, first), form)
+      assert.equal(setRight(form, second), form)
+      assert.equal(left(form), first)
+      assert.equal(right(form), second)
     })
   })
 
   describe('passive collapse', () => {
     test('I observes to itself', () => {
-      const heap = createHeap()
+      reset()
 
-      assert.equal(observe(heap, I), I)
+      assert.equal(observe(I), I)
     })
 
     test('collapse returns its next', () => {
-      const heap = createHeap()
-      const value = alloc(heap)
-      const form = collapse(heap, value)
+      reset()
+      const value = pair()
+      const form = collapse(value)
 
-      assert.equal(left(heap, form), I)
-      assert.equal(observe(heap, form), value)
+      assert.equal(left(form), I)
+      assert.equal(observe(form), value)
     })
 
     test('pair observes like its first child', () => {
-      const heap = createHeap()
-      const value = alloc(heap)
-      const context = alloc(heap)
-      const next = collapse(heap, value)
-      const form = pair(heap, next, context)
+      reset()
+      const value = pair()
+      const context = pair()
+      const next = collapse(value)
+      const form = pair(next, context)
 
-      assert.equal(observe(heap, form), observe(heap, next))
-      assert.equal(observe(heap, form), value)
+      assert.equal(observe(form), observe(next))
+      assert.equal(observe(form), value)
     })
 
     test('pair creation is explicit and observable', () => {
-      const heap = createHeap()
-      const before = size(heap)
-      const a = alloc(heap)
-      const b = alloc(heap)
-      const form = collapse(heap, pair(heap, a, b))
-      const result = observe(heap, form)
+      reset()
+      const before = size()
+      const a = pair()
+      const b = pair()
+      const form = collapse(pair(a, b))
+      const result = observe(form)
 
-      assert.equal(size(heap), before + 4)
-      assert.equal(left(heap, result), a)
-      assert.equal(right(heap, result), b)
+      assert.equal(size(), before + 4)
+      assert.equal(left(result), a)
+      assert.equal(right(result), b)
     })
   })
 
   describe('sharing', () => {
     test('share keeps one argument in both applications', () => {
-      const heap = createHeap()
-      const first = alloc(heap)
-      const second = alloc(heap)
-      const argument = alloc(heap)
+      reset()
+      const first = pair()
+      const second = pair()
+      const argument = pair()
 
-      const result = share(heap, first, second, argument)
+      const result = share(first, second, argument)
 
-      assert.equal(left(heap, left(heap, result)), first)
-      assert.equal(right(heap, left(heap, result)), argument)
-      assert.equal(left(heap, right(heap, result)), second)
-      assert.equal(right(heap, right(heap, result)), argument)
-      assert.equal(right(heap, left(heap, result)),
-                   right(heap, right(heap, result)))
+      assert.equal(left(left(result)), first)
+      assert.equal(right(left(result)), argument)
+      assert.equal(left(right(result)), second)
+      assert.equal(right(right(result)), argument)
+      assert.equal(right(left(result)),
+                   right(right(result)))
     })
 
     test('shared value stays shared after another observation', () => {
-      const heap = createHeap()
-      const first = alloc(heap)
-      const second = alloc(heap)
-      const argument = alloc(heap)
+      reset()
+      const first = pair()
+      const second = pair()
+      const argument = pair()
 
-      const result = share(heap, first, second, argument)
-      const next = collapse(heap, result)
+      const result = share(first, second, argument)
+      const next = collapse(result)
 
-      assert.equal(observe(heap, next), result)
-      assert.equal(right(heap, left(heap, result)),
-                   right(heap, right(heap, result)))
+      assert.equal(observe(next), result)
+      assert.equal(right(left(result)),
+                   right(right(result)))
     })
   })
 
   describe('fixed roots', () => {
     test('fix carries a payload without observing to the payload', () => {
-      const heap = createHeap()
-      const payload = alloc(heap)
-      const root = fix(heap, payload)
+      reset()
+      const payload = pair()
+      const root = fix(payload)
 
-      assert.equal(observe(heap, root), root)
-      assert.equal(right(heap, root), payload)
+      assert.equal(observe(root), root)
+      assert.equal(right(root), payload)
     })
 
     test('root carries current value', () => {
-      const heap = createHeap()
-      const root = collapse(heap)
-      const current = pair(heap, root)
-      setRight(heap, root, current)
+      reset()
+      const root = collapse()
+      const current = pair(root)
+      setRight(root, current)
 
-      assert.equal(observe(heap, root), current)
-      assert.equal(observe(heap, current), current)
-      assert.equal(right(heap, root), current)
-      assert.equal(left(heap, current), root)
+      assert.equal(observe(root), current)
+      assert.equal(observe(current), current)
+      assert.equal(right(root), current)
+      assert.equal(left(current), root)
     })
 
     test('history observes through the current root', () => {
-      const heap = createHeap()
-      const root = collapse(heap)
-      const first = pair(heap, root)
-      const second = pair(heap, root, first)
-      const third = pair(heap, root, second)
-      setRight(heap, root, third)
+      reset()
+      const root = collapse()
+      const first = pair(root)
+      const second = pair(root, first)
+      const third = pair(root, second)
+      setRight(root, third)
 
-      assert.equal(observe(heap, first), third)
-      assert.equal(observe(heap, second), third)
-      assert.equal(observe(heap, third), third)
-      assert.equal(right(heap, third), second)
-      assert.equal(right(heap, second), first)
+      assert.equal(observe(first), third)
+      assert.equal(observe(second), third)
+      assert.equal(observe(third), third)
+      assert.equal(right(third), second)
+      assert.equal(right(second), first)
     })
 
     test('the carried observer can be its own history', () => {
-      const heap = createHeap()
-      const root = collapse(heap)
-      const observer = pair(heap, root, I)
-      setRight(heap, root, observer)
-      setRight(heap, observer, observer)
+      reset()
+      const root = collapse()
+      const observer = pair(root, I)
+      setRight(root, observer)
+      setRight(observer, observer)
 
-      assert.equal(observe(heap, root), observer)
-      assert.equal(observe(heap, observer), observer)
-      assert.equal(left(heap, observer), root)
-      assert.equal(right(heap, observer), observer)
+      assert.equal(observe(root), observer)
+      assert.equal(observe(observer), observer)
+      assert.equal(left(observer), root)
+      assert.equal(right(observer), observer)
     })
   })
 })

@@ -1,56 +1,51 @@
-export const I = 0
+export const I = []
+I[0] = I
+I[1] = I
 
-export const createHeap = () => ({ left: [I], right: [I] })
+export const pair = (first = I, next = I) => {
+  const node = [first, next]
+  I.push(node)
 
-export const alloc = (heap, left = I, right = I) => {
-  const pointer = heap.left.length
-  heap.left[pointer] = left
-  heap.right[pointer] = right
-
-  return pointer
+  return node
 }
 
-export const left = (heap, pointer) => heap.left[pointer]
+export const left = node => node[0]
 
-export const right = (heap, pointer) => heap.right[pointer]
+export const right = node => node[1]
 
-export const setLeft = (heap, pointer, value) => {
-  heap.left[pointer] = value
-  return pointer
+export const setLeft = (node, value) => {
+  node[0] = value
+  return node
 }
 
-export const setRight = (heap, pointer, value) => {
-  heap.right[pointer] = value
-  return pointer
+export const setRight = (node, value) => {
+  node[1] = value
+  return node
 }
 
-export const size = heap => heap.left.length - 1
+export const size = () => I.length - 2
 
-export const pair = (heap, first = I, next = I) =>
-  alloc(heap, first, next)
+export const collapse = (next = I) => pair(I, next)
 
-export const collapse = (heap, next = I) => pair(heap, I, next)
-
-export const fix = (heap, next = I) => {
-  const root = pair(heap)
-  setLeft(heap, root, collapse(heap, root))
-  setRight(heap, root, next)
+export const fix = (next = I) => {
+  const root = pair()
+  setLeft(root, collapse(root))
+  setRight(root, next)
   return root
 }
 
-export const share = (heap, first, second, argument) =>
+export const share = (first, second, argument) =>
   pair(
-    heap,
-    pair(heap, first, argument),
-    pair(heap, second, argument)
+    pair(first, argument),
+    pair(second, argument)
   )
 
-export const observe = (heap, focus) => {
+export const observe = focus => {
   let current = focus
 
   while (true) {
-    const first = left(heap, current)
-    if (first === I) return right(heap, current)
+    const first = left(current)
+    if (first === I) return right(current)
     current = first
   }
 }

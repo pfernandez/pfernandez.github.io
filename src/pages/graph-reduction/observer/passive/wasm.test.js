@@ -8,12 +8,12 @@ import {
   wasmBytes
 } from './wasm.js'
 
-const collapse = (core, next) => core.alloc(I, next)
+const collapse = (core, next) => core.pair(I, next)
 
 const share = (core, first, second, argument) =>
-  core.alloc(
-    core.alloc(first, argument),
-    core.alloc(second, argument)
+  core.pair(
+    core.pair(first, argument),
+    core.pair(second, argument)
   )
 
 describe('wasm core', () => {
@@ -34,11 +34,11 @@ describe('wasm core', () => {
     assert.equal(core.observe(I), I)
   })
 
-  test('allocation writes flat left and right slots', async () => {
+  test('pair writes flat left and right slots', async () => {
     const core = await createWasmCore()
-    const first = core.alloc()
-    const second = core.alloc()
-    const pair = core.alloc(first, second)
+    const first = core.pair()
+    const second = core.pair()
+    const pair = core.pair(first, second)
     const words = new Uint32Array(core.memory.buffer)
 
     assert.equal(core.size(), 3)
@@ -50,8 +50,8 @@ describe('wasm core', () => {
 
   test('equal shape is not the same pointer', async () => {
     const core = await createWasmCore()
-    const first = core.alloc(I, I)
-    const second = core.alloc(I, I)
+    const first = core.pair(I, I)
+    const second = core.pair(I, I)
 
     assert.notEqual(first, second)
     assert.equal(core.left(first), core.left(second))
@@ -60,9 +60,9 @@ describe('wasm core', () => {
 
   test('application is ordinary pair structure', async () => {
     const core = await createWasmCore()
-    const operator = core.alloc()
-    const operand = core.alloc()
-    const result = core.alloc(operator, operand)
+    const operator = core.pair()
+    const operand = core.pair()
+    const result = core.pair(operator, operand)
 
     assert.equal(core.left(result), operator)
     assert.equal(core.right(result), operand)
@@ -70,9 +70,9 @@ describe('wasm core', () => {
 
   test('setters mutate slots and return the pointer', async () => {
     const core = await createWasmCore()
-    const pair = core.alloc()
-    const first = core.alloc()
-    const second = core.alloc()
+    const pair = core.pair()
+    const first = core.pair()
+    const second = core.pair()
 
     assert.equal(core.setLeft(pair, first), pair)
     assert.equal(core.setRight(pair, second), pair)
@@ -82,7 +82,7 @@ describe('wasm core', () => {
 
   test('collapse returns its next', async () => {
     const core = await createWasmCore()
-    const value = core.alloc()
+    const value = core.pair()
     const form = collapse(core, value)
 
     assert.equal(core.left(form), I)
@@ -91,10 +91,10 @@ describe('wasm core', () => {
 
   test('pair observes like its first child', async () => {
     const core = await createWasmCore()
-    const value = core.alloc()
-    const context = core.alloc()
+    const value = core.pair()
+    const context = core.pair()
     const next = collapse(core, value)
-    const form = core.alloc(next, context)
+    const form = core.pair(next, context)
 
     assert.equal(core.observe(form), core.observe(next))
     assert.equal(core.observe(form), value)
@@ -103,9 +103,9 @@ describe('wasm core', () => {
   test('pair creation is explicit and observable', async () => {
     const core = await createWasmCore()
     const before = core.size()
-    const first = core.alloc()
-    const second = core.alloc()
-    const form = collapse(core, core.alloc(first, second))
+    const first = core.pair()
+    const second = core.pair()
+    const form = collapse(core, core.pair(first, second))
     const result = core.observe(form)
 
     assert.equal(core.size(), before + 4)
@@ -115,9 +115,9 @@ describe('wasm core', () => {
 
   test('share keeps one argument pointer in both applications', async () => {
     const core = await createWasmCore()
-    const first = core.alloc()
-    const second = core.alloc()
-    const argument = core.alloc()
+    const first = core.pair()
+    const second = core.pair()
+    const argument = core.pair()
     const result = share(core, first, second, argument)
 
     assert.equal(core.left(core.left(result)), first)
@@ -132,9 +132,9 @@ describe('wasm core', () => {
 
   test('fix creates a self-observing root', async () => {
     const core = await createWasmCore()
-    const payload = core.alloc()
-    const root = core.alloc()
-    const cycle = core.alloc(collapse(core, root), payload)
+    const payload = core.pair()
+    const root = core.pair()
+    const cycle = core.pair(collapse(core, root), payload)
     core.setLeft(root, cycle)
 
     assert.equal(core.observe(root), root)
@@ -144,8 +144,8 @@ describe('wasm core', () => {
   test('root and history carry current value', async () => {
     const core = await createWasmCore()
     const root = collapse(core, I)
-    const first = core.alloc(root, I)
-    const second = core.alloc(root, first)
+    const first = core.pair(root, I)
+    const second = core.pair(root, first)
     core.setRight(root, second)
 
     assert.equal(core.observe(root), second)
@@ -157,7 +157,7 @@ describe('wasm core', () => {
   test('carried observer can be its own history', async () => {
     const core = await createWasmCore()
     const root = collapse(core, I)
-    const observer = core.alloc(root, I)
+    const observer = core.pair(root, I)
     core.setRight(root, observer)
     core.setRight(observer, observer)
 
