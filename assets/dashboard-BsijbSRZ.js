@@ -1,0 +1,53 @@
+import{a as S,d as f,h as v,b as H,e as L,f as P,i as r}from"./index-EPPCIdIy.js";import{compile as l}from"./compile-B-AadUXK.js";import{observe as Y}from"./observe-nkFI_1xa.js";import"./parse-CllDPKqS.js";const p=`; Basis-style program source.
+; The compiler expands \`def\` and fully applied \`defn\` forms into pair motifs
+; that \`observe\` can expose one tick at a time.
+
+(defn I (x) x)
+(defn K (x y) x)
+(defn S (x y z) ((x z) (y z)))
+(defn B (f g x) (f (g x)))
+(defn C (f x y) ((f y) x))
+(defn W (f x) ((f x) x))
+
+(defn true (x y) x)
+(defn false (x y) y)
+
+(defn const (x y) x)
+(defn if (p th el) ((p th) el))
+(defn not (p x y) ((p y) x))
+(defn and (p q x y) ((p ((q x) y)) y))
+(defn or (p q x y) ((p x) ((q x) y)))
+
+(defn pair (a b f) ((f a) b))
+(defn first (p) (p true))
+(defn second (p) (p false))
+
+(defn curry (f x y) (f ((pair x) y)))
+(defn uncurry (f p) ((f (first p)) (second p)))
+
+(defn left (x y) x)
+(defn right (x y) y)
+(defn self (x) x)
+
+(defn zero (f x) x)
+(defn one (f x) (f x))
+(defn two (f x) (f (f x)))
+(defn succ (n f x) (f ((n f) x)))
+(defn add (m n f x) ((m f) ((n f) x)))
+(defn mul (m n f x) ((m (n f)) x))
+(defn is-zero (n) ((n (const false)) true))
+
+(defn APPLY-SELF (x v) ((x x) v))
+(defn THETA (f x) (f (APPLY-SELF x)))
+(def apply-self APPLY-SELF)
+(def theta THETA)
+
+; Stateless fixed point: (lambda x. f (x x)) (lambda x. f (x x)).
+(defn Y-THETA (f x) (f (x x)))
+(defn Y (f) ((Y-THETA f) (Y-THETA f)))
+
+(defn Z (f) ((THETA f) (THETA f)))
+(def fix Z)
+
+(((S a) b) c)
+`,k=({graph:n,history:d,time:o=d.length,previous:e=d[o-1],stable:x=e?.graph===n})=>({time:o,previous:e,stable:x}),s=S(n=>{const{graph:d,source:o,history:e,error:x,options:i}=n,{className:y,title:m,description:h,scene:b}=i,{time:a,previous:u,stable:t}=k(n),T=()=>s({...n,graph:Y(d),history:[...e,n]}),E=c=>s({...n,...l(c),source:c}),A=()=>s(u),g=()=>s(e[0]);return f({class:`dashboard ${y}`},f({class:"panel"},v(m),H({class:"description"},h),L("Program / expression",P({value:o,onchange:E,spellcheck:!1})),f({class:"row"},r({onclick:T,disabled:t||x},t?"Stable":"Next"),r({onclick:A,disabled:a===0},"Undo"),r({onclick:g,disabled:a===0},"Reset")),f({class:"description"},`Steps: ${a}`)),f({class:"panel scene"},x||b(n)))}),U=n=>()=>s({...l(p),source:p,history:[],options:n});export{U as default};
