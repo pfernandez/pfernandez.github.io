@@ -8,15 +8,15 @@ import {
   wasmBytes
 } from './wasm.js'
 
-const collapse = (core, next) => core.pair(I, next)
-
-const share = (core, first, second, argument) =>
-  core.pair(
-    core.pair(first, argument),
-    core.pair(second, argument)
-  )
-
 describe('wasm core', () => {
+  const collapse = (core, next) => core.pair(I, next)
+
+  const share = (core, first, second, argument) =>
+    core.pair(
+      core.pair(first, argument),
+      core.pair(second, argument)
+    )
+
   test('module bytes are real WebAssembly', async () => {
     assert.equal(WebAssembly.validate(wasmBytes), true)
 
@@ -34,14 +34,29 @@ describe('wasm core', () => {
     assert.equal(core.observe(I), I)
   })
 
+  test('the root can open to a loaded graph', async () => {
+    const core = await createWasmCore()
+    const graph = core.pair()
+    core.setRight(graph, graph)
+    core.setRight(I, graph)
+
+    assert.equal(core.left(I), I)
+    assert.equal(core.right(I), graph)
+    assert.equal(core.left(graph), I)
+    assert.equal(core.right(graph), graph)
+    assert.equal(core.observe(I), graph)
+    assert.equal(core.observe(graph), graph)
+  })
+
   test('pair writes flat left and right slots', async () => {
     const core = await createWasmCore()
+    const before = core.size()
     const first = core.pair()
     const second = core.pair()
     const pair = core.pair(first, second)
     const words = new Uint32Array(core.memory.buffer)
 
-    assert.equal(core.size(), 3)
+    assert.equal(core.size(), before + 3)
     assert.equal(core.left(pair), first)
     assert.equal(core.right(pair), second)
     assert.equal(words[pair * 2], first)

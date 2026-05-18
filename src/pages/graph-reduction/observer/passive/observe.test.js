@@ -2,21 +2,40 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { I, observe, pair } from './observe.js'
 
-const collapse = next => pair(I, next)
-
-const fix = (next = I) => {
-  const root = pair()
-  root[0] = collapse(root)
-  root[1] = next
-  return root
-}
-
-const observation = focus => pair(focus, I)
-
-const share = (first, second, argument) =>
-  pair(pair(first, argument), pair(second, argument))
-
 describe('observe', () => {
+  const collapse = next => pair(I, next)
+
+  const fix = (next = I) => {
+    const root = pair()
+    root[0] = collapse(root)
+    root[1] = next
+    return root
+  }
+
+  const observation = focus => pair(focus, I)
+
+  const share = (first, second, argument) =>
+    pair(pair(first, argument), pair(second, argument))
+
+  const observeWhen = (isStable, focus, limit = 16) => {
+    let current = focus
+
+    for (let step = 0; step < limit; step += 1) {
+      const [first, next] = current
+
+      if (isStable(first, current)) return next
+
+      current = first
+    }
+  }
+
+  const selfCollapse = next => {
+    const focus = pair()
+    focus[0] = focus
+    focus[1] = next
+    return focus
+  }
+
   describe('core equivalence', () => {
     test('I is a pair and the root graph', () => {
       const x = pair()
@@ -28,6 +47,23 @@ describe('observe', () => {
     })
 
     test('I observes to itself', () => assert.equal(observe(I), I))
+
+    test('the root can open to a loaded graph', () => {
+      const graph = pair()
+      const previous = I[1]
+
+      graph[1] = graph
+      I[1] = graph
+
+      try {
+        assert.equal(I[0], I)
+        assert.equal(I[1], graph)
+        assert.equal(observe(I), graph)
+        assert.equal(observe(graph), graph)
+      } finally {
+        I[1] = previous
+      }
+    })
 
     test('collapse returns its next', () => {
       const x = pair()
@@ -43,6 +79,42 @@ describe('observe', () => {
 
       assert.equal(observe(form), observe(next))
       assert.equal(observe(form), x)
+    })
+  })
+
+  describe('collapse predicates', () => {
+    test('root collapse reads a root-left wrapper', () => {
+      const value = pair()
+      const wrapper = pair(I, value)
+
+      assert.equal(observeWhen(first => first === I, wrapper), value)
+    })
+
+    test('local collapse reads a self-left wrapper', () => {
+      const value = pair()
+      const wrapper = selfCollapse(value)
+
+      assert.equal(
+        observeWhen((first, focus) => first === focus, wrapper),
+        value
+      )
+    })
+
+    test('the predicates choose different wrappers', () => {
+      const value = pair()
+      const rootWrapper = pair(I, value)
+      const selfWrapper = selfCollapse(value)
+
+      assert.equal(observeWhen(first => first === I, rootWrapper), value)
+      assert.equal(
+        observeWhen((first, focus) => first === focus, rootWrapper),
+        I
+      )
+      assert.equal(
+        observeWhen((first, focus) => first === focus, selfWrapper),
+        value
+      )
+      assert.equal(observeWhen(first => first === I, selfWrapper), undefined)
     })
   })
 
