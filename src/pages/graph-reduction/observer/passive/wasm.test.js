@@ -9,8 +9,6 @@ import {
 } from './wasm.js'
 
 describe('wasm core', () => {
-  const collapse = (core, next) => core.pair(I, next)
-
   const share = (core, first, second, argument) =>
     core.pair(
       core.pair(first, argument),
@@ -98,7 +96,7 @@ describe('wasm core', () => {
   test('collapse returns its next', async () => {
     const core = await createWasmCore()
     const value = core.pair()
-    const form = collapse(core, value)
+    const form = core.pair(I, value)
 
     assert.equal(core.left(form), I)
     assert.equal(core.observe(form), value)
@@ -108,7 +106,7 @@ describe('wasm core', () => {
     const core = await createWasmCore()
     const value = core.pair()
     const context = core.pair()
-    const next = collapse(core, value)
+    const next = core.pair(I, value)
     const form = core.pair(next, context)
 
     assert.equal(core.observe(form), core.observe(next))
@@ -120,7 +118,7 @@ describe('wasm core', () => {
     const before = core.size()
     const first = core.pair()
     const second = core.pair()
-    const form = collapse(core, core.pair(first, second))
+    const form = core.pair(I, core.pair(first, second))
     const result = core.observe(form)
 
     assert.equal(core.size(), before + 4)
@@ -149,7 +147,7 @@ describe('wasm core', () => {
     const core = await createWasmCore()
     const payload = core.pair()
     const root = core.pair()
-    const cycle = core.pair(collapse(core, root), payload)
+    const cycle = core.pair(core.pair(I, root), payload)
     core.setLeft(root, cycle)
 
     assert.equal(core.observe(root), root)
@@ -158,7 +156,7 @@ describe('wasm core', () => {
 
   test('root and history carry current value', async () => {
     const core = await createWasmCore()
-    const root = collapse(core, I)
+    const root = core.pair(I, I)
     const first = core.pair(root, I)
     const second = core.pair(root, first)
     core.setRight(root, second)
@@ -171,7 +169,7 @@ describe('wasm core', () => {
 
   test('carried observer can be its own history', async () => {
     const core = await createWasmCore()
-    const root = collapse(core, I)
+    const root = core.pair(I, I)
     const observer = core.pair(root, I)
     core.setRight(root, observer)
     core.setRight(observer, observer)

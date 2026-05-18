@@ -3,16 +3,12 @@ import { describe, test } from 'node:test'
 import { I, observe, pair } from './observe.js'
 
 describe('observe', () => {
-  const collapse = next => pair(I, next)
-
   const fix = (next = I) => {
     const root = pair()
-    root[0] = collapse(root)
+    root[0] = pair(I, root)
     root[1] = next
     return root
   }
-
-  const observation = focus => pair(focus, I)
 
   const share = (first, second, argument) =>
     pair(pair(first, argument), pair(second, argument))
@@ -34,6 +30,28 @@ describe('observe', () => {
     focus[0] = focus
     focus[1] = next
     return focus
+  }
+
+  const createFrameStep = frame => {
+    const [observer, focus] = frame
+    const [first, next] = focus
+
+    if (first === observer) return next
+
+    return pair(observer, first)
+  }
+
+  const linkedFrame = (observer, focus, future = I) =>
+    pair(observer, pair(focus, future))
+
+  const selectLinkedFrame = frame => {
+    const [observer, carried] = frame
+    const [focus, nextFrame] = carried
+    const [first, next] = focus
+
+    if (first === observer) return next
+
+    return nextFrame
   }
 
   describe('core equivalence', () => {
@@ -68,13 +86,13 @@ describe('observe', () => {
     test('collapse returns its next', () => {
       const x = pair()
 
-      assert.equal(observe(collapse(x)), x)
+      assert.equal(observe(pair(I, x)), x)
     })
 
     test('pair observes like its first child', () => {
       const x = pair()
       const context = pair()
-      const next = collapse(x)
+      const next = pair(I, x)
       const form = pair(next, context)
 
       assert.equal(observe(form), observe(next))
@@ -118,12 +136,105 @@ describe('observe', () => {
     })
   })
 
+  describe('linked futures', () => {
+    test('a root frame collapses like passive observe', () => {
+      const value = pair()
+      const focus = pair(I, value)
+      const frame = linkedFrame(I, focus)
+
+      assert.equal(selectLinkedFrame(frame), value)
+      assert.equal(selectLinkedFrame(frame), observe(focus))
+    })
+
+    test('a frame selects its carried future while moving focus left', () => {
+      const observer = pair()
+      const value = pair()
+      const focus = pair(pair(observer, value), pair())
+      const nextFrame = linkedFrame(observer, focus[0])
+      const frame = linkedFrame(observer, focus, nextFrame)
+
+      assert.equal(selectLinkedFrame(frame), nextFrame)
+      assert.equal(selectLinkedFrame(nextFrame), value)
+    })
+
+    test('the same focus can collapse for one observer and move for another', () => {
+      const firstObserver = pair()
+      const secondObserver = pair()
+      const value = pair()
+      const focus = pair(firstObserver, value)
+      const future = linkedFrame(secondObserver, firstObserver)
+      const firstFrame = linkedFrame(firstObserver, focus)
+      const secondFrame = linkedFrame(secondObserver, focus, future)
+
+      assert.equal(selectLinkedFrame(firstFrame), value)
+      assert.equal(selectLinkedFrame(secondFrame), future)
+      assert.equal(future[0], secondObserver)
+      assert.equal(future[1][0], firstObserver)
+    })
+
+    test('a constrained future chain reaches a deterministic result', () => {
+      const observer = pair()
+      const result = pair()
+      const finalFocus = pair(observer, result)
+      const finalFrame = linkedFrame(observer, finalFocus)
+      const initialFocus = pair(finalFocus, pair())
+      const initialFrame = linkedFrame(observer, initialFocus, finalFrame)
+
+      assert.equal(selectLinkedFrame(initialFrame), finalFrame)
+      assert.equal(selectLinkedFrame(finalFrame), result)
+    })
+
+    test('a cyclic future chain reuses frames while unfolding depth', () => {
+      const observer = pair()
+      const firstFocus = pair()
+      const secondFocus = pair()
+      const firstFrame = linkedFrame(observer, firstFocus)
+      const secondFrame = linkedFrame(observer, secondFocus, firstFrame)
+      firstFocus[0] = secondFocus
+      secondFocus[0] = firstFocus
+      firstFrame[1][1] = secondFrame
+
+      const one = selectLinkedFrame(firstFrame)
+      const two = selectLinkedFrame(one)
+      const three = selectLinkedFrame(two)
+
+      assert.equal(secondFrame[1][0], firstFocus[0])
+      assert.equal(firstFrame[1][0], secondFocus[0])
+      assert.equal(one, secondFrame)
+      assert.equal(two, firstFrame)
+      assert.equal(three, secondFrame)
+      assert.deepEqual(
+        one,
+        linkedFrame(observer, secondFocus, linkedFrame(
+          observer,
+          firstFocus,
+          secondFrame
+        ))
+      )
+    })
+  })
+
+  describe('unlinked frames', () => {
+    test('an unlinked frame has to create the next relation', () => {
+      const observer = pair()
+      const value = pair()
+      const focus = pair(pair(observer, value), pair())
+      const frame = pair(observer, focus)
+      const existing = pair(observer, focus[0])
+      const created = createFrameStep(frame)
+
+      assert.notEqual(created, existing)
+      assert.equal(created[0], existing[0])
+      assert.equal(created[1], existing[1])
+    })
+  })
+
   describe('observer as data', () => {
     test('an observation frame observes like its focus', () => {
       const x = pair()
       const y = pair()
-      const target = pair(collapse(x), y)
-      const frame = observation(target)
+      const target = pair(pair(I, x), y)
+      const frame = pair(target, I)
 
       assert.equal(observe(frame), observe(target))
       assert.equal(observe(frame), x)
@@ -135,8 +246,8 @@ describe('observe', () => {
       const observer = pair()
       const x = pair()
       const y = pair()
-      const first = collapse(x)
-      const second = pair(collapse(y), pair())
+      const first = pair(I, x)
+      const second = pair(pair(I, y), pair())
 
       observer[0] = first
       observer[1] = I
@@ -150,7 +261,7 @@ describe('observe', () => {
     test('a fixed first-position function cannot inspect its next', () => {
       const x = pair()
       const y = pair()
-      const fixed = pair(collapse(x), pair())
+      const fixed = pair(pair(I, x), pair())
 
       assert.equal(observe(pair(fixed, x)), observe(fixed))
       assert.equal(observe(pair(fixed, y)), observe(fixed))
@@ -173,11 +284,11 @@ describe('observe', () => {
       const root = pair()
       const currentValue = pair()
       const nextValue = pair()
-      const current = observation(collapse(currentValue))
-      const next = observation(collapse(nextValue))
+      const current = pair(pair(I, currentValue), I)
+      const next = pair(pair(I, nextValue), I)
       const carried = pair(current, next)
 
-      root[0] = collapse(carried[1])
+      root[0] = pair(I, carried[1])
       root[1] = carried
 
       assert.equal(root[1][0], current)
@@ -192,7 +303,7 @@ describe('observe', () => {
     test('a collapse slot can be rewritten from context', () => {
       const left = pair()
       const right = pair()
-      const form = pair(collapse(left), right)
+      const form = pair(pair(I, left), right)
       const oldValue = form[0][1]
 
       form[0][0] = I
@@ -207,7 +318,7 @@ describe('observe', () => {
       const left = pair()
       const right = pair()
       const result = pair()
-      const form = pair(pair(collapse(result), left), right)
+      const form = pair(pair(pair(I, result), left), right)
 
       result[0] = form[0][1]
       result[1] = form[1]
@@ -224,7 +335,7 @@ describe('observe', () => {
       const x = pair()
       const y = pair()
       const z = pair()
-      const form = pair(pair(collapse(x), y), z)
+      const form = pair(pair(pair(I, x), y), z)
       const oldValue = form[0][0][1]
       const result = share(form[0][0][1], form[0][1], form[1])
 
@@ -245,11 +356,11 @@ describe('observe', () => {
       const x = pair()
       const y = pair()
       const z = pair()
-      const form = pair(pair(collapse(x), y), z)
+      const form = pair(pair(pair(I, x), y), z)
       const oldValue = form[0][0][1]
       const result = share(form[0][0][1], form[0][1], form[1])
 
-      form[0][0][0] = collapse(result)
+      form[0][0][0] = pair(I, result)
 
       assert.equal(form[0][0][1], oldValue)
       assert.equal(observe(form), result)
@@ -262,7 +373,7 @@ describe('observe', () => {
       const y = pair()
       const z = pair()
       const result = share(x, y, z)
-      const next = collapse(result)
+      const next = pair(I, result)
 
       assert.equal(observe(next), result)
       assert.equal(result[0][1], result[1][1])
@@ -272,7 +383,7 @@ describe('observe', () => {
       const root = pair()
       const a = pair()
       const b = pair()
-      const form = pair(pair(collapse(a), b), root)
+      const form = pair(pair(pair(I, a), b), root)
       const result = share(a, b, root)
       form[0][0][1] = result
       root[0] = I
@@ -292,8 +403,8 @@ describe('observe', () => {
       const right = pair()
       const subject = pair(left, right)
 
-      assert.equal(observe(collapse(subject[0])), left)
-      assert.equal(observe(collapse(subject[1])), right)
+      assert.equal(observe(pair(I, subject[0])), left)
+      assert.equal(observe(pair(I, subject[1])), right)
     })
   })
 
@@ -301,21 +412,21 @@ describe('observe', () => {
     test('succ', () => {
       const root = pair()
       root[0] = I
-      root[1] = collapse(root)
+      root[1] = pair(I, root)
 
       const one = observe(root)
       const two = observe(one)
       const three = observe(two)
 
-      assert.deepEqual(one, collapse(root))
-      assert.deepEqual(two, collapse(collapse(root)))
-      assert.deepEqual(three, collapse(collapse(collapse(root))))
+      assert.deepEqual(one, pair(I, root))
+      assert.deepEqual(two, pair(I, pair(I, root)))
+      assert.deepEqual(three, pair(I, pair(I, pair(I, root))))
     })
 
     test('depths share one fixed point', () => {
       const root = pair()
       root[0] = I
-      root[1] = collapse(root)
+      root[1] = pair(I, root)
 
       const one = observe(root)
       const two = observe(one)
@@ -329,9 +440,9 @@ describe('observe', () => {
 
     test('finite depths keep distinct identity', () => {
       const zero = I
-      const one = collapse(zero)
-      const two = collapse(one)
-      const three = collapse(two)
+      const one = pair(I, zero)
+      const two = pair(I, one)
+      const three = pair(I, two)
 
       assert.notEqual(zero, one)
       assert.notEqual(one, two)
