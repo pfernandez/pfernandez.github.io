@@ -237,6 +237,21 @@ describe('wasm core', () => {
     assert.equal(four, firstFrame)
   })
 
+  test('a closed graph carries its own next observation', async () => {
+    const core = await createWasmCore()
+    const first = core.pair()
+    const second = core.pair()
+    core.setLeft(first, I)
+    core.setRight(first, second)
+    core.setLeft(second, I)
+    core.setRight(second, first)
+
+    assert.equal(core.observe(first), second)
+    assert.equal(core.observe(second), first)
+    assert.equal(core.observe(core.observe(first)), first)
+    assert.equal(core.observe(core.observe(second)), second)
+  })
+
   test('fix creates a self-observing root', async () => {
     const core = await createWasmCore()
     const payload = core.pair()

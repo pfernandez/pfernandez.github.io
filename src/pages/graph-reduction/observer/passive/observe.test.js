@@ -54,7 +54,7 @@ describe('observe', () => {
     return nextFrame
   }
 
-  describe('core equivalence', () => {
+  describe('basis contract', () => {
     test('I is a pair and the root graph', () => {
       const x = pair()
 
@@ -108,6 +108,68 @@ describe('observe', () => {
       assert.notEqual(observe(outer), value)
       assert.equal(observe(observe(outer)), value)
     })
+
+    test('observation preserves sharing through different paths', () => {
+      const value = pair()
+      const shared = pair(I, value)
+      const firstPath = pair(shared, pair())
+      const secondPath = pair(pair(shared, pair()), pair())
+
+      assert.equal(observe(firstPath), value)
+      assert.equal(observe(secondPath), value)
+      assert.equal(observe(firstPath), observe(secondPath))
+    })
+
+    test('a prelinked future is selected by identity', () => {
+      const observer = pair()
+      const value = pair()
+      const focus = pair(pair(observer, value), I)
+      const nextFrame = linkedFrame(observer, focus[0])
+      const sameShape = linkedFrame(observer, focus[0])
+      const frame = linkedFrame(observer, focus, nextFrame)
+      const selected = selectLinkedFrame(frame)
+
+      assert.equal(selected, nextFrame)
+      assert.notEqual(selected, sameShape)
+      assert.deepEqual(selected, sameShape)
+    })
+
+    test('a closed graph carries its own next observation', () => {
+      const first = pair()
+      const second = pair()
+      first[0] = I
+      first[1] = second
+      second[0] = I
+      second[1] = first
+
+      assert.equal(observe(first), second)
+      assert.equal(observe(second), first)
+      assert.equal(observe(observe(first)), first)
+      assert.equal(observe(observe(second)), second)
+    })
+
+    test('succ reuses one cycle without allocating after construction', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const root = countedPair()
+      root[0] = I
+      root[1] = countedPair(I, root)
+      const built = allocations
+
+      const one = observe(root)
+      const two = observe(one)
+      const three = observe(two)
+      const four = observe(three)
+
+      assert.equal(allocations, built)
+      assert.equal(one, root[1])
+      assert.equal(two, root)
+      assert.equal(three, root[1])
+      assert.equal(four, root)
+    })
   })
 
   describe('collapse predicates', () => {
@@ -154,20 +216,6 @@ describe('observe', () => {
 
       assert.equal(selectLinkedFrame(frame), value)
       assert.equal(selectLinkedFrame(frame), observe(focus))
-    })
-
-    test('a prelinked future is selected by identity', () => {
-      const observer = pair()
-      const value = pair()
-      const focus = pair(pair(observer, value), I)
-      const nextFrame = linkedFrame(observer, focus[0])
-      const sameShape = linkedFrame(observer, focus[0])
-      const frame = linkedFrame(observer, focus, nextFrame)
-      const selected = selectLinkedFrame(frame)
-
-      assert.equal(selected, nextFrame)
-      assert.notEqual(selected, sameShape)
-      assert.deepEqual(selected, sameShape)
     })
 
     test('a frame selects its carried future while moving focus left', () => {
@@ -448,17 +496,6 @@ describe('observe', () => {
       assert.equal(result[0][1], result[1][1])
     })
 
-    test('observation preserves sharing through different paths', () => {
-      const value = pair()
-      const shared = pair(I, value)
-      const firstPath = pair(shared, pair())
-      const secondPath = pair(pair(shared, pair()), pair())
-
-      assert.equal(observe(firstPath), value)
-      assert.equal(observe(secondPath), value)
-      assert.equal(observe(firstPath), observe(secondPath))
-    })
-
     test('result can carry a root forward', () => {
       const root = pair()
       const a = pair()
@@ -516,29 +553,6 @@ describe('observe', () => {
       assert.equal(three, one)
       assert.deepEqual(one, two)
       assert.deepEqual(two, three)
-    })
-
-    test('succ reuses one cycle without allocating after construction', () => {
-      let allocations = 0
-      const countedPair = (first = I, next = I) => {
-        allocations += 1
-        return pair(first, next)
-      }
-      const root = countedPair()
-      root[0] = I
-      root[1] = countedPair(I, root)
-      const built = allocations
-
-      const one = observe(root)
-      const two = observe(one)
-      const three = observe(two)
-      const four = observe(three)
-
-      assert.equal(allocations, built)
-      assert.equal(one, root[1])
-      assert.equal(two, root)
-      assert.equal(three, root[1])
-      assert.equal(four, root)
     })
 
     test('finite depths keep distinct identity', () => {
