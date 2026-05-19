@@ -15,6 +15,22 @@ describe('wasm core', () => {
       core.pair(second, argument)
     )
 
+  const linkedFrame = (core, observer, focus, future = I) =>
+    core.pair(observer, core.pair(focus, future))
+
+  const selectLinkedFrame = (core, frame) => {
+    const observer = core.left(frame)
+    const carried = core.right(frame)
+    const focus = core.left(carried)
+    const nextFrame = core.right(carried)
+    const first = core.left(focus)
+    const next = core.right(focus)
+
+    if (first === observer) return next
+
+    return nextFrame
+  }
+
   test('module bytes are real WebAssembly', async () => {
     assert.equal(WebAssembly.validate(wasmBytes), true)
 
@@ -113,6 +129,17 @@ describe('wasm core', () => {
     assert.equal(core.observe(form), value)
   })
 
+  test('observe takes one step rather than normalizing', async () => {
+    const core = await createWasmCore()
+    const value = core.pair()
+    const inner = core.pair(I, value)
+    const outer = core.pair(I, inner)
+
+    assert.equal(core.observe(outer), inner)
+    assert.notEqual(core.observe(outer), value)
+    assert.equal(core.observe(core.observe(outer)), value)
+  })
+
   test('pair creation is explicit and observable', async () => {
     const core = await createWasmCore()
     const before = core.size()
@@ -141,6 +168,73 @@ describe('wasm core', () => {
       core.right(core.left(result)),
       core.right(core.right(result))
     )
+  })
+
+  test('observation preserves sharing through different paths', async () => {
+    const core = await createWasmCore()
+    const value = core.pair()
+    const shared = core.pair(I, value)
+    const firstPath = core.pair(shared, core.pair())
+    const secondPath = core.pair(core.pair(shared, core.pair()), core.pair())
+
+    assert.equal(core.observe(firstPath), value)
+    assert.equal(core.observe(secondPath), value)
+    assert.equal(core.observe(firstPath), core.observe(secondPath))
+  })
+
+  test('a prelinked future frame is selected by identity', async () => {
+    const core = await createWasmCore()
+    const observer = core.pair()
+    const value = core.pair()
+    const focus = core.pair(core.pair(observer, value), I)
+    const nextFrame = linkedFrame(core, observer, core.left(focus))
+    const sameShape = linkedFrame(core, observer, core.left(focus))
+    const frame = linkedFrame(core, observer, focus, nextFrame)
+    const selected = selectLinkedFrame(core, frame)
+
+    assert.equal(selected, nextFrame)
+    assert.notEqual(selected, sameShape)
+    assert.equal(core.left(core.right(selected)), core.left(focus))
+  })
+
+  test('the same focus can collapse for one observer and move for another', async () => {
+    const core = await createWasmCore()
+    const firstObserver = core.pair()
+    const secondObserver = core.pair()
+    const value = core.pair()
+    const focus = core.pair(firstObserver, value)
+    const future = linkedFrame(core, secondObserver, firstObserver)
+    const firstFrame = linkedFrame(core, firstObserver, focus)
+    const secondFrame = linkedFrame(core, secondObserver, focus, future)
+
+    assert.equal(selectLinkedFrame(core, firstFrame), value)
+    assert.equal(selectLinkedFrame(core, secondFrame), future)
+    assert.equal(core.left(focus), firstObserver)
+    assert.equal(core.right(focus), value)
+  })
+
+  test('a cyclic future chain does not allocate while unfolding', async () => {
+    const core = await createWasmCore()
+    const observer = core.pair()
+    const firstFocus = core.pair()
+    const secondFocus = core.pair()
+    const firstFrame = linkedFrame(core, observer, firstFocus)
+    const secondFrame = linkedFrame(core, observer, secondFocus, firstFrame)
+    core.setLeft(firstFocus, secondFocus)
+    core.setLeft(secondFocus, firstFocus)
+    core.setRight(core.right(firstFrame), secondFrame)
+    const built = core.size()
+
+    const one = selectLinkedFrame(core, firstFrame)
+    const two = selectLinkedFrame(core, one)
+    const three = selectLinkedFrame(core, two)
+    const four = selectLinkedFrame(core, three)
+
+    assert.equal(core.size(), built)
+    assert.equal(one, secondFrame)
+    assert.equal(two, firstFrame)
+    assert.equal(three, secondFrame)
+    assert.equal(four, firstFrame)
   })
 
   test('fix creates a self-observing root', async () => {
@@ -178,5 +272,24 @@ describe('wasm core', () => {
     assert.equal(core.observe(observer), observer)
     assert.equal(core.left(observer), root)
     assert.equal(core.right(observer), observer)
+  })
+
+  test('succ reuses one cycle without allocating after construction', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    core.setLeft(root, I)
+    core.setRight(root, core.pair(I, root))
+    const built = core.size()
+
+    const one = core.observe(root)
+    const two = core.observe(one)
+    const three = core.observe(two)
+    const four = core.observe(three)
+
+    assert.equal(core.size(), built)
+    assert.equal(one, core.right(root))
+    assert.equal(two, root)
+    assert.equal(three, core.right(root))
+    assert.equal(four, root)
   })
 })

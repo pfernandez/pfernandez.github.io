@@ -98,6 +98,16 @@ describe('observe', () => {
       assert.equal(observe(form), observe(next))
       assert.equal(observe(form), x)
     })
+
+    test('observe takes one step rather than normalizing', () => {
+      const value = pair()
+      const inner = pair(I, value)
+      const outer = pair(I, inner)
+
+      assert.equal(observe(outer), inner)
+      assert.notEqual(observe(outer), value)
+      assert.equal(observe(observe(outer)), value)
+    })
   })
 
   describe('collapse predicates', () => {
@@ -146,6 +156,20 @@ describe('observe', () => {
       assert.equal(selectLinkedFrame(frame), observe(focus))
     })
 
+    test('a prelinked future is selected by identity', () => {
+      const observer = pair()
+      const value = pair()
+      const focus = pair(pair(observer, value), I)
+      const nextFrame = linkedFrame(observer, focus[0])
+      const sameShape = linkedFrame(observer, focus[0])
+      const frame = linkedFrame(observer, focus, nextFrame)
+      const selected = selectLinkedFrame(frame)
+
+      assert.equal(selected, nextFrame)
+      assert.notEqual(selected, sameShape)
+      assert.deepEqual(selected, sameShape)
+    })
+
     test('a frame selects its carried future while moving focus left', () => {
       const observer = pair()
       const value = pair()
@@ -170,6 +194,8 @@ describe('observe', () => {
       assert.equal(selectLinkedFrame(secondFrame), future)
       assert.equal(future[0], secondObserver)
       assert.equal(future[1][0], firstObserver)
+      assert.equal(focus[0], firstObserver)
+      assert.equal(focus[1], value)
     })
 
     test('a constrained future chain reaches a deterministic result', () => {
@@ -211,6 +237,37 @@ describe('observe', () => {
           secondFrame
         ))
       )
+    })
+
+    test('a cyclic future chain does not allocate while unfolding', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const countedLinkedFrame = (observer, focus, future = I) =>
+        countedPair(observer, countedPair(focus, future))
+
+      const observer = countedPair()
+      const firstFocus = countedPair()
+      const secondFocus = countedPair()
+      const firstFrame = countedLinkedFrame(observer, firstFocus)
+      const secondFrame = countedLinkedFrame(observer, secondFocus, firstFrame)
+      firstFocus[0] = secondFocus
+      secondFocus[0] = firstFocus
+      firstFrame[1][1] = secondFrame
+      const built = allocations
+
+      const one = selectLinkedFrame(firstFrame)
+      const two = selectLinkedFrame(one)
+      const three = selectLinkedFrame(two)
+      const four = selectLinkedFrame(three)
+
+      assert.equal(allocations, built)
+      assert.equal(one, secondFrame)
+      assert.equal(two, firstFrame)
+      assert.equal(three, secondFrame)
+      assert.equal(four, firstFrame)
     })
   })
 
@@ -297,6 +354,18 @@ describe('observe', () => {
       assert.equal(observe(observe(root)), nextValue)
       assert.equal(observe(current), currentValue)
     })
+
+    test('a linked frame can carry its observer and itself', () => {
+      const observer = pair()
+      const focus = pair()
+      const frame = linkedFrame(observer, focus)
+      frame[1][1] = frame
+
+      assert.equal(selectLinkedFrame(frame), frame)
+      assert.equal(frame[0], observer)
+      assert.equal(frame[1][0], focus)
+      assert.equal(frame[1][1], frame)
+    })
   })
 
   describe('slot rewrites', () => {
@@ -379,6 +448,17 @@ describe('observe', () => {
       assert.equal(result[0][1], result[1][1])
     })
 
+    test('observation preserves sharing through different paths', () => {
+      const value = pair()
+      const shared = pair(I, value)
+      const firstPath = pair(shared, pair())
+      const secondPath = pair(pair(shared, pair()), pair())
+
+      assert.equal(observe(firstPath), value)
+      assert.equal(observe(secondPath), value)
+      assert.equal(observe(firstPath), observe(secondPath))
+    })
+
     test('result can carry a root forward', () => {
       const root = pair()
       const a = pair()
@@ -436,6 +516,29 @@ describe('observe', () => {
       assert.equal(three, one)
       assert.deepEqual(one, two)
       assert.deepEqual(two, three)
+    })
+
+    test('succ reuses one cycle without allocating after construction', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const root = countedPair()
+      root[0] = I
+      root[1] = countedPair(I, root)
+      const built = allocations
+
+      const one = observe(root)
+      const two = observe(one)
+      const three = observe(two)
+      const four = observe(three)
+
+      assert.equal(allocations, built)
+      assert.equal(one, root[1])
+      assert.equal(two, root)
+      assert.equal(three, root[1])
+      assert.equal(four, root)
     })
 
     test('finite depths keep distinct identity', () => {
