@@ -439,6 +439,62 @@ describe('wasm core', () => {
     assert.equal(core.observe(output), right)
   })
 
+  test('output changes by moving to a prelinked event', async () => {
+    const core = await createWasmCore()
+    const firstValue = core.pair()
+    const nextValue = core.pair()
+    const firstOutput = core.pair(I, firstValue)
+    const nextOutput = core.pair(I, nextValue)
+    const firstState = core.pair()
+    const nextState = core.pair()
+    core.setLeft(firstState, core.pair(I, nextState))
+    core.setRight(firstState, firstOutput)
+    core.setLeft(nextState, core.pair(I, firstState))
+    core.setRight(nextState, nextOutput)
+    const built = core.size()
+
+    const secondState = core.observe(firstState)
+    const thirdState = core.observe(secondState)
+
+    assert.equal(core.size(), built)
+    assert.equal(core.right(firstState), firstOutput)
+    assert.equal(core.right(secondState), nextOutput)
+    assert.equal(core.right(thirdState), firstOutput)
+    assert.equal(core.observe(firstOutput), firstValue)
+    assert.equal(core.observe(nextOutput), nextValue)
+    assert.notEqual(firstOutput, nextOutput)
+  })
+
+  test('external IO can rewrite a stable output port', async () => {
+    const core = await createWasmCore()
+    const firstValue = core.pair()
+    const nextValue = core.pair()
+    const input = core.pair(firstValue, nextValue)
+    const outputCell = core.pair(I, core.left(input))
+    const machine = closedMachine(core, input, outputCell)
+    const firstState = core.right(machine)
+    const secondState = core.observe(firstState)
+    const port = outputOf(core, machine)
+    const built = core.size()
+
+    assert.equal(port, outputCell)
+    assert.equal(core.observe(port), firstValue)
+    assert.equal(core.right(firstState), outputCell)
+    assert.equal(core.right(secondState), outputCell)
+
+    core.setRight(outputCell, core.right(input))
+    const thirdState = core.observe(secondState)
+
+    assert.equal(core.size(), built)
+    assert.equal(core.right(machine), firstState)
+    assert.equal(outputOf(core, machine), outputCell)
+    assert.equal(port, outputCell)
+    assert.equal(core.observe(port), nextValue)
+    assert.equal(core.right(firstState), outputCell)
+    assert.equal(core.right(secondState), outputCell)
+    assert.equal(core.right(thirdState), outputCell)
+  })
+
   test('a transition must be rooted at I', async () => {
     const core = await createWasmCore()
     const next = core.pair()

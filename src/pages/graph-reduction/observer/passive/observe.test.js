@@ -380,6 +380,74 @@ describe('observe', () => {
     })
   })
 
+  describe('causal lattice', () => {
+    test('output changes by moving to a prelinked event', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const firstValue = countedPair()
+      const nextValue = countedPair()
+      const firstOutput = countedPair(I, firstValue)
+      const nextOutput = countedPair(I, nextValue)
+      const firstState = countedPair()
+      const nextState = countedPair()
+      firstState[0] = countedPair(I, nextState)
+      firstState[1] = firstOutput
+      nextState[0] = countedPair(I, firstState)
+      nextState[1] = nextOutput
+      const built = allocations
+
+      const secondState = observe(firstState)
+      const thirdState = observe(secondState)
+
+      assert.equal(allocations, built)
+      assert.equal(firstState[1], firstOutput)
+      assert.equal(secondState[1], nextOutput)
+      assert.equal(thirdState[1], firstOutput)
+      assert.equal(observe(firstOutput), firstValue)
+      assert.equal(observe(nextOutput), nextValue)
+      assert.notEqual(firstOutput, nextOutput)
+    })
+  })
+
+  describe('IO boundary', () => {
+    test('external IO can rewrite a stable output port', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const firstValue = countedPair()
+      const nextValue = countedPair()
+      const input = countedPair(firstValue, nextValue)
+      const outputCell = countedPair(I, input[0])
+      const machine = closedMachine(input, outputCell, countedPair)
+      const firstState = machine[1]
+      const secondState = observe(firstState)
+      const port = outputOf(machine)
+      const built = allocations
+
+      assert.equal(port, outputCell)
+      assert.equal(observe(port), firstValue)
+      assert.equal(firstState[1], outputCell)
+      assert.equal(secondState[1], outputCell)
+
+      outputCell[1] = input[1]
+      const thirdState = observe(secondState)
+
+      assert.equal(allocations, built)
+      assert.equal(machine[1], firstState)
+      assert.equal(outputOf(machine), outputCell)
+      assert.equal(port, outputCell)
+      assert.equal(observe(port), nextValue)
+      assert.equal(firstState[1], outputCell)
+      assert.equal(secondState[1], outputCell)
+      assert.equal(thirdState[1], outputCell)
+    })
+  })
+
   describe('roots', () => {
     test('a transition must be rooted at I', () => {
       const next = pair()
