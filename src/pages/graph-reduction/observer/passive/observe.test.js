@@ -65,6 +65,8 @@ describe('observe', () => {
     return createPair(input, first)
   }
 
+  const outputOf = machine => machine[1][1]
+
   describe('basis contract', () => {
     test('I is a pair and the root graph', () => {
       const x = pair()
@@ -293,6 +295,88 @@ describe('observe', () => {
       assert.equal(output[0], I)
       assert.equal(output[1], input)
       assert.equal(observe(output), input)
+    })
+  })
+
+  describe('closed composition', () => {
+    test('machines compose by sharing ports', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const input = countedPair()
+      const source = closedMachine(input, input, countedPair)
+      const sourceOutput = outputOf(source)
+      const output = countedPair(I, sourceOutput)
+      const successor = closedMachine(sourceOutput, output, countedPair)
+      const built = allocations
+
+      const sourceNext = observe(source[1])
+      const successorNext = observe(successor[1])
+
+      assert.equal(allocations, built)
+      assert.equal(source[0], input)
+      assert.equal(sourceOutput, input)
+      assert.equal(successor[0], sourceOutput)
+      assert.equal(outputOf(successor), output)
+      assert.equal(sourceNext[1], sourceOutput)
+      assert.equal(successorNext[1], output)
+      assert.equal(output[1], input)
+    })
+
+    test('a selector can feed successor', () => {
+      const firstValue = pair()
+      const nextValue = pair()
+      const input = pair(firstValue, nextValue)
+      const selector = closedMachine(input, input[0])
+      const selected = outputOf(selector)
+      const output = pair(I, selected)
+      const successor = closedMachine(selected, output)
+
+      assert.equal(selected, firstValue)
+      assert.equal(successor[0], firstValue)
+      assert.equal(outputOf(successor), output)
+      assert.equal(observe(selector[1])[1], firstValue)
+      assert.equal(observe(successor[1])[1], output)
+      assert.equal(observe(output), firstValue)
+      assert.notEqual(output[1], nextValue)
+    })
+
+    test('a closed network exposes final output while components cycle', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const left = countedPair()
+      const right = countedPair()
+      const input = countedPair(left, right)
+      const selector = closedMachine(input, input[1], countedPair)
+      const selected = outputOf(selector)
+      const output = countedPair(I, selected)
+      const successor = closedMachine(selected, output, countedPair)
+      const program = countedPair(selector, successor)
+      const network = countedPair(input, program)
+      const root = closedMachine(network, output, countedPair)
+      const built = allocations
+
+      const rootNext = observe(root[1])
+      const selectorNext = observe(selector[1])
+      const successorNext = observe(successor[1])
+
+      assert.equal(allocations, built)
+      assert.equal(root[0], network)
+      assert.equal(network[0], input)
+      assert.equal(network[1], program)
+      assert.equal(program[0], selector)
+      assert.equal(program[1], successor)
+      assert.equal(outputOf(root), output)
+      assert.equal(rootNext[1], output)
+      assert.equal(selectorNext[1], right)
+      assert.equal(successorNext[1], output)
+      assert.equal(output[1], right)
+      assert.equal(observe(output), right)
     })
   })
 

@@ -42,6 +42,8 @@ describe('wasm core', () => {
     return core.pair(input, first)
   }
 
+  const outputOf = (core, machine) => core.right(core.right(machine))
+
   test('module bytes are real WebAssembly', async () => {
     assert.equal(WebAssembly.validate(wasmBytes), true)
 
@@ -362,6 +364,79 @@ describe('wasm core', () => {
     assert.equal(core.left(output), I)
     assert.equal(core.right(output), input)
     assert.equal(core.observe(output), input)
+  })
+
+  test('closed machines compose by sharing ports', async () => {
+    const core = await createWasmCore()
+    const input = core.pair()
+    const source = closedMachine(core, input, input)
+    const sourceOutput = outputOf(core, source)
+    const output = core.pair(I, sourceOutput)
+    const successor = closedMachine(core, sourceOutput, output)
+    const built = core.size()
+
+    const sourceNext = core.observe(core.right(source))
+    const successorNext = core.observe(core.right(successor))
+
+    assert.equal(core.size(), built)
+    assert.equal(core.left(source), input)
+    assert.equal(sourceOutput, input)
+    assert.equal(core.left(successor), sourceOutput)
+    assert.equal(outputOf(core, successor), output)
+    assert.equal(core.right(sourceNext), sourceOutput)
+    assert.equal(core.right(successorNext), output)
+    assert.equal(core.right(output), input)
+  })
+
+  test('a closed selector can feed successor', async () => {
+    const core = await createWasmCore()
+    const firstValue = core.pair()
+    const nextValue = core.pair()
+    const input = core.pair(firstValue, nextValue)
+    const selector = closedMachine(core, input, core.left(input))
+    const selected = outputOf(core, selector)
+    const output = core.pair(I, selected)
+    const successor = closedMachine(core, selected, output)
+
+    assert.equal(selected, firstValue)
+    assert.equal(core.left(successor), firstValue)
+    assert.equal(outputOf(core, successor), output)
+    assert.equal(core.right(core.observe(core.right(selector))), firstValue)
+    assert.equal(core.right(core.observe(core.right(successor))), output)
+    assert.equal(core.observe(output), firstValue)
+    assert.notEqual(core.right(output), nextValue)
+  })
+
+  test('a closed network exposes final output while components cycle', async () => {
+    const core = await createWasmCore()
+    const left = core.pair()
+    const right = core.pair()
+    const input = core.pair(left, right)
+    const selector = closedMachine(core, input, core.right(input))
+    const selected = outputOf(core, selector)
+    const output = core.pair(I, selected)
+    const successor = closedMachine(core, selected, output)
+    const program = core.pair(selector, successor)
+    const network = core.pair(input, program)
+    const root = closedMachine(core, network, output)
+    const built = core.size()
+
+    const rootNext = core.observe(core.right(root))
+    const selectorNext = core.observe(core.right(selector))
+    const successorNext = core.observe(core.right(successor))
+
+    assert.equal(core.size(), built)
+    assert.equal(core.left(root), network)
+    assert.equal(core.left(network), input)
+    assert.equal(core.right(network), program)
+    assert.equal(core.left(program), selector)
+    assert.equal(core.right(program), successor)
+    assert.equal(outputOf(core, root), output)
+    assert.equal(core.right(rootNext), output)
+    assert.equal(core.right(selectorNext), right)
+    assert.equal(core.right(successorNext), output)
+    assert.equal(core.right(output), right)
+    assert.equal(core.observe(output), right)
   })
 
   test('fix creates a self-observing root', async () => {
