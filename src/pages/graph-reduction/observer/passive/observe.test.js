@@ -148,6 +148,35 @@ describe('observe', () => {
       assert.equal(observe(observe(second)), second)
     })
 
+    test('a closed orbit exposes a stable output port', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const output = countedPair()
+      const first = countedPair()
+      const second = countedPair()
+      first[0] = countedPair(I, second)
+      first[1] = output
+      second[0] = countedPair(I, first)
+      second[1] = output
+      const built = allocations
+
+      const one = observe(first)
+      const two = observe(one)
+      const three = observe(two)
+
+      assert.equal(allocations, built)
+      assert.equal(one, second)
+      assert.equal(two, first)
+      assert.equal(three, second)
+      assert.equal(first[1], output)
+      assert.equal(second[1], output)
+      assert.equal(one[1], output)
+      assert.equal(two[1], output)
+    })
+
     test('succ reuses one cycle without allocating after construction', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {

@@ -252,6 +252,31 @@ describe('wasm core', () => {
     assert.equal(core.observe(core.observe(second)), second)
   })
 
+  test('a closed orbit exposes a stable output port', async () => {
+    const core = await createWasmCore()
+    const output = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    core.setLeft(first, core.pair(I, second))
+    core.setRight(first, output)
+    core.setLeft(second, core.pair(I, first))
+    core.setRight(second, output)
+    const built = core.size()
+
+    const one = core.observe(first)
+    const two = core.observe(one)
+    const three = core.observe(two)
+
+    assert.equal(core.size(), built)
+    assert.equal(one, second)
+    assert.equal(two, first)
+    assert.equal(three, second)
+    assert.equal(core.right(first), output)
+    assert.equal(core.right(second), output)
+    assert.equal(core.right(one), output)
+    assert.equal(core.right(two), output)
+  })
+
   test('fix creates a self-observing root', async () => {
     const core = await createWasmCore()
     const payload = core.pair()
