@@ -380,6 +380,28 @@ describe('observe', () => {
     })
   })
 
+  describe('closed evaluation', () => {
+    test('a compiled selector application preserves sharing', () => {
+      const selected = pair()
+      const skipped = pair()
+      const argument = pair()
+      const firstApplication = pair(selected, argument)
+      const nextApplication = pair(skipped, argument)
+      const input = pair(firstApplication, nextApplication)
+      const machine = closedMachine(input, input[0])
+      const state = machine[1]
+      const nextState = observe(state)
+
+      assert.equal(outputOf(machine), firstApplication)
+      assert.equal(state[1], firstApplication)
+      assert.equal(nextState[1], firstApplication)
+      assert.equal(firstApplication[0], selected)
+      assert.equal(firstApplication[1], argument)
+      assert.equal(nextApplication[1], argument)
+      assert.equal(firstApplication[1], nextApplication[1])
+    })
+  })
+
   describe('causal lattice', () => {
     test('output changes by moving to a prelinked event', () => {
       let allocations = 0
@@ -409,6 +431,50 @@ describe('observe', () => {
       assert.equal(observe(firstOutput), firstValue)
       assert.equal(observe(nextOutput), nextValue)
       assert.notEqual(firstOutput, nextOutput)
+    })
+
+    test('history is stored as prior events inside the graph', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const firstValue = countedPair()
+      const secondValue = countedPair()
+      const thirdValue = countedPair()
+      const firstOutput = countedPair(I, firstValue)
+      const secondOutput = countedPair(I, secondValue)
+      const thirdOutput = countedPair(I, thirdValue)
+      const firstEvent = countedPair(I, firstOutput)
+      const secondEvent = countedPair(firstEvent, secondOutput)
+      const thirdEvent = countedPair(secondEvent, thirdOutput)
+      const firstState = countedPair()
+      const secondState = countedPair()
+      const thirdState = countedPair()
+      firstState[0] = countedPair(I, secondState)
+      firstState[1] = firstEvent
+      secondState[0] = countedPair(I, thirdState)
+      secondState[1] = secondEvent
+      thirdState[0] = countedPair(I, firstState)
+      thirdState[1] = thirdEvent
+      const built = allocations
+
+      const afterFirst = observe(firstState)
+      const afterSecond = observe(afterFirst)
+
+      assert.equal(allocations, built)
+      assert.equal(afterFirst, secondState)
+      assert.equal(afterSecond, thirdState)
+      assert.equal(afterFirst[1], secondEvent)
+      assert.equal(afterSecond[1], thirdEvent)
+      assert.equal(thirdEvent[0], secondEvent)
+      assert.equal(secondEvent[0], firstEvent)
+      assert.equal(firstEvent[1], firstOutput)
+      assert.equal(secondEvent[1], secondOutput)
+      assert.equal(thirdEvent[1], thirdOutput)
+      assert.equal(observe(firstOutput), firstValue)
+      assert.equal(observe(secondOutput), secondValue)
+      assert.equal(observe(thirdOutput), thirdValue)
     })
   })
 
@@ -445,6 +511,27 @@ describe('observe', () => {
       assert.equal(firstState[1], outputCell)
       assert.equal(secondState[1], outputCell)
       assert.equal(thirdState[1], outputCell)
+    })
+
+    test('a REPL boundary exchanges real graph forms through a port', () => {
+      const empty = I
+      const filled = pair(I, I)
+      const left = pair()
+      const right = pair()
+      const compiledForm = pair(left, right)
+      const inputPort = pair(empty, I)
+      const machine = closedMachine(inputPort, inputPort)
+      const outputPort = outputOf(machine)
+
+      inputPort[0] = filled
+      inputPort[1] = compiledForm
+
+      assert.equal(outputPort, inputPort)
+      assert.equal(outputPort[0], filled)
+      assert.equal(outputPort[1], compiledForm)
+      assert.equal(outputPort[1][0], left)
+      assert.equal(outputPort[1][1], right)
+      assert.equal(observe(machine[1])[1], inputPort)
     })
   })
 

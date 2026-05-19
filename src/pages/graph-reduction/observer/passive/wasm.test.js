@@ -439,6 +439,27 @@ describe('wasm core', () => {
     assert.equal(core.observe(output), right)
   })
 
+  test('a compiled selector application preserves sharing', async () => {
+    const core = await createWasmCore()
+    const selected = core.pair()
+    const skipped = core.pair()
+    const argument = core.pair()
+    const firstApplication = core.pair(selected, argument)
+    const nextApplication = core.pair(skipped, argument)
+    const input = core.pair(firstApplication, nextApplication)
+    const machine = closedMachine(core, input, core.left(input))
+    const state = core.right(machine)
+    const nextState = core.observe(state)
+
+    assert.equal(outputOf(core, machine), firstApplication)
+    assert.equal(core.right(state), firstApplication)
+    assert.equal(core.right(nextState), firstApplication)
+    assert.equal(core.left(firstApplication), selected)
+    assert.equal(core.right(firstApplication), argument)
+    assert.equal(core.right(nextApplication), argument)
+    assert.equal(core.right(firstApplication), core.right(nextApplication))
+  })
+
   test('output changes by moving to a prelinked event', async () => {
     const core = await createWasmCore()
     const firstValue = core.pair()
@@ -463,6 +484,46 @@ describe('wasm core', () => {
     assert.equal(core.observe(firstOutput), firstValue)
     assert.equal(core.observe(nextOutput), nextValue)
     assert.notEqual(firstOutput, nextOutput)
+  })
+
+  test('history is stored as prior events inside the graph', async () => {
+    const core = await createWasmCore()
+    const firstValue = core.pair()
+    const secondValue = core.pair()
+    const thirdValue = core.pair()
+    const firstOutput = core.pair(I, firstValue)
+    const secondOutput = core.pair(I, secondValue)
+    const thirdOutput = core.pair(I, thirdValue)
+    const firstEvent = core.pair(I, firstOutput)
+    const secondEvent = core.pair(firstEvent, secondOutput)
+    const thirdEvent = core.pair(secondEvent, thirdOutput)
+    const firstState = core.pair()
+    const secondState = core.pair()
+    const thirdState = core.pair()
+    core.setLeft(firstState, core.pair(I, secondState))
+    core.setRight(firstState, firstEvent)
+    core.setLeft(secondState, core.pair(I, thirdState))
+    core.setRight(secondState, secondEvent)
+    core.setLeft(thirdState, core.pair(I, firstState))
+    core.setRight(thirdState, thirdEvent)
+    const built = core.size()
+
+    const afterFirst = core.observe(firstState)
+    const afterSecond = core.observe(afterFirst)
+
+    assert.equal(core.size(), built)
+    assert.equal(afterFirst, secondState)
+    assert.equal(afterSecond, thirdState)
+    assert.equal(core.right(afterFirst), secondEvent)
+    assert.equal(core.right(afterSecond), thirdEvent)
+    assert.equal(core.left(thirdEvent), secondEvent)
+    assert.equal(core.left(secondEvent), firstEvent)
+    assert.equal(core.right(firstEvent), firstOutput)
+    assert.equal(core.right(secondEvent), secondOutput)
+    assert.equal(core.right(thirdEvent), thirdOutput)
+    assert.equal(core.observe(firstOutput), firstValue)
+    assert.equal(core.observe(secondOutput), secondValue)
+    assert.equal(core.observe(thirdOutput), thirdValue)
   })
 
   test('external IO can rewrite a stable output port', async () => {
@@ -493,6 +554,28 @@ describe('wasm core', () => {
     assert.equal(core.right(firstState), outputCell)
     assert.equal(core.right(secondState), outputCell)
     assert.equal(core.right(thirdState), outputCell)
+  })
+
+  test('a REPL boundary exchanges real graph forms through a port', async () => {
+    const core = await createWasmCore()
+    const empty = I
+    const filled = core.pair(I, I)
+    const left = core.pair()
+    const right = core.pair()
+    const compiledForm = core.pair(left, right)
+    const inputPort = core.pair(empty, I)
+    const machine = closedMachine(core, inputPort, inputPort)
+    const outputPort = outputOf(core, machine)
+
+    core.setLeft(inputPort, filled)
+    core.setRight(inputPort, compiledForm)
+
+    assert.equal(outputPort, inputPort)
+    assert.equal(core.left(outputPort), filled)
+    assert.equal(core.right(outputPort), compiledForm)
+    assert.equal(core.left(core.right(outputPort)), left)
+    assert.equal(core.right(core.right(outputPort)), right)
+    assert.equal(core.right(core.observe(core.right(machine))), inputPort)
   })
 
   test('a transition must be rooted at I', async () => {
