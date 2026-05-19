@@ -439,6 +439,45 @@ describe('wasm core', () => {
     assert.equal(core.observe(output), right)
   })
 
+  test('a transition must be rooted at I', async () => {
+    const core = await createWasmCore()
+    const next = core.pair()
+    const localRoot = core.pair()
+    const localNext = core.pair()
+    const rooted = core.pair(core.pair(I, next), core.pair())
+    const unrooted = core.pair(core.pair(localRoot, localNext), core.pair())
+
+    assert.equal(core.observe(rooted), next)
+    assert.notEqual(core.observe(unrooted), localNext)
+    assert.equal(core.observe(unrooted), I)
+  })
+
+  test('a machine root binds an input to an orbit', async () => {
+    const core = await createWasmCore()
+    const output = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    core.setLeft(first, core.pair(I, second))
+    core.setRight(first, output)
+    core.setLeft(second, core.pair(I, first))
+    core.setRight(second, output)
+    const firstInput = core.pair()
+    const secondInput = core.pair()
+    const firstRoot = core.pair(firstInput, first)
+    const secondRoot = core.pair(secondInput, first)
+
+    assert.equal(core.right(firstRoot), core.right(secondRoot))
+    assert.equal(outputOf(core, firstRoot), output)
+    assert.equal(outputOf(core, secondRoot), output)
+    assert.equal(
+      core.observe(core.right(firstRoot)),
+      core.observe(core.right(secondRoot))
+    )
+    assert.equal(core.left(firstRoot), firstInput)
+    assert.equal(core.left(secondRoot), secondInput)
+    assert.notEqual(core.left(firstRoot), core.left(secondRoot))
+  })
+
   test('fix creates a self-observing root', async () => {
     const core = await createWasmCore()
     const payload = core.pair()

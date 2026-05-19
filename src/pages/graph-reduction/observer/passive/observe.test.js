@@ -380,6 +380,42 @@ describe('observe', () => {
     })
   })
 
+  describe('roots', () => {
+    test('a transition must be rooted at I', () => {
+      const next = pair()
+      const localRoot = pair()
+      const localNext = pair()
+      const rooted = pair(pair(I, next), pair())
+      const unrooted = pair(pair(localRoot, localNext), pair())
+
+      assert.equal(observe(rooted), next)
+      assert.notEqual(observe(unrooted), localNext)
+      assert.equal(observe(unrooted), I)
+    })
+
+    test('a machine root binds an input to an orbit', () => {
+      const output = pair()
+      const first = pair()
+      const second = pair()
+      first[0] = pair(I, second)
+      first[1] = output
+      second[0] = pair(I, first)
+      second[1] = output
+      const firstInput = pair()
+      const secondInput = pair()
+      const firstRoot = pair(firstInput, first)
+      const secondRoot = pair(secondInput, first)
+
+      assert.equal(firstRoot[1], secondRoot[1])
+      assert.equal(outputOf(firstRoot), output)
+      assert.equal(outputOf(secondRoot), output)
+      assert.equal(observe(firstRoot[1]), observe(secondRoot[1]))
+      assert.equal(firstRoot[0], firstInput)
+      assert.equal(secondRoot[0], secondInput)
+      assert.notEqual(firstRoot[0], secondRoot[0])
+    })
+  })
+
   describe('collapse predicates', () => {
     test('root collapse reads a root-left wrapper', () => {
       const value = pair()
