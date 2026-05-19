@@ -31,6 +31,17 @@ describe('wasm core', () => {
     return nextFrame
   }
 
+  const closedMachine = (core, input, output) => {
+    const first = core.pair()
+    const second = core.pair()
+    core.setLeft(first, core.pair(I, second))
+    core.setRight(first, output)
+    core.setLeft(second, core.pair(I, first))
+    core.setRight(second, output)
+
+    return core.pair(input, first)
+  }
+
   test('module bytes are real WebAssembly', async () => {
     assert.equal(WebAssembly.validate(wasmBytes), true)
 
@@ -275,6 +286,82 @@ describe('wasm core', () => {
     assert.equal(core.right(second), output)
     assert.equal(core.right(one), output)
     assert.equal(core.right(two), output)
+  })
+
+  test('a closed machine exposes its input as output', async () => {
+    const core = await createWasmCore()
+    const input = core.pair()
+    const machine = closedMachine(core, input, input)
+    const first = core.right(machine)
+    const built = core.size()
+
+    const second = core.observe(first)
+    const third = core.observe(second)
+    const fourth = core.observe(third)
+
+    assert.equal(core.size(), built)
+    assert.equal(core.left(machine), input)
+    assert.equal(core.right(machine), first)
+    assert.equal(core.right(second), input)
+    assert.equal(core.right(third), input)
+    assert.equal(core.right(fourth), input)
+    assert.equal(second, core.observe(third))
+    assert.equal(third, core.observe(second))
+  })
+
+  test('a closed machine selects the first slot of its input', async () => {
+    const core = await createWasmCore()
+    const firstValue = core.pair()
+    const nextValue = core.pair()
+    const input = core.pair(firstValue, nextValue)
+    const machine = closedMachine(core, input, core.left(input))
+    const first = core.right(machine)
+    const second = core.observe(first)
+    const third = core.observe(second)
+
+    assert.equal(core.left(machine), input)
+    assert.equal(core.right(first), firstValue)
+    assert.equal(core.right(second), firstValue)
+    assert.equal(core.right(third), firstValue)
+    assert.notEqual(core.right(first), nextValue)
+  })
+
+  test('a closed machine selects the next slot of its input', async () => {
+    const core = await createWasmCore()
+    const firstValue = core.pair()
+    const nextValue = core.pair()
+    const input = core.pair(firstValue, nextValue)
+    const machine = closedMachine(core, input, core.right(input))
+    const first = core.right(machine)
+    const second = core.observe(first)
+    const third = core.observe(second)
+
+    assert.equal(core.left(machine), input)
+    assert.equal(core.right(first), nextValue)
+    assert.equal(core.right(second), nextValue)
+    assert.equal(core.right(third), nextValue)
+    assert.notEqual(core.right(first), firstValue)
+  })
+
+  test('a closed machine exposes the successor of its input', async () => {
+    const core = await createWasmCore()
+    const input = core.pair()
+    const output = core.pair(I, input)
+    const machine = closedMachine(core, input, output)
+    const first = core.right(machine)
+    const built = core.size()
+
+    const second = core.observe(first)
+    const third = core.observe(second)
+
+    assert.equal(core.size(), built)
+    assert.equal(core.left(machine), input)
+    assert.equal(core.right(first), output)
+    assert.equal(core.right(second), output)
+    assert.equal(core.right(third), output)
+    assert.equal(core.left(output), I)
+    assert.equal(core.right(output), input)
+    assert.equal(core.observe(output), input)
   })
 
   test('fix creates a self-observing root', async () => {

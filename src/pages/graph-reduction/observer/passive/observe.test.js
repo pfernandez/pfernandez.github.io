@@ -54,6 +54,17 @@ describe('observe', () => {
     return nextFrame
   }
 
+  const closedMachine = (input, output, createPair = pair) => {
+    const first = createPair()
+    const second = createPair()
+    first[0] = createPair(I, second)
+    first[1] = output
+    second[0] = createPair(I, first)
+    second[1] = output
+
+    return createPair(input, first)
+  }
+
   describe('basis contract', () => {
     test('I is a pair and the root graph', () => {
       const x = pair()
@@ -198,6 +209,90 @@ describe('observe', () => {
       assert.equal(two, root)
       assert.equal(three, root[1])
       assert.equal(four, root)
+    })
+  })
+
+  describe('closed machines', () => {
+    test('an orbit exposes its input as output', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const input = countedPair()
+      const machine = closedMachine(input, input, countedPair)
+      const first = machine[1]
+      const built = allocations
+
+      const second = observe(first)
+      const third = observe(second)
+      const fourth = observe(third)
+
+      assert.equal(allocations, built)
+      assert.equal(machine[0], input)
+      assert.equal(machine[1], first)
+      assert.equal(second[1], input)
+      assert.equal(third[1], input)
+      assert.equal(fourth[1], input)
+      assert.equal(second, observe(third))
+      assert.equal(third, observe(second))
+    })
+
+    test('an orbit selects the first slot of its input', () => {
+      const firstValue = pair()
+      const nextValue = pair()
+      const input = pair(firstValue, nextValue)
+      const machine = closedMachine(input, input[0])
+      const first = machine[1]
+      const second = observe(first)
+      const third = observe(second)
+
+      assert.equal(machine[0], input)
+      assert.equal(first[1], firstValue)
+      assert.equal(second[1], firstValue)
+      assert.equal(third[1], firstValue)
+      assert.notEqual(first[1], nextValue)
+    })
+
+    test('an orbit selects the next slot of its input', () => {
+      const firstValue = pair()
+      const nextValue = pair()
+      const input = pair(firstValue, nextValue)
+      const machine = closedMachine(input, input[1])
+      const first = machine[1]
+      const second = observe(first)
+      const third = observe(second)
+
+      assert.equal(machine[0], input)
+      assert.equal(first[1], nextValue)
+      assert.equal(second[1], nextValue)
+      assert.equal(third[1], nextValue)
+      assert.notEqual(first[1], firstValue)
+    })
+
+    test('an orbit exposes the successor of its input', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const input = countedPair()
+      const output = countedPair(I, input)
+      const machine = closedMachine(input, output, countedPair)
+      const first = machine[1]
+      const built = allocations
+
+      const second = observe(first)
+      const third = observe(second)
+
+      assert.equal(allocations, built)
+      assert.equal(machine[0], input)
+      assert.equal(first[1], output)
+      assert.equal(second[1], output)
+      assert.equal(third[1], output)
+      assert.equal(output[0], I)
+      assert.equal(output[1], input)
+      assert.equal(observe(output), input)
     })
   })
 
