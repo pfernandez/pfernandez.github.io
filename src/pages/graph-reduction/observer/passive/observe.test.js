@@ -1,29 +1,29 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { I, observe, pair } from './observe.js'
+import { I, observe } from './observe.js'
 
 describe('observe', () => {
   const fix = (next = I) => {
-    const root = pair()
+    const root = [I, I]
     root[0] = identity(root, root)
     root[1] = next
     return root
   }
 
-  const observation = (observer, focus, createPair = pair) =>
-    createPair(observer, focus)
+  const observation = (observer, focus, createPair) =>
+    createPair ? createPair(observer, focus) : [observer, focus]
 
-  const identity = (observer, next = observer, createPair = pair) =>
-    createPair(observer, next)
+  const identity = (observer, next = observer, createPair) =>
+    createPair ? createPair(observer, next) : [observer, next]
 
   const closedMachine = (
     root,
     input = root,
     output = input,
-    createPair = pair
+    createPair
   ) => {
-    const first = createPair()
-    const second = createPair()
+    const first = createPair ? createPair() : [I, I]
+    const second = createPair ? createPair() : [I, I]
     root[0] = input
     root[1] = first
     first[0] = identity(root, second, createPair)
@@ -47,7 +47,7 @@ describe('observe', () => {
   }
 
   const selfCollapse = next => {
-    const focus = pair()
+    const focus = [I, I]
     focus[0] = focus
     focus[1] = next
     return focus
@@ -59,11 +59,11 @@ describe('observe', () => {
 
     if (first === observer) return next
 
-    return pair(observer, first)
+    return [observer, first]
   }
 
   const linkedFrame = (observer, focus, future = I) =>
-    pair(observer, pair(focus, future))
+    [observer, [focus, future]]
 
   const selectLinkedFrame = frame => {
     const [observer, carried] = frame
@@ -77,15 +77,15 @@ describe('observe', () => {
 
   const outputOf = machine => machine[1][1]
 
-  const event = (previous = I, output = I, createPair = pair) =>
-    createPair(previous, output)
+  const event = (previous = I, output = I, createPair) =>
+    createPair ? createPair(previous, output) : [previous, output]
 
-  const port = (status = I, value = I, createPair = pair) =>
-    createPair(status, value)
+  const port = (status = I, value = I, createPair) =>
+    createPair ? createPair(status, value) : [status, value]
 
   describe('basis contract', () => {
     test('I is a pair and the root graph', () => {
-      const x = pair()
+      const x = [I, I]
 
       assert.equal(I[0], I)
       assert.equal(I[1], I)
@@ -96,7 +96,7 @@ describe('observe', () => {
     test('I observes to itself', () => assert.equal(observe(observation(I, I)), I))
 
     test('the root can open to a loaded graph', () => {
-      const graph = pair()
+      const graph = [I, I]
       const previous = I[1]
 
       graph[1] = graph
@@ -113,25 +113,25 @@ describe('observe', () => {
     })
 
     test('collapse returns its next', () => {
-      const x = pair()
+      const x = [I, I]
 
       assert.equal(observe(observation(I, identity(I, x))), x)
     })
 
     test('pair observes like its first child', () => {
-      const x = pair()
-      const context = pair()
-      const next = pair(I, x)
-      const form = pair(next, context)
+      const x = [I, I]
+      const context = [I, I]
+      const next = [I, x]
+      const form = [next, context]
 
       assert.equal(observe(observation(I, form)), observe(observation(I, next)))
       assert.equal(observe(observation(I, form)), x)
     })
 
     test('observe takes one step rather than normalizing', () => {
-      const value = pair()
-      const inner = pair(I, value)
-      const outer = pair(I, inner)
+      const value = [I, I]
+      const inner = [I, value]
+      const outer = [I, inner]
 
       assert.equal(observe(observation(I, outer)), inner)
       assert.notEqual(observe(observation(I, outer)), value)
@@ -139,10 +139,10 @@ describe('observe', () => {
     })
 
     test('observation preserves sharing through different paths', () => {
-      const value = pair()
-      const shared = pair(I, value)
-      const firstPath = pair(shared, pair())
-      const secondPath = pair(pair(shared, pair()), pair())
+      const value = [I, I]
+      const shared = [I, value]
+      const firstPath = [shared, [I, I]]
+      const secondPath = [[shared, [I, I]], [I, I]]
 
       assert.equal(observe(observation(I, firstPath)), value)
       assert.equal(observe(observation(I, secondPath)), value)
@@ -150,9 +150,9 @@ describe('observe', () => {
     })
 
     test('a prelinked future is selected by identity', () => {
-      const observer = pair()
-      const value = pair()
-      const focus = pair(pair(observer, value), I)
+      const observer = [I, I]
+      const value = [I, I]
+      const focus = [[observer, value], I]
       const nextFrame = linkedFrame(observer, focus[0])
       const sameShape = linkedFrame(observer, focus[0])
       const frame = linkedFrame(observer, focus, nextFrame)
@@ -164,8 +164,8 @@ describe('observe', () => {
     })
 
     test('a closed graph carries its own next observation', () => {
-      const first = pair()
-      const second = pair()
+      const first = [I, I]
+      const second = [I, I]
       first[0] = I
       first[1] = second
       second[0] = I
@@ -181,7 +181,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const output = countedPair()
       const first = countedPair()
@@ -210,7 +210,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const root = countedPair()
       root[0] = I
@@ -235,7 +235,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const input = countedPair()
       const machine = countedPair()
@@ -258,10 +258,10 @@ describe('observe', () => {
     })
 
     test('an orbit selects the first slot of its input', () => {
-      const firstValue = pair()
-      const nextValue = pair()
-      const input = pair(firstValue, nextValue)
-      const machine = pair()
+      const firstValue = [I, I]
+      const nextValue = [I, I]
+      const input = [firstValue, nextValue]
+      const machine = [I, I]
       closedMachine(machine, input, input[0])
       const first = machine[1]
       const second = observe(observation(machine, first))
@@ -275,10 +275,10 @@ describe('observe', () => {
     })
 
     test('an orbit selects the next slot of its input', () => {
-      const firstValue = pair()
-      const nextValue = pair()
-      const input = pair(firstValue, nextValue)
-      const machine = pair()
+      const firstValue = [I, I]
+      const nextValue = [I, I]
+      const input = [firstValue, nextValue]
+      const machine = [I, I]
       closedMachine(machine, input, input[1])
       const first = machine[1]
       const second = observe(observation(machine, first))
@@ -295,7 +295,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const input = countedPair()
       const machine = countedPair()
@@ -323,7 +323,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const input = countedPair()
       const source = countedPair()
@@ -348,13 +348,13 @@ describe('observe', () => {
     })
 
     test('a selector can feed successor', () => {
-      const firstValue = pair()
-      const nextValue = pair()
-      const input = pair(firstValue, nextValue)
-      const selector = pair()
+      const firstValue = [I, I]
+      const nextValue = [I, I]
+      const input = [firstValue, nextValue]
+      const selector = [I, I]
       closedMachine(selector, input, input[0])
       const selected = outputOf(selector)
-      const successor = pair()
+      const successor = [I, I]
       const output = identity(successor, selected)
       closedMachine(successor, selected, output)
 
@@ -371,7 +371,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const left = countedPair()
       const right = countedPair()
@@ -409,13 +409,13 @@ describe('observe', () => {
 
   describe('closed evaluation', () => {
     test('a compiled selector application preserves sharing', () => {
-      const selected = pair()
-      const skipped = pair()
-      const argument = pair()
-      const firstApplication = pair(selected, argument)
-      const nextApplication = pair(skipped, argument)
-      const input = pair(firstApplication, nextApplication)
-      const machine = pair()
+      const selected = [I, I]
+      const skipped = [I, I]
+      const argument = [I, I]
+      const firstApplication = [selected, argument]
+      const nextApplication = [skipped, argument]
+      const input = [firstApplication, nextApplication]
+      const machine = [I, I]
       closedMachine(machine, input, input[0])
       const state = machine[1]
       const nextState = observe(observation(machine, state))
@@ -435,7 +435,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const root = countedPair()
       const firstValue = countedPair()
@@ -466,7 +466,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const root = countedPair()
       const firstValue = countedPair()
@@ -513,7 +513,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const firstValue = countedPair()
       const nextValue = countedPair()
@@ -546,12 +546,12 @@ describe('observe', () => {
 
     test('a REPL boundary exchanges real graph forms through a port', () => {
       const empty = I
-      const filled = pair(I, I)
-      const left = pair()
-      const right = pair()
-      const compiledForm = pair(left, right)
+      const filled = [I, I]
+      const left = [I, I]
+      const right = [I, I]
+      const compiledForm = [left, right]
       const inputPort = port(empty, I)
-      const machine = pair()
+      const machine = [I, I]
       closedMachine(machine, inputPort, inputPort)
       const outputPort = outputOf(machine)
 
@@ -569,12 +569,12 @@ describe('observe', () => {
 
   describe('roots', () => {
     test('identity is relative to its observer', () => {
-      const observer = pair()
-      const next = pair()
-      const localRoot = pair()
-      const localNext = pair()
-      const rooted = pair(identity(observer, next), pair())
-      const unrooted = pair(pair(localRoot, localNext), pair())
+      const observer = [I, I]
+      const next = [I, I]
+      const localRoot = [I, I]
+      const localNext = [I, I]
+      const rooted = [identity(observer, next), [I, I]]
+      const unrooted = [[localRoot, localNext], [I, I]]
 
       assert.equal(observe(observation(observer, rooted)), next)
       assert.notEqual(observe(observation(I, rooted)), next)
@@ -584,11 +584,11 @@ describe('observe', () => {
     })
 
     test('a machine root is the local observer for its orbit', () => {
-      const output = pair()
-      const firstInput = pair()
-      const secondInput = pair()
-      const firstRoot = pair()
-      const secondRoot = pair()
+      const output = [I, I]
+      const firstInput = [I, I]
+      const secondInput = [I, I]
+      const firstRoot = [I, I]
+      const secondRoot = [I, I]
       closedMachine(firstRoot, firstInput, output)
       closedMachine(secondRoot, secondInput, output)
 
@@ -605,14 +605,14 @@ describe('observe', () => {
 
   describe('collapse predicates', () => {
     test('root collapse reads a root-left wrapper', () => {
-      const value = pair()
-      const wrapper = pair(I, value)
+      const value = [I, I]
+      const wrapper = [I, value]
 
       assert.equal(observeWhen(first => first === I, wrapper), value)
     })
 
     test('local collapse reads a self-left wrapper', () => {
-      const value = pair()
+      const value = [I, I]
       const wrapper = selfCollapse(value)
 
       assert.equal(
@@ -622,8 +622,8 @@ describe('observe', () => {
     })
 
     test('the predicates choose different wrappers', () => {
-      const value = pair()
-      const rootWrapper = pair(I, value)
+      const value = [I, I]
+      const rootWrapper = [I, value]
       const selfWrapper = selfCollapse(value)
 
       assert.equal(observeWhen(first => first === I, rootWrapper), value)
@@ -641,8 +641,8 @@ describe('observe', () => {
 
   describe('linked futures', () => {
     test('a root frame collapses like passive observe', () => {
-      const value = pair()
-      const focus = pair(I, value)
+      const value = [I, I]
+      const focus = [I, value]
       const frame = linkedFrame(I, focus)
 
       assert.equal(selectLinkedFrame(frame), value)
@@ -650,9 +650,9 @@ describe('observe', () => {
     })
 
     test('a frame selects its carried future while moving focus left', () => {
-      const observer = pair()
-      const value = pair()
-      const focus = pair(pair(observer, value), pair())
+      const observer = [I, I]
+      const value = [I, I]
+      const focus = [[observer, value], [I, I]]
       const nextFrame = linkedFrame(observer, focus[0])
       const frame = linkedFrame(observer, focus, nextFrame)
 
@@ -661,10 +661,10 @@ describe('observe', () => {
     })
 
     test('the same focus can collapse for one observer and move for another', () => {
-      const firstObserver = pair()
-      const secondObserver = pair()
-      const value = pair()
-      const focus = pair(firstObserver, value)
+      const firstObserver = [I, I]
+      const secondObserver = [I, I]
+      const value = [I, I]
+      const focus = [firstObserver, value]
       const future = linkedFrame(secondObserver, firstObserver)
       const firstFrame = linkedFrame(firstObserver, focus)
       const secondFrame = linkedFrame(secondObserver, focus, future)
@@ -678,11 +678,11 @@ describe('observe', () => {
     })
 
     test('a constrained future chain reaches a deterministic result', () => {
-      const observer = pair()
-      const result = pair()
-      const finalFocus = pair(observer, result)
+      const observer = [I, I]
+      const result = [I, I]
+      const finalFocus = [observer, result]
       const finalFrame = linkedFrame(observer, finalFocus)
-      const initialFocus = pair(finalFocus, pair())
+      const initialFocus = [finalFocus, [I, I]]
       const initialFrame = linkedFrame(observer, initialFocus, finalFrame)
 
       assert.equal(selectLinkedFrame(initialFrame), finalFrame)
@@ -690,9 +690,9 @@ describe('observe', () => {
     })
 
     test('a cyclic future chain reuses frames while unfolding depth', () => {
-      const observer = pair()
-      const firstFocus = pair()
-      const secondFocus = pair()
+      const observer = [I, I]
+      const firstFocus = [I, I]
+      const secondFocus = [I, I]
       const firstFrame = linkedFrame(observer, firstFocus)
       const secondFrame = linkedFrame(observer, secondFocus, firstFrame)
       firstFocus[0] = secondFocus
@@ -722,7 +722,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const countedLinkedFrame = (observer, focus, future = I) =>
         countedPair(observer, countedPair(focus, future))
@@ -752,11 +752,11 @@ describe('observe', () => {
 
   describe('unlinked frames', () => {
     test('an unlinked frame has to create the next relation', () => {
-      const observer = pair()
-      const value = pair()
-      const focus = pair(pair(observer, value), pair())
-      const frame = pair(observer, focus)
-      const existing = pair(observer, focus[0])
+      const observer = [I, I]
+      const value = [I, I]
+      const focus = [[observer, value], [I, I]]
+      const frame = [observer, focus]
+      const existing = [observer, focus[0]]
       const created = createFrameStep(frame)
 
       assert.notEqual(created, existing)
@@ -767,10 +767,10 @@ describe('observe', () => {
 
   describe('observer as data', () => {
     test('an observation frame observes like its focus', () => {
-      const x = pair()
-      const y = pair()
-      const target = pair(pair(I, x), y)
-      const frame = pair(target, I)
+      const x = [I, I]
+      const y = [I, I]
+      const target = [[I, x], y]
+      const frame = [target, I]
 
       assert.equal(observe(observation(I, frame)), observe(observation(I, target)))
       assert.equal(observe(observation(I, frame)), x)
@@ -779,11 +779,11 @@ describe('observe', () => {
     })
 
     test('a data observer can carry the current focus', () => {
-      const observer = pair()
-      const x = pair()
-      const y = pair()
-      const first = pair(I, x)
-      const second = pair(pair(I, y), pair())
+      const observer = [I, I]
+      const x = [I, I]
+      const y = [I, I]
+      const first = [I, x]
+      const second = [[I, y], [I, I]]
 
       observer[0] = first
       observer[1] = I
@@ -795,36 +795,36 @@ describe('observe', () => {
     })
 
     test('a fixed first-position function cannot inspect its next', () => {
-      const x = pair()
-      const y = pair()
-      const fixed = pair(pair(I, x), pair())
+      const x = [I, I]
+      const y = [I, I]
+      const fixed = [[I, x], [I, I]]
 
-      assert.equal(observe(observation(I, pair(fixed, x))), observe(observation(I, fixed)))
-      assert.equal(observe(observation(I, pair(fixed, y))), observe(observation(I, fixed)))
-      assert.equal(observe(observation(I, pair(I, x))), x)
-      assert.equal(observe(observation(I, pair(I, y))), y)
+      assert.equal(observe(observation(I, [fixed, x])), observe(observation(I, fixed)))
+      assert.equal(observe(observation(I, [fixed, y])), observe(observation(I, fixed)))
+      assert.equal(observe(observation(I, [I, x])), x)
+      assert.equal(observe(observation(I, [I, y])), y)
     })
 
     test('a fixed collapse observes to itself instead of consuming next', () => {
-      const fixedI = pair()
-      const x = pair()
+      const fixedI = [I, I]
+      const x = [I, I]
       fixedI[0] = I
       fixedI[1] = fixedI
 
       assert.equal(observe(observation(I, fixedI)), fixedI)
-      assert.equal(observe(observation(I, pair(fixedI, x))), fixedI)
-      assert.notEqual(observe(observation(I, pair(fixedI, x))), x)
+      assert.equal(observe(observation(I, [fixedI, x])), fixedI)
+      assert.notEqual(observe(observation(I, [fixedI, x])), x)
     })
 
     test('root exposes the next frame from carried possibility', () => {
-      const root = pair()
-      const currentValue = pair()
-      const nextValue = pair()
-      const current = pair(pair(I, currentValue), I)
-      const next = pair(pair(I, nextValue), I)
-      const carried = pair(current, next)
+      const root = [I, I]
+      const currentValue = [I, I]
+      const nextValue = [I, I]
+      const current = [[I, currentValue], I]
+      const next = [[I, nextValue], I]
+      const carried = [current, next]
 
-      root[0] = pair(I, carried[1])
+      root[0] = [I, carried[1]]
       root[1] = carried
 
       assert.equal(root[1][0], current)
@@ -835,8 +835,8 @@ describe('observe', () => {
     })
 
     test('a linked frame can carry its observer and itself', () => {
-      const observer = pair()
-      const focus = pair()
+      const observer = [I, I]
+      const focus = [I, I]
       const frame = linkedFrame(observer, focus)
       frame[1][1] = frame
 
@@ -849,9 +849,9 @@ describe('observe', () => {
 
   describe('slot rewrites', () => {
     test('a collapse slot can be rewritten from context', () => {
-      const left = pair()
-      const right = pair()
-      const form = pair(pair(I, left), right)
+      const left = [I, I]
+      const right = [I, I]
+      const form = [[I, left], right]
       const oldValue = form[0][1]
 
       form[0][0] = I
@@ -863,10 +863,10 @@ describe('observe', () => {
     })
 
     test('a pair can be assembled from carried slots', () => {
-      const left = pair()
-      const right = pair()
-      const result = pair()
-      const form = pair(pair(pair(I, result), left), right)
+      const left = [I, I]
+      const right = [I, I]
+      const result = [I, I]
+      const form = [[[I, result], left], right]
 
       result[0] = form[0][1]
       result[1] = form[1]
@@ -880,19 +880,19 @@ describe('observe', () => {
 
   describe('passive basis', () => {
     test('application is ordinary pair structure', () => {
-      const operator = pair()
-      const operand = pair()
-      const application = pair(operator, operand)
+      const operator = [I, I]
+      const operand = [I, I]
+      const application = [operator, operand]
 
       assert.equal(application[0], operator)
       assert.equal(application[1], operand)
     })
 
     test('I returns its argument by wiring an identity debt', () => {
-      const root = pair()
-      const IForm = pair()
-      const argument = pair()
-      const form = pair(IForm, argument)
+      const root = [I, I]
+      const IForm = [I, I]
+      const argument = [I, I]
+      const form = [IForm, argument]
       const result = identity(root, form[1])
 
       root[0] = result
@@ -904,11 +904,11 @@ describe('observe', () => {
     })
 
     test('K keeps the first argument from nested application structure', () => {
-      const root = pair()
-      const KForm = pair()
-      const first = pair()
-      const second = pair()
-      const form = pair(pair(KForm, first), second)
+      const root = [I, I]
+      const KForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const form = [[KForm, first], second]
       const result = identity(root, form[0][1])
 
       root[0] = result
@@ -921,20 +921,17 @@ describe('observe', () => {
     })
 
     test('S shares the final argument between both applications', () => {
-      const root = pair()
-      const SForm = pair()
-      const first = pair()
-      const second = pair()
-      const argument = pair()
-      const form = pair(pair(pair(SForm, first), second), argument)
-      const result = pair(
-        pair(form[0][0][1], form[1]),
-        pair(form[0][1], form[1])
-      )
+      const root = [I, I]
+      const SForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const argument = [I, I]
+      const form = [[[SForm, first], second], argument]
+      const result = [[form[0][0][1], form[1]], [form[0][1], form[1]]]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
-      assert.deepEqual(result, pair(pair(first, argument), pair(second, argument)))
+      assert.deepEqual(result, [[first, argument], [second, argument]])
       assert.equal(result[0][0], first)
       assert.equal(result[1][0], second)
       assert.equal(result[0][1], argument)
@@ -943,13 +940,13 @@ describe('observe', () => {
     })
 
     test('B composes two applications', () => {
-      const root = pair()
-      const BForm = pair()
-      const first = pair()
-      const second = pair()
-      const argument = pair()
-      const form = pair(pair(pair(BForm, first), second), argument)
-      const result = pair(form[0][0][1], pair(form[0][1], form[1]))
+      const root = [I, I]
+      const BForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const argument = [I, I]
+      const form = [[[BForm, first], second], argument]
+      const result = [form[0][0][1], [form[0][1], form[1]]]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -959,13 +956,13 @@ describe('observe', () => {
     })
 
     test('C swaps the final two arguments', () => {
-      const root = pair()
-      const CForm = pair()
-      const first = pair()
-      const second = pair()
-      const argument = pair()
-      const form = pair(pair(pair(CForm, first), second), argument)
-      const result = pair(pair(form[0][0][1], form[1]), form[0][1])
+      const root = [I, I]
+      const CForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const argument = [I, I]
+      const form = [[[CForm, first], second], argument]
+      const result = [[form[0][0][1], form[1]], form[0][1]]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -975,12 +972,12 @@ describe('observe', () => {
     })
 
     test('W shares one argument in both slots', () => {
-      const root = pair()
-      const WForm = pair()
-      const first = pair()
-      const argument = pair()
-      const form = pair(pair(WForm, first), argument)
-      const result = pair(pair(form[0][1], form[1]), form[1])
+      const root = [I, I]
+      const WForm = [I, I]
+      const first = [I, I]
+      const argument = [I, I]
+      const form = [[WForm, first], argument]
+      const result = [[form[0][1], form[1]], form[1]]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -991,11 +988,11 @@ describe('observe', () => {
     })
 
     test('true chooses the first branch', () => {
-      const root = pair()
-      const trueForm = pair()
-      const first = pair()
-      const second = pair()
-      const form = pair(pair(trueForm, first), second)
+      const root = [I, I]
+      const trueForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const form = [[trueForm, first], second]
       const result = identity(root, form[0][1])
 
       root[0] = result
@@ -1006,11 +1003,11 @@ describe('observe', () => {
     })
 
     test('false chooses the second branch', () => {
-      const root = pair()
-      const falseForm = pair()
-      const first = pair()
-      const second = pair()
-      const form = pair(pair(falseForm, first), second)
+      const root = [I, I]
+      const falseForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const form = [[falseForm, first], second]
       const result = identity(root, form[1])
 
       root[0] = result
@@ -1021,13 +1018,13 @@ describe('observe', () => {
     })
 
     test('not builds a choice with branches reversed', () => {
-      const root = pair()
-      const notForm = pair()
-      const bool = pair()
-      const trueBranch = pair()
-      const falseBranch = pair()
-      const form = pair(notForm, bool)
-      const result = pair(pair(form[1], falseBranch), trueBranch)
+      const root = [I, I]
+      const notForm = [I, I]
+      const bool = [I, I]
+      const trueBranch = [I, I]
+      const falseBranch = [I, I]
+      const form = [notForm, bool]
+      const result = [[form[1], falseBranch], trueBranch]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1037,13 +1034,13 @@ describe('observe', () => {
     })
 
     test('and builds a choice with false as fallback', () => {
-      const root = pair()
-      const andForm = pair()
-      const first = pair()
-      const second = pair()
-      const falseBranch = pair()
-      const form = pair(pair(andForm, first), second)
-      const result = pair(pair(form[0][1], form[1]), falseBranch)
+      const root = [I, I]
+      const andForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const falseBranch = [I, I]
+      const form = [[andForm, first], second]
+      const result = [[form[0][1], form[1]], falseBranch]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1053,13 +1050,13 @@ describe('observe', () => {
     })
 
     test('or builds a choice with true as fallback', () => {
-      const root = pair()
-      const orForm = pair()
-      const first = pair()
-      const second = pair()
-      const trueBranch = pair()
-      const form = pair(pair(orForm, first), second)
-      const result = pair(pair(form[0][1], trueBranch), form[1])
+      const root = [I, I]
+      const orForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const trueBranch = [I, I]
+      const form = [[orForm, first], second]
+      const result = [[form[0][1], trueBranch], form[1]]
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1069,12 +1066,12 @@ describe('observe', () => {
     })
 
     test('first selector returns the first pair slot', () => {
-      const root = pair()
-      const firstForm = pair()
-      const first = pair()
-      const second = pair()
-      const subject = pair(first, second)
-      const form = pair(firstForm, subject)
+      const root = [I, I]
+      const firstForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const subject = [first, second]
+      const form = [firstForm, subject]
       const result = identity(root, form[1][0])
 
       root[0] = result
@@ -1085,12 +1082,12 @@ describe('observe', () => {
     })
 
     test('second selector returns the second pair slot', () => {
-      const root = pair()
-      const secondForm = pair()
-      const first = pair()
-      const second = pair()
-      const subject = pair(first, second)
-      const form = pair(secondForm, subject)
+      const root = [I, I]
+      const secondForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const subject = [first, second]
+      const form = [secondForm, subject]
       const result = identity(root, form[1][1])
 
       root[0] = result
@@ -1106,7 +1103,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const root = countedPair()
       const IForm = countedPair()
@@ -1125,13 +1122,13 @@ describe('observe', () => {
     })
 
     test('the same I form can be used under different roots', () => {
-      const firstRoot = pair()
-      const secondRoot = pair()
-      const IForm = pair()
-      const argument = pair()
-      const form = pair(IForm, argument)
-      const firstResult = pair(firstRoot, form[1])
-      const secondResult = pair(secondRoot, form[1])
+      const firstRoot = [I, I]
+      const secondRoot = [I, I]
+      const IForm = [I, I]
+      const argument = [I, I]
+      const form = [IForm, argument]
+      const firstResult = [firstRoot, form[1]]
+      const secondResult = [secondRoot, form[1]]
 
       firstRoot[0] = firstResult
       secondRoot[0] = secondResult
@@ -1145,12 +1142,12 @@ describe('observe', () => {
     })
 
     test('K wires a root to the first argument', () => {
-      const root = pair()
-      const KForm = pair()
-      const first = pair()
-      const second = pair()
-      const form = pair(pair(KForm, first), second)
-      const result = pair(root, form[0][1])
+      const root = [I, I]
+      const KForm = [I, I]
+      const first = [I, I]
+      const second = [I, I]
+      const form = [[KForm, first], second]
+      const result = [root, form[0][1]]
       root[0] = result
 
       assert.equal(root[0], result)
@@ -1165,7 +1162,7 @@ describe('observe', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
-        return pair(first, next)
+        return [first, next]
       }
       const root = countedPair()
       const SForm = countedPair()
@@ -1197,22 +1194,19 @@ describe('observe', () => {
 
   describe('sharing', () => {
     test('a shared application pair can replace the collapsed value', () => {
-      const x = pair()
-      const y = pair()
-      const z = pair()
-      const form = pair(pair(pair(I, x), y), z)
+      const x = [I, I]
+      const y = [I, I]
+      const z = [I, I]
+      const form = [[[I, x], y], z]
       const oldValue = form[0][0][1]
-      const result = pair(
-        pair(form[0][0][1], form[1]),
-        pair(form[0][1], form[1])
-      )
+      const result = [[form[0][0][1], form[1]], [form[0][1], form[1]]]
 
       form[0][0][0] = I
       form[0][0][1] = result
 
       assert.equal(oldValue, x)
       assert.equal(form[0][0][1], result)
-      assert.deepEqual(observe(observation(I, form)), pair(pair(x, z), pair(y, z)))
+      assert.deepEqual(observe(observation(I, form)), [[x, z], [y, z]])
       assert.equal(result[0][0], oldValue)
       assert.equal(result[0][1], z)
       assert.equal(result[1][0], y)
@@ -1221,46 +1215,43 @@ describe('observe', () => {
     })
 
     test('a shared application pair can also sit behind a left wrapper', () => {
-      const x = pair()
-      const y = pair()
-      const z = pair()
-      const form = pair(pair(pair(I, x), y), z)
+      const x = [I, I]
+      const y = [I, I]
+      const z = [I, I]
+      const form = [[[I, x], y], z]
       const oldValue = form[0][0][1]
-      const result = pair(
-        pair(form[0][0][1], form[1]),
-        pair(form[0][1], form[1])
-      )
+      const result = [[form[0][0][1], form[1]], [form[0][1], form[1]]]
 
-      form[0][0][0] = pair(I, result)
+      form[0][0][0] = [I, result]
 
       assert.equal(form[0][0][1], oldValue)
       assert.equal(observe(observation(I, form)), result)
-      assert.deepEqual(result, pair(pair(x, z), pair(y, z)))
+      assert.deepEqual(result, [[x, z], [y, z]])
       assert.equal(result[0][1], result[1][1])
     })
 
     test('shared value stays shared after another observation', () => {
-      const x = pair()
-      const y = pair()
-      const z = pair()
-      const result = pair(pair(x, z), pair(y, z))
-      const next = pair(I, result)
+      const x = [I, I]
+      const y = [I, I]
+      const z = [I, I]
+      const result = [[x, z], [y, z]]
+      const next = [I, result]
 
       assert.equal(observe(observation(I, next)), result)
       assert.equal(result[0][1], result[1][1])
     })
 
     test('result can carry a root forward', () => {
-      const root = pair()
-      const a = pair()
-      const b = pair()
-      const form = pair(pair(pair(I, a), b), root)
-      const result = pair(pair(a, root), pair(b, root))
+      const root = [I, I]
+      const a = [I, I]
+      const b = [I, I]
+      const form = [[[I, a], b], root]
+      const result = [[a, root], [b, root]]
       form[0][0][1] = result
       root[0] = I
       root[1] = form
 
-      assert.deepEqual(observe(observation(I, form)), pair(pair(a, root), pair(b, root)))
+      assert.deepEqual(observe(observation(I, form)), [[a, root], [b, root]])
       assert.equal(result[0][1], root)
       assert.equal(result[1][1], root)
       assert.equal(result[0][1], result[1][1])
@@ -1270,34 +1261,34 @@ describe('observe', () => {
 
   describe('selectors', () => {
     test('left and right are collapse reads of pair slots', () => {
-      const left = pair()
-      const right = pair()
-      const subject = pair(left, right)
+      const left = [I, I]
+      const right = [I, I]
+      const subject = [left, right]
 
-      assert.equal(observe(observation(I, pair(I, subject[0]))), left)
-      assert.equal(observe(observation(I, pair(I, subject[1]))), right)
+      assert.equal(observe(observation(I, [I, subject[0]])), left)
+      assert.equal(observe(observation(I, [I, subject[1]])), right)
     })
   })
 
   describe('depth', () => {
     test('succ', () => {
-      const root = pair()
+      const root = [I, I]
       root[0] = I
-      root[1] = pair(I, root)
+      root[1] = [I, root]
 
       const one = observe(observation(I, root))
       const two = observe(observation(I, one))
       const three = observe(observation(I, two))
 
-      assert.deepEqual(one, pair(I, root))
-      assert.deepEqual(two, pair(I, pair(I, root)))
-      assert.deepEqual(three, pair(I, pair(I, pair(I, root))))
+      assert.deepEqual(one, [I, root])
+      assert.deepEqual(two, [I, [I, root]])
+      assert.deepEqual(three, [I, [I, [I, root]]])
     })
 
     test('depths share one fixed point', () => {
-      const root = pair()
+      const root = [I, I]
       root[0] = I
-      root[1] = pair(I, root)
+      root[1] = [I, root]
 
       const one = observe(observation(I, root))
       const two = observe(observation(I, one))
@@ -1311,9 +1302,9 @@ describe('observe', () => {
 
     test('finite depths keep distinct identity', () => {
       const zero = I
-      const one = pair(I, zero)
-      const two = pair(I, one)
-      const three = pair(I, two)
+      const one = [I, zero]
+      const two = [I, one]
+      const three = [I, two]
 
       assert.notEqual(zero, one)
       assert.notEqual(one, two)
@@ -1335,9 +1326,9 @@ describe('observe', () => {
     })
 
     test('fixed root observes to itself while carrying a payload', () => {
-      const left = pair()
-      const right = pair()
-      const payload = pair(left, right)
+      const left = [I, I]
+      const right = [I, I]
+      const payload = [left, right]
       const root = fix(payload)
 
       assert.equal(observe(observation(root, root)), root)
@@ -1347,8 +1338,8 @@ describe('observe', () => {
     })
 
     test('root carries current value', () => {
-      const root = pair()
-      const current = pair(root)
+      const root = [I, I]
+      const current = [root, I]
       root[0] = I
       root[1] = current
 
@@ -1359,10 +1350,10 @@ describe('observe', () => {
     })
 
     test('history observes through the current root', () => {
-      const root = pair()
-      const first = pair(root)
-      const second = pair(root, first)
-      const third = pair(root, second)
+      const root = [I, I]
+      const first = [root, I]
+      const second = [root, first]
+      const third = [root, second]
       root[0] = I
       root[1] = third
 
@@ -1374,8 +1365,8 @@ describe('observe', () => {
     })
 
     test('observer can carry itself as history', () => {
-      const root = pair()
-      const observer = pair()
+      const root = [I, I]
+      const observer = [I, I]
       root[0] = I
       root[1] = observer
       observer[0] = root
