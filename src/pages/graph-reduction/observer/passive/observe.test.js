@@ -10,40 +10,11 @@ describe('observe', () => {
     return root
   }
 
-  const share = (first, second, argument, createPair = pair) =>
-    createPair(
-      createPair(first, argument),
-      createPair(second, argument)
-    )
-
-  const apply = (operator, operand, createPair = pair) =>
-    createPair(operator, operand)
-
   const observation = (observer, focus, createPair = pair) =>
     createPair(observer, focus)
 
   const identity = (observer, next = observer, createPair = pair) =>
     createPair(observer, next)
-
-  const install = (root, next, createPair = pair) => {
-    const result = identity(root, next, createPair)
-    root[0] = result
-
-    return result
-  }
-
-  const wireI = (root, form, createPair = pair) =>
-    install(root, form[1], createPair)
-
-  const wireK = (root, form, createPair = pair) =>
-    install(root, form[0][1], createPair)
-
-  const wireS = (root, form, createPair = pair) =>
-    install(
-      root,
-      share(form[0][0][1], form[0][1], form[1], createPair),
-      createPair
-    )
 
   const closedMachine = (
     root,
@@ -911,7 +882,7 @@ describe('observe', () => {
     test('application is ordinary pair structure', () => {
       const operator = pair()
       const operand = pair()
-      const application = apply(operator, operand)
+      const application = pair(operator, operand)
 
       assert.equal(application[0], operator)
       assert.equal(application[1], operand)
@@ -921,7 +892,7 @@ describe('observe', () => {
       const root = pair()
       const IForm = pair()
       const argument = pair()
-      const form = apply(IForm, argument)
+      const form = pair(IForm, argument)
       const result = identity(root, form[1])
 
       root[0] = result
@@ -937,7 +908,7 @@ describe('observe', () => {
       const KForm = pair()
       const first = pair()
       const second = pair()
-      const form = apply(apply(KForm, first), second)
+      const form = pair(pair(KForm, first), second)
       const result = identity(root, form[0][1])
 
       root[0] = result
@@ -955,12 +926,15 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const argument = pair()
-      const form = apply(apply(apply(SForm, first), second), argument)
-      const result = share(form[0][0][1], form[0][1], form[1])
+      const form = pair(pair(pair(SForm, first), second), argument)
+      const result = pair(
+        pair(form[0][0][1], form[1]),
+        pair(form[0][1], form[1])
+      )
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
-      assert.deepEqual(result, share(first, second, argument))
+      assert.deepEqual(result, pair(pair(first, argument), pair(second, argument)))
       assert.equal(result[0][0], first)
       assert.equal(result[1][0], second)
       assert.equal(result[0][1], argument)
@@ -974,8 +948,8 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const argument = pair()
-      const form = apply(apply(apply(BForm, first), second), argument)
-      const result = apply(form[0][0][1], apply(form[0][1], form[1]))
+      const form = pair(pair(pair(BForm, first), second), argument)
+      const result = pair(form[0][0][1], pair(form[0][1], form[1]))
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -990,8 +964,8 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const argument = pair()
-      const form = apply(apply(apply(CForm, first), second), argument)
-      const result = apply(apply(form[0][0][1], form[1]), form[0][1])
+      const form = pair(pair(pair(CForm, first), second), argument)
+      const result = pair(pair(form[0][0][1], form[1]), form[0][1])
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1005,8 +979,8 @@ describe('observe', () => {
       const WForm = pair()
       const first = pair()
       const argument = pair()
-      const form = apply(apply(WForm, first), argument)
-      const result = apply(apply(form[0][1], form[1]), form[1])
+      const form = pair(pair(WForm, first), argument)
+      const result = pair(pair(form[0][1], form[1]), form[1])
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1021,7 +995,7 @@ describe('observe', () => {
       const trueForm = pair()
       const first = pair()
       const second = pair()
-      const form = apply(apply(trueForm, first), second)
+      const form = pair(pair(trueForm, first), second)
       const result = identity(root, form[0][1])
 
       root[0] = result
@@ -1036,7 +1010,7 @@ describe('observe', () => {
       const falseForm = pair()
       const first = pair()
       const second = pair()
-      const form = apply(apply(falseForm, first), second)
+      const form = pair(pair(falseForm, first), second)
       const result = identity(root, form[1])
 
       root[0] = result
@@ -1052,8 +1026,8 @@ describe('observe', () => {
       const bool = pair()
       const trueBranch = pair()
       const falseBranch = pair()
-      const form = apply(notForm, bool)
-      const result = apply(apply(form[1], falseBranch), trueBranch)
+      const form = pair(notForm, bool)
+      const result = pair(pair(form[1], falseBranch), trueBranch)
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1068,8 +1042,8 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const falseBranch = pair()
-      const form = apply(apply(andForm, first), second)
-      const result = apply(apply(form[0][1], form[1]), falseBranch)
+      const form = pair(pair(andForm, first), second)
+      const result = pair(pair(form[0][1], form[1]), falseBranch)
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1084,8 +1058,8 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const trueBranch = pair()
-      const form = apply(apply(orForm, first), second)
-      const result = apply(apply(form[0][1], trueBranch), form[1])
+      const form = pair(pair(orForm, first), second)
+      const result = pair(pair(form[0][1], trueBranch), form[1])
       root[0] = identity(root, result)
 
       assert.equal(observe(observation(root, root)), result)
@@ -1100,7 +1074,7 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const subject = pair(first, second)
-      const form = apply(firstForm, subject)
+      const form = pair(firstForm, subject)
       const result = identity(root, form[1][0])
 
       root[0] = result
@@ -1116,7 +1090,7 @@ describe('observe', () => {
       const first = pair()
       const second = pair()
       const subject = pair(first, second)
-      const form = apply(secondForm, subject)
+      const form = pair(secondForm, subject)
       const result = identity(root, form[1][1])
 
       root[0] = result
@@ -1137,9 +1111,10 @@ describe('observe', () => {
       const root = countedPair()
       const IForm = countedPair()
       const argument = countedPair()
-      const form = apply(IForm, argument, countedPair)
+      const form = countedPair(IForm, argument)
       const built = allocations
-      const result = wireI(root, form, countedPair)
+      const result = countedPair(root, form[1])
+      root[0] = result
 
       assert.equal(allocations, built + 1)
       assert.equal(root[0], result)
@@ -1149,14 +1124,17 @@ describe('observe', () => {
       assert.equal(observe(observation(root, root)), argument)
     })
 
-    test('the same I form can be installed under different roots', () => {
+    test('the same I form can be used under different roots', () => {
       const firstRoot = pair()
       const secondRoot = pair()
       const IForm = pair()
       const argument = pair()
-      const form = apply(IForm, argument)
-      const firstResult = wireI(firstRoot, form)
-      const secondResult = wireI(secondRoot, form)
+      const form = pair(IForm, argument)
+      const firstResult = pair(firstRoot, form[1])
+      const secondResult = pair(secondRoot, form[1])
+
+      firstRoot[0] = firstResult
+      secondRoot[0] = secondResult
 
       assert.notEqual(firstResult, secondResult)
       assert.equal(firstResult[0], firstRoot)
@@ -1171,8 +1149,9 @@ describe('observe', () => {
       const KForm = pair()
       const first = pair()
       const second = pair()
-      const form = apply(apply(KForm, first), second)
-      const result = wireK(root, form)
+      const form = pair(pair(KForm, first), second)
+      const result = pair(root, form[0][1])
+      root[0] = result
 
       assert.equal(root[0], result)
       assert.equal(result[0], root)
@@ -1193,14 +1172,16 @@ describe('observe', () => {
       const first = countedPair()
       const second = countedPair()
       const argument = countedPair()
-      const form = apply(
-        apply(apply(SForm, first, countedPair), second, countedPair),
-        argument,
-        countedPair
+      const form = countedPair(
+        countedPair(countedPair(SForm, first), second),
+        argument
       )
       const built = allocations
-      const result = wireS(root, form, countedPair)
-      const shared = result[1]
+      const leftApplication = countedPair(form[0][0][1], form[1])
+      const rightApplication = countedPair(form[0][1], form[1])
+      const shared = countedPair(leftApplication, rightApplication)
+      const result = countedPair(root, shared)
+      root[0] = result
 
       assert.equal(allocations, built + 4)
       assert.equal(root[0], result)
@@ -1215,20 +1196,23 @@ describe('observe', () => {
   })
 
   describe('sharing', () => {
-    test('share can replace the collapsed value from current slots', () => {
+    test('a shared application pair can replace the collapsed value', () => {
       const x = pair()
       const y = pair()
       const z = pair()
       const form = pair(pair(pair(I, x), y), z)
       const oldValue = form[0][0][1]
-      const result = share(form[0][0][1], form[0][1], form[1])
+      const result = pair(
+        pair(form[0][0][1], form[1]),
+        pair(form[0][1], form[1])
+      )
 
       form[0][0][0] = I
       form[0][0][1] = result
 
       assert.equal(oldValue, x)
       assert.equal(form[0][0][1], result)
-      assert.deepEqual(observe(observation(I, form)), share(x, y, z))
+      assert.deepEqual(observe(observation(I, form)), pair(pair(x, z), pair(y, z)))
       assert.equal(result[0][0], oldValue)
       assert.equal(result[0][1], z)
       assert.equal(result[1][0], y)
@@ -1236,19 +1220,22 @@ describe('observe', () => {
       assert.equal(result[0][1], result[1][1])
     })
 
-    test('share can also be installed as a left wrapper', () => {
+    test('a shared application pair can also sit behind a left wrapper', () => {
       const x = pair()
       const y = pair()
       const z = pair()
       const form = pair(pair(pair(I, x), y), z)
       const oldValue = form[0][0][1]
-      const result = share(form[0][0][1], form[0][1], form[1])
+      const result = pair(
+        pair(form[0][0][1], form[1]),
+        pair(form[0][1], form[1])
+      )
 
       form[0][0][0] = pair(I, result)
 
       assert.equal(form[0][0][1], oldValue)
       assert.equal(observe(observation(I, form)), result)
-      assert.deepEqual(result, share(x, y, z))
+      assert.deepEqual(result, pair(pair(x, z), pair(y, z)))
       assert.equal(result[0][1], result[1][1])
     })
 
@@ -1256,7 +1243,7 @@ describe('observe', () => {
       const x = pair()
       const y = pair()
       const z = pair()
-      const result = share(x, y, z)
+      const result = pair(pair(x, z), pair(y, z))
       const next = pair(I, result)
 
       assert.equal(observe(observation(I, next)), result)
@@ -1268,12 +1255,12 @@ describe('observe', () => {
       const a = pair()
       const b = pair()
       const form = pair(pair(pair(I, a), b), root)
-      const result = share(a, b, root)
+      const result = pair(pair(a, root), pair(b, root))
       form[0][0][1] = result
       root[0] = I
       root[1] = form
 
-      assert.deepEqual(observe(observation(I, form)), share(a, b, root))
+      assert.deepEqual(observe(observation(I, form)), pair(pair(a, root), pair(b, root)))
       assert.equal(result[0][1], root)
       assert.equal(result[1][1], root)
       assert.equal(result[0][1], result[1][1])

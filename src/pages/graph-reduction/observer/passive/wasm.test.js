@@ -9,15 +9,6 @@ import {
 } from './wasm.js'
 
 describe('wasm core', () => {
-  const share = (core, first, second, argument) =>
-    core.pair(
-      core.pair(first, argument),
-      core.pair(second, argument)
-    )
-
-  const apply = (core, operator, operand) =>
-    core.pair(operator, operand)
-
   const observation = (core, observer, focus) =>
     core.pair(observer, focus)
 
@@ -33,31 +24,6 @@ describe('wasm core', () => {
 
   const identity = (core, observer, next = observer) =>
     core.pair(observer, next)
-
-  const install = (core, root, next) => {
-    const result = identity(core, root, next)
-    core.setLeft(root, result)
-
-    return result
-  }
-
-  const wireI = (core, root, form) =>
-    install(core, root, core.right(form))
-
-  const wireK = (core, root, form) =>
-    install(core, root, core.right(core.left(form)))
-
-  const wireS = (core, root, form) =>
-    install(
-      core,
-      root,
-      share(
-        core,
-        core.right(core.left(core.left(form))),
-        core.right(core.left(form)),
-        core.right(form)
-      )
-    )
 
   const event = (core, previous = I, output = I) =>
     core.pair(previous, output)
@@ -153,7 +119,7 @@ describe('wasm core', () => {
     const core = await createWasmCore()
     const operator = core.pair()
     const operand = core.pair()
-    const result = apply(core, operator, operand)
+    const result = core.pair(operator, operand)
 
     assert.equal(core.left(result), operator)
     assert.equal(core.right(result), operand)
@@ -164,7 +130,7 @@ describe('wasm core', () => {
     const root = core.pair()
     const IForm = core.pair()
     const argument = core.pair()
-    const form = apply(core, IForm, argument)
+    const form = core.pair(IForm, argument)
     const result = identity(core, root, core.right(form))
 
     core.setLeft(root, result)
@@ -181,7 +147,7 @@ describe('wasm core', () => {
     const KForm = core.pair()
     const first = core.pair()
     const second = core.pair()
-    const form = apply(core, apply(core, KForm, first), second)
+    const form = core.pair(core.pair(KForm, first), second)
     const result = identity(core, root, core.right(core.left(form)))
 
     core.setLeft(root, result)
@@ -200,16 +166,13 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const argument = core.pair()
-    const form = apply(
-      core,
-      apply(core, apply(core, SForm, first), second),
-      argument
-    )
-    const result = share(
-      core,
-      core.right(core.left(core.left(form))),
-      core.right(core.left(form)),
-      core.right(form)
+    const form = core.pair(core.pair(core.pair(SForm, first), second), argument)
+    const result = core.pair(
+      core.pair(
+        core.right(core.left(core.left(form))),
+        core.right(form)
+      ),
+      core.pair(core.right(core.left(form)), core.right(form))
     )
     core.setLeft(root, identity(core, root, result))
 
@@ -228,15 +191,10 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const argument = core.pair()
-    const form = apply(
-      core,
-      apply(core, apply(core, BForm, first), second),
-      argument
-    )
-    const result = apply(
-      core,
+    const form = core.pair(core.pair(core.pair(BForm, first), second), argument)
+    const result = core.pair(
       core.right(core.left(core.left(form))),
-      apply(core, core.right(core.left(form)), core.right(form))
+      core.pair(core.right(core.left(form)), core.right(form))
     )
     core.setLeft(root, identity(core, root, result))
 
@@ -253,14 +211,9 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const argument = core.pair()
-    const form = apply(
-      core,
-      apply(core, apply(core, CForm, first), second),
-      argument
-    )
-    const result = apply(
-      core,
-      apply(core, core.right(core.left(core.left(form))), core.right(form)),
+    const form = core.pair(core.pair(core.pair(CForm, first), second), argument)
+    const result = core.pair(
+      core.pair(core.right(core.left(core.left(form))), core.right(form)),
       core.right(core.left(form))
     )
     core.setLeft(root, identity(core, root, result))
@@ -277,10 +230,9 @@ describe('wasm core', () => {
     const WForm = core.pair()
     const first = core.pair()
     const argument = core.pair()
-    const form = apply(core, apply(core, WForm, first), argument)
-    const result = apply(
-      core,
-      apply(core, core.right(core.left(form)), core.right(form)),
+    const form = core.pair(core.pair(WForm, first), argument)
+    const result = core.pair(
+      core.pair(core.right(core.left(form)), core.right(form)),
       core.right(form)
     )
     core.setLeft(root, identity(core, root, result))
@@ -298,7 +250,7 @@ describe('wasm core', () => {
     const trueForm = core.pair()
     const first = core.pair()
     const second = core.pair()
-    const form = apply(core, apply(core, trueForm, first), second)
+    const form = core.pair(core.pair(trueForm, first), second)
     const result = identity(core, root, core.right(core.left(form)))
 
     core.setLeft(root, result)
@@ -314,7 +266,7 @@ describe('wasm core', () => {
     const falseForm = core.pair()
     const first = core.pair()
     const second = core.pair()
-    const form = apply(core, apply(core, falseForm, first), second)
+    const form = core.pair(core.pair(falseForm, first), second)
     const result = identity(core, root, core.right(form))
 
     core.setLeft(root, result)
@@ -331,10 +283,9 @@ describe('wasm core', () => {
     const bool = core.pair()
     const trueBranch = core.pair()
     const falseBranch = core.pair()
-    const form = apply(core, notForm, bool)
-    const result = apply(
-      core,
-      apply(core, core.right(form), falseBranch),
+    const form = core.pair(notForm, bool)
+    const result = core.pair(
+      core.pair(core.right(form), falseBranch),
       trueBranch
     )
     core.setLeft(root, identity(core, root, result))
@@ -352,10 +303,9 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const falseBranch = core.pair()
-    const form = apply(core, apply(core, andForm, first), second)
-    const result = apply(
-      core,
-      apply(core, core.right(core.left(form)), core.right(form)),
+    const form = core.pair(core.pair(andForm, first), second)
+    const result = core.pair(
+      core.pair(core.right(core.left(form)), core.right(form)),
       falseBranch
     )
     core.setLeft(root, identity(core, root, result))
@@ -373,10 +323,9 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const trueBranch = core.pair()
-    const form = apply(core, apply(core, orForm, first), second)
-    const result = apply(
-      core,
-      apply(core, core.right(core.left(form)), trueBranch),
+    const form = core.pair(core.pair(orForm, first), second)
+    const result = core.pair(
+      core.pair(core.right(core.left(form)), trueBranch),
       core.right(form)
     )
     core.setLeft(root, identity(core, root, result))
@@ -394,7 +343,7 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const subject = core.pair(first, second)
-    const form = apply(core, firstForm, subject)
+    const form = core.pair(firstForm, subject)
     const result = identity(core, root, core.left(core.right(form)))
 
     core.setLeft(root, result)
@@ -411,7 +360,7 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const subject = core.pair(first, second)
-    const form = apply(core, secondForm, subject)
+    const form = core.pair(secondForm, subject)
     const result = identity(core, root, core.right(core.right(form)))
 
     core.setLeft(root, result)
@@ -426,9 +375,10 @@ describe('wasm core', () => {
     const root = core.pair()
     const IForm = core.pair()
     const argument = core.pair()
-    const form = apply(core, IForm, argument)
+    const form = core.pair(IForm, argument)
     const built = core.size()
-    const result = wireI(core, root, form)
+    const result = core.pair(root, core.right(form))
+    core.setLeft(root, result)
 
     assert.equal(core.size(), built + 1)
     assert.equal(core.left(root), result)
@@ -438,15 +388,18 @@ describe('wasm core', () => {
     assert.equal(core.observe(observation(core, root, root)), argument)
   })
 
-  test('the same active I form can be installed under different roots', async () => {
+  test('the same active I form can be used under different roots', async () => {
     const core = await createWasmCore()
     const firstRoot = core.pair()
     const secondRoot = core.pair()
     const IForm = core.pair()
     const argument = core.pair()
-    const form = apply(core, IForm, argument)
-    const firstResult = wireI(core, firstRoot, form)
-    const secondResult = wireI(core, secondRoot, form)
+    const form = core.pair(IForm, argument)
+    const firstResult = core.pair(firstRoot, core.right(form))
+    const secondResult = core.pair(secondRoot, core.right(form))
+
+    core.setLeft(firstRoot, firstResult)
+    core.setLeft(secondRoot, secondResult)
 
     assert.notEqual(firstResult, secondResult)
     assert.equal(core.left(firstResult), firstRoot)
@@ -462,8 +415,9 @@ describe('wasm core', () => {
     const KForm = core.pair()
     const first = core.pair()
     const second = core.pair()
-    const form = apply(core, apply(core, KForm, first), second)
-    const result = wireK(core, root, form)
+    const form = core.pair(core.pair(KForm, first), second)
+    const result = core.pair(root, core.right(core.left(form)))
+    core.setLeft(root, result)
 
     assert.equal(core.left(root), result)
     assert.equal(core.left(result), root)
@@ -480,14 +434,19 @@ describe('wasm core', () => {
     const first = core.pair()
     const second = core.pair()
     const argument = core.pair()
-    const form = apply(
-      core,
-      apply(core, apply(core, SForm, first), second),
-      argument
-    )
+    const form = core.pair(core.pair(core.pair(SForm, first), second), argument)
     const built = core.size()
-    const result = wireS(core, root, form)
-    const shared = core.right(result)
+    const leftApplication = core.pair(
+      core.right(core.left(core.left(form))),
+      core.right(form)
+    )
+    const rightApplication = core.pair(
+      core.right(core.left(form)),
+      core.right(form)
+    )
+    const shared = core.pair(leftApplication, rightApplication)
+    const result = core.pair(root, shared)
+    core.setLeft(root, result)
 
     assert.equal(core.size(), built + 4)
     assert.equal(core.left(root), result)
@@ -564,12 +523,15 @@ describe('wasm core', () => {
     assert.equal(core.right(result), second)
   })
 
-  test('share keeps one argument pointer in both applications', async () => {
+  test('a shared application pair keeps one argument pointer', async () => {
     const core = await createWasmCore()
     const first = core.pair()
     const second = core.pair()
     const argument = core.pair()
-    const result = share(core, first, second, argument)
+    const result = core.pair(
+      core.pair(first, argument),
+      core.pair(second, argument)
+    )
 
     assert.equal(core.left(core.left(result)), first)
     assert.equal(core.right(core.left(result)), argument)
