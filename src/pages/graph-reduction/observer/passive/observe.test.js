@@ -13,6 +13,9 @@ describe('observe', () => {
   const share = (first, second, argument) =>
     pair(pair(first, argument), pair(second, argument))
 
+  const apply = (operator, operand, createPair = pair) =>
+    createPair(operator, operand)
+
   const observation = (observer, focus, createPair = pair) =>
     createPair(observer, focus)
 
@@ -878,6 +881,68 @@ describe('observe', () => {
       assert.deepEqual(result, [left, right])
       assert.equal(result[0], left)
       assert.equal(result[1], right)
+    })
+  })
+
+  describe('passive basis', () => {
+    test('application is ordinary pair structure', () => {
+      const operator = pair()
+      const operand = pair()
+      const application = apply(operator, operand)
+
+      assert.equal(application[0], operator)
+      assert.equal(application[1], operand)
+    })
+
+    test('I returns its argument by wiring an identity debt', () => {
+      const root = pair()
+      const IForm = pair()
+      const argument = pair()
+      const form = apply(IForm, argument)
+      const result = identity(root, form[1])
+
+      root[0] = result
+
+      assert.equal(observe(observation(root, root)), argument)
+      assert.equal(result[0], root)
+      assert.equal(result[1], argument)
+      assert.equal(form[1], argument)
+    })
+
+    test('K keeps the first argument from nested application structure', () => {
+      const root = pair()
+      const KForm = pair()
+      const first = pair()
+      const second = pair()
+      const form = apply(apply(KForm, first), second)
+      const result = identity(root, form[0][1])
+
+      root[0] = result
+
+      assert.equal(observe(observation(root, root)), first)
+      assert.equal(result[1], first)
+      assert.equal(form[0][1], first)
+      assert.equal(form[1], second)
+      assert.notEqual(result[1], second)
+    })
+
+    test('S shares the final argument between both applications', () => {
+      const root = pair()
+      const SForm = pair()
+      const first = pair()
+      const second = pair()
+      const argument = pair()
+      const form = apply(apply(apply(SForm, first), second), argument)
+      const result = share(form[0][0][1], form[0][1], form[1])
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.deepEqual(result, share(first, second, argument))
+      assert.equal(result[0][0], first)
+      assert.equal(result[1][0], second)
+      assert.equal(result[0][1], argument)
+      assert.equal(result[1][1], argument)
+      assert.equal(result[0][1], result[1][1])
     })
   })
 

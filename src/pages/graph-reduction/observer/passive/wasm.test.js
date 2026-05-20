@@ -15,6 +15,9 @@ describe('wasm core', () => {
       core.pair(second, argument)
     )
 
+  const apply = (core, operator, operand) =>
+    core.pair(operator, operand)
+
   const observation = (core, observer, focus) =>
     core.pair(observer, focus)
 
@@ -125,10 +128,72 @@ describe('wasm core', () => {
     const core = await createWasmCore()
     const operator = core.pair()
     const operand = core.pair()
-    const result = core.pair(operator, operand)
+    const result = apply(core, operator, operand)
 
     assert.equal(core.left(result), operator)
     assert.equal(core.right(result), operand)
+  })
+
+  test('passive I returns its argument by wiring an identity debt', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const IForm = core.pair()
+    const argument = core.pair()
+    const form = apply(core, IForm, argument)
+    const result = identity(core, root, core.right(form))
+
+    core.setLeft(root, result)
+
+    assert.equal(core.observe(observation(core, root, root)), argument)
+    assert.equal(core.left(result), root)
+    assert.equal(core.right(result), argument)
+    assert.equal(core.right(form), argument)
+  })
+
+  test('passive K keeps the first argument', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const KForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const form = apply(core, apply(core, KForm, first), second)
+    const result = identity(core, root, core.right(core.left(form)))
+
+    core.setLeft(root, result)
+
+    assert.equal(core.observe(observation(core, root, root)), first)
+    assert.equal(core.right(result), first)
+    assert.equal(core.right(core.left(form)), first)
+    assert.equal(core.right(form), second)
+    assert.notEqual(core.right(result), second)
+  })
+
+  test('passive S shares the final argument between both applications', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const SForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const argument = core.pair()
+    const form = apply(
+      core,
+      apply(core, apply(core, SForm, first), second),
+      argument
+    )
+    const result = share(
+      core,
+      core.right(core.left(core.left(form))),
+      core.right(core.left(form)),
+      core.right(form)
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(core.left(result)), first)
+    assert.equal(core.left(core.right(result)), second)
+    assert.equal(core.right(core.left(result)), argument)
+    assert.equal(core.right(core.right(result)), argument)
+    assert.equal(core.right(core.left(result)), core.right(core.right(result)))
   })
 
   test('setters mutate slots and return the pointer', async () => {
