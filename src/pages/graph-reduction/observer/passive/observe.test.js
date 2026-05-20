@@ -10,8 +10,11 @@ describe('observe', () => {
     return root
   }
 
-  const share = (first, second, argument) =>
-    pair(pair(first, argument), pair(second, argument))
+  const share = (first, second, argument, createPair = pair) =>
+    createPair(
+      createPair(first, argument),
+      createPair(second, argument)
+    )
 
   const apply = (operator, operand, createPair = pair) =>
     createPair(operator, operand)
@@ -21,6 +24,26 @@ describe('observe', () => {
 
   const identity = (observer, next = observer, createPair = pair) =>
     createPair(observer, next)
+
+  const install = (root, next, createPair = pair) => {
+    const result = identity(root, next, createPair)
+    root[0] = result
+
+    return result
+  }
+
+  const wireI = (root, form, createPair = pair) =>
+    install(root, form[1], createPair)
+
+  const wireK = (root, form, createPair = pair) =>
+    install(root, form[0][1], createPair)
+
+  const wireS = (root, form, createPair = pair) =>
+    install(
+      root,
+      share(form[0][0][1], form[0][1], form[1], createPair),
+      createPair
+    )
 
   const closedMachine = (
     root,
@@ -1101,6 +1124,93 @@ describe('observe', () => {
       assert.equal(observe(observation(root, root)), second)
       assert.equal(result[1], second)
       assert.equal(form[1], subject)
+    })
+  })
+
+  describe('active wiring', () => {
+    test('I wires a root to the application argument', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const root = countedPair()
+      const IForm = countedPair()
+      const argument = countedPair()
+      const form = apply(IForm, argument, countedPair)
+      const built = allocations
+      const result = wireI(root, form, countedPair)
+
+      assert.equal(allocations, built + 1)
+      assert.equal(root[0], result)
+      assert.equal(result[0], root)
+      assert.equal(result[1], argument)
+      assert.equal(form[1], argument)
+      assert.equal(observe(observation(root, root)), argument)
+    })
+
+    test('the same I form can be installed under different roots', () => {
+      const firstRoot = pair()
+      const secondRoot = pair()
+      const IForm = pair()
+      const argument = pair()
+      const form = apply(IForm, argument)
+      const firstResult = wireI(firstRoot, form)
+      const secondResult = wireI(secondRoot, form)
+
+      assert.notEqual(firstResult, secondResult)
+      assert.equal(firstResult[0], firstRoot)
+      assert.equal(secondResult[0], secondRoot)
+      assert.equal(firstResult[1], secondResult[1])
+      assert.equal(observe(observation(firstRoot, firstRoot)), argument)
+      assert.equal(observe(observation(secondRoot, secondRoot)), argument)
+    })
+
+    test('K wires a root to the first argument', () => {
+      const root = pair()
+      const KForm = pair()
+      const first = pair()
+      const second = pair()
+      const form = apply(apply(KForm, first), second)
+      const result = wireK(root, form)
+
+      assert.equal(root[0], result)
+      assert.equal(result[0], root)
+      assert.equal(result[1], first)
+      assert.equal(form[0][1], first)
+      assert.equal(form[1], second)
+      assert.equal(observe(observation(root, root)), first)
+    })
+
+    test('S wires a root to a shared application result', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return pair(first, next)
+      }
+      const root = countedPair()
+      const SForm = countedPair()
+      const first = countedPair()
+      const second = countedPair()
+      const argument = countedPair()
+      const form = apply(
+        apply(apply(SForm, first, countedPair), second, countedPair),
+        argument,
+        countedPair
+      )
+      const built = allocations
+      const result = wireS(root, form, countedPair)
+      const shared = result[1]
+
+      assert.equal(allocations, built + 4)
+      assert.equal(root[0], result)
+      assert.equal(result[0], root)
+      assert.equal(observe(observation(root, root)), shared)
+      assert.equal(shared[0][0], first)
+      assert.equal(shared[1][0], second)
+      assert.equal(shared[0][1], argument)
+      assert.equal(shared[1][1], argument)
+      assert.equal(shared[0][1], shared[1][1])
     })
   })
 

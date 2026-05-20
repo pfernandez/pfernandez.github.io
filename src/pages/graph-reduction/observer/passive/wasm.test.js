@@ -34,6 +34,31 @@ describe('wasm core', () => {
   const identity = (core, observer, next = observer) =>
     core.pair(observer, next)
 
+  const install = (core, root, next) => {
+    const result = identity(core, root, next)
+    core.setLeft(root, result)
+
+    return result
+  }
+
+  const wireI = (core, root, form) =>
+    install(core, root, core.right(form))
+
+  const wireK = (core, root, form) =>
+    install(core, root, core.right(core.left(form)))
+
+  const wireS = (core, root, form) =>
+    install(
+      core,
+      root,
+      share(
+        core,
+        core.right(core.left(core.left(form))),
+        core.right(core.left(form)),
+        core.right(form)
+      )
+    )
+
   const event = (core, previous = I, output = I) =>
     core.pair(previous, output)
 
@@ -394,6 +419,85 @@ describe('wasm core', () => {
     assert.equal(core.observe(observation(core, root, root)), second)
     assert.equal(core.right(result), second)
     assert.equal(core.right(form), subject)
+  })
+
+  test('active I wires a root to the application argument', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const IForm = core.pair()
+    const argument = core.pair()
+    const form = apply(core, IForm, argument)
+    const built = core.size()
+    const result = wireI(core, root, form)
+
+    assert.equal(core.size(), built + 1)
+    assert.equal(core.left(root), result)
+    assert.equal(core.left(result), root)
+    assert.equal(core.right(result), argument)
+    assert.equal(core.right(form), argument)
+    assert.equal(core.observe(observation(core, root, root)), argument)
+  })
+
+  test('the same active I form can be installed under different roots', async () => {
+    const core = await createWasmCore()
+    const firstRoot = core.pair()
+    const secondRoot = core.pair()
+    const IForm = core.pair()
+    const argument = core.pair()
+    const form = apply(core, IForm, argument)
+    const firstResult = wireI(core, firstRoot, form)
+    const secondResult = wireI(core, secondRoot, form)
+
+    assert.notEqual(firstResult, secondResult)
+    assert.equal(core.left(firstResult), firstRoot)
+    assert.equal(core.left(secondResult), secondRoot)
+    assert.equal(core.right(firstResult), core.right(secondResult))
+    assert.equal(core.observe(observation(core, firstRoot, firstRoot)), argument)
+    assert.equal(core.observe(observation(core, secondRoot, secondRoot)), argument)
+  })
+
+  test('active K wires a root to the first argument', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const KForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const form = apply(core, apply(core, KForm, first), second)
+    const result = wireK(core, root, form)
+
+    assert.equal(core.left(root), result)
+    assert.equal(core.left(result), root)
+    assert.equal(core.right(result), first)
+    assert.equal(core.right(core.left(form)), first)
+    assert.equal(core.right(form), second)
+    assert.equal(core.observe(observation(core, root, root)), first)
+  })
+
+  test('active S wires a root to a shared application result', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const SForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const argument = core.pair()
+    const form = apply(
+      core,
+      apply(core, apply(core, SForm, first), second),
+      argument
+    )
+    const built = core.size()
+    const result = wireS(core, root, form)
+    const shared = core.right(result)
+
+    assert.equal(core.size(), built + 4)
+    assert.equal(core.left(root), result)
+    assert.equal(core.left(result), root)
+    assert.equal(core.observe(observation(core, root, root)), shared)
+    assert.equal(core.left(core.left(shared)), first)
+    assert.equal(core.left(core.right(shared)), second)
+    assert.equal(core.right(core.left(shared)), argument)
+    assert.equal(core.right(core.right(shared)), argument)
+    assert.equal(core.right(core.left(shared)), core.right(core.right(shared)))
   })
 
   test('setters mutate slots and return the pointer', async () => {
