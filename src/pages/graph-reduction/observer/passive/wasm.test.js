@@ -196,6 +196,206 @@ describe('wasm core', () => {
     assert.equal(core.right(core.left(result)), core.right(core.right(result)))
   })
 
+  test('passive B composes two applications', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const BForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const argument = core.pair()
+    const form = apply(
+      core,
+      apply(core, apply(core, BForm, first), second),
+      argument
+    )
+    const result = apply(
+      core,
+      core.right(core.left(core.left(form))),
+      apply(core, core.right(core.left(form)), core.right(form))
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(result), first)
+    assert.equal(core.left(core.right(result)), second)
+    assert.equal(core.right(core.right(result)), argument)
+  })
+
+  test('passive C swaps the final two arguments', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const CForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const argument = core.pair()
+    const form = apply(
+      core,
+      apply(core, apply(core, CForm, first), second),
+      argument
+    )
+    const result = apply(
+      core,
+      apply(core, core.right(core.left(core.left(form))), core.right(form)),
+      core.right(core.left(form))
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(core.left(result)), first)
+    assert.equal(core.right(core.left(result)), argument)
+    assert.equal(core.right(result), second)
+  })
+
+  test('passive W shares one argument in both slots', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const WForm = core.pair()
+    const first = core.pair()
+    const argument = core.pair()
+    const form = apply(core, apply(core, WForm, first), argument)
+    const result = apply(
+      core,
+      apply(core, core.right(core.left(form)), core.right(form)),
+      core.right(form)
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(core.left(result)), first)
+    assert.equal(core.right(core.left(result)), argument)
+    assert.equal(core.right(result), argument)
+    assert.equal(core.right(core.left(result)), core.right(result))
+  })
+
+  test('passive true chooses the first branch', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const trueForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const form = apply(core, apply(core, trueForm, first), second)
+    const result = identity(core, root, core.right(core.left(form)))
+
+    core.setLeft(root, result)
+
+    assert.equal(core.observe(observation(core, root, root)), first)
+    assert.equal(core.right(result), first)
+    assert.notEqual(core.right(result), second)
+  })
+
+  test('passive false chooses the second branch', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const falseForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const form = apply(core, apply(core, falseForm, first), second)
+    const result = identity(core, root, core.right(form))
+
+    core.setLeft(root, result)
+
+    assert.equal(core.observe(observation(core, root, root)), second)
+    assert.equal(core.right(result), second)
+    assert.notEqual(core.right(result), first)
+  })
+
+  test('passive not builds a choice with branches reversed', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const notForm = core.pair()
+    const bool = core.pair()
+    const trueBranch = core.pair()
+    const falseBranch = core.pair()
+    const form = apply(core, notForm, bool)
+    const result = apply(
+      core,
+      apply(core, core.right(form), falseBranch),
+      trueBranch
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(core.left(result)), bool)
+    assert.equal(core.right(core.left(result)), falseBranch)
+    assert.equal(core.right(result), trueBranch)
+  })
+
+  test('passive and builds a choice with false as fallback', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const andForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const falseBranch = core.pair()
+    const form = apply(core, apply(core, andForm, first), second)
+    const result = apply(
+      core,
+      apply(core, core.right(core.left(form)), core.right(form)),
+      falseBranch
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(core.left(result)), first)
+    assert.equal(core.right(core.left(result)), second)
+    assert.equal(core.right(result), falseBranch)
+  })
+
+  test('passive or builds a choice with true as fallback', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const orForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const trueBranch = core.pair()
+    const form = apply(core, apply(core, orForm, first), second)
+    const result = apply(
+      core,
+      apply(core, core.right(core.left(form)), trueBranch),
+      core.right(form)
+    )
+    core.setLeft(root, identity(core, root, result))
+
+    assert.equal(core.observe(observation(core, root, root)), result)
+    assert.equal(core.left(core.left(result)), first)
+    assert.equal(core.right(core.left(result)), trueBranch)
+    assert.equal(core.right(result), second)
+  })
+
+  test('passive first selector returns the first pair slot', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const firstForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const subject = core.pair(first, second)
+    const form = apply(core, firstForm, subject)
+    const result = identity(core, root, core.left(core.right(form)))
+
+    core.setLeft(root, result)
+
+    assert.equal(core.observe(observation(core, root, root)), first)
+    assert.equal(core.right(result), first)
+    assert.equal(core.right(form), subject)
+  })
+
+  test('passive second selector returns the second pair slot', async () => {
+    const core = await createWasmCore()
+    const root = core.pair()
+    const secondForm = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const subject = core.pair(first, second)
+    const form = apply(core, secondForm, subject)
+    const result = identity(core, root, core.right(core.right(form)))
+
+    core.setLeft(root, result)
+
+    assert.equal(core.observe(observation(core, root, root)), second)
+    assert.equal(core.right(result), second)
+    assert.equal(core.right(form), subject)
+  })
+
   test('setters mutate slots and return the pointer', async () => {
     const core = await createWasmCore()
     const pair = core.pair()

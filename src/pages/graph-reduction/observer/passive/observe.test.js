@@ -944,6 +944,164 @@ describe('observe', () => {
       assert.equal(result[1][1], argument)
       assert.equal(result[0][1], result[1][1])
     })
+
+    test('B composes two applications', () => {
+      const root = pair()
+      const BForm = pair()
+      const first = pair()
+      const second = pair()
+      const argument = pair()
+      const form = apply(apply(apply(BForm, first), second), argument)
+      const result = apply(form[0][0][1], apply(form[0][1], form[1]))
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.equal(result[0], first)
+      assert.equal(result[1][0], second)
+      assert.equal(result[1][1], argument)
+    })
+
+    test('C swaps the final two arguments', () => {
+      const root = pair()
+      const CForm = pair()
+      const first = pair()
+      const second = pair()
+      const argument = pair()
+      const form = apply(apply(apply(CForm, first), second), argument)
+      const result = apply(apply(form[0][0][1], form[1]), form[0][1])
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.equal(result[0][0], first)
+      assert.equal(result[0][1], argument)
+      assert.equal(result[1], second)
+    })
+
+    test('W shares one argument in both slots', () => {
+      const root = pair()
+      const WForm = pair()
+      const first = pair()
+      const argument = pair()
+      const form = apply(apply(WForm, first), argument)
+      const result = apply(apply(form[0][1], form[1]), form[1])
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.equal(result[0][0], first)
+      assert.equal(result[0][1], argument)
+      assert.equal(result[1], argument)
+      assert.equal(result[0][1], result[1])
+    })
+
+    test('true chooses the first branch', () => {
+      const root = pair()
+      const trueForm = pair()
+      const first = pair()
+      const second = pair()
+      const form = apply(apply(trueForm, first), second)
+      const result = identity(root, form[0][1])
+
+      root[0] = result
+
+      assert.equal(observe(observation(root, root)), first)
+      assert.equal(result[1], first)
+      assert.notEqual(result[1], second)
+    })
+
+    test('false chooses the second branch', () => {
+      const root = pair()
+      const falseForm = pair()
+      const first = pair()
+      const second = pair()
+      const form = apply(apply(falseForm, first), second)
+      const result = identity(root, form[1])
+
+      root[0] = result
+
+      assert.equal(observe(observation(root, root)), second)
+      assert.equal(result[1], second)
+      assert.notEqual(result[1], first)
+    })
+
+    test('not builds a choice with branches reversed', () => {
+      const root = pair()
+      const notForm = pair()
+      const bool = pair()
+      const trueBranch = pair()
+      const falseBranch = pair()
+      const form = apply(notForm, bool)
+      const result = apply(apply(form[1], falseBranch), trueBranch)
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.equal(result[0][0], bool)
+      assert.equal(result[0][1], falseBranch)
+      assert.equal(result[1], trueBranch)
+    })
+
+    test('and builds a choice with false as fallback', () => {
+      const root = pair()
+      const andForm = pair()
+      const first = pair()
+      const second = pair()
+      const falseBranch = pair()
+      const form = apply(apply(andForm, first), second)
+      const result = apply(apply(form[0][1], form[1]), falseBranch)
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.equal(result[0][0], first)
+      assert.equal(result[0][1], second)
+      assert.equal(result[1], falseBranch)
+    })
+
+    test('or builds a choice with true as fallback', () => {
+      const root = pair()
+      const orForm = pair()
+      const first = pair()
+      const second = pair()
+      const trueBranch = pair()
+      const form = apply(apply(orForm, first), second)
+      const result = apply(apply(form[0][1], trueBranch), form[1])
+      root[0] = identity(root, result)
+
+      assert.equal(observe(observation(root, root)), result)
+      assert.equal(result[0][0], first)
+      assert.equal(result[0][1], trueBranch)
+      assert.equal(result[1], second)
+    })
+
+    test('first selector returns the first pair slot', () => {
+      const root = pair()
+      const firstForm = pair()
+      const first = pair()
+      const second = pair()
+      const subject = pair(first, second)
+      const form = apply(firstForm, subject)
+      const result = identity(root, form[1][0])
+
+      root[0] = result
+
+      assert.equal(observe(observation(root, root)), first)
+      assert.equal(result[1], first)
+      assert.equal(form[1], subject)
+    })
+
+    test('second selector returns the second pair slot', () => {
+      const root = pair()
+      const secondForm = pair()
+      const first = pair()
+      const second = pair()
+      const subject = pair(first, second)
+      const form = apply(secondForm, subject)
+      const result = identity(root, form[1][1])
+
+      root[0] = result
+
+      assert.equal(observe(observation(root, root)), second)
+      assert.equal(result[1], second)
+      assert.equal(form[1], subject)
+    })
   })
 
   describe('sharing', () => {
