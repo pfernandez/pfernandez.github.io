@@ -459,6 +459,67 @@ describe('wasm core', () => {
     assert.equal(core.right(core.left(shared)), core.right(core.right(shared)))
   })
 
+  test('a cycle projects unbounded path depth', async () => {
+    const core = await createWasmCore()
+    const root = core.pair(I, I)
+    const next = core.pair(I, root)
+    core.setLeft(root, I)
+    core.setRight(root, next)
+    const frame = observation(core, I, I)
+    const built = core.size()
+
+    assert.equal(core.left(root), I)
+    assert.equal(core.left(core.right(root)), I)
+    assert.equal(core.left(core.right(core.right(root))), I)
+    assert.equal(core.left(core.right(core.right(core.right(root)))), I)
+    assert.equal(core.observe(setObservation(core, frame, I, root)), next)
+    assert.equal(core.observe(setObservation(core, frame, I, next)), root)
+    assert.equal(core.size(), built)
+  })
+
+  test('a cycle can return the next observation frame', async () => {
+    const core = await createWasmCore()
+    const firstFrame = core.pair(I, I)
+    const secondFrame = core.pair(I, I)
+    const firstFocus = core.pair(I, secondFrame)
+    const secondFocus = core.pair(I, firstFrame)
+    core.setRight(firstFrame, firstFocus)
+    core.setRight(secondFrame, secondFocus)
+    const built = core.size()
+
+    const one = core.observe(firstFrame)
+    const two = core.observe(one)
+    const three = core.observe(two)
+    const four = core.observe(three)
+
+    assert.equal(core.size(), built)
+    assert.equal(one, secondFrame)
+    assert.equal(two, firstFrame)
+    assert.equal(three, secondFrame)
+    assert.equal(four, firstFrame)
+  })
+
+  test('a finite passive graph eventually repeats a pointer', async () => {
+    const core = await createWasmCore()
+    const firstFrame = core.pair(I, I)
+    const secondFrame = core.pair(I, I)
+    const thirdFrame = core.pair(I, I)
+    core.setRight(firstFrame, core.pair(I, secondFrame))
+    core.setRight(secondFrame, core.pair(I, thirdFrame))
+    core.setRight(thirdFrame, core.pair(I, firstFrame))
+    const built = core.size()
+
+    const one = core.observe(firstFrame)
+    const two = core.observe(one)
+    const three = core.observe(two)
+    const four = core.observe(three)
+
+    assert.equal(core.size(), built)
+    assert.notEqual(one, two)
+    assert.notEqual(two, three)
+    assert.equal(one, four)
+  })
+
   test('setters mutate slots and return the pointer', async () => {
     const core = await createWasmCore()
     const pair = core.pair()
