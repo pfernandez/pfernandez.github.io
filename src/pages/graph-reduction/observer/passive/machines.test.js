@@ -76,7 +76,34 @@ describe('machines', () => {
   }
 
   const outputOf = machine => machine[1][1]
-  const nextOnly = current => current[1]
+  const step = current => current[1]
+
+  const runSteps = (current, count) => {
+    let next = current
+
+    for (let i = 0; i < count; i += 1) {
+      next = step(next)
+    }
+
+    return next
+  }
+
+  const compileSelfTracingFocus = (
+    observer,
+    value,
+    depth,
+    createPair
+  ) => {
+    let focus = createPair
+      ? createPair(observer, value)
+      : [observer, value]
+
+    for (let i = 0; i < depth; i += 1) {
+      focus = createPair ? createPair(focus, focus) : [focus, focus]
+    }
+
+    return focus
+  }
 
   const event = (previous = I, output = I, createPair) =>
     createPair ? createPair(previous, output) : [previous, output]
@@ -645,9 +672,9 @@ describe('machines', () => {
       const firstState = countedPair(focus, middleState)
       const built = allocations
 
-      const secondState = nextOnly(firstState)
-      const thirdState = nextOnly(secondState)
-      const selected = nextOnly(thirdState)
+      const secondState = step(firstState)
+      const thirdState = step(secondState)
+      const selected = step(thirdState)
 
       assert.equal(observe(observation(observer, focus)), value)
       assert.equal(allocations, built)
@@ -657,7 +684,7 @@ describe('machines', () => {
       assert.equal(selected, value)
     })
 
-    test('a bounded observer path can live inside the focus', () => {
+    test('a compiled self-tracing focus advances by step', () => {
       let allocations = 0
       const countedPair = (first = I, next = I) => {
         allocations += 1
@@ -665,24 +692,107 @@ describe('machines', () => {
       }
       const observer = countedPair()
       const value = countedPair()
-      const match = countedPair(observer, value)
-      const middle = countedPair(match, match)
-      const focus = countedPair(middle, middle)
+      const depth = 4
+      const focus = compileSelfTracingFocus(
+        observer,
+        value,
+        depth,
+        countedPair
+      )
       const built = allocations
 
-      const second = nextOnly(focus)
-      const third = nextOnly(second)
-      const selected = nextOnly(third)
+      const next = step(focus)
+      const finalPair = runSteps(focus, depth)
+      const selected = step(finalPair)
 
       assert.equal(observe(observation(observer, focus)), value)
       assert.equal(allocations, built)
-      assert.equal(focus[0], middle)
-      assert.equal(focus[1], middle)
-      assert.equal(second, middle)
-      assert.equal(second[0], match)
-      assert.equal(second[1], match)
-      assert.equal(third, match)
+      assert.equal(focus[0], focus[1])
+      assert.equal(next[0], next[1])
+      assert.equal(finalPair[0], observer)
+      assert.equal(finalPair[1], value)
       assert.equal(selected, value)
+    })
+
+    test('a state can carry both output and next step', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return [first, next]
+      }
+      const input = countedPair()
+      const output = countedPair()
+      const machine = countedPair()
+      const first = countedPair()
+      const second = countedPair()
+
+      machine[0] = input
+      machine[1] = first
+      first[0] = countedPair(
+        identity(machine, second, countedPair),
+        output
+      )
+      first[1] = second
+      second[0] = countedPair(
+        identity(machine, first, countedPair),
+        output
+      )
+      second[1] = first
+      const built = allocations
+
+      const secondByObserve = observe(observation(machine, first))
+      const thirdByObserve = observe(observation(machine, secondByObserve))
+      const secondByStep = step(first)
+      const thirdByStep = step(secondByStep)
+
+      assert.equal(allocations, built)
+      assert.equal(machine[0], input)
+      assert.equal(machine[1], first)
+      assert.equal(first[0][1], output)
+      assert.equal(second[0][1], output)
+      assert.equal(first[1], second)
+      assert.equal(second[1], first)
+      assert.equal(secondByObserve, secondByStep)
+      assert.equal(thirdByObserve, thirdByStep)
+    })
+
+    test('history can live inside stepped states', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return [first, next]
+      }
+      const machine = countedPair()
+      const first = countedPair()
+      const second = countedPair()
+      const firstValue = countedPair()
+      const secondValue = countedPair()
+      const firstEvent = event(machine, firstValue, countedPair)
+      const secondEvent = event(firstEvent, secondValue, countedPair)
+
+      machine[1] = first
+      first[0] = countedPair(
+        identity(machine, second, countedPair),
+        firstEvent
+      )
+      first[1] = second
+      second[0] = countedPair(
+        identity(machine, first, countedPair),
+        secondEvent
+      )
+      second[1] = first
+      const built = allocations
+
+      const next = step(first)
+      const output = next[0][1]
+
+      assert.equal(allocations, built)
+      assert.equal(observe(observation(machine, first)), next)
+      assert.equal(output, secondEvent)
+      assert.equal(output[0], firstEvent)
+      assert.equal(output[1], secondValue)
+      assert.equal(firstEvent[0], machine)
+      assert.equal(firstEvent[1], firstValue)
     })
   })
 

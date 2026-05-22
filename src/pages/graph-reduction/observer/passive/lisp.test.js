@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
+  compileMachine,
   createJsRuntime,
   createWasmRuntime,
   init,
@@ -301,6 +302,39 @@ describe('passive Lisp compiler', () => {
     assert.equal(serialize(nextState, second), 'y')
   })
 
+  test('compileMachine returns a step-shaped JS machine', () => {
+    const state = init()
+    const [nextState, machine] = compileMachine(state, parse('(I a)'))
+    const sourceFrame = nextState.runtime.left(machine)
+    const current = nextState.runtime.right(machine)
+    const carried = nextState.runtime.left(current)
+    const output = nextState.runtime.right(current)
+
+    assert.equal(serialize(nextState, output), '(I a)')
+    assert.equal(nextState.runtime.right(carried), output)
+    assert.equal(nextState.runtime.observe(sourceFrame), output)
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, current)
+    ), output)
+  })
+
+  test('compileMachine keeps definitions without forcing output', () => {
+    const state = init()
+    const [nextState, machine] = compileMachine(
+      state,
+      parse('(define alias value)')
+    )
+    const current = nextState.runtime.right(machine)
+    const output = nextState.runtime.right(current)
+    const [, resolved] = run(nextState, 'alias')
+
+    assert.equal(output, nextState.runtime.I)
+    assert.equal(resolved.text, 'value')
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, current)
+    ), output)
+  })
+
   test('recursive define ties a graph knot during construction', () => {
     let state = init()
     state = compileInto(state, '(define I (I I))')
@@ -488,6 +522,22 @@ describe('passive Lisp compiler', () => {
 
     assert.equal(serialize(nextState, first), 'x')
     assert.equal(serialize(nextState, second), 'y')
+  })
+
+  test('WASM compileMachine returns a step-shaped machine', async () => {
+    const state = init(await createWasmRuntime())
+    const [nextState, machine] = compileMachine(state, parse('(I a)'))
+    const sourceFrame = nextState.runtime.left(machine)
+    const current = nextState.runtime.right(machine)
+    const carried = nextState.runtime.left(current)
+    const output = nextState.runtime.right(current)
+
+    assert.equal(serialize(nextState, output), '(I a)')
+    assert.equal(nextState.runtime.right(carried), output)
+    assert.equal(nextState.runtime.observe(sourceFrame), output)
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, current)
+    ), output)
   })
 
   test('a custom JS runtime can be supplied', () => {

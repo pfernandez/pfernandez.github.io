@@ -445,11 +445,22 @@ const graphFor = (state, compiled) => {
   )
 }
 
-const compileAst = (state, sourceAst) => {
+const targetFor = (state, compiled) => ({
+  frame: graphFor(state, compiled),
+  result: compiled.graph,
+})
+
+const compileAstTarget = (state, sourceAst) => {
   const form = resolveTerm(sourceAst, state.aliases)
   const [nextState, compiled] = compileNode(state, form)
 
-  return [nextState, graphFor(nextState, compiled)]
+  return [nextState, targetFor(nextState, compiled)]
+}
+
+const compileAst = (state, sourceAst) => {
+  const [nextState, target] = compileAstTarget(state, sourceAst)
+
+  return [nextState, target.frame]
 }
 
 const withoutName = (state, name) => {
@@ -557,6 +568,37 @@ const compileForm = (state, form) => {
   return compileAst(state, ast(form))
 }
 
+const compileFormTarget = (state, form) => {
+  if (isPair(form) && form[0] === 'define') {
+    return compileDefine(state, form)
+  }
+
+  return compileAstTarget(state, ast(form))
+}
+
+const emptyTarget = state => ({
+  frame: state.runtime.frame(state.runtime.I, state.runtime.I),
+  result: state.runtime.I,
+})
+
+const machineFor = (state, target) => {
+  const root = state.runtime.pair()
+  const current = state.runtime.pair()
+  const output = target.result
+  state.runtime.setLeft(root, target.frame)
+  state.runtime.setRight(root, current)
+  state.runtime.setLeft(
+    current,
+    state.runtime.pair(
+      state.runtime.pair(root, output),
+      output
+    )
+  )
+  state.runtime.setRight(current, output)
+
+  return root
+}
+
 /**
  * Compiles parsed top-level forms into a passive observation frame.
  *
@@ -582,6 +624,31 @@ export const compile = (state, forms) => {
     nextState,
     graph ?? nextState.runtime.frame(nextState.runtime.I, nextState.runtime.I),
   ]
+}
+
+/**
+ * Compiles parsed forms into a root whose current state can advance by `right`.
+ *
+ * This is the experimental machine target for the passive compiler. It reuses
+ * the same source compiler as `compile`, but wraps the selected graph in the
+ * step-shaped state proved in `machines.test.js`: the current state's right
+ * slot is the next value, and its left slot carries both the observer collapse
+ * link and the output.
+ *
+ * @param {CompilerState} state
+ * @param {SourceForm[]} forms
+ * @returns {[CompilerState, Graph]}
+ */
+export const compileMachine = (state, forms) => {
+  const [nextState, target] = forms.reduce(
+    ([currentState, currentTarget], form) => {
+      const [formState, formTarget] = compileFormTarget(currentState, form)
+      return [formState, formTarget ?? currentTarget]
+    },
+    [state, null]
+  )
+
+  return [nextState, machineFor(nextState, target ?? emptyTarget(nextState))]
 }
 
 /**

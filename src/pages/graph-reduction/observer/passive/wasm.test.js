@@ -58,7 +58,27 @@ describe('wasm core', () => {
   }
 
   const outputOf = (core, machine) => core.right(core.right(machine))
-  const nextOnly = (core, current) => core.right(current)
+  const step = (core, current) => core.right(current)
+
+  const runSteps = (core, current, count) => {
+    let next = current
+
+    for (let i = 0; i < count; i += 1) {
+      next = step(core, next)
+    }
+
+    return next
+  }
+
+  const compileSelfTracingFocus = (core, observer, value, depth) => {
+    let focus = core.pair(observer, value)
+
+    for (let i = 0; i < depth; i += 1) {
+      focus = core.pair(focus, focus)
+    }
+
+    return focus
+  }
 
   test('module bytes are real WebAssembly', async () => {
     assert.equal(WebAssembly.validate(wasmBytes), true)
@@ -1195,9 +1215,9 @@ describe('wasm core', () => {
     const frame = observation(core, observer, focus)
     const built = core.size()
 
-    const secondState = nextOnly(core, firstState)
-    const thirdState = nextOnly(core, secondState)
-    const selected = nextOnly(core, thirdState)
+    const secondState = step(core, firstState)
+    const thirdState = step(core, secondState)
+    const selected = step(core, thirdState)
 
     assert.equal(core.observe(frame), value)
     assert.equal(core.size(), built)
@@ -1207,29 +1227,112 @@ describe('wasm core', () => {
     assert.equal(selected, value)
   })
 
-  test('a bounded observer path can live inside the focus', async () => {
+  test('a compiled self-tracing focus advances by step', async () => {
     const core = await createWasmCore()
     const observer = core.pair()
     const value = core.pair()
-    const match = core.pair(observer, value)
-    const middle = core.pair(match, match)
-    const focus = core.pair(middle, middle)
+    const depth = 4
+    const focus = compileSelfTracingFocus(core, observer, value, depth)
     const frame = observation(core, observer, focus)
     const built = core.size()
 
-    const second = nextOnly(core, focus)
-    const third = nextOnly(core, second)
-    const selected = nextOnly(core, third)
+    const next = step(core, focus)
+    const finalPair = runSteps(core, focus, depth)
+    const selected = step(core, finalPair)
 
     assert.equal(core.observe(frame), value)
     assert.equal(core.size(), built)
-    assert.equal(core.left(focus), middle)
-    assert.equal(core.right(focus), middle)
-    assert.equal(second, middle)
-    assert.equal(core.left(second), match)
-    assert.equal(core.right(second), match)
-    assert.equal(third, match)
+    assert.equal(core.left(focus), core.right(focus))
+    assert.equal(core.left(next), core.right(next))
+    assert.equal(core.left(finalPair), observer)
+    assert.equal(core.right(finalPair), value)
     assert.equal(selected, value)
+  })
+
+  test('a state can carry both output and next step', async () => {
+    const core = await createWasmCore()
+    const input = core.pair()
+    const output = core.pair()
+    const machine = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    core.setLeft(machine, input)
+    core.setRight(machine, first)
+    core.setLeft(
+      first,
+      core.pair(identity(core, machine, second), output)
+    )
+    core.setRight(first, second)
+    core.setLeft(
+      second,
+      core.pair(identity(core, machine, first), output)
+    )
+    core.setRight(second, first)
+    const frame = observation(core, machine, I)
+    const built = core.size()
+
+    const secondByObserve = core.observe(setObservation(
+      core,
+      frame,
+      machine,
+      first
+    ))
+    const thirdByObserve = core.observe(setObservation(
+      core,
+      frame,
+      machine,
+      secondByObserve
+    ))
+    const secondByStep = step(core, first)
+    const thirdByStep = step(core, secondByStep)
+
+    assert.equal(core.size(), built)
+    assert.equal(core.left(machine), input)
+    assert.equal(core.right(machine), first)
+    assert.equal(core.right(core.left(first)), output)
+    assert.equal(core.right(core.left(second)), output)
+    assert.equal(core.right(first), second)
+    assert.equal(core.right(second), first)
+    assert.equal(secondByObserve, secondByStep)
+    assert.equal(thirdByObserve, thirdByStep)
+  })
+
+  test('history can live inside stepped states', async () => {
+    const core = await createWasmCore()
+    const machine = core.pair()
+    const first = core.pair()
+    const second = core.pair()
+    const firstValue = core.pair()
+    const secondValue = core.pair()
+    const firstEvent = event(core, machine, firstValue)
+    const secondEvent = event(core, firstEvent, secondValue)
+    core.setRight(machine, first)
+    core.setLeft(
+      first,
+      core.pair(identity(core, machine, second), firstEvent)
+    )
+    core.setRight(first, second)
+    core.setLeft(
+      second,
+      core.pair(identity(core, machine, first), secondEvent)
+    )
+    core.setRight(second, first)
+    const frame = observation(core, machine, I)
+    const built = core.size()
+
+    const next = step(core, first)
+    const output = core.right(core.left(next))
+
+    assert.equal(core.size(), built)
+    assert.equal(
+      core.observe(setObservation(core, frame, machine, first)),
+      next
+    )
+    assert.equal(output, secondEvent)
+    assert.equal(core.left(output), firstEvent)
+    assert.equal(core.right(output), secondValue)
+    assert.equal(core.left(firstEvent), machine)
+    assert.equal(core.right(firstEvent), firstValue)
   })
 
   test('succ reuses one cycle without allocating after construction', async () => {
