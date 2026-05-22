@@ -229,6 +229,31 @@ describe('passive Lisp compiler', () => {
     assert.equal(result.text, '((f a) b)')
   })
 
+  test('recursive define ties a graph knot during construction', () => {
+    let state = init()
+    state = compileInto(state, '(define I (I I))')
+
+    const [, result] = run(state, 'I')
+    const value = result.result
+
+    assert.equal(result.text, 'I')
+    assert.equal(state.runtime.left(value), value)
+    assert.equal(state.runtime.right(value), value)
+    assert.equal(observe(state, state.runtime.frame(value, value)), value)
+  })
+
+  test('recursive define can be paired with another value', () => {
+    let state = init()
+    state = compileInto(state, '(define I (I I))')
+
+    const [nextState, result] = run(state, '(I x)')
+    const value = result.result[0]
+
+    assert.equal(result.text, '(I x)')
+    assert.equal(state.runtime.left(value), value)
+    assert.equal(serialize(nextState, result.result[1]), 'x')
+  })
+
   test('cyclic aliases fail before graph construction', () => {
     let state = init()
     state = compileInto(state, '(define a b)')
@@ -313,6 +338,19 @@ describe('passive Lisp compiler', () => {
     assert.equal(serialize(nextState, operand), 'a')
     assert.equal(text, '(I a)')
     assert.equal(nextState.runtime.size(), before + 6)
+  })
+
+  test('WASM recursive define ties a pointer knot', async () => {
+    let state = init(await createWasmRuntime())
+    state = compileInto(state, '(define I (I I))')
+
+    const [, result] = run(state, 'I')
+    const value = result.result
+
+    assert.equal(result.text, 'I')
+    assert.equal(state.runtime.left(value), value)
+    assert.equal(state.runtime.right(value), value)
+    assert.equal(observe(state, state.runtime.frame(value, value)), value)
   })
 
   test('a custom JS runtime can be supplied', () => {

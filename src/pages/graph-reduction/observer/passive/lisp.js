@@ -33,6 +33,7 @@ import { createWasmCore } from './wasm.js'
  * @property {Map<string, Definition>} definitions
  * @property {PassiveRuntime} runtime
  * @property {Map<string, Graph>} symbols
+ * @property {Map<string, Graph>} values
  */
 
 const fixedRoot = () => {
@@ -104,8 +105,8 @@ export const createWasmRuntime = async () => {
  * Creates an empty compiler state for a runtime.
  *
  * The state carries source-side tables: aliases, function definitions, partial
- * closures, and symbol patterns. Compiler functions return a new state when
- * those tables change instead of mutating a hidden module-level compiler.
+ * closures, recursive values, and symbol patterns. Compiler functions return a
+ * new state when those tables change instead of mutating hidden module state.
  *
  * @param {PassiveRuntime} [runtime]
  * @returns {CompilerState}
@@ -116,6 +117,7 @@ export const init = (runtime = createJsRuntime()) => ({
   definitions: new Map(),
   runtime,
   symbols: new Map(),
+  values: new Map(),
 })
 
 /**
@@ -158,6 +160,13 @@ const ast = term => {
   if (!term.length) return []
 
   return chain(ast(term[0]), term.slice(1).map(ast))
+}
+
+const containsName = (term, name) => {
+  if (term === name) return true
+  if (!isPair(term)) return false
+
+  return term.some(value => containsName(value, name))
 }
 
 const unchain = term => {
@@ -238,6 +247,12 @@ const knownSymbol = (state, graph) => {
   }
 }
 
+const knownValue = (state, graph) => {
+  for (const [name, value] of state.values) {
+    if (state.runtime.equal(graph, value)) return name
+  }
+}
+
 /**
  * Serializes a graph back into readable source-like text.
  *
@@ -253,6 +268,9 @@ const knownSymbol = (state, graph) => {
  */
 export const serialize = (state, graph, path = '$', seen = new Map()) => {
   if (state.runtime.equal(graph, state.runtime.I)) return '()'
+
+  const valueName = knownValue(state, graph)
+  if (valueName) return valueName
 
   const name = knownSymbol(state, graph)
   if (name) return name
@@ -330,6 +348,9 @@ const pairDefinition = (
 const compileNode = (state, term, bindings = new Map()) => {
   if (typeof term === 'string') {
     if (bindings.has(term)) return [state, { graph: bindings.get(term) }]
+    if (state.values.has(term)) {
+      return [state, { graph: state.values.get(term) }]
+    }
     if (state.closures.has(term)) {
       const closure = state.closures.get(term)
       return [state, { closure, graph: closureGraph(state, closure) }]
@@ -413,12 +434,14 @@ const withoutName = (state, name) => {
   const aliases = new Map(state.aliases)
   const closures = new Map(state.closures)
   const definitions = new Map(state.definitions)
+  const values = new Map(state.values)
 
   aliases.delete(name)
   closures.delete(name)
   definitions.delete(name)
+  values.delete(name)
 
-  return withState(state, { aliases, closures, definitions })
+  return withState(state, { aliases, closures, definitions, values })
 }
 
 const setAlias = (state, name, sourceAst) => {
@@ -445,8 +468,38 @@ const setDefinition = (state, name, definition) => {
   return withState(nextState, { definitions })
 }
 
+const reserveValue = (state, name) => {
+  const nextState = withoutName(state, name)
+  const graph = nextState.runtime.pair()
+  const values = new Map(nextState.values)
+  values.set(name, graph)
+
+  return [withState(nextState, { values }), graph]
+}
+
+const copyPair = (state, target, source) => {
+  state.runtime.setLeft(target, state.runtime.left(source))
+  state.runtime.setRight(target, state.runtime.right(source))
+
+  return target
+}
+
+const compileRecursiveValueDefinition = (state, name, sourceAst) => {
+  const [reservedState, value] = reserveValue(state, name)
+  const [compiledState, compiled] = compileNode(reservedState, sourceAst)
+
+  copyPair(compiledState, value, compiled.graph)
+
+  return [compiledState, null]
+}
+
 const compileValueDefinition = (state, name, value) => {
   const sourceAst = ast(value)
+
+  if (containsName(sourceAst, name)) {
+    return compileRecursiveValueDefinition(state, name, sourceAst)
+  }
+
   const [compiledState, compiled] = compileNode(state, sourceAst)
 
   if (compiled.closure) {
