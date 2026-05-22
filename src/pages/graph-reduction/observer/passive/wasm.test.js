@@ -1207,6 +1207,31 @@ describe('wasm core', () => {
     assert.equal(selected, value)
   })
 
+  test('a bounded observer path can live inside the focus', async () => {
+    const core = await createWasmCore()
+    const observer = core.pair()
+    const value = core.pair()
+    const match = core.pair(observer, value)
+    const middle = core.pair(match, match)
+    const focus = core.pair(middle, middle)
+    const frame = observation(core, observer, focus)
+    const built = core.size()
+
+    const second = nextOnly(core, focus)
+    const third = nextOnly(core, second)
+    const selected = nextOnly(core, third)
+
+    assert.equal(core.observe(frame), value)
+    assert.equal(core.size(), built)
+    assert.equal(core.left(focus), middle)
+    assert.equal(core.right(focus), middle)
+    assert.equal(second, middle)
+    assert.equal(core.left(second), match)
+    assert.equal(core.right(second), match)
+    assert.equal(third, match)
+    assert.equal(selected, value)
+  })
+
   test('succ reuses one cycle without allocating after construction', async () => {
     const core = await createWasmCore()
     const root = core.pair()

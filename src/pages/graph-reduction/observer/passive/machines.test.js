@@ -656,6 +656,34 @@ describe('machines', () => {
       assert.equal(thirdState[0], match)
       assert.equal(selected, value)
     })
+
+    test('a bounded observer path can live inside the focus', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return [first, next]
+      }
+      const observer = countedPair()
+      const value = countedPair()
+      const match = countedPair(observer, value)
+      const middle = countedPair(match, match)
+      const focus = countedPair(middle, middle)
+      const built = allocations
+
+      const second = nextOnly(focus)
+      const third = nextOnly(second)
+      const selected = nextOnly(third)
+
+      assert.equal(observe(observation(observer, focus)), value)
+      assert.equal(allocations, built)
+      assert.equal(focus[0], middle)
+      assert.equal(focus[1], middle)
+      assert.equal(second, middle)
+      assert.equal(second[0], match)
+      assert.equal(second[1], match)
+      assert.equal(third, match)
+      assert.equal(selected, value)
+    })
   })
 
 
