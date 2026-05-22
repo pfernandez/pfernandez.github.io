@@ -584,6 +584,7 @@ const emptyTarget = state => ({
 const machineFor = (state, targets) => {
   const root = state.runtime.pair()
   const input = state.runtime.pair()
+  const output = state.runtime.pair()
   const inputEvent = state.runtime.pair(input, state.runtime.I)
   const ports = state.runtime.pair(inputEvent, targets[0].frame)
   const states = targets.map(() => state.runtime.pair())
@@ -592,12 +593,12 @@ const machineFor = (state, targets) => {
 
   states.forEach((current, index) => {
     const next = states[(index + 1) % states.length]
-    const output = targets[index].result
+    const outputEvent = state.runtime.pair(output, targets[index].result)
     state.runtime.setLeft(
       current,
       state.runtime.pair(
         state.runtime.pair(root, next),
-        output
+        outputEvent
       )
     )
     state.runtime.setRight(current, next)
@@ -640,7 +641,7 @@ export const compile = (state, forms) => {
  * the same source compiler as `compile`, but wraps the selected graph in the
  * step-shaped state proved in `machines.test.js`: the current state's right
  * slot is the next state, and its left slot carries both the observer collapse
- * link and the current output.
+ * link and the current output event.
  *
  * @param {CompilerState} state
  * @param {SourceForm[]} forms
@@ -681,17 +682,39 @@ export const machineCurrent = (state, machine) =>
   state.runtime.right(machine)
 
 /**
- * Reads the output carried by the current machine state.
+ * Reads the current output event carried by a compiled machine root.
  *
- * Machine states carry output in the right slot of their left child. Reading it
- * does not observe, reduce, or advance the machine.
+ * An output event is `[output, value]`: the stable output socket on the left
+ * and the emitted value on the right.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineOutputEvent = (state, machine) =>
+  state.runtime.right(state.runtime.left(machineCurrent(state, machine)))
+
+/**
+ * Reads the stable output socket carried by a compiled machine root.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineOutputSocket = (state, machine) =>
+  state.runtime.left(machineOutputEvent(state, machine))
+
+/**
+ * Reads the value carried by the current machine output event.
+ *
+ * Reading it does not observe, reduce, or advance the machine.
  *
  * @param {CompilerState} state
  * @param {Graph} machine
  * @returns {Graph}
  */
 export const machineOutput = (state, machine) =>
-  state.runtime.right(state.runtime.left(machineCurrent(state, machine)))
+  state.runtime.right(machineOutputEvent(state, machine))
 
 /**
  * Advances a compiled machine root to its next state.

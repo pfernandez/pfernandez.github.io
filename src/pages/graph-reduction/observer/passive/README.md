@@ -133,15 +133,18 @@ ports       = [input-event, source-frame]
 input-event = [input, value]
 input       = stable socket
 state       = [carried, next-state]
-carried     = [[machine, next-state], output]
+carried     = [[machine, next-state], output-event]
+output-event = [output, value]
+output      = stable socket
 ```
 
 Input is structural. The socket is stable; writing input creates a fresh event
 `[input, value]` and moves `ports[0]` to it. The initial event carries `I` as
 its value, so the machine does not need to clear or rewrite the socket.
 
-Output is also structural. `machineOutput(state, machine)` reads the right slot
-of the current state's carried pair. It does not call `observe`.
+Output is also structural. Each current state carries an output event
+`[output, value]`; `machineOutput(state, machine)` reads that event's value.
+It does not call `observe`.
 
 The smallest host step is:
 

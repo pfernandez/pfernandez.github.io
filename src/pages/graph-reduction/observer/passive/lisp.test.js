@@ -12,6 +12,8 @@ import {
   machineInputEvent,
   machineInputValue,
   machineOutput,
+  machineOutputEvent,
+  machineOutputSocket,
   machineStep,
   machineStepOutput,
   machineWriteInput,
@@ -316,7 +318,9 @@ describe('passive Lisp compiler', () => {
     const sourceFrame = nextState.runtime.right(nextState.runtime.left(machine))
     const current = nextState.runtime.right(machine)
     const carried = nextState.runtime.left(current)
-    const output = nextState.runtime.right(carried)
+    const outputEvent = nextState.runtime.right(carried)
+    const output = nextState.runtime.right(outputEvent)
+    const outputSocket = nextState.runtime.left(outputEvent)
     const next = nextState.runtime.right(current)
     const input = machineInput(nextState, machine)
     const inputEvent = machineInputEvent(nextState, machine)
@@ -329,8 +333,13 @@ describe('passive Lisp compiler', () => {
     assert.equal(nextState.runtime.right(inputEvent), nextState.runtime.I)
     assert.equal(nextState.runtime.left(input), nextState.runtime.I)
     assert.equal(nextState.runtime.right(input), nextState.runtime.I)
+    assert.equal(machineOutputEvent(nextState, machine), outputEvent)
+    assert.equal(machineOutputSocket(nextState, machine), outputSocket)
+    assert.equal(machineOutput(nextState, machine), output)
+    assert.equal(nextState.runtime.left(outputSocket), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(outputSocket), nextState.runtime.I)
     assert.equal(serialize(nextState, output), '(I a)')
-    assert.equal(nextState.runtime.right(carried), output)
+    assert.equal(nextState.runtime.right(carried), outputEvent)
     assert.equal(nextState.runtime.observe(sourceFrame), output)
     assert.equal(next, current)
     assert.equal(nextState.runtime.observe(
@@ -346,10 +355,21 @@ describe('passive Lisp compiler', () => {
     )
     const first = nextState.runtime.right(machine)
     const second = nextState.runtime.right(first)
-    const firstOutput = nextState.runtime.right(nextState.runtime.left(first))
-    const secondOutput = nextState.runtime.right(nextState.runtime.left(second))
+    const firstOutputEvent = nextState.runtime.right(
+      nextState.runtime.left(first)
+    )
+    const secondOutputEvent = nextState.runtime.right(
+      nextState.runtime.left(second)
+    )
+    const firstOutput = nextState.runtime.right(firstOutputEvent)
+    const secondOutput = nextState.runtime.right(secondOutputEvent)
 
     assert.notEqual(first, second)
+    assert.notEqual(firstOutputEvent, secondOutputEvent)
+    assert.equal(
+      nextState.runtime.left(firstOutputEvent),
+      nextState.runtime.left(secondOutputEvent)
+    )
     assert.equal(serialize(nextState, firstOutput), '(I a)')
     assert.equal(serialize(nextState, secondOutput), '(I b)')
     assert.equal(nextState.runtime.right(second), first)
@@ -441,10 +461,17 @@ describe('passive Lisp compiler', () => {
       parse('(define alias value)')
     )
     const current = nextState.runtime.right(machine)
-    const output = nextState.runtime.right(nextState.runtime.left(current))
+    const outputEvent = nextState.runtime.right(
+      nextState.runtime.left(current)
+    )
+    const output = nextState.runtime.right(outputEvent)
     const [, resolved] = run(nextState, 'alias')
 
     assert.equal(output, nextState.runtime.I)
+    assert.equal(
+      nextState.runtime.left(outputEvent),
+      machineOutputSocket(nextState, machine)
+    )
     assert.equal(nextState.runtime.right(current), current)
     assert.equal(resolved.text, 'value')
     assert.equal(nextState.runtime.observe(
@@ -647,7 +674,9 @@ describe('passive Lisp compiler', () => {
     const sourceFrame = nextState.runtime.right(nextState.runtime.left(machine))
     const current = nextState.runtime.right(machine)
     const carried = nextState.runtime.left(current)
-    const output = nextState.runtime.right(carried)
+    const outputEvent = nextState.runtime.right(carried)
+    const output = nextState.runtime.right(outputEvent)
+    const outputSocket = nextState.runtime.left(outputEvent)
     const next = nextState.runtime.right(current)
     const input = machineInput(nextState, machine)
     const inputEvent = machineInputEvent(nextState, machine)
@@ -660,8 +689,13 @@ describe('passive Lisp compiler', () => {
     assert.equal(nextState.runtime.right(inputEvent), nextState.runtime.I)
     assert.equal(nextState.runtime.left(input), nextState.runtime.I)
     assert.equal(nextState.runtime.right(input), nextState.runtime.I)
+    assert.equal(machineOutputEvent(nextState, machine), outputEvent)
+    assert.equal(machineOutputSocket(nextState, machine), outputSocket)
+    assert.equal(machineOutput(nextState, machine), output)
+    assert.equal(nextState.runtime.left(outputSocket), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(outputSocket), nextState.runtime.I)
     assert.equal(serialize(nextState, output), '(I a)')
-    assert.equal(nextState.runtime.right(carried), output)
+    assert.equal(nextState.runtime.right(carried), outputEvent)
     assert.equal(nextState.runtime.observe(sourceFrame), output)
     assert.equal(next, current)
     assert.equal(nextState.runtime.observe(
@@ -677,10 +711,21 @@ describe('passive Lisp compiler', () => {
     )
     const first = nextState.runtime.right(machine)
     const second = nextState.runtime.right(first)
-    const firstOutput = nextState.runtime.right(nextState.runtime.left(first))
-    const secondOutput = nextState.runtime.right(nextState.runtime.left(second))
+    const firstOutputEvent = nextState.runtime.right(
+      nextState.runtime.left(first)
+    )
+    const secondOutputEvent = nextState.runtime.right(
+      nextState.runtime.left(second)
+    )
+    const firstOutput = nextState.runtime.right(firstOutputEvent)
+    const secondOutput = nextState.runtime.right(secondOutputEvent)
 
     assert.notEqual(first, second)
+    assert.notEqual(firstOutputEvent, secondOutputEvent)
+    assert.equal(
+      nextState.runtime.left(firstOutputEvent),
+      nextState.runtime.left(secondOutputEvent)
+    )
     assert.equal(serialize(nextState, firstOutput), '(I a)')
     assert.equal(serialize(nextState, secondOutput), '(I b)')
     assert.equal(nextState.runtime.right(second), first)
