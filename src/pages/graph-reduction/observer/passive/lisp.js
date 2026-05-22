@@ -147,7 +147,7 @@ const withState = (state, changes) => ({
 const chain = (first, rest) =>
   rest.reduce((left, right) => [left, right], first)
 
-const chainGraphs = (state, first, rest) =>
+const chainRuntime = (state, first, rest) =>
   rest.reduce((left, right) => state.runtime.pair(left, right), first)
 
 const ast = term => {
@@ -284,7 +284,7 @@ export const serialize = (state, graph, path = '$', seen = new Map()) => {
 
 const chainArgs = (state, values) =>
   values.length
-    ? chainGraphs(
+    ? chainRuntime(
         state,
         values[0].graph,
         values.slice(1).map(value => value.graph)
@@ -392,7 +392,7 @@ const compileNode = (state, term, bindings = new Map()) => {
   const [argsState, values] = compileArgs(firstState, args, bindings)
 
   return [argsState, {
-    graph: chainGraphs(
+    graph: chainRuntime(
       argsState,
       firstValue.graph,
       values.map(value => value.graph)
