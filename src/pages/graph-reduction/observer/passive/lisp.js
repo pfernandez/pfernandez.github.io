@@ -137,6 +137,26 @@ export const init = (runtime = createJsRuntime()) => ({
  */
 export const parse = source => read(source)
 
+/**
+ * Small source-level kernel for the passive Lisp prototype.
+ *
+ * These are ordinary definitions, not runtime primitives. Loading the kernel
+ * means compiling this source into the compiler state, so calls still reduce by
+ * graph construction followed by one runtime observation.
+ *
+ * @type {string}
+ */
+export const kernelSource = `
+  (define (I x) x)
+  (define (K a b) a)
+  (define (S a b c) ((a c) (b c)))
+  (define (true a b) a)
+  (define (false a b) b)
+  (define (pair a b f) (f a b))
+  (define (first p) (p true))
+  (define (second p) (p false))
+`
+
 const isPair = Array.isArray
 
 const withState = (state, changes) => ({
@@ -552,4 +572,22 @@ export const compile = (state, forms) => {
     nextState,
     graph ?? nextState.runtime.frame(nextState.runtime.I, nextState.runtime.I),
   ]
+}
+
+/**
+ * Runs one source interaction through the passive boundary.
+ *
+ * This is the smallest REPL-shaped step: parse source text, compile it into a
+ * graph frame, then observe that frame once with the selected runtime. It
+ * returns the next compiler state and the observed graph; callers serialize
+ * explicitly when they need text output.
+ *
+ * @param {CompilerState} state
+ * @param {string} source
+ * @returns {[CompilerState, Graph]}
+ */
+export const sourceStep = (state, source) => {
+  const [nextState, graph] = compile(state, parse(source))
+
+  return [nextState, nextState.runtime.observe(graph)]
 }

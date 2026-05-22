@@ -5,8 +5,10 @@ import {
   createJsRuntime,
   createWasmRuntime,
   init,
+  kernelSource,
   parse,
   serialize,
+  sourceStep,
   symbol,
 } from './lisp.js'
 
@@ -48,13 +50,6 @@ describe('passive Lisp compiler', () => {
   }
 
   const compileInto = (state, source) => compile(state, parse(source))[0]
-  const pairSource = `
-    (define (true a b) a)
-    (define (false a b) b)
-    (define (pair a b f) (f a b))
-    (define (first p) (p true))
-    (define (second p) (p false))
-  `
 
   const reaches = (node, target, seen = new Set()) => {
     if (node === target) return true
@@ -247,13 +242,33 @@ describe('passive Lisp compiler', () => {
 
   test('source pairs can be built from function values', () => {
     let state = init()
-    state = compileInto(state, pairSource)
+    state = compileInto(state, kernelSource)
 
     const [firstState, first] = run(state, '(first (pair x y))')
     const [, second] = run(firstState, '(second (pair x y))')
 
     assert.equal(first.text, 'x')
     assert.equal(second.text, 'y')
+  })
+
+  test('kernel source supplies the minimal combinator basis', () => {
+    let state = init()
+    state = compileInto(state, kernelSource)
+
+    assert.equal(run(state, '(I x)')[1].text, 'x')
+    assert.equal(run(state, '(K x y)')[1].text, 'x')
+    assert.equal(run(state, '(S K K x)')[1].text, 'x')
+  })
+
+  test('sourceStep is the smallest REPL boundary', () => {
+    let state = init()
+    state = compileInto(state, kernelSource)
+
+    const [nextState, first] = sourceStep(state, '(first (pair x y))')
+    const [, second] = sourceStep(nextState, '(second (pair x y))')
+
+    assert.equal(serialize(nextState, first), 'x')
+    assert.equal(serialize(nextState, second), 'y')
   })
 
   test('recursive define ties a graph knot during construction', () => {
@@ -386,13 +401,33 @@ describe('passive Lisp compiler', () => {
 
   test('WASM source pairs can be built from function values', async () => {
     let state = init(await createWasmRuntime())
-    state = compileInto(state, pairSource)
+    state = compileInto(state, kernelSource)
 
     const [firstState, first] = run(state, '(first (pair x y))')
     const [, second] = run(firstState, '(second (pair x y))')
 
     assert.equal(first.text, 'x')
     assert.equal(second.text, 'y')
+  })
+
+  test('WASM kernel source supplies the minimal combinator basis', async () => {
+    let state = init(await createWasmRuntime())
+    state = compileInto(state, kernelSource)
+
+    assert.equal(run(state, '(I x)')[1].text, 'x')
+    assert.equal(run(state, '(K x y)')[1].text, 'x')
+    assert.equal(run(state, '(S K K x)')[1].text, 'x')
+  })
+
+  test('WASM sourceStep uses the selected runtime', async () => {
+    let state = init(await createWasmRuntime())
+    state = compileInto(state, kernelSource)
+
+    const [nextState, first] = sourceStep(state, '(first (pair x y))')
+    const [, second] = sourceStep(nextState, '(second (pair x y))')
+
+    assert.equal(serialize(nextState, first), 'x')
+    assert.equal(serialize(nextState, second), 'y')
   })
 
   test('a custom JS runtime can be supplied', () => {
