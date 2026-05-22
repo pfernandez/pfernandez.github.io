@@ -125,25 +125,12 @@ export const init = (runtime = createJsRuntime()) => ({
  *
  * This is a thin wrapper around the page parser so the passive Lisp pipeline is
  * readable at the call site:
- * `parse(source) -> compile(state, forms) -> observe(state, graph)`.
+ * `parse(source) -> compile(state, forms) -> state.runtime.observe(graph)`.
  *
  * @param {string} source
  * @returns {SourceForm[]}
  */
 export const parse = source => read(source)
-
-/**
- * Performs one passive observation step on a graph frame.
- *
- * The frame carries its observer in the left slot and its focus in the right
- * slot. Observation walks the focus without allocating or mutating and returns
- * the first selected future.
- *
- * @param {CompilerState} state
- * @param {Graph} graph
- * @returns {Graph}
- */
-export const observe = (state, graph) => state.runtime.observe(graph)
 
 const isPair = Array.isArray
 
@@ -541,7 +528,7 @@ const compileForm = (state, form) => {
  * Definition forms update the compiler's source tables and return a new state.
  * Expression forms build graph structure, and the final expression frame is
  * returned for observation. Compilation stops before reduction; callers run
- * `observe(state, graph)` explicitly.
+ * the selected runtime's unary `observe(graph)` explicitly.
  *
  * @param {CompilerState} state
  * @param {SourceForm[]} forms

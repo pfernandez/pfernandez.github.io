@@ -5,7 +5,6 @@ import {
   createJsRuntime,
   createWasmRuntime,
   init,
-  observe,
   parse,
   serialize,
   symbol,
@@ -38,7 +37,7 @@ describe('passive Lisp compiler', () => {
   const run = (state, source) => {
     const ast = parse(source)
     const [nextState, graph] = compile(state, ast)
-    const result = observe(nextState, graph)
+    const result = nextState.runtime.observe(graph)
 
     return [nextState, {
       ast,
@@ -69,7 +68,7 @@ describe('passive Lisp compiler', () => {
   test('compile returns new source state without mutating old state', () => {
     const state = init()
     const [nextState, graph] = compile(state, parse('a'))
-    const result = observe(nextState, graph)
+    const result = nextState.runtime.observe(graph)
 
     assert.notEqual(nextState, state)
     assert.equal(state.symbols.size, 0)
@@ -87,7 +86,7 @@ describe('passive Lisp compiler', () => {
     assert.equal(serialize(nextState, operator), 'I')
     assert.equal(serialize(nextState, operand), 'a')
     assert.notEqual(result, operand)
-    assert.equal(observe(nextState, graph), result)
+    assert.equal(nextState.runtime.observe(graph), result)
     assert.equal(nextState.runtime.left(graph), nextState.runtime.I)
 
     const focus = nextState.runtime.right(graph)
@@ -101,7 +100,7 @@ describe('passive Lisp compiler', () => {
     const precompiled = '(I a)'
     const ast = parse(precompiled)
     const [compiledState, graph] = compile(state, ast)
-    const reduced = observe(compiledState, graph)
+    const reduced = compiledState.runtime.observe(graph)
     const serialized = serialize(compiledState, reduced)
     const [IState, IForm] = symbol(compiledState, 'I')
     const [, a] = symbol(IState, 'a')
@@ -120,7 +119,7 @@ describe('passive Lisp compiler', () => {
     const precompiled = '(S a b c)'
     const ast = parse(precompiled)
     const [compiledState, graph] = compile(state, ast)
-    const reduced = observe(compiledState, graph)
+    const reduced = compiledState.runtime.observe(graph)
     const serialized = serialize(compiledState, reduced)
     const [SState, SForm] = symbol(compiledState, 'S')
     const [aState, a] = symbol(SState, 'a')
@@ -146,7 +145,7 @@ describe('passive Lisp compiler', () => {
     const focus = graph[0]
     const future = focus[0]
     const pair = focus[1]
-    const reduced = observe(compiledState, graph)
+    const reduced = compiledState.runtime.observe(graph)
     const serialized = serialize(compiledState, reduced)
     const x = pair[0][0]
     const y = pair[0][1]
@@ -239,7 +238,7 @@ describe('passive Lisp compiler', () => {
     assert.equal(result.text, 'I')
     assert.equal(state.runtime.left(value), value)
     assert.equal(state.runtime.right(value), value)
-    assert.equal(observe(state, state.runtime.frame(value, value)), value)
+    assert.equal(state.runtime.observe(state.runtime.frame(value, value)), value)
   })
 
   test('recursive define can be paired with another value', () => {
@@ -327,7 +326,7 @@ describe('passive Lisp compiler', () => {
     const operator = nextState.runtime.left(result)
     const operand = nextState.runtime.right(result)
 
-    assert.equal(observe(nextState, graph), result)
+    assert.equal(nextState.runtime.observe(graph), result)
     assert.equal(nextState.runtime.left(graph), nextState.runtime.I)
 
     const focus = nextState.runtime.right(graph)
@@ -350,7 +349,7 @@ describe('passive Lisp compiler', () => {
     assert.equal(result.text, 'I')
     assert.equal(state.runtime.left(value), value)
     assert.equal(state.runtime.right(value), value)
-    assert.equal(observe(state, state.runtime.frame(value, value)), value)
+    assert.equal(state.runtime.observe(state.runtime.frame(value, value)), value)
   })
 
   test('a custom JS runtime can be supplied', () => {
