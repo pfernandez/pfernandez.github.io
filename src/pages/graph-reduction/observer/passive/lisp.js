@@ -584,7 +584,8 @@ const emptyTarget = state => ({
 const machineFor = (state, targets) => {
   const root = state.runtime.pair()
   const input = state.runtime.pair()
-  const ports = state.runtime.pair(input, targets[0].frame)
+  const inputEvent = state.runtime.pair(input, state.runtime.I)
+  const ports = state.runtime.pair(inputEvent, targets[0].frame)
   const states = targets.map(() => state.runtime.pair())
   state.runtime.setLeft(root, ports)
   state.runtime.setRight(root, states[0])
@@ -712,34 +713,48 @@ export const machineStep = (state, machine) => {
 }
 
 /**
- * Reads the input port carried by a compiled machine root.
+ * Reads the current input event carried by a compiled machine root.
  *
- * The input port is an ordinary pair. Its left slot is `I` when empty and the
- * port itself when filled. Its right slot carries the submitted graph value.
+ * An input event is `[input, value]`: the stable input socket on the left and
+ * the submitted value on the right. The initial event carries `I` as value.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineInputEvent = (state, machine) =>
+  state.runtime.left(state.runtime.left(machine))
+
+/**
+ * Reads the stable input socket carried by a compiled machine root.
+ *
+ * The socket is an ordinary pair that stays fixed. Host input arrives by
+ * replacing the machine port with a fresh event pair whose left slot points to
+ * this socket and whose right slot carries the submitted graph value.
  *
  * @param {CompilerState} state
  * @param {Graph} machine
  * @returns {Graph}
  */
 export const machineInput = (state, machine) =>
-  state.runtime.left(state.runtime.left(machine))
+  state.runtime.left(machineInputEvent(state, machine))
 
 /**
- * Reads the graph currently connected to a machine's input port.
+ * Reads the graph carried by the machine's current input event.
  *
  * @param {CompilerState} state
  * @param {Graph} machine
  * @returns {Graph}
  */
 export const machineInputValue = (state, machine) =>
-  state.runtime.right(machineInput(state, machine))
+  state.runtime.right(machineInputEvent(state, machine))
 
 /**
- * Connects a graph to the machine's input port.
+ * Connects a graph to the machine through a fresh input event.
  *
- * This is host IO, not evaluation: the function mutates only the input port
- * slots. Filled status is represented by the port pointing to itself on the
- * left, so writing does not allocate a separate marker.
+ * This is host IO, not evaluation: the stable input socket is not mutated.
+ * The only mutation is moving the machine's port pointer to a newly allocated
+ * event pair.
  *
  * @param {CompilerState} state
  * @param {Graph} machine
@@ -748,25 +763,10 @@ export const machineInputValue = (state, machine) =>
  */
 export const machineWriteInput = (state, machine, value) => {
   const input = machineInput(state, machine)
-  state.runtime.setLeft(input, input)
-  state.runtime.setRight(input, value)
+  const event = state.runtime.pair(input, value)
+  state.runtime.setLeft(state.runtime.left(machine), event)
 
-  return input
-}
-
-/**
- * Clears the machine's input port.
- *
- * @param {CompilerState} state
- * @param {Graph} machine
- * @returns {Graph}
- */
-export const machineClearInput = (state, machine) => {
-  const input = machineInput(state, machine)
-  state.runtime.setLeft(input, state.runtime.I)
-  state.runtime.setRight(input, state.runtime.I)
-
-  return input
+  return event
 }
 
 /**

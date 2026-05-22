@@ -128,16 +128,17 @@ The host does not evaluate the graph; it only reads ports and moves the root's
 current pointer.
 
 ```text
-machine = [ports, current]
-ports   = [input, source-frame]
-input   = [status, value]
-state   = [carried, next-state]
-carried = [[machine, next-state], output]
+machine     = [ports, current]
+ports       = [input-event, source-frame]
+input-event = [input, value]
+input       = stable socket
+state       = [carried, next-state]
+carried     = [[machine, next-state], output]
 ```
 
-Input status is structural. `input[0] === I` means the port is empty.
-`input[0] === input` means the port is filled. The submitted value is carried
-in `input[1]`.
+Input is structural. The socket is stable; writing input creates a fresh event
+`[input, value]` and moves `ports[0]` to it. The initial event carries `I` as
+its value, so the machine does not need to clear or rewrite the socket.
 
 Output is also structural. `machineOutput(state, machine)` reads the right slot
 of the current state's carried pair. It does not call `observe`.

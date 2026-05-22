@@ -7,9 +7,9 @@ import {
   createWasmRuntime,
   init,
   kernelSource,
-  machineClearInput,
   machineCurrent,
   machineInput,
+  machineInputEvent,
   machineInputValue,
   machineOutput,
   machineStep,
@@ -319,8 +319,14 @@ describe('passive Lisp compiler', () => {
     const output = nextState.runtime.right(carried)
     const next = nextState.runtime.right(current)
     const input = machineInput(nextState, machine)
+    const inputEvent = machineInputEvent(nextState, machine)
 
-    assert.equal(nextState.runtime.left(nextState.runtime.left(machine)), input)
+    assert.equal(
+      nextState.runtime.left(nextState.runtime.left(machine)),
+      inputEvent
+    )
+    assert.equal(nextState.runtime.left(inputEvent), input)
+    assert.equal(nextState.runtime.right(inputEvent), nextState.runtime.I)
     assert.equal(nextState.runtime.left(input), nextState.runtime.I)
     assert.equal(nextState.runtime.right(input), nextState.runtime.I)
     assert.equal(serialize(nextState, output), '(I a)')
@@ -394,20 +400,25 @@ describe('passive Lisp compiler', () => {
     assert.equal(machineCurrent(nextState, machine), first)
   })
 
-  test('machine input port carries externally connected JS graph values', () => {
+  test('machine input event carries externally connected JS graph values', () => {
     const state = init()
     const [nextState, machine] = compileMachine(state, parse('(I a)'))
     const input = machineInput(nextState, machine)
+    const firstEvent = machineInputEvent(nextState, machine)
     const value = nextState.runtime.pair()
 
+    assert.equal(nextState.runtime.left(firstEvent), input)
+    assert.equal(nextState.runtime.right(firstEvent), nextState.runtime.I)
     assert.equal(nextState.runtime.left(input), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(input), nextState.runtime.I)
     assert.equal(machineInputValue(nextState, machine), nextState.runtime.I)
-    assert.equal(machineWriteInput(nextState, machine, value), input)
-    assert.equal(nextState.runtime.left(input), input)
+    const nextEvent = machineWriteInput(nextState, machine, value)
+    assert.notEqual(nextEvent, firstEvent)
+    assert.equal(machineInputEvent(nextState, machine), nextEvent)
+    assert.equal(nextState.runtime.left(nextEvent), input)
+    assert.equal(nextState.runtime.left(input), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(input), nextState.runtime.I)
     assert.equal(machineInputValue(nextState, machine), value)
-    assert.equal(machineClearInput(nextState, machine), input)
-    assert.equal(nextState.runtime.left(input), nextState.runtime.I)
-    assert.equal(machineInputValue(nextState, machine), nextState.runtime.I)
   })
 
   test('compiled JS graph forms can be connected as input', () => {
@@ -639,8 +650,14 @@ describe('passive Lisp compiler', () => {
     const output = nextState.runtime.right(carried)
     const next = nextState.runtime.right(current)
     const input = machineInput(nextState, machine)
+    const inputEvent = machineInputEvent(nextState, machine)
 
-    assert.equal(nextState.runtime.left(nextState.runtime.left(machine)), input)
+    assert.equal(
+      nextState.runtime.left(nextState.runtime.left(machine)),
+      inputEvent
+    )
+    assert.equal(nextState.runtime.left(inputEvent), input)
+    assert.equal(nextState.runtime.right(inputEvent), nextState.runtime.I)
     assert.equal(nextState.runtime.left(input), nextState.runtime.I)
     assert.equal(nextState.runtime.right(input), nextState.runtime.I)
     assert.equal(serialize(nextState, output), '(I a)')
@@ -714,23 +731,27 @@ describe('passive Lisp compiler', () => {
     assert.equal(machineCurrent(nextState, machine), first)
   })
 
-  test('machine input port carries externally connected WASM graph values', async () => {
+  test('machine input event carries externally connected WASM graph values', async () => {
     const state = init(await createWasmRuntime())
     const [nextState, machine] = compileMachine(state, parse('(I a)'))
     const input = machineInput(nextState, machine)
+    const firstEvent = machineInputEvent(nextState, machine)
     const value = nextState.runtime.pair()
     const built = nextState.runtime.size()
 
+    assert.equal(nextState.runtime.left(firstEvent), input)
+    assert.equal(nextState.runtime.right(firstEvent), nextState.runtime.I)
     assert.equal(nextState.runtime.left(input), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(input), nextState.runtime.I)
     assert.equal(machineInputValue(nextState, machine), nextState.runtime.I)
-    assert.equal(machineWriteInput(nextState, machine, value), input)
-    assert.equal(nextState.runtime.size(), built)
-    assert.equal(nextState.runtime.left(input), input)
+    const nextEvent = machineWriteInput(nextState, machine, value)
+    assert.notEqual(nextEvent, firstEvent)
+    assert.equal(nextState.runtime.size(), built + 1)
+    assert.equal(machineInputEvent(nextState, machine), nextEvent)
+    assert.equal(nextState.runtime.left(nextEvent), input)
+    assert.equal(nextState.runtime.left(input), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(input), nextState.runtime.I)
     assert.equal(machineInputValue(nextState, machine), value)
-    assert.equal(machineClearInput(nextState, machine), input)
-    assert.equal(nextState.runtime.size(), built)
-    assert.equal(nextState.runtime.left(input), nextState.runtime.I)
-    assert.equal(machineInputValue(nextState, machine), nextState.runtime.I)
   })
 
   test('compiled WASM graph forms can be connected as input', async () => {
