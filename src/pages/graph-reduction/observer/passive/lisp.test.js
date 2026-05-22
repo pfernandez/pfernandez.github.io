@@ -3,23 +3,53 @@ import { describe, test } from 'node:test'
 import {
   compile,
   createJsRuntime,
-  createRepl,
   createWasmRuntime,
-  evaluate
+  init,
+  observe,
+  parse,
+  serialize,
+  symbol,
 } from './lisp.js'
 
 const cases = [
   ['returns the empty form for an empty program', '', '()'],
   ['compiles an atom', 'a', 'a'],
   ['compiles the empty list as the root', '()', '()'],
-  ['compiles a unary application', '(I a)', '(I a)'],
-  ['compiles n-ary application as left-associated pairs', '(S a b c)', '(((S a) b) c)'],
-  ['compiles nested application', '(f (g x) y)', '((f (g x)) y)'],
-  ['treats basis names as ordinary form heads', '(add one two f x)', '((((add one) two) f) x)'],
-  ['compiles unknown symbols the same way', '(launch star field)', '((launch star) field)']
+  ['compiles a unary pair', '(I a)', '(I a)'],
+  [
+    'compiles n-ary source as a chain',
+    '(S a b c)',
+    '(((S a) b) c)',
+  ],
+  ['compiles nested chains', '(f (g x) y)', '((f (g x)) y)'],
+  [
+    'treats basis names as ordinary chain values',
+    '(add one two f x)',
+    '((((add one) two) f) x)',
+  ],
+  [
+    'compiles unknown symbols the same way',
+    '(launch star field)',
+    '((launch star) field)',
+  ],
 ]
 
 describe('passive Lisp compiler', () => {
+  const run = (state, source) => {
+    const ast = parse(source)
+    const [nextState, graph] = compile(state, ast)
+    const result = observe(nextState, graph)
+
+    return [nextState, {
+      ast,
+      graph,
+      result,
+      text: serialize(nextState, result),
+    }]
+  }
+
+  const compileInto = (state, source) => compile(state, parse(source))[0]
+
   const reaches = (node, target, seen = new Set()) => {
     if (node === target) return true
     if (!Array.isArray(node) || seen.has(node)) return false
@@ -30,231 +60,268 @@ describe('passive Lisp compiler', () => {
 
   for (const [name, source, expected] of cases) {
     test(`JS ${name}`, () => {
-      assert.equal(compile(source).text, expected)
+      const [, result] = run(init(), source)
+
+      assert.equal(result.text, expected)
     })
   }
 
-  test('evaluate is a compatibility alias for compile', () => {
-    assert.equal(evaluate('(I a)').text, '(I a)')
+  test('compile returns new source state without mutating old state', () => {
+    const state = init()
+    const [nextState, graph] = compile(state, parse('a'))
+    const result = observe(nextState, graph)
+
+    assert.notEqual(nextState, state)
+    assert.equal(state.symbols.size, 0)
+    assert.equal(nextState.symbols.size, 1)
+    assert.equal(serialize(nextState, result), 'a')
   })
 
   test('compiled I form is constructed but not reduced', () => {
-    const repl = createRepl()
-    const result = repl.compile('(I a)')
-    const form = result.result
-    const operator = result.runtime.left(form)
-    const operand = result.runtime.right(form)
+    const state = init()
+    const [nextState, { graph, result, text }] = run(state, '(I a)')
+    const operator = nextState.runtime.left(result)
+    const operand = nextState.runtime.right(result)
 
-    assert.equal(result.text, '(I a)')
-    assert.equal(repl.serialize(operator), 'I')
-    assert.equal(repl.serialize(operand), 'a')
-    assert.notEqual(form, operand)
-    assert.equal(result.runtime.observe(result.frame), form)
-    assert.equal(result.runtime.left(result.graph), result.runtime.I)
-    assert.equal(result.runtime.right(result.graph), form)
+    assert.equal(text, '(I a)')
+    assert.equal(serialize(nextState, operator), 'I')
+    assert.equal(serialize(nextState, operand), 'a')
+    assert.notEqual(result, operand)
+    assert.equal(observe(nextState, graph), result)
+    assert.equal(nextState.runtime.left(graph), nextState.runtime.I)
+
+    const focus = nextState.runtime.right(graph)
+
+    assert.equal(nextState.runtime.left(focus), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(focus), result)
   })
 
   test('shows each source to observe stage explicitly', () => {
-    const repl = createRepl()
+    const state = init()
     const precompiled = '(I a)'
-    const result = repl.compile(precompiled)
-    const compiled = result.frame
-    const reduced = result.runtime.observe(compiled)
-    const serialized = repl.serialize(reduced)
-    const IForm = repl.symbol('I')
-    const a = repl.symbol('a')
+    const ast = parse(precompiled)
+    const [compiledState, graph] = compile(state, ast)
+    const reduced = observe(compiledState, graph)
+    const serialized = serialize(compiledState, reduced)
+    const [IState, IForm] = symbol(compiledState, 'I')
+    const [, a] = symbol(IState, 'a')
 
     assert.equal(precompiled, '(I a)')
-    assert.deepEqual(result.ast, ['I', 'a'])
-    assert.deepEqual(compiled, [result.runtime.I, [result.runtime.I, [IForm, a]]])
-    assert.equal(reduced, result.result)
+    assert.deepEqual(ast, [['I', 'a']])
+    assert.deepEqual(graph, [
+      compiledState.runtime.I,
+      [compiledState.runtime.I, [IForm, a]],
+    ])
     assert.equal(serialized, '(I a)')
   })
 
   test('shows each S source to observe stage explicitly', () => {
-    const repl = createRepl()
+    const state = init()
     const precompiled = '(S a b c)'
-    const result = repl.compile(precompiled)
-    const compiled = result.frame
-    const reduced = result.runtime.observe(compiled)
-    const serialized = repl.serialize(reduced)
-    const SForm = repl.symbol('S')
-    const a = repl.symbol('a')
-    const b = repl.symbol('b')
-    const c = repl.symbol('c')
+    const ast = parse(precompiled)
+    const [compiledState, graph] = compile(state, ast)
+    const reduced = observe(compiledState, graph)
+    const serialized = serialize(compiledState, reduced)
+    const [SState, SForm] = symbol(compiledState, 'S')
+    const [aState, a] = symbol(SState, 'a')
+    const [bState, b] = symbol(aState, 'b')
+    const [, c] = symbol(bState, 'c')
 
     assert.equal(precompiled, '(S a b c)')
-    assert.deepEqual(result.ast, [[['S', 'a'], 'b'], 'c'])
-    assert.deepEqual(compiled, [
-      result.runtime.I,
-      [result.runtime.I, [[[SForm, a], b], c]]
+    assert.deepEqual(ast, [['S', 'a', 'b', 'c']])
+    assert.deepEqual(graph, [
+      compiledState.runtime.I,
+      [compiledState.runtime.I, [[[SForm, a], b], c]],
     ])
-    assert.equal(reduced, result.result)
     assert.equal(serialized, '(((S a) b) c)')
   })
 
-  test('defn S compiles to an observe motif without S in the graph', () => {
-    const repl = createRepl()
+  test('define S compiles to an observe motif without S in the graph', () => {
     const precompiled = `
-      (defn S (a b c) ((a c) (b c)))
+      (define (S a b c) ((a c) (b c)))
       (S x y z)
     `
-    const result = repl.compile(precompiled)
-    const compiled = result.frame
-    const graph = result.graph
-    const future = result.runtime.left(graph)
-    const application = result.runtime.right(graph)
-    const reduced = result.runtime.observe(compiled)
-    const serialized = repl.serialize(reduced)
-    const x = result.runtime.left(result.runtime.left(application))
-    const y = result.runtime.right(result.runtime.left(application))
-    const z = result.runtime.right(application)
-    const SForm = repl.symbol('S')
+    const ast = parse(precompiled)
+    const [compiledState, graph] = compile(init(), ast)
+    const focus = graph[0]
+    const future = focus[0]
+    const pair = focus[1]
+    const reduced = observe(compiledState, graph)
+    const serialized = serialize(compiledState, reduced)
+    const x = pair[0][0]
+    const y = pair[0][1]
+    const z = pair[1]
+    const [, SForm] = symbol(compiledState, 'S')
 
-    assert.deepEqual(result.ast, [[['S', 'x'], 'y'], 'z'])
-    assert.equal(compiled[0], graph)
-    assert.equal(compiled[1], graph)
-    assert.equal(future[0], graph)
+    assert.deepEqual(ast, [
+      ['define', ['S', 'a', 'b', 'c'], [['a', 'c'], ['b', 'c']]],
+      ['S', 'x', 'y', 'z'],
+    ])
+    assert.equal(graph[0], focus)
+    assert.equal(graph[1], focus)
+    assert.equal(future[0], focus)
     assert.equal(future[1], reduced)
     assert.equal(serialized, '((x z) (y z))')
-    assert.equal(result.runtime.left(result.runtime.left(reduced)), x)
-    assert.equal(result.runtime.right(result.runtime.left(reduced)), z)
-    assert.equal(result.runtime.left(result.runtime.right(reduced)), y)
-    assert.equal(result.runtime.right(result.runtime.right(reduced)), z)
-    assert.equal(
-      result.runtime.right(result.runtime.left(reduced)),
-      result.runtime.right(result.runtime.right(reduced))
-    )
-    assert.equal(reaches(graph, SForm), false)
+    assert.equal(reduced[0][0], x)
+    assert.equal(reduced[0][1], z)
+    assert.equal(reduced[1][0], y)
+    assert.equal(reduced[1][1], z)
+    assert.equal(reduced[0][1], reduced[1][1])
+    assert.equal(reaches(focus, SForm), false)
   })
 
-  test('partial defn application can be stored and completed', () => {
-    const repl = createRepl()
+  test('partial define pair can be stored and completed', () => {
+    let state = init()
+    state = compileInto(state, '(define (K a b) a)')
+    state = compileInto(state, '(define kx (K x))')
 
-    repl.compile('(defn K (a b) a)')
-    assert.equal(repl.compile('(def kx (K x))').text, 'kx')
+    const [partialState, partial] = run(state, 'kx')
+    const [completedState, completed] = run(partialState, '(kx y)')
+    const focus = completed.graph[0]
+    const pair = focus[1]
+    const x = pair[0]
+    const y = pair[1]
+    const [, KForm] = symbol(completedState, 'K')
 
-    const partial = repl.compile('kx')
-    const result = repl.compile('(kx y)')
-    const graph = result.graph
-    const application = result.runtime.right(graph)
-    const x = result.runtime.left(application)
-    const y = result.runtime.right(application)
-    const KForm = repl.symbol('K')
-
-    assert.equal(result.text, 'x')
+    assert.equal(completed.text, 'x')
     assert.equal(partial.text, '(x ())')
-    assert.equal(result.result, x)
-    assert.equal(repl.serialize(y), 'y')
-    assert.equal(reaches(partial.graph, KForm), false)
-    assert.equal(reaches(graph, KForm), false)
+    assert.equal(completed.result, x)
+    assert.equal(serialize(completedState, y), 'y')
+    assert.equal(reaches(partial.result, KForm), false)
+    assert.equal(reaches(focus, KForm), false)
   })
 
-  test('aliases can name compound heads inside defn bodies', () => {
-    const repl = createRepl()
+  test('aliases can name compound first values inside define bodies', () => {
+    let state = init()
+    state = compileInto(state, '(define seed (f a))')
+    state = compileInto(state, '(define (use x) (seed x))')
 
-    repl.compile('(def seed (f a))')
-    repl.compile('(defn use (x) (seed x))')
+    const [, result] = run(state, '(use b)')
 
-    assert.equal(repl.compile('(use b)').text, '((f a) b)')
+    assert.equal(result.text, '((f a) b)')
   })
 
   test('compiled S form preserves repeated symbols as shared pointers', () => {
-    const repl = createRepl()
-    const result = repl.compile('(S a b a)')
-    const form = result.result
-    const firstA = result.runtime.right(result.runtime.left(result.runtime.left(form)))
-    const finalA = result.runtime.right(form)
+    const [, { result, text }] = run(init(), '(S a b a)')
+    const partial = result[0][0]
+    const firstA = partial[1]
+    const finalA = result[1]
 
-    assert.equal(result.text, '(((S a) b) a)')
+    assert.equal(text, '(((S a) b) a)')
     assert.equal(firstA, finalA)
   })
 
   test('definitions persist as source aliases without reducing', () => {
-    const repl = createRepl()
+    let state = init()
+    state = compileInto(state, '(define same I)')
 
-    assert.equal(repl.compile('(def same I)').text, 'same')
-    assert.equal(repl.compile('(same a)').text, '(I a)')
+    const [, result] = run(state, '(same a)')
+
+    assert.equal(result.text, '(I a)')
   })
 
-  test('whole-form definitions extend later applications', () => {
-    const repl = createRepl()
+  test('whole-form definitions extend later chains', () => {
+    let state = init()
+    state = compileInto(state, '(define seed (f a))')
 
-    assert.equal(repl.compile('(def seed (f a))').text, 'seed')
-    assert.equal(repl.compile('(seed b)').text, '((f a) b)')
+    const [, result] = run(state, '(seed b)')
+
+    assert.equal(result.text, '((f a) b)')
   })
 
   test('cyclic aliases fail before graph construction', () => {
-    const repl = createRepl()
+    let state = init()
+    state = compileInto(state, '(define a b)')
+    state = compileInto(state, '(define b a)')
 
-    repl.compile('(def a b)')
-    repl.compile('(def b a)')
-
-    assert.throws(() => repl.compile('a'), /cyclic alias: a -> b -> a/)
+    assert.throws(
+      () => compile(state, parse('a')),
+      /cyclic alias: a -> b -> a/
+    )
   })
 
   test('serializer pattern matches simple symbol forms', () => {
-    const repl = createRepl()
-    const a = repl.symbol('a')
-    const b = repl.symbol('b')
-    const pair = repl.runtime.pair(a, b)
+    let state = init()
+    const aResult = symbol(state, 'a')
+    const a = aResult[1]
 
-    assert.equal(repl.serialize(a), 'a')
-    assert.equal(repl.serialize(b), 'b')
-    assert.equal(repl.serialize(pair), '(a b)')
+    state = aResult[0]
+
+    const bResult = symbol(state, 'b')
+    const b = bResult[1]
+
+    state = bResult[0]
+
+    const pair = state.runtime.pair(a, b)
+
+    assert.equal(serialize(state, a), 'a')
+    assert.equal(serialize(state, b), 'b')
+    assert.equal(serialize(state, pair), '(a b)')
   })
 
   test('serializer names cycles by their path', () => {
-    const repl = createRepl()
-    const loop = repl.runtime.pair()
+    let state = init()
+    const loopResult = symbol(state, 'loop')
+    const loopSymbol = loopResult[1]
 
-    repl.runtime.setLeft(loop, repl.symbol('loop'))
-    repl.runtime.setRight(loop, loop)
+    state = loopResult[0]
+    const loop = state.runtime.pair()
 
-    assert.equal(repl.serialize(loop), '(loop $)')
+    state.runtime.setLeft(loop, loopSymbol)
+    state.runtime.setRight(loop, loop)
+
+    assert.equal(serialize(state, loop), '(loop $)')
   })
 
-  test('each JS REPL has a local root', () => {
-    const first = createRepl()
-    const second = createRepl()
+  test('init gives each compiler a local root', () => {
+    const first = init()
+    const second = init()
+    const [, firstResult] = run(first, '(I a)')
+    const [, secondResult] = run(second, '(I a)')
 
     assert.notEqual(first.runtime.I, second.runtime.I)
-    assert.equal(first.compile('(I a)').text, '(I a)')
-    assert.equal(second.compile('(I a)').text, '(I a)')
+    assert.equal(firstResult.text, '(I a)')
+    assert.equal(secondResult.text, '(I a)')
   })
 
   test('WASM compiles the same unreduced forms', async () => {
-    const repl = createRepl(await createWasmRuntime())
+    const state = init(await createWasmRuntime())
 
-    assert.equal(repl.compile('(I a)').text, '(I a)')
-    assert.equal(repl.compile('(K a b)').text, '((K a) b)')
-    assert.equal(repl.compile('(S a b c)').text, '(((S a) b) c)')
-    assert.equal(repl.compile('(first ((pair a) b))').text, '(first ((pair a) b))')
+    assert.equal(run(state, '(I a)')[1].text, '(I a)')
+    assert.equal(run(state, '(K a b)')[1].text, '((K a) b)')
+    assert.equal(run(state, '(S a b c)')[1].text, '(((S a) b) c)')
+    assert.equal(run(state, '(first ((pair a) b))')[1].text, (
+      '(first ((pair a) b))'
+    ))
   })
 
-  test('WASM graph is selected by passive observe without reducing', async () => {
-    const repl = createRepl(await createWasmRuntime())
-    const before = repl.runtime.size()
-    const result = repl.compile('(I a)')
-    const form = result.result
-    const operator = result.runtime.left(form)
-    const operand = result.runtime.right(form)
+  test('WASM graph is selected without reducing', async () => {
+    const state = init(await createWasmRuntime())
+    const before = state.runtime.size()
+    const [nextState, { graph, result, text }] = run(state, '(I a)')
+    const operator = nextState.runtime.left(result)
+    const operand = nextState.runtime.right(result)
 
-    assert.equal(repl.runtime.observe(result.frame), form)
-    assert.equal(repl.runtime.left(result.graph), repl.runtime.I)
-    assert.equal(repl.runtime.right(result.graph), form)
-    assert.equal(repl.serialize(operator), 'I')
-    assert.equal(repl.serialize(operand), 'a')
-    assert.equal(result.text, '(I a)')
-    assert.equal(repl.runtime.size(), before + 6)
+    assert.equal(observe(nextState, graph), result)
+    assert.equal(nextState.runtime.left(graph), nextState.runtime.I)
+
+    const focus = nextState.runtime.right(graph)
+
+    assert.equal(nextState.runtime.left(focus), nextState.runtime.I)
+    assert.equal(nextState.runtime.right(focus), result)
+    assert.equal(serialize(nextState, operator), 'I')
+    assert.equal(serialize(nextState, operand), 'a')
+    assert.equal(text, '(I a)')
+    assert.equal(nextState.runtime.size(), before + 6)
   })
 
   test('a custom JS runtime can be supplied', () => {
     const runtime = createJsRuntime()
-    const repl = createRepl(runtime)
+    const state = init(runtime)
+    const [, result] = run(state, '((right a) b)')
 
-    assert.equal(repl.runtime, runtime)
-    assert.equal(repl.compile('((right a) b)').text, '((right a) b)')
+    assert.equal(state.runtime, runtime)
+    assert.equal(result.text, '((right a) b)')
   })
 
   test('JS runtime setters mutate slots and return the pair', () => {
@@ -269,9 +336,12 @@ describe('passive Lisp compiler', () => {
     assert.equal(runtime.right(pair), right)
   })
 
-  test('defn declarations return their name', () => {
-    const repl = createRepl()
+  test('define function declarations build later calls', () => {
+    let state = init()
+    state = compileInto(state, '(define (id x) x)')
 
-    assert.equal(repl.compile('(defn id (x) x)').text, 'id')
+    const [, result] = run(state, '(id a)')
+
+    assert.equal(result.text, 'a')
   })
 })

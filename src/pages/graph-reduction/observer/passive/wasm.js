@@ -1,3 +1,25 @@
+/**
+ * @typedef {object} WasmCore
+ * @property {0} I
+ * @property {WebAssembly.Memory} memory
+ * @property {(first?: number, next?: number) => number} pair
+ * @property {(pair: number) => number} left
+ * @property {(pair: number) => number} right
+ * @property {(pair: number, value: number) => number} setLeft
+ * @property {(pair: number, value: number) => number} setRight
+ * @property {() => number} size
+ * @property {(frame: number) => number} observe
+ */
+
+/**
+ * Root pointer for the WebAssembly heap.
+ *
+ * Address zero is reserved as the fixed root pair. Its left and right slots are
+ * initialized to zero by linear memory, so it behaves as `[I, I]` without
+ * allocating a pair.
+ *
+ * @type {0}
+ */
 export const I = 0
 
 const I32 = 0x7f
@@ -175,6 +197,15 @@ const exportEntry = (name, kind, index) => [
   ...u32(index)
 ]
 
+/**
+ * Complete WebAssembly module for the passive pair heap.
+ *
+ * The module exports memory plus the tiny pointer API used by the JavaScript
+ * compiler: `pair`, `left`, `right`, slot setters, `size`, and one-step
+ * passive `observe`.
+ *
+ * @type {Uint8Array}
+ */
 export const wasmBytes = new Uint8Array([
   0x00,
   0x61,
@@ -200,6 +231,15 @@ export const wasmBytes = new Uint8Array([
   ...section(10, vector(functions.map(entry => entry.body)))
 ])
 
+/**
+ * Instantiates the passive WebAssembly core.
+ *
+ * Returned graph values are numeric pair pointers. Pointer zero is `I`; newly
+ * allocated pairs start at pointer one and are stored as two adjacent `i32`
+ * slots in linear memory.
+ *
+ * @returns {Promise<WasmCore>}
+ */
 export const createWasmCore = async () => {
   const { instance } = await WebAssembly.instantiate(wasmBytes)
   const core = instance.exports
