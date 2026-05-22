@@ -581,20 +581,24 @@ const emptyTarget = state => ({
   result: state.runtime.I,
 })
 
-const machineFor = (state, target) => {
+const machineFor = (state, targets) => {
   const root = state.runtime.pair()
-  const current = state.runtime.pair()
-  const output = target.result
-  state.runtime.setLeft(root, target.frame)
-  state.runtime.setRight(root, current)
-  state.runtime.setLeft(
-    current,
-    state.runtime.pair(
-      state.runtime.pair(root, output),
-      output
+  const states = targets.map(() => state.runtime.pair())
+  state.runtime.setLeft(root, targets[0].frame)
+  state.runtime.setRight(root, states[0])
+
+  states.forEach((current, index) => {
+    const next = states[(index + 1) % states.length]
+    const output = targets[index].result
+    state.runtime.setLeft(
+      current,
+      state.runtime.pair(
+        state.runtime.pair(root, next),
+        output
+      )
     )
-  )
-  state.runtime.setRight(current, output)
+    state.runtime.setRight(current, next)
+  })
 
   return root
 }
@@ -632,23 +636,32 @@ export const compile = (state, forms) => {
  * This is the experimental machine target for the passive compiler. It reuses
  * the same source compiler as `compile`, but wraps the selected graph in the
  * step-shaped state proved in `machines.test.js`: the current state's right
- * slot is the next value, and its left slot carries both the observer collapse
- * link and the output.
+ * slot is the next state, and its left slot carries both the observer collapse
+ * link and the current output.
  *
  * @param {CompilerState} state
  * @param {SourceForm[]} forms
  * @returns {[CompilerState, Graph]}
  */
 export const compileMachine = (state, forms) => {
-  const [nextState, target] = forms.reduce(
-    ([currentState, currentTarget], form) => {
+  const [nextState, targets] = forms.reduce(
+    ([currentState, currentTargets], form) => {
       const [formState, formTarget] = compileFormTarget(currentState, form)
-      return [formState, formTarget ?? currentTarget]
+      return [
+        formState,
+        formTarget ? [...currentTargets, formTarget] : currentTargets,
+      ]
     },
-    [state, null]
+    [state, []]
   )
 
-  return [nextState, machineFor(nextState, target ?? emptyTarget(nextState))]
+  return [
+    nextState,
+    machineFor(
+      nextState,
+      targets.length ? targets : [emptyTarget(nextState)]
+    ),
+  ]
 }
 
 /**

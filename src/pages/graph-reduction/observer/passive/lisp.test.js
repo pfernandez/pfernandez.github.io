@@ -308,14 +308,39 @@ describe('passive Lisp compiler', () => {
     const sourceFrame = nextState.runtime.left(machine)
     const current = nextState.runtime.right(machine)
     const carried = nextState.runtime.left(current)
-    const output = nextState.runtime.right(current)
+    const output = nextState.runtime.right(carried)
+    const next = nextState.runtime.right(current)
 
     assert.equal(serialize(nextState, output), '(I a)')
     assert.equal(nextState.runtime.right(carried), output)
     assert.equal(nextState.runtime.observe(sourceFrame), output)
+    assert.equal(next, current)
     assert.equal(nextState.runtime.observe(
       nextState.runtime.frame(machine, current)
-    ), output)
+    ), next)
+  })
+
+  test('compileMachine chains JS expression states', () => {
+    const state = init()
+    const [nextState, machine] = compileMachine(
+      state,
+      parse('(I a) (I b)')
+    )
+    const first = nextState.runtime.right(machine)
+    const second = nextState.runtime.right(first)
+    const firstOutput = nextState.runtime.right(nextState.runtime.left(first))
+    const secondOutput = nextState.runtime.right(nextState.runtime.left(second))
+
+    assert.notEqual(first, second)
+    assert.equal(serialize(nextState, firstOutput), '(I a)')
+    assert.equal(serialize(nextState, secondOutput), '(I b)')
+    assert.equal(nextState.runtime.right(second), first)
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, first)
+    ), second)
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, second)
+    ), first)
   })
 
   test('compileMachine keeps definitions without forcing output', () => {
@@ -325,14 +350,15 @@ describe('passive Lisp compiler', () => {
       parse('(define alias value)')
     )
     const current = nextState.runtime.right(machine)
-    const output = nextState.runtime.right(current)
+    const output = nextState.runtime.right(nextState.runtime.left(current))
     const [, resolved] = run(nextState, 'alias')
 
     assert.equal(output, nextState.runtime.I)
+    assert.equal(nextState.runtime.right(current), current)
     assert.equal(resolved.text, 'value')
     assert.equal(nextState.runtime.observe(
       nextState.runtime.frame(machine, current)
-    ), output)
+    ), current)
   })
 
   test('recursive define ties a graph knot during construction', () => {
@@ -530,14 +556,39 @@ describe('passive Lisp compiler', () => {
     const sourceFrame = nextState.runtime.left(machine)
     const current = nextState.runtime.right(machine)
     const carried = nextState.runtime.left(current)
-    const output = nextState.runtime.right(current)
+    const output = nextState.runtime.right(carried)
+    const next = nextState.runtime.right(current)
 
     assert.equal(serialize(nextState, output), '(I a)')
     assert.equal(nextState.runtime.right(carried), output)
     assert.equal(nextState.runtime.observe(sourceFrame), output)
+    assert.equal(next, current)
     assert.equal(nextState.runtime.observe(
       nextState.runtime.frame(machine, current)
-    ), output)
+    ), next)
+  })
+
+  test('WASM compileMachine chains expression states', async () => {
+    const state = init(await createWasmRuntime())
+    const [nextState, machine] = compileMachine(
+      state,
+      parse('(I a) (I b)')
+    )
+    const first = nextState.runtime.right(machine)
+    const second = nextState.runtime.right(first)
+    const firstOutput = nextState.runtime.right(nextState.runtime.left(first))
+    const secondOutput = nextState.runtime.right(nextState.runtime.left(second))
+
+    assert.notEqual(first, second)
+    assert.equal(serialize(nextState, firstOutput), '(I a)')
+    assert.equal(serialize(nextState, secondOutput), '(I b)')
+    assert.equal(nextState.runtime.right(second), first)
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, first)
+    ), second)
+    assert.equal(nextState.runtime.observe(
+      nextState.runtime.frame(machine, second)
+    ), first)
   })
 
   test('a custom JS runtime can be supplied', () => {
