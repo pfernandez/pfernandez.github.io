@@ -14,7 +14,12 @@ import { createWasmCore } from './wasm.js'
  *
  * @typedef {object} Closure
  * @property {Definition} definition
- * @property {Graph[]} values
+ * @property {Compiled[]} values
+ *
+ * @typedef {object} Compiled
+ * @property {Closure} [closure]
+ * @property {Graph} graph
+ * @property {Graph} [pair]
  *
  * @typedef {object} PassiveRuntime
  * @property {Graph} I
@@ -141,6 +146,9 @@ const withState = (state, changes) => ({
 
 const chain = (first, rest) =>
   rest.reduce((left, right) => [left, right], first)
+
+const chainGraphs = (state, first, rest) =>
+  rest.reduce((left, right) => state.runtime.pair(left, right), first)
 
 const ast = term => {
   if (!isPair(term)) return String(term)
@@ -274,9 +282,13 @@ export const serialize = (state, graph, path = '$', seen = new Map()) => {
   ].join('')
 }
 
-const chainArgs = (state, graphs) =>
-  graphs.length
-    ? chain(graphs[0], graphs.slice(1))
+const chainArgs = (state, values) =>
+  values.length
+    ? chainGraphs(
+        state,
+        values[0].graph,
+        values.slice(1).map(value => value.graph)
+      )
     : state.runtime.I
 
 const closureGraph = (state, closure) =>
@@ -284,9 +296,9 @@ const closureGraph = (state, closure) =>
 
 const compileArgs = (state, args, bindings) =>
   args.reduce(
-    ([nextState, graphs], arg) => {
+    ([nextState, values], arg) => {
       const [argState, compiled] = compileNode(nextState, arg, bindings)
-      return [argState, [...graphs, compiled.graph]]
+      return [argState, [...values, compiled]]
     },
     [state, []]
   )
@@ -294,23 +306,23 @@ const compileArgs = (state, args, bindings) =>
 const pairDefinition = (
   state,
   definition,
-  prefixGraphs,
+  prefixValues,
   args,
   bindings
 ) => {
-  const [argsState, graphs] = compileArgs(state, args, bindings)
-  const allGraphs = [...prefixGraphs, ...graphs]
+  const [argsState, values] = compileArgs(state, args, bindings)
+  const allValues = [...prefixValues, ...values]
 
-  if (allGraphs.length < definition.params.length) {
-    const closure = { definition, values: allGraphs }
+  if (allValues.length < definition.params.length) {
+    const closure = { definition, values: allValues }
     return [
       argsState,
       { closure, graph: closureGraph(argsState, closure) },
     ]
   }
 
-  const used = allGraphs.slice(0, definition.params.length)
-  const rest = allGraphs.slice(definition.params.length)
+  const used = allValues.slice(0, definition.params.length)
+  const rest = allValues.slice(definition.params.length)
   const nextBindings = new Map(bindings)
   definition.params.forEach((name, index) =>
     nextBindings.set(name, used[index])
@@ -322,24 +334,31 @@ const pairDefinition = (
     nextBindings
   )
   const graph = rest.reduce(
-    (left, right) => bodyState.runtime.pair(left, right),
+    (left, right) => bodyState.runtime.pair(left, right.graph),
     body.graph
   )
 
   return [bodyState, {
     graph,
-    pair: chainArgs(bodyState, allGraphs),
+    pair: chainArgs(bodyState, allValues),
   }]
 }
 
 const compileNode = (state, term, bindings = new Map()) => {
   if (typeof term === 'string') {
-    if (bindings.has(term)) return [state, { graph: bindings.get(term) }]
+    if (bindings.has(term)) return [state, bindings.get(term)]
     if (state.values.has(term)) {
       return [state, { graph: state.values.get(term) }]
     }
     if (state.closures.has(term)) {
       const closure = state.closures.get(term)
+      return [state, { closure, graph: closureGraph(state, closure) }]
+    }
+    if (state.definitions.has(term)) {
+      const closure = {
+        definition: state.definitions.get(term),
+        values: [],
+      }
       return [state, { closure, graph: closureGraph(state, closure) }]
     }
 
@@ -359,39 +378,25 @@ const compileNode = (state, term, bindings = new Map()) => {
     ? resolveTerm(first, state.aliases)
     : first
 
-  if (
-    typeof resolvedFirst === 'string'
-      && state.definitions.has(resolvedFirst)
-  ) {
+  const [firstState, firstValue] = compileNode(state, resolvedFirst, bindings)
+  if (firstValue.closure) {
     return pairDefinition(
-      state,
-      state.definitions.get(resolvedFirst),
-      [],
+      firstState,
+      firstValue.closure.definition,
+      firstValue.closure.values,
       args,
       bindings
     )
   }
 
-  if (typeof resolvedFirst === 'string' && state.closures.has(resolvedFirst)) {
-    const closure = state.closures.get(resolvedFirst)
-    return pairDefinition(
-      state,
-      closure.definition,
-      closure.values,
-      args,
-      bindings
-    )
-  }
+  const [argsState, values] = compileArgs(firstState, args, bindings)
 
-  if (resolvedFirst !== first) {
-    return compileNode(state, chain(resolvedFirst, args), bindings)
-  }
-
-  const [leftState, left] = compileNode(state, term[0], bindings)
-  const [rightState, right] = compileNode(leftState, term[1], bindings)
-
-  return [rightState, {
-    graph: rightState.runtime.pair(left.graph, right.graph),
+  return [argsState, {
+    graph: chainGraphs(
+      argsState,
+      firstValue.graph,
+      values.map(value => value.graph)
+    ),
   }]
 }
 

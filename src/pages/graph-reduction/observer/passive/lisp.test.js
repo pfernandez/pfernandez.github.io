@@ -48,6 +48,13 @@ describe('passive Lisp compiler', () => {
   }
 
   const compileInto = (state, source) => compile(state, parse(source))[0]
+  const pairSource = `
+    (define (true a b) a)
+    (define (false a b) b)
+    (define (pair a b f) (f a b))
+    (define (first p) (p true))
+    (define (second p) (p false))
+  `
 
   const reaches = (node, target, seen = new Set()) => {
     if (node === target) return true
@@ -228,6 +235,27 @@ describe('passive Lisp compiler', () => {
     assert.equal(result.text, '((f a) b)')
   })
 
+  test('defined functions can be passed as values', () => {
+    let state = init()
+    state = compileInto(state, '(define (K a b) a)')
+    state = compileInto(state, '(define (call f x y) (f x y))')
+
+    const [, result] = run(state, '(call K x y)')
+
+    assert.equal(result.text, 'x')
+  })
+
+  test('source pairs can be built from function values', () => {
+    let state = init()
+    state = compileInto(state, pairSource)
+
+    const [firstState, first] = run(state, '(first (pair x y))')
+    const [, second] = run(firstState, '(second (pair x y))')
+
+    assert.equal(first.text, 'x')
+    assert.equal(second.text, 'y')
+  })
+
   test('recursive define ties a graph knot during construction', () => {
     let state = init()
     state = compileInto(state, '(define I (I I))')
@@ -238,7 +266,9 @@ describe('passive Lisp compiler', () => {
     assert.equal(result.text, 'I')
     assert.equal(state.runtime.left(value), value)
     assert.equal(state.runtime.right(value), value)
-    assert.equal(state.runtime.observe(state.runtime.frame(value, value)), value)
+    const selected = state.runtime.observe(state.runtime.frame(value, value))
+
+    assert.equal(selected, value)
   })
 
   test('recursive define can be paired with another value', () => {
@@ -349,7 +379,20 @@ describe('passive Lisp compiler', () => {
     assert.equal(result.text, 'I')
     assert.equal(state.runtime.left(value), value)
     assert.equal(state.runtime.right(value), value)
-    assert.equal(state.runtime.observe(state.runtime.frame(value, value)), value)
+    const selected = state.runtime.observe(state.runtime.frame(value, value))
+
+    assert.equal(selected, value)
+  })
+
+  test('WASM source pairs can be built from function values', async () => {
+    let state = init(await createWasmRuntime())
+    state = compileInto(state, pairSource)
+
+    const [firstState, first] = run(state, '(first (pair x y))')
+    const [, second] = run(firstState, '(second (pair x y))')
+
+    assert.equal(first.text, 'x')
+    assert.equal(second.text, 'y')
   })
 
   test('a custom JS runtime can be supplied', () => {
