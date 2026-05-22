@@ -7,6 +7,9 @@ import {
   createWasmRuntime,
   init,
   kernelSource,
+  machineCurrent,
+  machineOutput,
+  machineStep,
   parse,
   serialize,
   sourceStep,
@@ -343,6 +346,27 @@ describe('passive Lisp compiler', () => {
     ), first)
   })
 
+  test('machineStep advances JS root through expression states', () => {
+    const state = init()
+    const [nextState, machine] = compileMachine(
+      state,
+      parse('(I a) (I b)')
+    )
+    const first = machineCurrent(nextState, machine)
+    const second = nextState.runtime.right(first)
+
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '(I a)'
+    ))
+    assert.equal(machineStep(nextState, machine), second)
+    assert.equal(machineCurrent(nextState, machine), second)
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '(I b)'
+    ))
+    assert.equal(machineStep(nextState, machine), first)
+    assert.equal(machineCurrent(nextState, machine), first)
+  })
+
   test('compileMachine keeps definitions without forcing output', () => {
     const state = init()
     const [nextState, machine] = compileMachine(
@@ -589,6 +613,27 @@ describe('passive Lisp compiler', () => {
     assert.equal(nextState.runtime.observe(
       nextState.runtime.frame(machine, second)
     ), first)
+  })
+
+  test('machineStep advances WASM root through expression states', async () => {
+    const state = init(await createWasmRuntime())
+    const [nextState, machine] = compileMachine(
+      state,
+      parse('(I a) (I b)')
+    )
+    const first = machineCurrent(nextState, machine)
+    const second = nextState.runtime.right(first)
+
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '(I a)'
+    ))
+    assert.equal(machineStep(nextState, machine), second)
+    assert.equal(machineCurrent(nextState, machine), second)
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '(I b)'
+    ))
+    assert.equal(machineStep(nextState, machine), first)
+    assert.equal(machineCurrent(nextState, machine), first)
   })
 
   test('a custom JS runtime can be supplied', () => {

@@ -665,6 +665,51 @@ export const compileMachine = (state, forms) => {
 }
 
 /**
+ * Returns the current state carried by a compiled machine root.
+ *
+ * The machine root's right slot is the only mutable current pointer in this
+ * protocol. The state graph itself remains an ordinary pair graph.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineCurrent = (state, machine) =>
+  state.runtime.right(machine)
+
+/**
+ * Reads the output carried by the current machine state.
+ *
+ * Machine states carry output in the right slot of their left child. Reading it
+ * does not observe, reduce, or advance the machine.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineOutput = (state, machine) =>
+  state.runtime.right(state.runtime.left(machineCurrent(state, machine)))
+
+/**
+ * Advances a compiled machine root to its next state.
+ *
+ * This is the small host-side mutation needed on current CPUs: update the
+ * root's current pointer to the current state's right slot. The graph contains
+ * the next relation; this function only moves the pointer that says which state
+ * is current.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineStep = (state, machine) => {
+  const next = state.runtime.right(machineCurrent(state, machine))
+  state.runtime.setRight(machine, next)
+
+  return next
+}
+
+/**
  * Runs one source interaction through the passive boundary.
  *
  * This is the smallest REPL-shaped step: parse source text, compile it into a
