@@ -583,8 +583,10 @@ const emptyTarget = state => ({
 
 const machineFor = (state, targets) => {
   const root = state.runtime.pair()
+  const input = state.runtime.pair()
+  const ports = state.runtime.pair(input, targets[0].frame)
   const states = targets.map(() => state.runtime.pair())
-  state.runtime.setLeft(root, targets[0].frame)
+  state.runtime.setLeft(root, ports)
   state.runtime.setRight(root, states[0])
 
   states.forEach((current, index) => {
@@ -707,6 +709,81 @@ export const machineStep = (state, machine) => {
   state.runtime.setRight(machine, next)
 
   return next
+}
+
+/**
+ * Reads the input port carried by a compiled machine root.
+ *
+ * The input port is an ordinary pair. Its left slot is `I` when empty and the
+ * port itself when filled. Its right slot carries the submitted graph value.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineInput = (state, machine) =>
+  state.runtime.left(state.runtime.left(machine))
+
+/**
+ * Reads the graph currently connected to a machine's input port.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineInputValue = (state, machine) =>
+  state.runtime.right(machineInput(state, machine))
+
+/**
+ * Connects a graph to the machine's input port.
+ *
+ * This is host IO, not evaluation: the function mutates only the input port
+ * slots. Filled status is represented by the port pointing to itself on the
+ * left, so writing does not allocate a separate marker.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @param {Graph} value
+ * @returns {Graph}
+ */
+export const machineWriteInput = (state, machine, value) => {
+  const input = machineInput(state, machine)
+  state.runtime.setLeft(input, input)
+  state.runtime.setRight(input, value)
+
+  return input
+}
+
+/**
+ * Clears the machine's input port.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineClearInput = (state, machine) => {
+  const input = machineInput(state, machine)
+  state.runtime.setLeft(input, state.runtime.I)
+  state.runtime.setRight(input, state.runtime.I)
+
+  return input
+}
+
+/**
+ * Reads the current output, then advances the machine to the next state.
+ *
+ * This is the smallest REPL-shaped machine tick: output is read through the
+ * machine protocol, and the only mutation is the root's current pointer.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @returns {Graph}
+ */
+export const machineStepOutput = (state, machine) => {
+  const output = machineOutput(state, machine)
+  machineStep(state, machine)
+
+  return output
 }
 
 /**

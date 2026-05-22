@@ -121,6 +121,38 @@ to that pair while compiling the body, and then filling the reserved pair:
 
 That produces a real graph knot in both JavaScript and WebAssembly.
 
+## Compiled Machine Shape
+
+The machine compiler builds a graph that can be advanced by following `right`.
+The host does not evaluate the graph; it only reads ports and moves the root's
+current pointer.
+
+```text
+machine = [ports, current]
+ports   = [input, source-frame]
+input   = [status, value]
+state   = [carried, next-state]
+carried = [[machine, next-state], output]
+```
+
+Input status is structural. `input[0] === I` means the port is empty.
+`input[0] === input` means the port is filled. The submitted value is carried
+in `input[1]`.
+
+Output is also structural. `machineOutput(state, machine)` reads the right slot
+of the current state's carried pair. It does not call `observe`.
+
+The smallest host step is:
+
+```text
+output = machineOutput(state, machine)
+machineStep(state, machine)
+```
+
+`machineStep` mutates only `machine[1]`, replacing the current state with the
+right child of that state. This is the current CPU/WASM boundary: the graph
+contains the next relation, but the host still moves the pointer.
+
 ## Kernel Source
 
 The kernel is ordinary Lisp source, not a table of runtime primitives:
@@ -178,11 +210,11 @@ Implemented and tested:
 - first-class function values in the source compiler,
 - source kernel with SKI, booleans, pairs, and Church numerals,
 - a minimal `sourceStep(state, source)` boundary for REPL-like use.
+- a compiled machine target with current, input, output, and step helpers.
 
 Open next questions:
 
 - How should memory be represented as ordinary graph structure?
-- What is the smallest useful IO protocol?
 - When should composition remain graph-resident instead of compiled through?
 - Can graph-resident composition reproduce the same results as template
   compilation?
@@ -203,4 +235,3 @@ From the repo root:
 npm test
 npm run build
 ```
-
