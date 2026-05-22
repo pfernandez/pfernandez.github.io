@@ -155,6 +155,12 @@ export const kernelSource = `
   (define (pair a b f) (f a b))
   (define (first p) (p true))
   (define (second p) (p false))
+  (define (zero f x) x)
+  (define (one f x) (f x))
+  (define (two f x) (f (f x)))
+  (define (succ n f x) (f (n f x)))
+  (define (add m n f x) (m f (n f x)))
+  (define (mul m n f x) (m (n f) x))
 `
 
 const isPair = Array.isArray

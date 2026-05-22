@@ -260,6 +260,22 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(S K K x)')[1].text, 'x')
   })
 
+  test('kernel source supplies Church numerals', () => {
+    let state = init()
+    state = compileInto(state, kernelSource)
+
+    assert.equal(run(state, '(zero f x)')[1].text, 'x')
+    assert.equal(run(state, '(one f x)')[1].text, '(f x)')
+    assert.equal(run(state, '(two f x)')[1].text, '(f (f x))')
+    assert.equal(run(state, '(succ one f x)')[1].text, '(f (f x))')
+    assert.equal(run(state, '(add one two f x)')[1].text, (
+      '(f (f (f x)))'
+    ))
+    assert.equal(run(state, '(mul two two f x)')[1].text, (
+      '(f (f (f (f x))))'
+    ))
+  })
+
   test('sourceStep is the smallest REPL boundary', () => {
     let state = init()
     state = compileInto(state, kernelSource)
@@ -417,6 +433,22 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(I x)')[1].text, 'x')
     assert.equal(run(state, '(K x y)')[1].text, 'x')
     assert.equal(run(state, '(S K K x)')[1].text, 'x')
+  })
+
+  test('WASM kernel source supplies Church numerals', async () => {
+    let state = init(await createWasmRuntime())
+    state = compileInto(state, kernelSource)
+
+    assert.equal(run(state, '(zero f x)')[1].text, 'x')
+    assert.equal(run(state, '(one f x)')[1].text, '(f x)')
+    assert.equal(run(state, '(two f x)')[1].text, '(f (f x))')
+    assert.equal(run(state, '(succ one f x)')[1].text, '(f (f x))')
+    assert.equal(run(state, '(add one two f x)')[1].text, (
+      '(f (f (f x)))'
+    ))
+    assert.equal(run(state, '(mul two two f x)')[1].text, (
+      '(f (f (f (f x))))'
+    ))
   })
 
   test('WASM sourceStep uses the selected runtime', async () => {
