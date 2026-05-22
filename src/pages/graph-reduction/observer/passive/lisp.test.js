@@ -260,6 +260,18 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(S K K x)')[1].text, 'x')
   })
 
+  test('kernel source supplies boolean choice', () => {
+    let state = init()
+    state = compileInto(state, kernelSource)
+
+    assert.equal(run(state, '(true x y)')[1].text, 'x')
+    assert.equal(run(state, '(false x y)')[1].text, 'y')
+    assert.equal(run(state, '(not true x y)')[1].text, 'y')
+    assert.equal(run(state, '(not false x y)')[1].text, 'x')
+    assert.equal(run(state, '(and true false x y)')[1].text, 'y')
+    assert.equal(run(state, '(or false true x y)')[1].text, 'x')
+  })
+
   test('kernel source supplies Church numerals', () => {
     let state = init()
     state = compileInto(state, kernelSource)
@@ -274,6 +286,8 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(mul two two f x)')[1].text, (
       '(f (f (f (f x))))'
     ))
+    assert.equal(run(state, '(is-zero zero x y)')[1].text, 'x')
+    assert.equal(run(state, '(is-zero one x y)')[1].text, 'y')
   })
 
   test('sourceStep is the smallest REPL boundary', () => {
@@ -435,6 +449,18 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(S K K x)')[1].text, 'x')
   })
 
+  test('WASM kernel source supplies boolean choice', async () => {
+    let state = init(await createWasmRuntime())
+    state = compileInto(state, kernelSource)
+
+    assert.equal(run(state, '(true x y)')[1].text, 'x')
+    assert.equal(run(state, '(false x y)')[1].text, 'y')
+    assert.equal(run(state, '(not true x y)')[1].text, 'y')
+    assert.equal(run(state, '(not false x y)')[1].text, 'x')
+    assert.equal(run(state, '(and true false x y)')[1].text, 'y')
+    assert.equal(run(state, '(or false true x y)')[1].text, 'x')
+  })
+
   test('WASM kernel source supplies Church numerals', async () => {
     let state = init(await createWasmRuntime())
     state = compileInto(state, kernelSource)
@@ -449,6 +475,8 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(mul two two f x)')[1].text, (
       '(f (f (f (f x))))'
     ))
+    assert.equal(run(state, '(is-zero zero x y)')[1].text, 'x')
+    assert.equal(run(state, '(is-zero one x y)')[1].text, 'y')
   })
 
   test('WASM sourceStep uses the selected runtime', async () => {
