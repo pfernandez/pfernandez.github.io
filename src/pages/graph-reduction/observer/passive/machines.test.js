@@ -76,6 +76,7 @@ describe('machines', () => {
   }
 
   const outputOf = machine => machine[1][1]
+  const nextOnly = current => current[1]
 
   const event = (previous = I, output = I, createPair) =>
     createPair ? createPair(previous, output) : [previous, output]
@@ -623,6 +624,37 @@ describe('machines', () => {
       assert.notEqual(created, existing)
       assert.equal(created[0], existing[0])
       assert.equal(created[1], existing[1])
+    })
+  })
+
+
+  describe('next-only potential', () => {
+    test('a compiled trace can advance with only next', () => {
+      let allocations = 0
+      const countedPair = (first = I, next = I) => {
+        allocations += 1
+        return [first, next]
+      }
+      const observer = countedPair()
+      const value = countedPair()
+      const match = countedPair(observer, value)
+      const middle = countedPair(match, countedPair())
+      const focus = countedPair(middle, countedPair())
+      const matchState = countedPair(match, value)
+      const middleState = countedPair(middle, matchState)
+      const firstState = countedPair(focus, middleState)
+      const built = allocations
+
+      const secondState = nextOnly(firstState)
+      const thirdState = nextOnly(secondState)
+      const selected = nextOnly(thirdState)
+
+      assert.equal(observe(observation(observer, focus)), value)
+      assert.equal(allocations, built)
+      assert.equal(firstState[0], focus)
+      assert.equal(secondState[0], middle)
+      assert.equal(thirdState[0], match)
+      assert.equal(selected, value)
     })
   })
 

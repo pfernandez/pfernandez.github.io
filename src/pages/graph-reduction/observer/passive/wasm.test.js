@@ -58,6 +58,7 @@ describe('wasm core', () => {
   }
 
   const outputOf = (core, machine) => core.right(core.right(machine))
+  const nextOnly = (core, current) => core.right(current)
 
   test('module bytes are real WebAssembly', async () => {
     assert.equal(WebAssembly.validate(wasmBytes), true)
@@ -1179,6 +1180,31 @@ describe('wasm core', () => {
     assert.equal(core.observe(observation(core, I, observer)), observer)
     assert.equal(core.left(observer), root)
     assert.equal(core.right(observer), observer)
+  })
+
+  test('a compiled trace can advance with only next pointers', async () => {
+    const core = await createWasmCore()
+    const observer = core.pair()
+    const value = core.pair()
+    const match = core.pair(observer, value)
+    const middle = core.pair(match, core.pair())
+    const focus = core.pair(middle, core.pair())
+    const matchState = core.pair(match, value)
+    const middleState = core.pair(middle, matchState)
+    const firstState = core.pair(focus, middleState)
+    const frame = observation(core, observer, focus)
+    const built = core.size()
+
+    const secondState = nextOnly(core, firstState)
+    const thirdState = nextOnly(core, secondState)
+    const selected = nextOnly(core, thirdState)
+
+    assert.equal(core.observe(frame), value)
+    assert.equal(core.size(), built)
+    assert.equal(core.left(firstState), focus)
+    assert.equal(core.left(secondState), middle)
+    assert.equal(core.left(thirdState), match)
+    assert.equal(selected, value)
   })
 
   test('succ reuses one cycle without allocating after construction', async () => {
