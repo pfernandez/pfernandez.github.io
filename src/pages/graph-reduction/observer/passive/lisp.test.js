@@ -314,6 +314,15 @@ describe('passive Lisp compiler', () => {
     assert.equal(serialize(nextState, second), 'y')
   })
 
+  test('sourceStep evaluates definitions and the final expression', () => {
+    const [nextState, output] = sourceStep(init(), `
+      (define (S a b c) ((a c) (b c)))
+      (S x y z)
+    `)
+
+    assert.equal(serialize(nextState, output), '((x z) (y z))')
+  })
+
   test('compileMachine returns a step-shaped JS machine', () => {
     const state = init()
     const [nextState, machine] = compileMachine(state, parse('(I a)'))

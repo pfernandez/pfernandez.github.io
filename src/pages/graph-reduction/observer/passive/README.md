@@ -112,6 +112,10 @@ The compiler connects those bindings into the body. If all function definitions
 are known, composed calls usually become one observable graph frame. Unknown
 function values remain visible as ordinary pair structure.
 
+`sourceStep(state, source)` is the source-evaluator checkpoint for REPL-like
+use: definitions update the compiler state, the final expression is compiled
+and observed once, and callers serialize the returned graph.
+
 Recursive value definitions are handled by reserving a pair, binding the name
 to that pair while compiling the body, and then filling the reserved pair:
 
