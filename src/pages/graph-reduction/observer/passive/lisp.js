@@ -810,6 +810,28 @@ export const machineStepOutput = (state, machine) => {
 }
 
 /**
+ * Runs one source interaction through a compiled machine boundary.
+ *
+ * The source is parsed, compiled, and observed once to produce a graph value.
+ * That value is connected to the machine as a fresh input event, then the
+ * current machine output is read and the machine advances one state.
+ *
+ * This is host IO around the machine, not internal machine evaluation.
+ *
+ * @param {CompilerState} state
+ * @param {Graph} machine
+ * @param {string} source
+ * @returns {[CompilerState, Graph]}
+ */
+export const machineSourceStep = (state, machine, source) => {
+  const [nextState, graph] = compile(state, parse(source))
+  const input = nextState.runtime.observe(graph)
+  machineWriteInput(nextState, machine, input)
+
+  return [nextState, machineStepOutput(nextState, machine)]
+}
+
+/**
  * Runs one source interaction through the passive boundary.
  *
  * This is the smallest REPL-shaped step: parse source text, compile it into a

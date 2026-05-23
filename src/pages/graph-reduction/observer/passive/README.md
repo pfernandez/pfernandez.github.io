@@ -157,6 +157,12 @@ machineStep(state, machine)
 right child of that state. This is the current CPU/WASM boundary: the graph
 contains the next relation, but the host still moves the pointer.
 
+`machineSourceStep(state, machine, source)` is the smallest REPL-shaped
+boundary around that protocol. It compiles source text into a graph value,
+connects that value as an input event, reads the current output, and advances
+the machine once. The machine does not yet compute from that input; this only
+proves the IO and stepping boundary.
+
 ## Kernel Source
 
 The kernel is ordinary Lisp source, not a table of runtime primitives:

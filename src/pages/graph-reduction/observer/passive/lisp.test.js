@@ -16,6 +16,7 @@ import {
   machineOutputSocket,
   machineStep,
   machineStepOutput,
+  machineSourceStep,
   machineWriteInput,
   parse,
   serialize,
@@ -454,6 +455,28 @@ describe('passive Lisp compiler', () => {
     ))
   })
 
+  test('machineSourceStep connects JS source input and advances output', () => {
+    const state = init()
+    const [machineState, machine] = compileMachine(
+      state,
+      parse('(I ready) (I done)')
+    )
+
+    const [nextState, output] = machineSourceStep(
+      machineState,
+      machine,
+      '(I user)'
+    )
+
+    assert.equal(serialize(nextState, machineInputValue(nextState, machine)), (
+      '(I user)'
+    ))
+    assert.equal(serialize(nextState, output), '(I ready)')
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '(I done)'
+    ))
+  })
+
   test('compileMachine keeps definitions without forcing output', () => {
     const state = init()
     const [nextState, machine] = compileMachine(
@@ -809,6 +832,28 @@ describe('passive Lisp compiler', () => {
 
     assert.equal(serialize(inputState, machineInputValue(inputState, machine)), (
       '(I a)'
+    ))
+  })
+
+  test('machineSourceStep connects WASM source input and advances output', async () => {
+    const state = init(await createWasmRuntime())
+    const [machineState, machine] = compileMachine(
+      state,
+      parse('(I ready) (I done)')
+    )
+
+    const [nextState, output] = machineSourceStep(
+      machineState,
+      machine,
+      '(I user)'
+    )
+
+    assert.equal(serialize(nextState, machineInputValue(nextState, machine)), (
+      '(I user)'
+    ))
+    assert.equal(serialize(nextState, output), '(I ready)')
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '(I done)'
     ))
   })
 
