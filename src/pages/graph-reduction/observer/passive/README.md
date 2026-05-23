@@ -116,6 +116,15 @@ function values remain visible as ordinary pair structure.
 use: definitions update the compiler state, the final expression is compiled
 and observed once, and callers serialize the returned graph.
 
+The CLI wrapper runs that boundary interactively:
+
+```sh
+node src/pages/graph-reduction/observer/passive/repl.js
+```
+
+Use `.exit` or `.quit` to leave. Pass `--empty` to start without the source
+kernel preloaded.
+
 Recursive value definitions are handled by reserving a pair, binding the name
 to that pair while compiling the body, and then filling the reserved pair:
 
