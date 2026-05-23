@@ -134,7 +134,7 @@ input-event = [input, value]
 input       = stable socket
 state       = [carried, next-state]
 carried     = [[machine, next-state], output-event]
-output-event = [output, value]
+output-event = [output, frame]
 output      = stable socket
 ```
 
@@ -143,8 +143,10 @@ Input is structural. The socket is stable; writing input creates a fresh event
 its value, so the machine does not need to clear or rewrite the socket.
 
 Output is also structural. Each current state carries an output event
-`[output, value]`; `machineOutput(state, machine)` reads that event's value.
-It does not call `observe`.
+`[output, frame]`; `machineOutput(state, machine)` observes that frame once.
+Static output frames resolve to their compiled values. The machine target
+`input` carries `[input, ports]`, so observing it returns the current input
+event's value.
 
 The smallest host step is:
 
@@ -160,8 +162,7 @@ contains the next relation, but the host still moves the pointer.
 `machineSourceStep(state, machine, source)` is the smallest REPL-shaped
 boundary around that protocol. It compiles source text into a graph value,
 connects that value as an input event, reads the current output, and advances
-the machine once. The machine does not yet compute from that input; this only
-proves the IO and stepping boundary.
+the machine once.
 
 ## Kernel Source
 

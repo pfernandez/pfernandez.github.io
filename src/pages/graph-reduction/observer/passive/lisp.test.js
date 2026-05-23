@@ -45,6 +45,7 @@ const cases = [
     '(launch star field)',
     '((launch star) field)',
   ],
+  ['compiles input as an ordinary symbol outside machines', 'input', 'input'],
 ]
 
 describe('passive Lisp compiler', () => {
@@ -320,7 +321,8 @@ describe('passive Lisp compiler', () => {
     const current = nextState.runtime.right(machine)
     const carried = nextState.runtime.left(current)
     const outputEvent = nextState.runtime.right(carried)
-    const output = nextState.runtime.right(outputEvent)
+    const outputFrame = nextState.runtime.right(outputEvent)
+    const output = nextState.runtime.observe(outputFrame)
     const outputSocket = nextState.runtime.left(outputEvent)
     const next = nextState.runtime.right(current)
     const input = machineInput(nextState, machine)
@@ -337,6 +339,7 @@ describe('passive Lisp compiler', () => {
     assert.equal(machineOutputEvent(nextState, machine), outputEvent)
     assert.equal(machineOutputSocket(nextState, machine), outputSocket)
     assert.equal(machineOutput(nextState, machine), output)
+    assert.equal(nextState.runtime.right(outputEvent), outputFrame)
     assert.equal(nextState.runtime.left(outputSocket), nextState.runtime.I)
     assert.equal(nextState.runtime.right(outputSocket), nextState.runtime.I)
     assert.equal(serialize(nextState, output), '(I a)')
@@ -362,8 +365,12 @@ describe('passive Lisp compiler', () => {
     const secondOutputEvent = nextState.runtime.right(
       nextState.runtime.left(second)
     )
-    const firstOutput = nextState.runtime.right(firstOutputEvent)
-    const secondOutput = nextState.runtime.right(secondOutputEvent)
+    const firstOutput = nextState.runtime.observe(
+      nextState.runtime.right(firstOutputEvent)
+    )
+    const secondOutput = nextState.runtime.observe(
+      nextState.runtime.right(secondOutputEvent)
+    )
 
     assert.notEqual(first, second)
     assert.notEqual(firstOutputEvent, secondOutputEvent)
@@ -477,6 +484,28 @@ describe('passive Lisp compiler', () => {
     ))
   })
 
+  test('compileMachine can use JS source input as output', () => {
+    const state = init()
+    const [machineState, machine] = compileMachine(state, parse('input'))
+    const [firstState, firstOutput] = machineSourceStep(
+      machineState,
+      machine,
+      '(I first)'
+    )
+    const [secondState, secondOutput] = machineSourceStep(
+      firstState,
+      machine,
+      '(I second)'
+    )
+
+    assert.equal(serialize(firstState, firstOutput), '(I first)')
+    assert.equal(serialize(secondState, secondOutput), '(I second)')
+    assert.equal(
+      serialize(secondState, machineInputValue(secondState, machine)),
+      '(I second)'
+    )
+  })
+
   test('compileMachine keeps definitions without forcing output', () => {
     const state = init()
     const [nextState, machine] = compileMachine(
@@ -487,7 +516,9 @@ describe('passive Lisp compiler', () => {
     const outputEvent = nextState.runtime.right(
       nextState.runtime.left(current)
     )
-    const output = nextState.runtime.right(outputEvent)
+    const output = nextState.runtime.observe(
+      nextState.runtime.right(outputEvent)
+    )
     const [, resolved] = run(nextState, 'alias')
 
     assert.equal(output, nextState.runtime.I)
@@ -698,7 +729,8 @@ describe('passive Lisp compiler', () => {
     const current = nextState.runtime.right(machine)
     const carried = nextState.runtime.left(current)
     const outputEvent = nextState.runtime.right(carried)
-    const output = nextState.runtime.right(outputEvent)
+    const outputFrame = nextState.runtime.right(outputEvent)
+    const output = nextState.runtime.observe(outputFrame)
     const outputSocket = nextState.runtime.left(outputEvent)
     const next = nextState.runtime.right(current)
     const input = machineInput(nextState, machine)
@@ -715,6 +747,7 @@ describe('passive Lisp compiler', () => {
     assert.equal(machineOutputEvent(nextState, machine), outputEvent)
     assert.equal(machineOutputSocket(nextState, machine), outputSocket)
     assert.equal(machineOutput(nextState, machine), output)
+    assert.equal(nextState.runtime.right(outputEvent), outputFrame)
     assert.equal(nextState.runtime.left(outputSocket), nextState.runtime.I)
     assert.equal(nextState.runtime.right(outputSocket), nextState.runtime.I)
     assert.equal(serialize(nextState, output), '(I a)')
@@ -740,8 +773,12 @@ describe('passive Lisp compiler', () => {
     const secondOutputEvent = nextState.runtime.right(
       nextState.runtime.left(second)
     )
-    const firstOutput = nextState.runtime.right(firstOutputEvent)
-    const secondOutput = nextState.runtime.right(secondOutputEvent)
+    const firstOutput = nextState.runtime.observe(
+      nextState.runtime.right(firstOutputEvent)
+    )
+    const secondOutput = nextState.runtime.observe(
+      nextState.runtime.right(secondOutputEvent)
+    )
 
     assert.notEqual(first, second)
     assert.notEqual(firstOutputEvent, secondOutputEvent)
@@ -855,6 +892,28 @@ describe('passive Lisp compiler', () => {
     assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
       '(I done)'
     ))
+  })
+
+  test('compileMachine can use WASM source input as output', async () => {
+    const state = init(await createWasmRuntime())
+    const [machineState, machine] = compileMachine(state, parse('input'))
+    const [firstState, firstOutput] = machineSourceStep(
+      machineState,
+      machine,
+      '(I first)'
+    )
+    const [secondState, secondOutput] = machineSourceStep(
+      firstState,
+      machine,
+      '(I second)'
+    )
+
+    assert.equal(serialize(firstState, firstOutput), '(I first)')
+    assert.equal(serialize(secondState, secondOutput), '(I second)')
+    assert.equal(
+      serialize(secondState, machineInputValue(secondState, machine)),
+      '(I second)'
+    )
   })
 
   test('a custom JS runtime can be supplied', () => {
