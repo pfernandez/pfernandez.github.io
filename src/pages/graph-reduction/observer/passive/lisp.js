@@ -449,31 +449,11 @@ const targetFor = (state, compiled) => ({
   frame: graphFor(state, compiled),
 })
 
-const hasSourceBinding = (state, name) =>
-  state.aliases.has(name)
-    || state.closures.has(name)
-    || state.definitions.has(name)
-    || state.values.has(name)
-
-const machineInputTarget = state => ({
-  frame: state.runtime.I,
-  readsInput: true,
-})
-
 const compileAstTarget = (state, sourceAst) => {
   const form = resolveTerm(sourceAst, state.aliases)
   const [nextState, compiled] = compileNode(state, form)
 
   return [nextState, targetFor(nextState, compiled)]
-}
-
-const compileMachineAstTarget = (state, sourceAst) => {
-  const form = resolveTerm(sourceAst, state.aliases)
-  if (form === 'input' && !hasSourceBinding(state, form)) {
-    return [state, machineInputTarget(state)]
-  }
-
-  return compileAstTarget(state, sourceAst)
 }
 
 const compileAst = (state, sourceAst) => {
@@ -592,7 +572,7 @@ const compileFormTarget = (state, form) => {
     return compileDefine(state, form)
   }
 
-  return compileMachineAstTarget(state, ast(form))
+  return compileAstTarget(state, ast(form))
 }
 
 const emptyTarget = state => ({
@@ -604,18 +584,9 @@ const machineFor = (state, targets) => {
   const input = state.runtime.pair()
   const output = state.runtime.pair()
   const inputEvent = state.runtime.pair(input, state.runtime.I)
-  const ports = state.runtime.pair(inputEvent, state.runtime.I)
+  const ports = state.runtime.pair(inputEvent, targets[0].frame)
   const states = targets.map(() => state.runtime.pair())
-  let inputFrame
-  const frameFor = target => {
-    if (!target.readsInput) return target.frame
-
-    inputFrame = inputFrame ?? state.runtime.frame(input, ports)
-    return inputFrame
-  }
-  const frames = targets.map(frameFor)
-
-  state.runtime.setRight(ports, frames[0])
+  const frames = targets.map(target => target.frame)
   state.runtime.setLeft(root, ports)
   state.runtime.setRight(root, states[0])
 

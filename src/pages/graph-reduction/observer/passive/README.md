@@ -148,9 +148,7 @@ its value, so the machine does not need to clear or rewrite the socket.
 
 Output is also structural. Each current state carries an output event
 `[output, frame]`; `machineOutput(state, machine)` observes that frame once.
-Static output frames resolve to their compiled values. The machine target
-`input` carries `[input, ports]`, so observing it returns the current input
-event's value.
+Static output frames resolve to their compiled values.
 
 The smallest host step is:
 

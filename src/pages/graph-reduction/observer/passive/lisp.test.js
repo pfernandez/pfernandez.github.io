@@ -493,26 +493,19 @@ describe('passive Lisp compiler', () => {
     ))
   })
 
-  test('compileMachine can use JS source input as output', () => {
+  test('compileMachine uses JS definitions and final expression as output', () => {
     const state = init()
-    const [machineState, machine] = compileMachine(state, parse('input'))
-    const [firstState, firstOutput] = machineSourceStep(
-      machineState,
-      machine,
-      '(I first)'
-    )
-    const [secondState, secondOutput] = machineSourceStep(
-      firstState,
-      machine,
-      '(I second)'
+    const [nextState, machine] = compileMachine(
+      state,
+      parse(`
+        (define (S a b c) ((a c) (b c)))
+        (S x y z)
+      `)
     )
 
-    assert.equal(serialize(firstState, firstOutput), '(I first)')
-    assert.equal(serialize(secondState, secondOutput), '(I second)')
-    assert.equal(
-      serialize(secondState, machineInputValue(secondState, machine)),
-      '(I second)'
-    )
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '((x z) (y z))'
+    ))
   })
 
   test('compileMachine keeps definitions without forcing output', () => {
@@ -903,26 +896,19 @@ describe('passive Lisp compiler', () => {
     ))
   })
 
-  test('compileMachine can use WASM source input as output', async () => {
+  test('compileMachine uses WASM definitions and final expression as output', async () => {
     const state = init(await createWasmRuntime())
-    const [machineState, machine] = compileMachine(state, parse('input'))
-    const [firstState, firstOutput] = machineSourceStep(
-      machineState,
-      machine,
-      '(I first)'
-    )
-    const [secondState, secondOutput] = machineSourceStep(
-      firstState,
-      machine,
-      '(I second)'
+    const [nextState, machine] = compileMachine(
+      state,
+      parse(`
+        (define (S a b c) ((a c) (b c)))
+        (S x y z)
+      `)
     )
 
-    assert.equal(serialize(firstState, firstOutput), '(I first)')
-    assert.equal(serialize(secondState, secondOutput), '(I second)')
-    assert.equal(
-      serialize(secondState, machineInputValue(secondState, machine)),
-      '(I second)'
-    )
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
+      '((x z) (y z))'
+    ))
   })
 
   test('a custom JS runtime can be supplied', () => {
