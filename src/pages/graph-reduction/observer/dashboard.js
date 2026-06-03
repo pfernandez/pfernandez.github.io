@@ -1,7 +1,6 @@
 import '../visualizations/style.css'
 import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { compile } from '../graph/index.js'
-import { observe } from './observe.js'
+import { compile as _compile, init, parse } from './lisp.js'
 import DEFAULT_SOURCE from '../source.lisp?raw'
 
 /**
@@ -10,22 +9,40 @@ import DEFAULT_SOURCE from '../source.lisp?raw'
  * Interactive host for stepping pair graphs in the browser.
  */
 
+const compiler = init()
+const observe = compiler.runtime.observe
+
+const compile = source => {
+  try {
+    const [nextCompiler, graph] = _compile(compiler, parse(source))
+    return { compiler: nextCompiler, graph, error: null }
+  } catch (error) {
+    return { compiler, graph: null, error: error.message }
+  }
+}
+
 const infer = (
   { graph,
     history,
     time = history.length,
     previous = history[time - 1],
-    stable = previous?.graph === graph }) => ({ time, previous, stable })
+    stable = graph === history[0] }) => ({ time, previous, stable })
 
 const dashboard = component(state => {
   const { graph, source, history, error, options } = state
   const { className, title, description, scene } = options
   const { time, previous, stable } = infer(state)
 
-  const view = () =>
-    dashboard({ ...state, graph: observe(graph), history: [...history, state] })
-  const load = source => dashboard({ ...state, ...compile(source), source })
+  const view = () => dashboard(
+    { ...state,
+      graph: observe(graph),
+      history: [...history, state] })
+
+  const load = source => dashboard(
+    { ...state, ...compile(source), source, history: [] })
+
   const undo = () => dashboard(previous)
+
   const reset = () => dashboard(history[0])
 
   return div(
@@ -68,4 +85,3 @@ export default options => () => dashboard(
     source: DEFAULT_SOURCE,
     history: [],
     options })
-

@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { I, observe } from './observe.js'
+import { observe } from './observe.js'
+
+const fixedRoot = () => {
+  const root = []
+  root[0] = root
+  root[1] = root
+
+  return root
+}
+
+const I = fixedRoot()
 
 describe('machines', () => {
   const fix = (next = I) => {

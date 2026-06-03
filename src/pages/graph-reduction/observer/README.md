@@ -119,11 +119,13 @@ and observed once, and callers serialize the returned graph.
 The CLI wrapper runs that boundary interactively:
 
 ```sh
-node src/pages/graph-reduction/observer/passive/repl.js
+node src/pages/graph-reduction/observer/repl.cli.mjs
 ```
 
 Use `.exit` or `.quit` to leave. Pass `--empty` to start without the source
-kernel preloaded.
+kernel preloaded. Pass `--trace`, or set `trace: true` in `config.lisp.js`, to
+print each graph passed to the JavaScript observer's internal `walk` function
+before the reduced result.
 
 Recursive value definitions are handled by reserving a pair, binding the name
 to that pair while compiling the body, and then filling the reserved pair:

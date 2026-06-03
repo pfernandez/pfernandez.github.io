@@ -1,4 +1,4 @@
-import { serialize } from '../graph/index.js'
+import { serialize } from '../observer/lisp.js'
 import dashboard from '../observer/dashboard.js'
 
 /**
@@ -17,5 +17,5 @@ export default dashboard(
     title: 'S-expressions',
     description: ['Folding projection of the current graph.',
                   'Observation performs one tick.'].join(' '),
-    scene: ({ graph }) =>
-      serialize(graph) })
+    scene: ({ compiler, graph }) =>
+      graph ? serialize(compiler, graph) : '' })

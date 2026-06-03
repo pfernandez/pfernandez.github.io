@@ -9,9 +9,9 @@ export default
                       default: true },
                     { label: 'Symbolic Expressions',
                       file: 'visualizations/lisp.js' },
-                    { label: 'Lattice',
-                      file: 'visualizations/lattice.js' },
+                    // { label: 'Lattice',
+                    //   file: 'visualizations/lattice.js' },
                     { label: 'Description',
-                      file: 'description.md' }]}],
+                      file: 'description.md' }] }],
   markdownGlobals: () => ({ render }),
   keepAlive: true }

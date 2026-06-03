@@ -14,14 +14,14 @@ import {
   machineOutput,
   machineOutputEvent,
   machineOutputSocket,
+  machineSourceStep,
   machineStep,
   machineStepOutput,
-  machineSourceStep,
   machineWriteInput,
   parse,
   serialize,
   sourceStep,
-  symbol,
+  symbol
 } from './lisp.js'
 
 const cases = [
@@ -32,20 +32,20 @@ const cases = [
   [
     'compiles n-ary source as a chain',
     '(S a b c)',
-    '(((S a) b) c)',
+    '(((S a) b) c)'
   ],
   ['compiles nested chains', '(f (g x) y)', '((f (g x)) y)'],
   [
     'treats basis names as ordinary chain values',
     '(add one two f x)',
-    '((((add one) two) f) x)',
+    '((((add one) two) f) x)'
   ],
   [
     'compiles unknown symbols the same way',
     '(launch star field)',
-    '((launch star) field)',
+    '((launch star) field)'
   ],
-  ['compiles input as an ordinary symbol outside machines', 'input', 'input'],
+  ['compiles input as an ordinary symbol outside machines', 'input', 'input']
 ]
 
 describe('passive Lisp compiler', () => {
@@ -58,7 +58,7 @@ describe('passive Lisp compiler', () => {
       ast,
       graph,
       result,
-      text: serialize(nextState, result),
+      text: serialize(nextState, result)
     }]
   }
 
@@ -124,7 +124,7 @@ describe('passive Lisp compiler', () => {
     assert.deepEqual(ast, [['I', 'a']])
     assert.deepEqual(graph, [
       compiledState.runtime.I,
-      [compiledState.runtime.I, [IForm, a]],
+      [compiledState.runtime.I, [IForm, a]]
     ])
     assert.equal(serialized, '(I a)')
   })
@@ -145,7 +145,7 @@ describe('passive Lisp compiler', () => {
     assert.deepEqual(ast, [['S', 'a', 'b', 'c']])
     assert.deepEqual(graph, [
       compiledState.runtime.I,
-      [compiledState.runtime.I, [[[SForm, a], b], c]],
+      [compiledState.runtime.I, [[[SForm, a], b], c]]
     ])
     assert.equal(serialized, '(((S a) b) c)')
   })
@@ -169,8 +169,9 @@ describe('passive Lisp compiler', () => {
 
     assert.deepEqual(ast, [
       ['define', ['S', 'a', 'b', 'c'], [['a', 'c'], ['b', 'c']]],
-      ['S', 'x', 'y', 'z'],
+      ['S', 'x', 'y', 'z']
     ])
+
     assert.equal(graph[0], focus)
     assert.equal(graph[1], focus)
     assert.equal(future[0], focus)
@@ -181,7 +182,7 @@ describe('passive Lisp compiler', () => {
     assert.equal(reduced[1][0], y)
     assert.equal(reduced[1][1], z)
     assert.equal(reduced[0][1], reduced[1][1])
-    assert.equal(reaches(focus, SForm), false)
+    assert.equal(reaches(graph, SForm), false)
   })
 
   test('partial define pair can be stored and completed', () => {
@@ -195,14 +196,17 @@ describe('passive Lisp compiler', () => {
     const pair = focus[1]
     const x = pair[0]
     const y = pair[1]
+
     const [, KForm] = symbol(completedState, 'K')
 
     assert.equal(completed.text, 'x')
     assert.equal(partial.text, '(x ())')
+
     assert.equal(completed.result, x)
     assert.equal(serialize(completedState, y), 'y')
     assert.equal(reaches(partial.result, KForm), false)
     assert.equal(reaches(focus, KForm), false)
+    assert.equal(reaches(completed.graph, KForm), false)
   })
 
   test('aliases can name compound first values inside define bodies', () => {
@@ -293,12 +297,12 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(one f x)')[1].text, '(f x)')
     assert.equal(run(state, '(two f x)')[1].text, '(f (f x))')
     assert.equal(run(state, '(succ one f x)')[1].text, '(f (f x))')
-    assert.equal(run(state, '(add one two f x)')[1].text, (
-      '(f (f (f x)))'
-    ))
-    assert.equal(run(state, '(mul two two f x)')[1].text, (
-      '(f (f (f (f x))))'
-    ))
+    assert.equal(run(state, '(add one two f x)')[1].text,
+                 '(f (f (f x)))'
+    )
+    assert.equal(run(state, '(mul two two f x)')[1].text,
+                 '(f (f (f (f x))))'
+    )
     assert.equal(run(state, '(is-zero zero x y)')[1].text, 'x')
     assert.equal(run(state, '(is-zero one x y)')[1].text, 'y')
   })
@@ -405,15 +409,15 @@ describe('passive Lisp compiler', () => {
       parse('(I a) (I b)')
     )
 
-    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)), (
-      '(I a)'
-    ))
-    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)), (
-      '(I b)'
-    ))
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I a)'
-    ))
+    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)),
+                 '(I a)'
+    )
+    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)),
+                 '(I b)'
+    )
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I a)'
+    )
   })
 
   test('machineStep advances JS root through expression states', () => {
@@ -425,14 +429,14 @@ describe('passive Lisp compiler', () => {
     const first = machineCurrent(nextState, machine)
     const second = nextState.runtime.right(first)
 
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I a)'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I a)'
+    )
     assert.equal(machineStep(nextState, machine), second)
     assert.equal(machineCurrent(nextState, machine), second)
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I b)'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I b)'
+    )
     assert.equal(machineStep(nextState, machine), first)
     assert.equal(machineCurrent(nextState, machine), first)
   })
@@ -466,9 +470,9 @@ describe('passive Lisp compiler', () => {
 
     machineWriteInput(inputState, machine, graph)
 
-    assert.equal(serialize(inputState, machineInputValue(inputState, machine)), (
-      '(I a)'
-    ))
+    assert.equal(serialize(inputState, machineInputValue(inputState, machine)),
+                 '(I a)'
+    )
   })
 
   test('machineSourceStep connects JS source input and advances output', () => {
@@ -484,13 +488,13 @@ describe('passive Lisp compiler', () => {
       '(I user)'
     )
 
-    assert.equal(serialize(nextState, machineInputValue(nextState, machine)), (
-      '(I user)'
-    ))
+    assert.equal(serialize(nextState, machineInputValue(nextState, machine)),
+                 '(I user)'
+    )
     assert.equal(serialize(nextState, output), '(I ready)')
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I done)'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I done)'
+    )
   })
 
   test('compileMachine uses JS definitions and final expression as output', () => {
@@ -503,9 +507,9 @@ describe('passive Lisp compiler', () => {
       `)
     )
 
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '((x z) (y z))'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '((x z) (y z))'
+    )
   })
 
   test('compileMachine keeps definitions without forcing output', () => {
@@ -623,9 +627,9 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(I a)')[1].text, '(I a)')
     assert.equal(run(state, '(K a b)')[1].text, '((K a) b)')
     assert.equal(run(state, '(S a b c)')[1].text, '(((S a) b) c)')
-    assert.equal(run(state, '(first ((pair a) b))')[1].text, (
-      '(first ((pair a) b))'
-    ))
+    assert.equal(run(state, '(first ((pair a) b))')[1].text,
+                 '(first ((pair a) b))'
+    )
   })
 
   test('WASM graph is selected without reducing', async () => {
@@ -703,12 +707,12 @@ describe('passive Lisp compiler', () => {
     assert.equal(run(state, '(one f x)')[1].text, '(f x)')
     assert.equal(run(state, '(two f x)')[1].text, '(f (f x))')
     assert.equal(run(state, '(succ one f x)')[1].text, '(f (f x))')
-    assert.equal(run(state, '(add one two f x)')[1].text, (
-      '(f (f (f x)))'
-    ))
-    assert.equal(run(state, '(mul two two f x)')[1].text, (
-      '(f (f (f (f x))))'
-    ))
+    assert.equal(run(state, '(add one two f x)')[1].text,
+                 '(f (f (f x)))'
+    )
+    assert.equal(run(state, '(mul two two f x)')[1].text,
+                 '(f (f (f (f x))))'
+    )
     assert.equal(run(state, '(is-zero zero x y)')[1].text, 'x')
     assert.equal(run(state, '(is-zero one x y)')[1].text, 'y')
   })
@@ -806,15 +810,15 @@ describe('passive Lisp compiler', () => {
       parse('(I a) (I b)')
     )
 
-    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)), (
-      '(I a)'
-    ))
-    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)), (
-      '(I b)'
-    ))
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I a)'
-    ))
+    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)),
+                 '(I a)'
+    )
+    assert.equal(serialize(nextState, machineStepOutput(nextState, machine)),
+                 '(I b)'
+    )
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I a)'
+    )
   })
 
   test('machineStep advances WASM root through expression states', async () => {
@@ -826,14 +830,14 @@ describe('passive Lisp compiler', () => {
     const first = machineCurrent(nextState, machine)
     const second = nextState.runtime.right(first)
 
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I a)'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I a)'
+    )
     assert.equal(machineStep(nextState, machine), second)
     assert.equal(machineCurrent(nextState, machine), second)
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I b)'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I b)'
+    )
     assert.equal(machineStep(nextState, machine), first)
     assert.equal(machineCurrent(nextState, machine), first)
   })
@@ -869,9 +873,9 @@ describe('passive Lisp compiler', () => {
 
     machineWriteInput(inputState, machine, graph)
 
-    assert.equal(serialize(inputState, machineInputValue(inputState, machine)), (
-      '(I a)'
-    ))
+    assert.equal(serialize(inputState, machineInputValue(inputState, machine)),
+                 '(I a)'
+    )
   })
 
   test('machineSourceStep connects WASM source input and advances output', async () => {
@@ -887,13 +891,13 @@ describe('passive Lisp compiler', () => {
       '(I user)'
     )
 
-    assert.equal(serialize(nextState, machineInputValue(nextState, machine)), (
-      '(I user)'
-    ))
+    assert.equal(serialize(nextState, machineInputValue(nextState, machine)),
+                 '(I user)'
+    )
     assert.equal(serialize(nextState, output), '(I ready)')
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '(I done)'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '(I done)'
+    )
   })
 
   test('compileMachine uses WASM definitions and final expression as output', async () => {
@@ -906,9 +910,9 @@ describe('passive Lisp compiler', () => {
       `)
     )
 
-    assert.equal(serialize(nextState, machineOutput(nextState, machine)), (
-      '((x z) (y z))'
-    ))
+    assert.equal(serialize(nextState, machineOutput(nextState, machine)),
+                 '((x z) (y z))'
+    )
   })
 
   test('a custom JS runtime can be supplied', () => {

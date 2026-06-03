@@ -1,99 +1,57 @@
 # Graph Reduction
 
-This page encodes a tiny Lisp surface syntax as *binary pairs*:
+This page encodes a tiny Lisp surface syntax as binary pair graphs:
 
-- `()` is the empty list
-- `(a b)` is a pair (also used as an application node)
-- `(f x y z)` is left-associated as `(((f x) y) z)`
-- `(def name body)` and `(defn name (x y ...) body)` work like the Basis
-  prelude and expand before stepping
+- `()` is the local root/identity pattern.
+- `(a b)` is a pair, and application is ordinary pair structure.
+- `(f x y z)` is left-associated as `(((f x) y) z)`.
+- `(define name body)` creates a source alias.
+- `(define (name x y ...) body)` creates a source function.
 
-The current mechanics are:
+The source loader expands definitions into graph motifs before observation.
+Fully applied function calls are compiled into structural wrappers: the wrapper
+contains both the source argument shape and the graph that should be exposed
+when the observer reaches the matching boundary.
 
-- The compiler encodes numeric `def` templates and fully applied
-  parameter-only `defn` bodies to shared fixed-point argument closures.
-- `serialize` shows those closures as folding instructions: remaining
-  closures become dense slot numbers, and the staged argument payloads are
-  appended in fill order.
-- Numeric atoms in serialized output name fixed pairs. In a fold they are
-  ordered slots from one closure group; outside a fold they are traversal-local
-  labels for raw fixed pairs.
-- `observe` performs one leftmost-outermost step over a whole term
-- `[self, value]` is the fixed-point motif, and observing it fires to `value`
-
-Example motif (S kernel body):
+The smallest runtime operation is still one observation step. A frame is:
 
 ```
-((0 2) (1 2))
+[observer, focus]
 ```
 
-Applied as:
+Starting from `focus`, `observe` walks the left spine until it finds a pair
+whose first slot is exactly `observer`, then returns that pair's second slot.
+The walk does not allocate, mutate, normalize, or know Lisp names.
+
+For example:
 
 ```
-(((((0 2) (1 2)) a) b) c)
+(define (S a b c) ((a c) (b c)))
+(S x y z)
 ```
 
-The folding projection exposes each staged step:
+compiles to a self-rooted wrapper and one observation exposes:
 
 ```
-(((((0 2) (1 2)) a) b) c)
-((((a 1) (0 1)) b) c)
-((a c) (b c))
+((x z) (y z))
 ```
 
-The Lisp and tree views show this projection. In the last line, the two `c`
-positions are equal as text; in the live `S` graph they may also be one hidden
-shared continuation by reference identity. A 2D tree can repeat the label, but
-the extra graph dimension is what represents sharing without copying. The
-lattice view is a literal graph sketch of pair nodes, shared arguments, and
-fixed-point loops.
-
-## Design Principle
-
-Potential is the space of admissible futures. Observation is a local boundary
-event that reduces that space without inventing history. In this project, fixed
-pairs are not substitutions or shortcuts: they are graph-local ways to keep
-potential visible until `observe` reaches the boundary where one event may fire.
-Shared continuations matter only when observation reaches the shared object;
-forcing a hidden future early would invent history.
+The two `z` positions are one shared graph value, not copied text. The tree view
+duplicates that value for readability; the lattice view shows the sharing and
+fixed-point loops directly.
 
 ## Boundary
 
 There are three layers in the current lab:
 
-- `observe` is the machine. It sees only atoms, `()`, pairs, reference
-  identity, and shared continuations. It does not know Lisp names, definitions,
-  arity, substitution, or folding instructions.
-- `compile` is the source loader. It expands the Lisp prelude, encodes n-ary
-  application to pairs, and builds shared fixed-point closures when a complete
-  source form gives it enough arguments.
-- `serialize` is a projection. It can show the live graph as reversible
-  folding instructions, or show passive compiler closures as their filled
-  source values so settled expressions stay readable.
+- `observe` is the tiny machine step over pairs and reference identity.
+- `lisp.js` is the source loader and graph builder.
+- `serialize` is a projection from graph structure back to readable text.
 
-This is enough for `Z` to build fixed points from named source functions. For
-example, `(fix (K a))` exposes `(0 a)` and then `a`, and
-`((fix (K a)) b)` exposes `((0 a) b)` and then `(a b)`. The stateless `Y` form
-can also tie an active fixed-point loop; `(Y I)` keeps producing observer steps
-rather than settling.
+The dashboard uses this same boundary. It compiles the source into an
+observable graph, displays the current graph, and advances by applying the
+current runtime's `observe` once.
 
-There is no separate transition form in the compiler. A recursive-looking
-function call such as:
-
-```
-(defn STEP (self state) (self (state tick)))
-((STEP f) seed)
-```
-
-settles normally to `(f (seed tick))`; `self` is just a parameter bound to `f`.
-State stays live only when the graph contains a fixed-point knot, as with:
-
-```
-(defn STEP (self state) (self (state tick)))
-((Z STEP) seed)
-```
-
-That expression does not settle, and its projected frames keep both `seed` and
-later `tick` events visible. Atom-headed updates are still observation
-boundaries. A body such as `(self (next state))` can carry `seed`, but
-observation stops at `next` because atoms are terminals.
+The active compiler for this page is the observer-local Lisp compiler in
+`observer/lisp.js`, which can target either JavaScript arrays or the WASM
+pointer heap.

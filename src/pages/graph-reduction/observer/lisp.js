@@ -1,4 +1,4 @@
-import { parse as read } from '../../graph/parse.js'
+import { parse as read } from '../graph/parse.js'
 import { observe as observeFrame } from './observe.js'
 import { createWasmCore } from './wasm.js'
 
@@ -76,7 +76,7 @@ export const createJsRuntime = () => {
     setRight: (pair, value) => {
       pair[1] = value
       return pair
-    },
+    }
   }
 }
 
@@ -102,7 +102,7 @@ export const createWasmRuntime = async () => {
     right: core.right,
     setLeft: core.setLeft,
     setRight: core.setRight,
-    size: core.size,
+    size: core.size
   }
 }
 
@@ -122,7 +122,7 @@ export const init = (runtime = createJsRuntime()) => ({
   definitions: new Map(),
   runtime,
   symbols: new Map(),
-  values: new Map(),
+  values: new Map()
 })
 
 /**
@@ -171,7 +171,7 @@ const isPair = Array.isArray
 
 const withState = (state, changes) => ({
   ...state,
-  ...changes,
+  ...changes
 })
 
 const chain = (first, rest) =>
@@ -202,7 +202,7 @@ const unchain = term => {
   const prefix = unchain(term[0])
   return {
     args: [...prefix.args, term[1]],
-    first: prefix.first,
+    first: prefix.first
   }
 }
 
@@ -219,7 +219,7 @@ const resolveTerm = (term, aliases, seen = []) => {
 
   return [
     resolveTerm(term[0], aliases, seen),
-    resolveTerm(term[1], aliases, seen),
+    resolveTerm(term[1], aliases, seen)
   ]
 }
 
@@ -308,17 +308,17 @@ export const serialize = (state, graph, path = '$', seen = new Map()) => {
     serialize(state, state.runtime.left(graph), `${path}[0]`, seen),
     ' ',
     serialize(state, state.runtime.right(graph), `${path}[1]`, seen),
-    ')',
+    ')'
   ].join('')
 }
 
 const chainArgs = (state, values) =>
   values.length
     ? chainRuntime(
-        state,
-        values[0].graph,
-        values.slice(1).map(value => value.graph)
-      )
+      state,
+      values[0].graph,
+      values.slice(1).map(value => value.graph)
+    )
     : state.runtime.I
 
 const closureGraph = (state, closure) =>
@@ -347,7 +347,7 @@ const pairDefinition = (
     const closure = { definition, values: allValues }
     return [
       argsState,
-      { closure, graph: closureGraph(argsState, closure) },
+      { closure, graph: closureGraph(argsState, closure) }
     ]
   }
 
@@ -370,7 +370,7 @@ const pairDefinition = (
 
   return [bodyState, {
     graph,
-    pair: chainArgs(bodyState, allValues),
+    pair: chainArgs(bodyState, allValues)
   }]
 }
 
@@ -387,7 +387,7 @@ const compileNode = (state, term, bindings = new Map()) => {
     if (state.definitions.has(term)) {
       const closure = {
         definition: state.definitions.get(term),
-        values: [],
+        values: []
       }
       return [state, { closure, graph: closureGraph(state, closure) }]
     }
@@ -426,7 +426,7 @@ const compileNode = (state, term, bindings = new Map()) => {
       argsState,
       firstValue.graph,
       values.map(value => value.graph)
-    ),
+    )
   }]
 }
 
@@ -445,15 +445,11 @@ const graphFor = (state, compiled) => {
   )
 }
 
-const targetFor = (state, compiled) => ({
-  frame: graphFor(state, compiled),
-})
-
 const compileAstTarget = (state, sourceAst) => {
   const form = resolveTerm(sourceAst, state.aliases)
   const [nextState, compiled] = compileNode(state, form)
 
-  return [nextState, targetFor(nextState, compiled)]
+  return [nextState, { frame: graphFor(nextState, compiled) }]
 }
 
 const compileAst = (state, sourceAst) => {
@@ -545,7 +541,7 @@ const compileFunctionDefinition = (state, signature, body) => {
   const [name, ...params] = signature.map(String)
   const definition = {
     body: ast(body),
-    params,
+    params
   }
 
   return [setDefinition(state, name, definition), null]
@@ -576,7 +572,7 @@ const compileFormTarget = (state, form) => {
 }
 
 const emptyTarget = state => ({
-  frame: state.runtime.frame(state.runtime.I, state.runtime.I),
+  frame: state.runtime.frame(state.runtime.I, state.runtime.I)
 })
 
 const machineFor = (state, targets) => {
@@ -629,7 +625,7 @@ export const compile = (state, forms) => {
 
   return [
     nextState,
-    graph ?? nextState.runtime.frame(nextState.runtime.I, nextState.runtime.I),
+    graph ?? nextState.runtime.frame(nextState.runtime.I, nextState.runtime.I)
   ]
 }
 
@@ -652,7 +648,7 @@ export const compileMachine = (state, forms) => {
       const [formState, formTarget] = compileFormTarget(currentState, form)
       return [
         formState,
-        formTarget ? [...currentTargets, formTarget] : currentTargets,
+        formTarget ? [...currentTargets, formTarget] : currentTargets
       ]
     },
     [state, []]
@@ -663,7 +659,7 @@ export const compileMachine = (state, forms) => {
     machineFor(
       nextState,
       targets.length ? targets : [emptyTarget(nextState)]
-    ),
+    )
   ]
 }
 
