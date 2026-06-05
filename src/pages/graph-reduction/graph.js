@@ -248,7 +248,7 @@ export const serialize = form =>
     .replace(/,/g, ' ').replace(/"/g, '')
 
 export const observe = (pair, trace) =>
-  (trace?.(pair), pair[0] === pair ? pair[1] : observe(pair[0], trace))
+  (trace?.(pair), pair[0] === pair ? pair : observe(pair[0], trace))
 
 // if (process.argv[1] === fileURLToPath(import.meta.url)) {
 //   let N = 1
