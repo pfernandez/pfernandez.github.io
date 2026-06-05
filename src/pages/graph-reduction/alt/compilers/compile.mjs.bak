@@ -1,0 +1,201 @@
+import { readFileSync } from 'node:fs'
+
+const tokenize = src =>
+  [...src.matchAll(/(;.*$)|"([^"\\]|\\.)*"|[()]|[^()\s]+/gm)]
+    .filter(m => !m[1])
+    .map(m =>
+      (lines =>
+        ({ text: m[0],
+           value: m[0].startsWith('"')
+             ? m[0].slice(1, -1).replace(/\\"/g, '"')
+             : isNaN(Number(m[0])) || m[0].trim() === '' ? m[0] : Number(m[0]),
+           line: lines.length,
+           col: lines.at(-1).length + 1 }))(src.slice(0, m.index).split('\n')))
+
+const err = (msg, tok) =>
+  { throw new Error(tok ? `${msg} at line ${tok.line}, col ${tok.col}` : msg) }
+
+const parse = tokens =>
+  (res => res.stack.length > 0 ? err('Missing )') : res.ast)(
+    tokens.reduce((state, token) =>
+      token.text === '('
+        ? { ...state, stack: [...state.stack, state.ast], ast: [] }
+        : token.text === ')'
+          ? state.stack.length === 0
+            ? err('Unexpected )', token)
+            : { ...state,
+                ast: state.stack.at(-1)
+                  ? [...state.stack.at(-1), state.ast]
+                  : state.ast,
+                stack: state.stack.slice(0, -1) }
+          : state.ast === null
+            ? { ...state, ast: token.value }
+            : Array.isArray(state.ast)
+              ? { ...state, ast: [...state.ast, token.value] }
+              : err('Unexpected token outside of expression', token),
+      { ast: null, stack: [] }))
+
+const compile = ast => {
+  const [_let, definitions, bodyExpr] = ast
+  const env = {}
+
+  const flattenArguments = expr =>
+    !Array.isArray(expr)
+      ? [expr]
+      : expr.length === 0
+        ? []
+        : expr.length === 2 && Array.isArray(expr[0])
+          ? [...flattenArguments(expr[0]), expr[1]]
+          : expr
+
+  const applyArgs = (head, args) =>
+    args.reduce((spine, arg) => [spine, arg], head)
+
+  // Pre-allocate the root array for every core combinator name.
+  const rulesByRoot = new Map()
+  definitions.forEach(([pattern, targetExpr]) => {
+    const flat = flattenArguments(pattern)
+    const root = []
+    const rule = { params: flat.slice(1), root, targetExpr }
+    env[flat[0]] = root  // e.g. { I: [] }
+
+    console.log({
+      definitions: definitions.map(JSON.stringify),
+      pattern, flat, root, env,
+      rule: { ...rule, targetExpr: JSON.stringify(targetExpr) }, root });
+
+    rulesByRoot.set(root, rule)
+  })
+
+  const activeCalls = []
+  const sameArgs = (left, right) =>
+    left.length === right.length && left.every((arg, i) => arg === right[i])
+
+  console.log({
+    ast: ast.map(JSON.stringify),
+    definitions: definitions.map(JSON.stringify),
+    body: bodyExpr.map(JSON.stringify),
+    rulesByRoot: [...rulesByRoot].map(JSON.stringify),
+    activeCalls
+  }, '\n');
+
+  const wireExpr = (form, locals = {}) => {
+
+    console.log({ env, form: JSON.stringify(form), locals });
+
+    if (!Array.isArray(form)) {
+      if (Object.hasOwn(locals, form)) return locals[form]
+      return env[form] !== undefined ? env[form] : form
+    }
+
+    if (form.length === 0) return []
+
+    const [headForm, ...argForms] = flattenArguments(form)
+
+    console.log({ headForm, argForms });
+
+    const head = wireExpr(headForm, locals)
+    const args = argForms.map(arg => wireExpr(arg, locals))
+    const rule = rulesByRoot.get(head)
+
+    if (!rule || args.length < rule.params.length) return applyArgs(head, args)
+
+    const seen = activeCalls.find(call =>
+      call.rule === rule && sameArgs(call.args, args))
+    if (seen) return seen.focus
+
+    const root = []
+    const focus = applyArgs(root, args)
+    const matchedArgs = args.slice(0, rule.params.length)
+    const extraForms = argForms.slice(rule.params.length)
+    const projectionForm = applyArgs(rule.targetExpr, extraForms)
+    const ruleLocals = {
+      ...locals,
+      ...Object.fromEntries(rule.params.map((param, i) => [param, matchedArgs[i]]))
+    }
+
+    activeCalls.push({ rule, args, focus })
+    root[0] = focus
+    root[1] = wireExpr(projectionForm, ruleLocals)
+    activeCalls.pop()
+
+    return focus
+  }
+
+  return wireExpr(bodyExpr)
+}
+
+const serialize = s =>
+  s.replace(/[\[]/g, '(').replace(/[\]]/g, ')')
+   .replace(/,/g, ' ').replace(/"/g, '')
+
+let N = 1
+const trace = (console.log(),
+  (form, clone = (expr, path = '$', seen = new Map()) =>
+    !Array.isArray(expr) ? expr
+      : seen.has(expr) ? seen.get(expr)
+      : (seen.set(expr, path),
+         expr.map((item, i) => clone(item, `${path}.${i}`, seen)))) =>
+  console.log(N++, serialize(JSON.stringify(clone(form))), '\n'))
+
+export const observe = focus => {
+  const step = pair => (
+    trace(pair),
+    (pair[0] === focus) ? pair[1] : step(pair[0]))  // pair is one rotation
+                                                    // back to root; into focus
+  return step(focus)
+}
+
+const ast = parse(tokenize(readFileSync('./core.lisp', 'utf-8')))
+const graph = compile(ast)
+
+trace(observe(graph))
+
+// ()
+const I = []
+
+// (() ())
+I[0] = I
+I[1] = I
+
+// (() x) -> x
+I[1][0] = I
+I[1][1] = 'x'
+// trace(I, 'I', observe(I))
+
+// ((() x) y) -> x
+const K = []
+K[0] = K
+K[1] = 'y'
+K[0][0] = K
+K[0][1] = 'x'
+// trace(K, 'K', observe(K))
+
+const x = 'x'
+const y = 'y'
+const z = 'z'
+
+const S = []
+const Sx = [S, x]
+const Sxy = [Sx, y]
+const Sxyz = [Sxy, z]
+
+// Define S's reduction destination rule by identity
+// When the left spine reduces down to S, it projects the application tree
+S[0] = Sxyz // Loops back to allow continuous evaluation
+S[1] = [ [x, z], [y, z] ]
+
+// trace(Sxyz, 'S', observe(Sxyz))
+
+const Z = []
+Z[0] = []
+Z[1] = 'x'
+Z[0][0] = Z
+Z[0][1] = Z
+
+// const Z_1 = observe(Z)
+// const Z_2 = observe(Z_1)
+// const Z_3 = observe(Z_2)
+// trace(Z)
+// trace(Z_1)
+// trace(Z_2)
