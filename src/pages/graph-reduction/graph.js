@@ -1,6 +1,3 @@
-// import { readFileSync } from 'node:fs'
-// import { fileURLToPath } from 'node:url'
-
 const tokenize = src =>
   [...src.matchAll(/(;.*$)|"([^"\\]|\\.)*"|[()]|[^()\s]+/gm)]
     .filter(m => !m[1])
@@ -16,225 +13,178 @@ const tokenize = src =>
 const err = (msg, tok) =>
 { throw new Error(tok ? `${msg} at line ${tok.line}, col ${tok.col}` : msg) }
 
-const pairForm = form =>
+const read = tokens => {
+  let index = 0
+
+  const form = () => {
+    const token = tokens[index++]
+    if (!token) err('Missing expression')
+    if (token.text === '(') return list(token)
+    if (token.text === ')') err('Unexpected )', token)
+    return token.value
+  }
+
+  const list = opener => {
+    const items = []
+    while (index < tokens.length && tokens[index].text !== ')')
+      items.push(form())
+    if (index >= tokens.length) err('Missing )', opener)
+    index += 1
+    return items
+  }
+
+  const forms = []
+  while (index < tokens.length) forms.push(form())
+  if (forms.length === 0) err('Missing expression')
+  return forms
+}
+
+const binding = (name, bindings) =>
+  bindings.find(([mark]) => mark === name)
+
+const bound = (value, bindings) =>
+  bindings.some(([, node]) => node === value)
+
+const lookup = (name, scopes) => {
+  for (const scope of scopes) {
+    const match = binding(name, scope)
+    if (match) return match[1]
+  }
+}
+
+const sourceDefinition = (form, scope) =>
   Array.isArray(form) && form.length === 2
+    && typeof form[0] === 'string' && !binding(form[0], scope.names)
 
-const empty = form =>
-  Array.isArray(form) && form.length === 0
+const stable = form =>
+  Array.isArray(form) && form[0] === form
 
-const parse = tokens => {
-  const sourceItems = form =>
-    Array.isArray(form) && form.length === 2 && Array.isArray(form[0])
-      ? [...sourceItems(form[0]), form[1]]
-      : Array.isArray(form) ? form : [form]
+const atom = (form, scope) =>
+  !Array.isArray(form) || stable(form) || bound(form, scope.names)
 
-  const fixed = form =>
-    pairForm(form) && empty(form[0])
+const symbol = form =>
+  typeof form === 'string'
 
-  const spine = form =>
-    fixed(form) || pairForm(form) && spine(form[1])
+const unique = forms =>
+  forms.every((form, i) => !forms.slice(0, i).includes(form))
 
-  const history = form =>
-    pairForm(form) && !fixed(form) && spine(form[1])
+const flat = (first, rest) => rest.length ? [first, ...rest] : first
 
-  const checkEmpty = form => {
-    if (!Array.isArray(form)) return
-    if (empty(form)) err('Empty pairs only fix a following form')
-    if (empty(form[0])) {
-      if (form.length !== 2) err('Empty pairs only fix one following form')
-      checkEmpty(form[1])
-      return
-    }
-    form.forEach(checkEmpty)
-  }
+const spine = (first, rest) => rest.reduce((form, next) => [form, next], first)
 
-  const checkHistory = form => {
-    if (fixed(form)) return
-    if (!pairForm(form[0]) || !Array.isArray(form[0][0]))
-      err('Definitions must be pairs')
-    if (sourceItems(form[0][0]).length < 2)
-      err('Nullary definitions need a runtime identity node')
-    checkHistory(form[1])
-  }
+const outputs = { flat, spine }
 
-  // Read tokens into source groups, rejecting forms with no runtime node.
-  const result = tokens.reduce(({ ast, stack }, token) => {
-    if (token.text === '(') return { ast: [], stack: [...stack, ast] }
+const root = (form, scope, args = []) =>
+  atom(form, scope) ? { head: form, args }
+    : root(form[0], scope, [...form.slice(1), ...args])
 
-    if (token.text !== ')') {
-      if (ast === null) return { ast: token.value, stack }
-      if (!Array.isArray(ast))
-        err('Unexpected token outside of expression', token)
-      return { ast: [...ast, token.value], stack }
-    }
-
-    if (stack.length === 0) err('Unexpected )', token)
-
-    const parent = stack.at(-1)
-    if (parent !== null && !Array.isArray(parent))
-      err('Unexpected token outside of expression', token)
-
-    return {
-      ast: parent === null ? ast : [...parent, ast],
-      stack: stack.slice(0, -1)
-    }
-  }, { ast: null, stack: [] })
-
-  if (result.stack.length > 0) err('Missing )')
-  if (result.ast === null) err('Missing expression')
-
-  checkEmpty(result.ast)
-  if (history(result.ast)) checkHistory(result.ast)
-
-  return result.ast
-}
-
-
-const fix = after => {
-  const self = []
-  self[0] = self
-  self[1] = after
-  return self
-}
-
-
-const fixedSource = form =>
-  Array.isArray(form) && form.length === 2 && empty(form[0])
-
-// Fold source sequences into pair geometry: (a b c) => ((a b) c).
-// The source form (() x) becomes a fixed pair with x after it.
-const foldSource = form =>
-  fixedSource(form) ? fix(foldSource(form[1]))
-    : Array.isArray(form)
-      ? form.map(foldSource).reduce((before, after) => [before, after])
+const build = (form, scopes) =>
+  Array.isArray(form) ? form.map(item => build(item, scopes))
+    : typeof form === 'string' ? lookup(form, scopes) ?? form
       : form
 
+const replace = (form, pairs, scope, seen = new Map()) => {
+  const match = pairs.find(([from]) => form === from)
+  if (match) return match[1]
+  if (atom(form, scope)) return form
+  if (seen.has(form)) return seen.get(form)
 
-const connect = ast => {
-  const base = { shapes: [], identities: [], observations: [] }
-
-  // A pair tied back to itself is a node, not another source list to
-  // descend into.
-  const reaches = (form, node, seen = []) =>
-    form === node
-      || Array.isArray(form) && !seen.includes(form)
-       && reaches(form[0], node, [...seen, form])
-
-  const atom = (form, space) =>
-    !Array.isArray(form) || reaches(form[0], form)
-      || space.shapes.includes(form)
-
-  const chain = (before, after) =>
-    after.reduce((past, next) => [past, next], before)
-
-  // Follow before-links to the root identity, collecting the after-context.
-  const root = (form, space, after = []) =>
-    atom(form, space)
-      ? { before: form, after }
-      : root(form[0], space, [form[1], ...after])
-
-  // The before-spine of a definition exposes one exported mark followed by
-  // local marks.
-  const frontier = (form, marks = []) =>
-    Array.isArray(form)
-      ? frontier(form[0], [form[1], ...marks])
-      : [form, marks]
-
-  // Collapse a matching source mark into its identity node.
-  const identify = (form, [mark, node], space) =>
-    form === mark ? node
-      : atom(form, space) ? form
-        : form.map(part => identify(part, [mark, node], space))
-
-  // Fold local identity nodes onto observed after-nodes.
-  const fold = (form, pairs, space) =>
-    (match => match ? match[1]
-      : atom(form, space) ? form
-        : form.map(item => fold(item, pairs, space)))(
-      pairs.find(([from]) => form === from))
-
-  const tie = (form, space) => {
-    if (atom(form, space)) return form
-
-    const { before, after } = root(form, space)
-    const tied = after.map(item => tie(item, space))
-
-    // Shapes without enough after-context remain ordinary pair chains.
-    if (!space.shapes.includes(before) || tied.length < before[0].length)
-      return chain(before, tied)
-
-    // If recursion reaches the same shape and after-context, reuse that focus.
-    const observation = space.observations.find(([shape, seen]) =>
-      shape === before && seen.length === tied.length
-        && seen.every((item, i) => item === tied[i]))
-    if (observation) return observation[2]
-
-    // Tie a stable self to the connected output.
-    const self = []
-    const focus = chain(self, tied)
-    const locals = before[0].map((local, i) => [local, tied[i]])
-    const output = chain(before[1], tied.slice(before[0].length))
-
-    self[0] = self
-    self[1] = tie(
-      fold(output, locals, space),
-      { ...space,
-        observations: [[before, tied, focus], ...space.observations] })
-
-    return focus
-  }
-
-  const fixed = form =>
-    Array.isArray(form) && form[0] === form
-
-  const definition = form =>
-    Array.isArray(form) && form.length === 2 && Array.isArray(form[0])
-
-  const history = form =>
-    Array.isArray(form) && form.length === 2
-      && definition(form[0]) && (fixed(form[1]) || history(form[1]))
-
-  // The before side exports identities in order, so later shapes can point at
-  // earlier ones.
-  const define = (space, source) => {
-    const def = space.identities.reduce((form, identity) =>
-      identify(form, identity, space), source)
-    const [mark, localMarks] = frontier(def[0])
-    const locals = localMarks.map(() => [])
-    const shape = [locals]
-    const next = {
-      ...space,
-      shapes: [...space.shapes, shape],
-      identities: [...space.identities, [mark, shape]]
-    }
-
-    // Local identity nodes return to their exported shape.
-    locals.forEach(local => {
-      local[0] = local
-      local[1] = shape
-    })
-
-    // The output shares identity with its local marks and exported mark.
-    shape[1] = identify(
-      localMarks.map((localMark, i) => [localMark, locals[i]])
-        .reduce((form, identity) => identify(form, identity, next), def[1]),
-      [mark, shape],
-      next)
-
-    return next
-  }
-
-  const connectHistory = (form, space) =>
-    fixed(form)
-      ? tie(space.identities.reduce((focus, identity) =>
-        identify(focus, identity, space), form[1]), space)
-      : connectHistory(form[1], define(space, form[0]))
-
-  return history(ast) ? connectHistory(ast, base) : tie(ast, base)
+  const copy = []
+  seen.set(form, copy)
+  form.forEach(item => copy.push(replace(item, pairs, scope, seen)))
+  return copy
 }
 
-export const compile = source =>
-  connect(foldSource(parse(tokenize(source))))
+const tie = (form, scope, bind) => {
+
+  // trace(form)
+  // Object.entries(scope).forEach(trace)
+  // console.log(scope)
+
+  if (atom(form, scope)) return form
+
+  const { head, args } = root(form, scope)
+  const tied = args.map(arg => tie(arg, scope, bind))
+
+  if (!bound(head, scope.names) || tied.length < head.length - 1)
+    return bind(head, tied)
+
+  const self = []
+  const focus = bind(self, tied)
+  const slots = head.slice(1)
+  const pairs = slots.map((slot, i) => [slot, tied[i]])
+  const body = bind(head[0], tied.slice(slots.length))
+
+  self[0] = self
+  self[1] = replace(body, pairs, scope)
+
+  return focus
+}
+
+const flatDefinition = shape =>
+  Array.isArray(shape) && shape.length >= 2 && shape.slice(1).every(symbol)
+    ? [shape[0], shape.slice(1)]
+    : null
+
+const spineDefinition = (shape, scope, slots = []) =>
+  Array.isArray(shape) && shape.length === 2 && symbol(shape[1])
+    && !binding(shape[1], scope.names)
+    ? spineDefinition(shape[0], scope, [shape[1], ...slots])
+    : slots.length ? [shape, slots] : null
+
+const definitionShape = (shape, scope) => {
+  const flatShape = flatDefinition(shape)
+  const spineShape = spineDefinition(shape, scope)
+
+  if (spineShape && unique(spineShape[1])
+      && (!flatShape || spineShape[1].length > flatShape[1].length))
+    return spineShape
+  return flatShape ?? spineShape
+}
+
+const define = ([name, shape], scope) => {
+  const parts = definitionShape(shape, scope)
+  if (!parts)
+    err('Definitions need a body and at least one slot')
+
+  const [body, marks] = parts
+  const fn = []
+  const local = []
+  const slots = marks.map(mark => {
+    if (binding(mark, local)) err('Definition slots must be unique')
+
+    const slot = []
+    slot[0] = slot
+    slot[1] = fn
+    local.push([mark, slot])
+    return slot
+  })
+
+  scope.names.push([name, fn])
+  fn.push(build(body, [local, scope.names]), ...slots)
+  return fn
+}
+
+export const compile = (source, { output = 'flat' } = {}) => {
+  const bind = outputs[output]
+  if (!bind) err(`Unknown output: ${output}`)
+
+  const scope = { names: [] }
+  let focus
+
+  read(tokenize(source)).forEach(form => {
+    if (sourceDefinition(form, scope)) {
+      define(form, scope)
+      focus = undefined
+      return
+    }
+
+    focus = tie(build(form, [scope.names]), scope, bind)
+  })
+
+  if (focus === undefined) err('Missing focus')
+  return focus
+}
 
 const paths = (expr, path = '$', seen = new Map()) =>
   !Array.isArray(expr) ? expr
@@ -247,12 +197,28 @@ export const serialize = form =>
     ?.replace(/[\[]/g, '(').replace(/[\]]/g, ')')
     .replace(/,/g, ' ').replace(/"/g, '')
 
-export const observe = (pair, trace) =>
-  (trace?.(pair), pair[0] === pair ? pair : observe(pair[0], trace))
+export const observe = (pair, trace) => (
+  trace?.(pair),
+  !Array.isArray(pair) ? pair
+    : pair[0] === pair ? pair[1]
+      : observe(pair[0], trace))
 
-// if (process.argv[1] === fileURLToPath(import.meta.url)) {
-//   let N = 1
-//   const trace = form => console.log(N++, serialize(form), '\n')
-//   const root = compile(readFileSync('./core.lisp', 'utf-8'))
-//   trace(observe(root))
-// }
+let N = 0
+const trace = form => console.log(N++, serialize(form), '\n')
+
+const main = () =>
+  typeof process !== 'undefined'
+    && process.argv[1]
+    && decodeURIComponent(new URL(import.meta.url).pathname) === process.argv[1]
+
+if (main()) {
+  const { readFileSync } = await import('node:fs')
+  const mode = outputs[process.argv[2]] ? process.argv[2] : process.argv[3]
+  const file = outputs[process.argv[2]]
+    ? new URL('./core.lisp', import.meta.url)
+    : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
+
+  const root = compile(readFileSync(file, 'utf-8'),
+                       { output: mode })  // 'flat' (default) or 'spine'
+  observe(observe(root, trace))
+}
