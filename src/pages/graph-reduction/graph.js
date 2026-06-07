@@ -68,6 +68,12 @@ const symbol = form =>
 const unique = forms =>
   forms.every((form, i) => !forms.slice(0, i).includes(form))
 
+const call = (head, args, calls) =>
+  calls.find(([fn, seen]) =>
+    fn === head
+      && seen.length === args.length
+      && seen.every((arg, i) => arg === args[i]))
+
 const flat = (first, rest) => rest.length ? [first, ...rest] : first
 
 const spine = (first, rest) => rest.reduce((form, next) => [form, next], first)
@@ -95,7 +101,7 @@ const replace = (form, pairs, scope, seen = new Map()) => {
   return copy
 }
 
-const tie = (form, scope, bind) => {
+const tie = (form, scope, bind, recursive = false, calls = []) => {
 
   // trace(form)
   // Object.entries(scope).forEach(trace)
@@ -104,19 +110,27 @@ const tie = (form, scope, bind) => {
   if (atom(form, scope)) return form
 
   const { head, args } = root(form, scope)
-  const tied = args.map(arg => tie(arg, scope, bind))
+  const tied = args.map(arg => tie(arg, scope, bind, recursive, calls))
 
   if (!bound(head, scope.names) || tied.length < head.length - 1)
     return bind(head, tied)
+
+  if (recursive) {
+    const active = call(head, tied, calls)
+    if (active) return active[2]
+  }
 
   const self = []
   const focus = bind(self, tied)
   const slots = head.slice(1)
   const pairs = slots.map((slot, i) => [slot, tied[i]])
   const body = bind(head[0], tied.slice(slots.length))
+  const replaced = replace(body, pairs, scope)
 
   self[0] = self
-  self[1] = replace(body, pairs, scope)
+  self[1] = recursive
+    ? tie(replaced, scope, bind, recursive, [[head, tied, focus], ...calls])
+    : replaced
 
   return focus
 }
@@ -165,7 +179,7 @@ const define = ([name, shape], scope) => {
   return fn
 }
 
-export const compile = (source, { output = 'flat' } = {}) => {
+export const compile = (source, { output = 'flat', tie: recursive = false } = {}) => {
   const bind = outputs[output]
   if (!bind) err(`Unknown output: ${output}`)
 
@@ -179,7 +193,7 @@ export const compile = (source, { output = 'flat' } = {}) => {
       return
     }
 
-    focus = tie(build(form, [scope.names]), scope, bind)
+    focus = tie(build(form, [scope.names]), scope, bind, recursive)
   })
 
   if (focus === undefined) err('Missing focus')
@@ -213,12 +227,13 @@ const main = () =>
 
 if (main()) {
   const { readFileSync } = await import('node:fs')
-  const mode = outputs[process.argv[2]] ? process.argv[2] : process.argv[3]
-  const file = outputs[process.argv[2]]
-    ? new URL('./core.lisp', import.meta.url)
-    : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
+  const args = process.argv.slice(2)
+  const mode = args.find(arg => outputs[arg])
+  const recursive = args.includes('tie')
+  const file = args.find(arg => !outputs[arg] && arg !== 'tie')
+    ?? new URL('./core.lisp', import.meta.url)
 
   const root = compile(readFileSync(file, 'utf-8'),
-                       { output: mode })  // 'flat' (default) or 'spine'
+                       { output: mode, tie: recursive })
   observe(observe(root, trace))
 }

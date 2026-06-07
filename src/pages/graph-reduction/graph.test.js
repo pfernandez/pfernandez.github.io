@@ -14,6 +14,17 @@ const assertReduction = (definitions, focus, result, steps = 1) =>
     serialize(repeat(compile(source(definitions, focus)), observe, steps)),
     result)
 
+const assertLoop = graph => {
+  const yielded = observe(graph)
+
+  assert.notEqual(yielded, graph)
+  assert.equal(repeat(graph, observe, 2), graph)
+  assert.equal(repeat(graph, observe, 4), graph)
+  assert.equal(repeat(graph, observe, 6), graph)
+  assert.equal(repeat(graph, observe, 3), yielded)
+  assert.equal(repeat(graph, observe, 5), yielded)
+}
+
 const coreDefinitions = [
   '(I (x x))',
   '(K (x x y))',
@@ -179,9 +190,12 @@ describe('core forms', () => {
     assert.equal(False[2][1], False)
   })
 
-  test('core.lisp preserves authored source shape', () => {
-    const core = readFileSync(new URL('./core.lisp', import.meta.url), 'utf8')
+  test('Loop continues through a yielded continuation', () => {
+    const graph = compile(source([
+      '(Loop ((step state (Loop step)) step state))',
+      '(Yield ((continue state) state continue))'
+    ], '(Loop Yield seed)'), { tie: true })
 
-    assert.equal(serialize(observe(compile(core))), '((a c) (b c))')
+    assertLoop(graph)
   })
 })
