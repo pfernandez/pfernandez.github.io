@@ -1,48 +1,50 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
-import { compile, observe, serialize } from './graph.js'
+import { compile, observe, select, serialize } from './graph.js'
 
-const repeat = (form, step, n) =>
-  n === 0 ? form : repeat(step(form), step, n - 1)
+const step = node => select(observe(node))
+
+const repeat = (form, fn, n) =>
+  n === 0 ? form : repeat(fn(form), fn, n - 1)
 
 const source = (definitions, focus) =>
   `${[definitions].flat().join('\n')}\n${focus}`
 
 const assertReduction = (definitions, focus, result, steps = 1) =>
   assert.equal(
-    serialize(repeat(compile(source(definitions, focus)), observe, steps)),
+    serialize(repeat(compile(source(definitions, focus)), step, steps)),
     result)
 
 const assertLoop = graph => {
-  const yielded = observe(graph)
+  const yielded = step(graph)
 
   assert.notEqual(yielded, graph)
-  assert.equal(repeat(graph, observe, 2), graph)
-  assert.equal(repeat(graph, observe, 4), graph)
-  assert.equal(repeat(graph, observe, 6), graph)
-  assert.equal(repeat(graph, observe, 3), yielded)
-  assert.equal(repeat(graph, observe, 5), yielded)
+  assert.equal(repeat(graph, step, 2), graph)
+  assert.equal(repeat(graph, step, 3), yielded)
+  assert.equal(repeat(graph, step, 4), graph)
+  assert.equal(repeat(graph, step, 5), yielded)
+  assert.equal(repeat(graph, step, 6), graph)
 }
 
 const coreDefinitions = [
   '(I (x x))',
-  '(K (x x y))',
-  '(S (((x z) (y z)) x y z))',
-  '(B ((f (g x)) f g x))',
-  '(C ((f y x) f x y))',
-  '(W ((f x x) f x))',
+  '(K ((x x) y))',
+  '(S (((((x z) (y z)) x) y) z))',
+  '(B ((((f (g x)) f) g) x))',
+  '(C ((((f y x) f) x) y))',
+  '(W (((f x x) f) x))',
   '(M ((x x) x))',
   '(Y ((f (Y f)) f))',
-  '(Loop ((step state (Loop step)) step state))',
-  '(Yield ((continue state) state continue))',
-  '(True (x x y))',
-  '(False (y x y))',
-  '(If ((p x y) p x y))',
+  '(Loop (((step state (Loop step)) step) state))',
+  '(Yield (((continue state) state) continue))',
+  '(True ((x x) y))',
+  '(False ((y x) y))',
+  '(If ((((p x y) p) x) y))',
   '(Not ((p False True) p))',
-  '(And ((p q False) p q))',
-  '(Or ((p True q) p q))',
-  '(Pair ((f x y) x y f))',
+  '(And (((p q False) p) q))',
+  '(Or (((p True q) p) q))',
+  '(Pair ((((f x y) x) y) f))',
   '(First ((p K) p))',
   '(Second ((p False) p))'
 ]
@@ -56,7 +58,18 @@ describe('true-shape compiler contracts', () => {
     assert.equal(Dup[0][1], x)
     assert.equal(x[0], x)
     assert.equal(x[1], Dup)
-    assert.equal(serialize(observe(compile(source('(Dup ((x x) x))', '(Dup a)')))), '(a a)')
+    assert.equal(
+      serialize(step(compile(source('(Dup ((x x) x))', '(Dup a)')))),
+      '(a a)')
+  })
+
+  test('observation is idempotent; selection reads the payload', () => {
+    const found = observe(compile(source('(I (x x))', '(I a)')))
+
+    assert.equal(found[0], found)
+    assert.equal(observe(found), found)
+    assert.equal(observe(observe(found)), found)
+    assert.equal(select(found), 'a')
   })
 
   test('bound heads are applications instead of new definitions', () =>
@@ -66,37 +79,38 @@ describe('true-shape compiler contracts', () => {
     const graph = compile(source(
       ['(I (x x))', '(Use ((I y) y))'],
       '(Use a)'))
-    const expanded = observe(graph)
+    const expanded = step(graph)
 
     assert.equal(expanded[1], 'a')
-    assert.equal(observe(expanded), 'a')
+    assert.equal(step(expanded), 'a')
   })
 
   test('partial application does not create a stable redex', () => {
-    const graph = compile(source('(K (x x y))', '(K a)'))
+    const graph = compile(source('(K ((x x) y))', '(K a)'))
 
     assert.notEqual(graph[0], graph)
     assert.equal(graph[1], 'a')
   })
 
   test('extra arguments remain after the filled body', () =>
-    assertReduction('(K (x x y))', '(K a b c)', '(a c)'))
+    assertReduction('(K ((x x) y))', '(K a b c)', '(a c)'))
 
-  test('flat source lists step to their head when no redex was built', () => {
+  test('source applications build as left spines', () => {
     const graph = compile('(let x y)')
 
-    assert.equal(serialize(graph), '(let x y)')
-    assert.equal(observe(graph), 'let')
+    assert.equal(serialize(graph), '((let x) y)')
+    assert.equal(step(graph), 'let')
   })
+
+  test('multi-slot definitions are written as spines', () =>
+    assert.throws(
+      () => compile('(K (x x y))'),
+      /Definitions need a body and at least one slot/))
 
   test('compile rejects malformed definitions', () => {
     assert.throws(
       () => compile('(I (x))'),
       /Definitions need a body and at least one slot/)
-
-    assert.throws(
-      () => compile('(K (x x x))'),
-      /Definition slots must be unique/)
 
     assert.throws(
       () => compile(''),
@@ -119,23 +133,13 @@ describe('core forms', () => {
     assertReduction('(I (x x))', '(I a)', 'a'))
 
   test('K returns its first argument', () =>
-    assertReduction('(K (x x y))', '(K a b)', 'a'))
+    assertReduction('(K ((x x) y))', '(K a b)', 'a'))
 
   test('S substitutes through both branches', () =>
     assertReduction(
-      '(S (((x z) (y z)) x y z))',
+      '(S (((((x z) (y z)) x) y) z))',
       '(S f g x)',
       '((f x) (g x))'))
-
-  test('S can be written as a pair spine', () => {
-    const definition = '(S (((((x z) (y z)) x) y) z))'
-
-    assertReduction(definition, '(S f g x)', '((f x) (g x))')
-    assert.equal(
-      serialize(observe(compile(source(definition, '(S f g x)'),
-                                { output: 'spine' }))),
-      '((f x) (g x))')
-  })
 
   test('composed reductions are tied by default', () =>
     assertReduction(coreDefinitions, '(S K K a)', 'a', 2))
@@ -144,24 +148,24 @@ describe('core forms', () => {
     assertReduction(coreDefinitions, '(B f g x)', '(f (g x))'))
 
   test('C exchanges arguments', () =>
-    assertReduction(coreDefinitions, '(C f x y)', '(f y x)'))
+    assertReduction(coreDefinitions, '(C f x y)', '((f y) x)'))
 
   test('W duplicates one argument', () =>
-    assertReduction(coreDefinitions, '(W f x)', '(f x x)'))
+    assertReduction(coreDefinitions, '(W f x)', '((f x) x)'))
 
   test('M applies its argument to itself', () =>
     assertReduction(coreDefinitions, '(M x)', '(x x)'))
 
   test('Y keeps a named self-reference', () => {
     const graph = compile(source(coreDefinitions, '(Y f)'))
-    const result = observe(graph)
-    const Y = graph[0]
+    const result = step(graph)
+    const answer = graph[0]
 
     assert.equal(result[0], 'f')
     assert.equal(result[1], graph)
     assert.equal(graph[1], 'f')
-    assert.equal(Y[0], Y)
-    assert.equal(Y[1], result)
+    assert.equal(answer[0], answer)
+    assert.equal(answer[1], result)
   })
 
   test('True returns its first branch', () =>
@@ -171,13 +175,13 @@ describe('core forms', () => {
     assertReduction(coreDefinitions, '(False a b)', 'b'))
 
   test('If applies the predicate to both branches', () =>
-    assertReduction(coreDefinitions, '(If p a b)', '(p a b)'))
+    assertReduction(coreDefinitions, '(If p a b)', '((p a) b)'))
 
   test('Pair sends both values to a receiver', () =>
-    assertReduction(coreDefinitions, '(Pair a b f)', '(f a b)'))
+    assertReduction(coreDefinitions, '(Pair a b f)', '((f a) b)'))
 
   test('First asks a pair to send values to K', () => {
-    const result = observe(compile(source(coreDefinitions, '(First p)')))
+    const result = step(compile(source(coreDefinitions, '(First p)')))
     const K = result[1]
 
     assert.equal(result[0], 'p')
@@ -186,7 +190,7 @@ describe('core forms', () => {
   })
 
   test('Second asks a pair to send values to False', () => {
-    const result = observe(compile(source(coreDefinitions, '(Second p)')))
+    const result = step(compile(source(coreDefinitions, '(Second p)')))
     const False = result[1]
 
     assert.equal(result[0], 'p')
@@ -197,13 +201,13 @@ describe('core forms', () => {
   test('core.lisp preserves authored source shape', () => {
     const core = readFileSync(new URL('./core.lisp', import.meta.url), 'utf8')
 
-    assert.equal(serialize(observe(compile(core))), '((a c) (b c))')
+    assert.equal(serialize(step(compile(core))), '((a c) (b c))')
   })
 
   test('Loop continues through a yielded continuation', () => {
     const graph = compile(source([
-      '(Loop ((step state (Loop step)) step state))',
-      '(Yield ((continue state) state continue))'
+      '(Loop (((step state (Loop step)) step) state))',
+      '(Yield (((continue state) state) continue))'
     ], '(Loop Yield seed)'))
 
     assertLoop(graph)

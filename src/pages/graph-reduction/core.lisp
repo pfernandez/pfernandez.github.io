@@ -1,24 +1,24 @@
 (I (x x))                         ; identity
-(K (x x y))                       ; constant
-(S (((x z) (y z)) x y z))         ; substitution
+(K ((x x) y))                     ; constant
+(S (((((x z) (y z)) x) y) z))     ; substitution
 
-(B ((f (g x)) f g x))             ; compose
-(C ((f y x) f x y))               ; exchange arguments
-(W ((f x x) f x))                 ; duplicate argument
+(B ((((f (g x)) f) g) x))         ; compose
+(C ((((f y x) f) x) y))           ; exchange arguments
+(W (((f x x) f) x))               ; duplicate argument
 (M ((x x) x))                     ; self-application
 
 (Y ((f (Y f)) f))                 ; named self-reference
-(Loop ((step state (Loop step)) step state))
-(Yield ((continue state) state continue))
+(Loop (((step state (Loop step)) step) state))
+(Yield (((continue state) state) continue))
 
-(True (x x y))                    ; choose left
-(False (y x y))                   ; choose right
-(If ((p x y) p x y))              ; choose by predicate
+(True ((x x) y))                  ; choose left
+(False ((y x) y))                 ; choose right
+(If ((((p x y) p) x) y))          ; choose by predicate
 (Not ((p False True) p))
-(And ((p q False) p q))
-(Or ((p True q) p q))
+(And (((p q False) p) q))
+(Or (((p True q) p) q))
 
-(Pair ((f x y) x y f))            ; Church pair
+(Pair ((((f x y) x) y) f))        ; Church pair
 (First ((p K) p))
 (Second ((p False) p))
 

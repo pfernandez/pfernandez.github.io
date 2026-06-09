@@ -1,14 +1,17 @@
+// 1. read — parentheses become trees
+
 const tokenize = src =>
   [...src.matchAll(/(;.*$)|"([^"\\]|\\.)*"|[()]|[^()\s]+/gm)]
     .filter(m => !m[1])
-    .map(m =>
-      (lines =>
-        ({ text: m[0],
-           value: m[0].startsWith('"')
-             ? m[0].slice(1, -1).replace(/\\"/g, '"')
-             : isNaN(Number(m[0])) || m[0].trim() === '' ? m[0] : Number(m[0]),
-           line: lines.length,
-           col: lines.at(-1).length + 1 }))(src.slice(0, m.index).split('\n')))
+    .map(m => {
+      const lines = src.slice(0, m.index).split('\n')
+      return { text: m[0],
+               value: m[0].startsWith('"')
+                 ? m[0].slice(1, -1).replace(/\\"/g, '"')
+                 : isNaN(m[0]) ? m[0] : Number(m[0]),
+               line: lines.length,
+               col: lines.at(-1).length + 1 }
+    })
 
 const err = (msg, tok) =>
 { throw new Error(tok ? `${msg} at line ${tok.line}, col ${tok.col}` : msg) }
@@ -18,7 +21,6 @@ const read = tokens => {
 
   const form = () => {
     const token = tokens[index++]
-    if (!token) err('Missing expression')
     if (token.text === '(') return list(token)
     if (token.text === ')') err('Unexpected )', token)
     return token.value
@@ -39,55 +41,72 @@ const read = tokens => {
   return forms
 }
 
-const binding = (name, bindings) =>
-  bindings.find(([mark]) => mark === name)
-
-const bound = (value, bindings) =>
-  bindings.some(([, node]) => node === value)
-
-const lookup = (name, scopes) => {
-  for (const scope of scopes) {
-    const match = binding(name, scope)
-    if (match) return match[1]
-  }
-}
-
-const sourceDefinition = (form, scope) =>
-  Array.isArray(form) && form.length === 2
-    && typeof form[0] === 'string' && !binding(form[0], scope.names)
-
-const stable = form =>
-  Array.isArray(form) && form[0] === form
-
-const atom = (form, scope) =>
-  !Array.isArray(form) || stable(form) || bound(form, scope.names)
+// 2. define — a definition is one box: a built body plus its slots;
+//    a slot is a pair that loops to itself on the left and points home on the right
 
 const symbol = form =>
   typeof form === 'string'
 
-const unique = forms =>
-  forms.every((form, i) => !forms.slice(0, i).includes(form))
+const binding = (name, bindings) =>
+  bindings.find(([mark]) => mark === name)
 
-const call = (head, args, calls) =>
-  calls.find(([fn, seen]) =>
-    fn === head
-      && seen.length === args.length
-      && seen.every((arg, i) => arg === args[i]))
+const lookup = (name, scopes) =>
+  binding(name, scopes.flat())?.[1]
 
-const flat = (first, rest) => rest.length ? [first, ...rest] : first
+const spine = (first, rest) =>
+  rest.reduce((form, next) => [form, next], first)
 
-const spine = (first, rest) => rest.reduce((form, next) => [form, next], first)
+const build = (form, scopes) =>
+  !Array.isArray(form)
+    ? symbol(form) ? lookup(form, scopes) ?? form : form
+    : form.length
+      ? spine(build(form[0], scopes),
+              form.slice(1).map(item => build(item, scopes)))
+      : form
 
-const outputs = { flat, spine }
+const sourceDefinition = (form, scope) =>
+  Array.isArray(form) && form.length === 2
+    && symbol(form[0]) && !binding(form[0], scope.names)
+
+const shape = (form, scope, slots = []) =>
+  Array.isArray(form) && form.length === 2 && symbol(form[1])
+      && !binding(form[1], scope.names) && !slots.includes(form[1])
+    ? shape(form[0], scope, [form[1], ...slots])
+    : slots.length ? [form, slots] : null
+
+const define = ([name, form], scope) => {
+  const parts = shape(form, scope)
+  if (!parts) err('Definitions need a body and at least one slot')
+
+  const [body, marks] = parts
+  const fn = []
+  const local = marks.map(mark => {
+    const slot = []
+    slot[0] = slot
+    slot[1] = fn
+    return [mark, slot]
+  })
+
+  scope.names.push([name, fn])
+  fn.push(build(body, [local, scope.names]), ...local.map(([, slot]) => slot))
+}
+
+// 3. stitch — slide down the left edge collecting arguments; filling a box makes
+//    a fresh answer: a self-loop whose payload is the body, slots swapped for arguments
+// 4. knot — the call being stitched is met again: point back at its answer
+
+const stable = form =>
+  Array.isArray(form) && form[0] === form
+
+const bound = (value, bindings) =>
+  bindings.some(([, node]) => node === value)
+
+const atom = (form, scope) =>
+  !Array.isArray(form) || stable(form) || bound(form, scope.names)
 
 const root = (form, scope, args = []) =>
   atom(form, scope) ? { head: form, args }
-    : root(form[0], scope, [...form.slice(1), ...args])
-
-const build = (form, scopes) =>
-  Array.isArray(form) ? form.map(item => build(item, scopes))
-    : typeof form === 'string' ? lookup(form, scopes) ?? form
-      : form
+    : root(form[0], scope, [form[1], ...args])
 
 const replace = (form, pairs, scope, seen = new Map()) => {
   const match = pairs.find(([from]) => form === from)
@@ -101,95 +120,49 @@ const replace = (form, pairs, scope, seen = new Map()) => {
   return copy
 }
 
-const tie = (form, scope, bind, calls = []) => {
+const knot = (head, args, knots) =>
+  knots.find(([fn, seen]) =>
+    fn === head
+      && seen.length === args.length
+      && seen.every((arg, i) => arg === args[i]))
+
+const stitch = (form, scope, knots = []) => {
   if (atom(form, scope)) return form
 
   const { head, args } = root(form, scope)
 
   if (!bound(head, scope.names) || args.length < head.length - 1)
-    return form.map(item => tie(item, scope, bind, calls))
+    return form.map(item => stitch(item, scope, knots))
 
-  const tied = args.map(arg => tie(arg, scope, bind, calls))
-  const active = call(head, tied, calls)
-  if (active) return active[2]
+  const stitched = args.map(arg => stitch(arg, scope, knots))
+  const tied = knot(head, stitched, knots)
+  if (tied) return tied[2]
 
   const self = []
-  const focus = bind(self, tied)
-  const slots = head.slice(1)
-  const pairs = slots.map((slot, i) => [slot, tied[i]])
-  const body = bind(head[0], tied.slice(slots.length))
-  const replaced = replace(body, pairs, scope)
+  const focus = spine(self, stitched)
+  const pairs = head.slice(1).map((slot, i) => [slot, stitched[i]])
+  const body = replace(spine(head[0], stitched.slice(pairs.length)), pairs, scope)
 
   self[0] = self
-  self[1] = tie(replaced, scope, bind, [[head, tied, focus], ...calls])
+  self[1] = stitch(body, scope, [[head, stitched, focus], ...knots])
 
   return focus
 }
 
-const flatDefinition = shape =>
-  Array.isArray(shape) && shape.length >= 2 && shape.slice(1).every(symbol)
-    ? [shape[0], shape.slice(1)]
-    : null
-
-const spineDefinition = (shape, scope, slots = []) =>
-  Array.isArray(shape) && shape.length === 2 && symbol(shape[1])
-    && !binding(shape[1], scope.names)
-    ? spineDefinition(shape[0], scope, [shape[1], ...slots])
-    : slots.length ? [shape, slots] : null
-
-const definitionShape = (shape, scope) => {
-  const flatShape = flatDefinition(shape)
-  const spineShape = spineDefinition(shape, scope)
-
-  if (spineShape && unique(spineShape[1])
-      && (!flatShape || spineShape[1].length > flatShape[1].length))
-    return spineShape
-  return flatShape ?? spineShape
-}
-
-const define = ([name, shape], scope) => {
-  const parts = definitionShape(shape, scope)
-  if (!parts)
-    err('Definitions need a body and at least one slot')
-
-  const [body, marks] = parts
-  const fn = []
-  const local = []
-  const slots = marks.map(mark => {
-    if (binding(mark, local)) err('Definition slots must be unique')
-
-    const slot = []
-    slot[0] = slot
-    slot[1] = fn
-    local.push([mark, slot])
-    return slot
-  })
-
-  scope.names.push([name, fn])
-  fn.push(build(body, [local, scope.names]), ...slots)
-  return fn
-}
-
-export const compile = (source, { output = 'flat' } = {}) => {
-  const bind = outputs[output]
-  if (!bind) err(`Unknown output: ${output}`)
-
+export const compile = source => {
   const scope = { names: [] }
   let focus
 
-  read(tokenize(source)).forEach(form => {
-    if (sourceDefinition(form, scope)) {
-      define(form, scope)
-      focus = undefined
-      return
-    }
-
-    focus = tie(build(form, [scope.names]), scope, bind)
-  })
+  for (const form of read(tokenize(source)))
+    focus = sourceDefinition(form, scope)
+      ? void define(form, scope)
+      : stitch(build(form, [scope.names]), scope)
 
   if (focus === undefined) err('Missing focus')
   return focus
 }
+
+// 5. observe — follow left pointers until a pair points at itself; select reads its payload
 
 const paths = (expr, path = '$', seen = new Map()) =>
   !Array.isArray(expr) ? expr
@@ -199,14 +172,17 @@ const paths = (expr, path = '$', seen = new Map()) =>
 
 export const serialize = form =>
   JSON.stringify(paths(form))
-    ?.replace(/[\[]/g, '(').replace(/[\]]/g, ')')
-    .replace(/,/g, ' ').replace(/"/g, '')
+    ?.replaceAll('[', '(').replaceAll(']', ')')
+    .replaceAll(',', ' ').replaceAll('"', '')
 
 export const observe = (pair, trace) => (
   trace?.(pair),
   !Array.isArray(pair) ? pair
-    : pair[0] === pair ? pair[1]
+    : pair[0] === pair ? pair
       : observe(pair[0], trace))
+
+export const select = found =>
+  stable(found) ? found[1] : found
 
 let N = 0
 const trace = form => console.log(N++, serialize(form), '\n')
@@ -218,12 +194,8 @@ const main = () =>
 
 if (main()) {
   const { readFileSync } = await import('node:fs')
-  const args = process.argv.slice(2)
-  const mode = args.find(arg => outputs[arg])
-  const file = args.find(arg => !outputs[arg])
-    ?? new URL('./core.lisp', import.meta.url)
+  const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
 
-  const root = compile(readFileSync(file, 'utf-8'),
-                       { output: mode })
-  observe(observe(root, trace))
+  const found = observe(compile(readFileSync(file, 'utf-8')), trace)
+  trace(select(found))
 }
