@@ -101,24 +101,17 @@ const replace = (form, pairs, scope, seen = new Map()) => {
   return copy
 }
 
-const tie = (form, scope, bind, recursive = false, calls = []) => {
-
-  // trace(form)
-  // Object.entries(scope).forEach(trace)
-  // console.log(scope)
-
+const tie = (form, scope, bind, calls = []) => {
   if (atom(form, scope)) return form
 
   const { head, args } = root(form, scope)
-  const tied = args.map(arg => tie(arg, scope, bind, recursive, calls))
 
-  if (!bound(head, scope.names) || tied.length < head.length - 1)
-    return bind(head, tied)
+  if (!bound(head, scope.names) || args.length < head.length - 1)
+    return form.map(item => tie(item, scope, bind, calls))
 
-  if (recursive) {
-    const active = call(head, tied, calls)
-    if (active) return active[2]
-  }
+  const tied = args.map(arg => tie(arg, scope, bind, calls))
+  const active = call(head, tied, calls)
+  if (active) return active[2]
 
   const self = []
   const focus = bind(self, tied)
@@ -128,9 +121,7 @@ const tie = (form, scope, bind, recursive = false, calls = []) => {
   const replaced = replace(body, pairs, scope)
 
   self[0] = self
-  self[1] = recursive
-    ? tie(replaced, scope, bind, recursive, [[head, tied, focus], ...calls])
-    : replaced
+  self[1] = tie(replaced, scope, bind, [[head, tied, focus], ...calls])
 
   return focus
 }
@@ -179,7 +170,7 @@ const define = ([name, shape], scope) => {
   return fn
 }
 
-export const compile = (source, { output = 'flat', tie: recursive = false } = {}) => {
+export const compile = (source, { output = 'flat' } = {}) => {
   const bind = outputs[output]
   if (!bind) err(`Unknown output: ${output}`)
 
@@ -193,7 +184,7 @@ export const compile = (source, { output = 'flat', tie: recursive = false } = {}
       return
     }
 
-    focus = tie(build(form, [scope.names]), scope, bind, recursive)
+    focus = tie(build(form, [scope.names]), scope, bind)
   })
 
   if (focus === undefined) err('Missing focus')
@@ -229,11 +220,10 @@ if (main()) {
   const { readFileSync } = await import('node:fs')
   const args = process.argv.slice(2)
   const mode = args.find(arg => outputs[arg])
-  const recursive = args.includes('tie')
-  const file = args.find(arg => !outputs[arg] && arg !== 'tie')
+  const file = args.find(arg => !outputs[arg])
     ?? new URL('./core.lisp', import.meta.url)
 
   const root = compile(readFileSync(file, 'utf-8'),
-                       { output: mode, tie: recursive })
+                       { output: mode })
   observe(observe(root, trace))
 }

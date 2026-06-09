@@ -62,14 +62,14 @@ describe('true-shape compiler contracts', () => {
   test('bound heads are applications instead of new definitions', () =>
     assertReduction('(A (x x))', '(A y)', 'y'))
 
-  test('later definitions preserve earlier applications in bodies', () => {
+  test('later definitions tie earlier applications in bodies', () => {
     const graph = compile(source(
       ['(I (x x))', '(Use ((I y) y))'],
       '(Use a)'))
     const expanded = observe(graph)
 
     assert.equal(expanded[1], 'a')
-    assert.notEqual(observe(expanded), 'a')
+    assert.equal(observe(expanded), 'a')
   })
 
   test('partial application does not create a stable redex', () => {
@@ -137,6 +137,9 @@ describe('core forms', () => {
       '((f x) (g x))')
   })
 
+  test('composed reductions are tied by default', () =>
+    assertReduction(coreDefinitions, '(S K K a)', 'a', 2))
+
   test('B composes functions', () =>
     assertReduction(coreDefinitions, '(B f g x)', '(f (g x))'))
 
@@ -152,12 +155,13 @@ describe('core forms', () => {
   test('Y keeps a named self-reference', () => {
     const graph = compile(source(coreDefinitions, '(Y f)'))
     const result = observe(graph)
-    const Y = result[1][0]
+    const Y = graph[0]
 
     assert.equal(result[0], 'f')
-    assert.equal(result[1][1], 'f')
-    assert.equal(Y[1][0], Y[1])
-    assert.equal(Y[1][1], Y)
+    assert.equal(result[1], graph)
+    assert.equal(graph[1], 'f')
+    assert.equal(Y[0], Y)
+    assert.equal(Y[1], result)
   })
 
   test('True returns its first branch', () =>
@@ -190,11 +194,17 @@ describe('core forms', () => {
     assert.equal(False[2][1], False)
   })
 
+  test('core.lisp preserves authored source shape', () => {
+    const core = readFileSync(new URL('./core.lisp', import.meta.url), 'utf8')
+
+    assert.equal(serialize(observe(compile(core))), '((a c) (b c))')
+  })
+
   test('Loop continues through a yielded continuation', () => {
     const graph = compile(source([
       '(Loop ((step state (Loop step)) step state))',
       '(Yield ((continue state) state continue))'
-    ], '(Loop Yield seed)'), { tie: true })
+    ], '(Loop Yield seed)'))
 
     assertLoop(graph)
   })
