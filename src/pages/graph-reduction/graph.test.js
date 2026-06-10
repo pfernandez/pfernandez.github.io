@@ -78,13 +78,23 @@ describe('true-shape compiler contracts', () => {
     assert.equal(select(observe(K)), K)
   })
 
+  test('atoms are interned self-loops', () => {
+    const graph = compile('(f a a)')
+    const a = graph[1]
+
+    assert.equal(graph[0][1], a)
+    assert.equal(a[0], a)
+    assert.equal(a[1], a)
+    assert.equal(serialize(a), 'a')
+  })
+
   test('observation is idempotent; selection reads the payload', () => {
     const found = observe(compile(source('(I (x x))', '(I a)')))
 
     assert.equal(found[0], found)
     assert.equal(observe(found), found)
     assert.equal(observe(observe(found)), found)
-    assert.equal(select(found), 'a')
+    assert.equal(serialize(select(found)), 'a')
   })
 
   test('bound heads are applications instead of new definitions', () =>
@@ -96,15 +106,15 @@ describe('true-shape compiler contracts', () => {
       '(Use a)'))
     const expanded = step(graph)
 
-    assert.equal(expanded[1], 'a')
-    assert.equal(step(expanded), 'a')
+    assert.equal(serialize(expanded[1]), 'a')
+    assert.equal(serialize(step(expanded)), 'a')
   })
 
   test('partial application does not create a stable redex', () => {
     const graph = compile(source('(K ((x x) y))', '(K a)'))
 
     assert.notEqual(graph[0], graph)
-    assert.equal(graph[1], 'a')
+    assert.equal(serialize(graph[1]), 'a')
   })
 
   test('extra arguments remain after the filled body', () =>
@@ -114,7 +124,7 @@ describe('true-shape compiler contracts', () => {
     const graph = compile('(let x y)')
 
     assert.equal(serialize(graph), '((let x) y)')
-    assert.equal(step(graph), 'let')
+    assert.equal(serialize(step(graph)), 'let')
   })
 
   test('multi-slot definitions are written as spines', () =>
@@ -176,9 +186,9 @@ describe('core forms', () => {
     const result = step(graph)
     const answer = graph[0]
 
-    assert.equal(result[0], 'f')
+    assert.equal(serialize(result[0]), 'f')
     assert.equal(result[1], graph)
-    assert.equal(graph[1], 'f')
+    assert.equal(serialize(graph[1]), 'f')
     assert.equal(answer[0], answer)
     assert.equal(answer[1], result)
   })
@@ -199,7 +209,7 @@ describe('core forms', () => {
     const result = step(compile(source(coreDefinitions, '(First p)')))
     const K = result[1]
 
-    assert.equal(result[0], 'p')
+    assert.equal(serialize(result[0]), 'p')
     assert.equal(K[1][1], K)
     assert.equal(K[0][1][1], K)
   })
@@ -208,7 +218,7 @@ describe('core forms', () => {
     const result = step(compile(source(coreDefinitions, '(Second p)')))
     const False = result[1]
 
-    assert.equal(result[0], 'p')
+    assert.equal(serialize(result[0]), 'p')
     assert.equal(False[1][1], False)
     assert.equal(False[0][1][1], False)
   })

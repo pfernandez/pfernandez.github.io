@@ -42,7 +42,8 @@ const read = tokens => {
 }
 
 // 2. define — a definition is the picture of its own application, built whole;
-//    each mark becomes a slot: a pair that loops to itself and points home
+//    each mark becomes a slot: a pair that loops to itself and points home;
+//    an atom is a cell that is entirely itself, interned so a spelling names one cell
 
 const symbol = form =>
   typeof form === 'string'
@@ -53,16 +54,30 @@ const binding = (name, bindings) =>
 const lookup = (name, scopes) =>
   binding(name, scopes.flat())?.[1]
 
+const atoms = new Map()
+const spellings = new Map()
+
+const intern = value => {
+  if (!atoms.has(value)) {
+    const cell = []
+    cell[0] = cell
+    cell[1] = cell
+    atoms.set(value, cell)
+    spellings.set(cell, value)
+  }
+  return atoms.get(value)
+}
+
 const spine = (first, rest) =>
   rest.reduce((form, next) => [form, next], first)
 
 const build = (form, scopes) =>
   !Array.isArray(form)
-    ? symbol(form) ? lookup(form, scopes) ?? form : form
+    ? (symbol(form) && lookup(form, scopes)) || intern(form)
     : form.length
       ? spine(build(form[0], scopes),
               form.slice(1).map(item => build(item, scopes)))
-      : form
+      : intern('()')
 
 const sourceDefinition = (form, scope) =>
   Array.isArray(form) && form.length === 2
@@ -91,19 +106,20 @@ const define = ([name, form], scope) => {
 }
 
 // 3. stitch — slide down the left edge collecting arguments; a definition is any
-//    pair whose right side is a slot pointing home, so peel its slots back off to
-//    reach the body; filling them makes a fresh answer: a self-loop holding the
-//    body with slots swapped for arguments
+//    pair, not itself settled, whose right side is a slot pointing home — peel its
+//    slots back off to reach the body; filling them makes a fresh answer: a
+//    self-loop holding the body with slots swapped for arguments
 // 4. knot — the call being stitched is met again: point back at its answer
 
 const stable = form =>
   Array.isArray(form) && form[0] === form
 
 const definition = form =>
-  Array.isArray(form) && stable(form[1]) && form[1][1] === form
+  Array.isArray(form) && !stable(form)
+    && stable(form[1]) && form[1][1] === form
 
 const atom = form =>
-  !Array.isArray(form) || stable(form) || definition(form)
+  stable(form) || definition(form)
 
 const root = (form, args = []) =>
   atom(form) ? { head: form, args }
@@ -170,13 +186,15 @@ export const compile = source => {
   return focus
 }
 
-// 5. observe — follow left pointers until a pair points at itself; select reads its payload
+// 5. observe — follow left pointers until a pair points at itself; select reads
+//    its right side; an atom is its own answer and its own payload
 
 const paths = (expr, path = '$', seen = new Map()) =>
   !Array.isArray(expr) ? expr
-    : seen.has(expr) ? seen.get(expr)
-      : (seen.set(expr, path),
-        expr.map((item, i) => paths(item, `${path}.${i}`, seen)))
+    : spellings.has(expr) ? spellings.get(expr)
+      : seen.has(expr) ? seen.get(expr)
+        : (seen.set(expr, path),
+          expr.map((item, i) => paths(item, `${path}.${i}`, seen)))
 
 export const serialize = form =>
   JSON.stringify(paths(form))
@@ -185,12 +203,11 @@ export const serialize = form =>
 
 export const observe = (pair, trace) => (
   trace?.(pair),
-  !Array.isArray(pair) ? pair
-    : pair[0] === pair ? pair
-      : observe(pair[0], trace))
+  pair[0] === pair ? pair
+    : observe(pair[0], trace))
 
 export const select = found =>
-  stable(found) ? found[1] : found
+  found[1]
 
 let N = 0
 const trace = form => console.log(N++, serialize(form), '\n')
