@@ -43,7 +43,8 @@ const read = tokens => {
 
 // 2. define — a definition is the picture of its own application, built whole;
 //    each mark becomes a slot: a pair that loops to itself and points home;
-//    an atom is a cell that is entirely itself, interned so a spelling names one cell
+//    an atom is a cell that is entirely itself, interned so a spelling names
+//    one cell
 
 const symbol = form =>
   typeof form === 'string'
@@ -73,7 +74,7 @@ const spine = (first, rest) =>
 
 const build = (form, scopes) =>
   !Array.isArray(form)
-    ? (symbol(form) && lookup(form, scopes)) || intern(form)
+    ? symbol(form) && lookup(form, scopes) || intern(form)
     : form.length
       ? spine(build(form[0], scopes),
               form.slice(1).map(item => build(item, scopes)))
@@ -105,10 +106,10 @@ const define = ([name, form], scope) => {
   fn.push(...build(form, [local, scope.names]))
 }
 
-// 3. stitch — slide down the left edge collecting arguments; a definition is any
-//    pair, not itself settled, whose right side is a slot pointing home — peel its
-//    slots back off to reach the body; filling them makes a fresh answer: a
-//    self-loop holding the body with slots swapped for arguments
+// 3. stitch — slide down the left edge collecting arguments; a definition is
+//    any pair, not itself settled, whose right side is a slot pointing home —
+//    peel its slots back off to reach the body; filling them makes a fresh
+//    answer: a self-loop holding the body with slots swapped for arguments
 // 4. knot — the call being stitched is met again: point back at its answer
 
 const stable = form =>
