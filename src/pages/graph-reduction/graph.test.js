@@ -21,10 +21,10 @@ const assertLoop = graph => {
 
   assert.notEqual(yielded, graph)
   assert.equal(repeat(graph, step, 2), graph)
-  assert.equal(repeat(graph, step, 3), yielded)
   assert.equal(repeat(graph, step, 4), graph)
-  assert.equal(repeat(graph, step, 5), yielded)
   assert.equal(repeat(graph, step, 6), graph)
+  assert.equal(repeat(graph, step, 3), yielded)
+  assert.equal(repeat(graph, step, 5), yielded)
 }
 
 const coreDefinitions = [
@@ -61,6 +61,21 @@ describe('true-shape compiler contracts', () => {
     assert.equal(
       serialize(step(compile(source('(Dup ((x x) x))', '(Dup a)')))),
       '(a a)')
+  })
+
+  test('definitions are pairs all the way down', () => {
+    const K = compile(source('(K ((x x) y))', 'K'))
+    const [body, y] = K
+    const x = body[0]
+
+    assert.equal(K.length, 2)
+    assert.equal(body[1], x)
+    assert.equal(x[0], x)
+    assert.equal(x[1], K)
+    assert.equal(y[0], y)
+    assert.equal(y[1], K)
+    assert.notEqual(x, y)
+    assert.equal(select(observe(K)), K)
   })
 
   test('observation is idempotent; selection reads the payload', () => {
@@ -186,7 +201,7 @@ describe('core forms', () => {
 
     assert.equal(result[0], 'p')
     assert.equal(K[1][1], K)
-    assert.equal(K[2][1], K)
+    assert.equal(K[0][1][1], K)
   })
 
   test('Second asks a pair to send values to False', () => {
@@ -195,7 +210,7 @@ describe('core forms', () => {
 
     assert.equal(result[0], 'p')
     assert.equal(False[1][1], False)
-    assert.equal(False[2][1], False)
+    assert.equal(False[0][1][1], False)
   })
 
   test('core.lisp preserves authored source shape', () => {

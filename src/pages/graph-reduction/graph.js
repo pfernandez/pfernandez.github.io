@@ -41,8 +41,8 @@ const read = tokens => {
   return forms
 }
 
-// 2. define — a definition is one box: a built body plus its slots;
-//    a slot is a pair that loops to itself on the left and points home on the right
+// 2. define — a definition is the picture of its own application, built whole;
+//    each mark becomes a slot: a pair that loops to itself and points home
 
 const symbol = form =>
   typeof form === 'string'
@@ -68,17 +68,16 @@ const sourceDefinition = (form, scope) =>
   Array.isArray(form) && form.length === 2
     && symbol(form[0]) && !binding(form[0], scope.names)
 
-const shape = (form, scope, slots = []) =>
+const shape = (form, scope, marks = []) =>
   Array.isArray(form) && form.length === 2 && symbol(form[1])
-      && !binding(form[1], scope.names) && !slots.includes(form[1])
-    ? shape(form[0], scope, [form[1], ...slots])
-    : slots.length ? [form, slots] : null
+      && !binding(form[1], scope.names) && !marks.includes(form[1])
+    ? shape(form[0], scope, [form[1], ...marks])
+    : marks.length ? marks : null
 
 const define = ([name, form], scope) => {
-  const parts = shape(form, scope)
-  if (!parts) err('Definitions need a body and at least one slot')
+  const marks = shape(form, scope)
+  if (!marks) err('Definitions need a body and at least one slot')
 
-  const [body, marks] = parts
   const fn = []
   const local = marks.map(mark => {
     const slot = []
@@ -88,35 +87,42 @@ const define = ([name, form], scope) => {
   })
 
   scope.names.push([name, fn])
-  fn.push(build(body, [local, scope.names]), ...local.map(([, slot]) => slot))
+  fn.push(...build(form, [local, scope.names]))
 }
 
-// 3. stitch — slide down the left edge collecting arguments; filling a box makes
-//    a fresh answer: a self-loop whose payload is the body, slots swapped for arguments
+// 3. stitch — slide down the left edge collecting arguments; a definition is any
+//    pair whose right side is a slot pointing home, so peel its slots back off to
+//    reach the body; filling them makes a fresh answer: a self-loop holding the
+//    body with slots swapped for arguments
 // 4. knot — the call being stitched is met again: point back at its answer
 
 const stable = form =>
   Array.isArray(form) && form[0] === form
 
-const bound = (value, bindings) =>
-  bindings.some(([, node]) => node === value)
+const definition = form =>
+  Array.isArray(form) && stable(form[1]) && form[1][1] === form
 
-const atom = (form, scope) =>
-  !Array.isArray(form) || stable(form) || bound(form, scope.names)
+const atom = form =>
+  !Array.isArray(form) || stable(form) || definition(form)
 
-const root = (form, scope, args = []) =>
-  atom(form, scope) ? { head: form, args }
-    : root(form[0], scope, [form[1], ...args])
+const root = (form, args = []) =>
+  atom(form) ? { head: form, args }
+    : root(form[0], [form[1], ...args])
 
-const replace = (form, pairs, scope, seen = new Map()) => {
+const peel = (fn, node = fn, slots = []) =>
+  stable(node[1]) && node[1][1] === fn && !slots.includes(node[1])
+    ? peel(fn, node[0], [node[1], ...slots])
+    : [node, slots]
+
+const replace = (form, pairs, seen = new Map()) => {
   const match = pairs.find(([from]) => form === from)
   if (match) return match[1]
-  if (atom(form, scope)) return form
+  if (atom(form)) return form
   if (seen.has(form)) return seen.get(form)
 
   const copy = []
   seen.set(form, copy)
-  form.forEach(item => copy.push(replace(item, pairs, scope, seen)))
+  form.forEach(item => copy.push(replace(item, pairs, seen)))
   return copy
 }
 
@@ -126,25 +132,27 @@ const knot = (head, args, knots) =>
       && seen.length === args.length
       && seen.every((arg, i) => arg === args[i]))
 
-const stitch = (form, scope, knots = []) => {
-  if (atom(form, scope)) return form
+const stitch = (form, knots = []) => {
+  if (atom(form)) return form
 
-  const { head, args } = root(form, scope)
+  const { head, args } = root(form)
+  const parts = definition(head) && peel(head)
 
-  if (!bound(head, scope.names) || args.length < head.length - 1)
-    return form.map(item => stitch(item, scope, knots))
+  if (!parts || args.length < parts[1].length)
+    return form.map(item => stitch(item, knots))
 
-  const stitched = args.map(arg => stitch(arg, scope, knots))
+  const [body, slots] = parts
+  const stitched = args.map(arg => stitch(arg, knots))
   const tied = knot(head, stitched, knots)
   if (tied) return tied[2]
 
   const self = []
   const focus = spine(self, stitched)
-  const pairs = head.slice(1).map((slot, i) => [slot, stitched[i]])
-  const body = replace(spine(head[0], stitched.slice(pairs.length)), pairs, scope)
+  const pairs = slots.map((slot, i) => [slot, stitched[i]])
+  const filled = replace(spine(body, stitched.slice(slots.length)), pairs)
 
   self[0] = self
-  self[1] = stitch(body, scope, [[head, stitched, focus], ...knots])
+  self[1] = stitch(filled, [[head, stitched, focus], ...knots])
 
   return focus
 }
@@ -156,7 +164,7 @@ export const compile = source => {
   for (const form of read(tokenize(source)))
     focus = sourceDefinition(form, scope)
       ? void define(form, scope)
-      : stitch(build(form, [scope.names]), scope)
+      : stitch(build(form, [scope.names]))
 
   if (focus === undefined) err('Missing focus')
   return focus
