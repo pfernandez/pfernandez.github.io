@@ -142,6 +142,11 @@ describe('true-shape compiler contracts', () => {
       /Missing expression/)
   })
 
+  test('divergence throws instead of freezing', () =>
+    assert.throws(
+      () => compile(source('(Grow ((x (Grow (x x))) x))', '(Grow a)')),
+      /Stitching never settles/))
+
   test('serialize names repeated paths and cycles', () => {
     const root = []
     const shared = ['a', 'b']

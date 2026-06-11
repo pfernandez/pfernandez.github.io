@@ -5,6 +5,7 @@
 import { compile } from '../graph.js'
 import { image, imageSerialize, observe as walk } from './image.js'
 
+// LEB128 integers: unsigned for sizes and counts, signed for constants.
 const uleb = n => {
   const out = []
   do {
@@ -27,24 +28,28 @@ const sleb = n => {
 
 const utf8 = text => [...new TextEncoder().encode(text)]
 
+// A name is its byte length, then its utf-8 bytes.
 const name = text => [...uleb(utf8(text).length), ...utf8(text)]
 
+// A section is its id, its size, then its body.
 const section = (id, body) => [id, ...uleb(body.length), ...body]
 
 export const emit = ({ bytes, focus, legend }) => {
+  // observe(p): follow function sides until mem[p] == p, then return p
   const observe = [
     0x00,                              // no locals
     0x02, 0x40, 0x03, 0x40,            // block, loop
-    0x20, 0x00, 0x28, 0x02, 0x00,      //   mem[p]
-    0x20, 0x00, 0x46, 0x0d, 0x01,      //   == p ? done
+    0x20, 0x00, 0x28, 0x02, 0x00,      //   load mem[p]
+    0x20, 0x00, 0x46, 0x0d, 0x01,      //   equal to p? exit: the answer
     0x20, 0x00, 0x28, 0x02, 0x00,      //   p = mem[p]
     0x21, 0x00, 0x0c, 0x00,            //   again
-    0x0b, 0x0b, 0x20, 0x00, 0x0b
-  ]      // p
+    0x0b, 0x0b, 0x20, 0x00, 0x0b      // end loop, end block, return p
+  ]
 
+  // select(p): return mem[p + 4], the argument side
   const select = [
-    0x00,
-    0x20, 0x00, 0x28, 0x02, 0x04,      // mem[p + 4]
+    0x00,                              // no locals
+    0x20, 0x00, 0x28, 0x02, 0x04,      // load mem[p + 4]
     0x0b
   ]
 
@@ -52,11 +57,16 @@ export const emit = ({ bytes, focus, legend }) => {
     [...uleb(addr), ...name(String(spelling))])
 
   return Uint8Array.from([
-    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,    // \0asm, version 1
+    // type: one signature, i32 -> i32
     ...section(1, [0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f]),
+    // function: two functions of that signature
     ...section(3, [0x02, 0x00, 0x00]),
+    // memory: enough 64K pages to hold the record
     ...section(5, [0x01, 0x00, ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
+    // global: focus, the address observation starts from
     ...section(6, [0x01, 0x7f, 0x00, 0x41, ...sleb(focus), 0x0b]),
+    // exports
     ...section(7, [
       0x04,
       ...name('memory'), 0x02, 0x00,
@@ -64,16 +74,20 @@ export const emit = ({ bytes, focus, legend }) => {
       ...name('observe'), 0x00, 0x00,
       ...name('select'), 0x00, 0x01
     ]),
+    // code: the two bodies
     ...section(10, [
       0x02,
       ...uleb(observe.length), ...observe,
       ...uleb(select.length), ...select
     ]),
+    // data: the record itself, at address 0
     ...section(11, [0x01, 0x00, 0x41, ...sleb(0), 0x0b, ...uleb(bytes.length), ...bytes]),
+    // custom: the legend — address and spelling for every atom
     ...section(0, [...name('legend'), ...uleb(legend.size), ...entries])
   ])
 }
 
+// A byte cursor: single bytes, LEB128 integers, length-prefixed text.
 const reader = body => {
   let at = 0
   const byte = () => body[at++]
@@ -99,34 +113,38 @@ const reader = body => {
            tell: () => at }
 }
 
+// After the eight header bytes, a module is sections: id, size, body.
 export const sections = bytes => {
-  const r = reader(bytes)
+  const read = reader(bytes)
   const found = []
-  r.seek(8)
-  while (r.more()) {
-    const id = r.byte()
-    const size = r.leb()
-    const start = r.tell()
+  read.seek(8)
+  while (read.more()) {
+    const id = read.byte()
+    const size = read.leb()
+    const start = read.tell()
     found.push({ id, body: bytes.subarray(start, start + size) })
-    r.seek(start + size)
+    read.seek(start + size)
   }
   return found
 }
 
+// Rebuild the address → spelling map from the legend section.
 export const readLegend = bytes => {
   for (const { id, body } of sections(bytes)) {
     if (id !== 0) continue
-    const r = reader(body)
-    if (r.text() !== 'legend') continue
+    const read = reader(body)
+    if (read.text() !== 'legend') continue
 
     const legend = new Map()
-    let count = r.leb()
-    while (count--) legend.set(r.leb(), r.text())
+    let count = read.leb()
+    while (count--) legend.set(read.leb(), read.text())
     return legend
   }
   return new Map()
 }
 
+// Replay the observation in JS over the exported memory, run the machine's
+// own observe, and insist they agree before selecting.
 export const run = async bytes => {
   const legend = readLegend(bytes)
   const { instance } = await WebAssembly.instantiate(bytes)
@@ -151,15 +169,18 @@ const main = () =>
 
 if (main()) {
   const { readFileSync, writeFileSync } = await import('node:fs')
+  const source = decodeURIComponent(new URL('../core.lisp', import.meta.url).pathname)
   const path = process.argv[2]
-    ?? decodeURIComponent(new URL('./core.lisp', import.meta.url).pathname)
+    ?? source
 
   let bytes
   if (path.endsWith('.wasm')) {
     bytes = new Uint8Array(readFileSync(path))
   } else {
     bytes = emit(image(compile(readFileSync(path, 'utf-8'))))
-    const out = path.replace(/\.[^./]+$/, '') + '.wasm'
+    const out = path === source
+      ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)
+      : path.replace(/\.[^./]+$/, '') + '.wasm'
     writeFileSync(out, bytes)
     console.log(out, '—', bytes.length, 'bytes\n')
   }

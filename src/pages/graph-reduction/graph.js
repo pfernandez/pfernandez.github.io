@@ -1,5 +1,14 @@
-// 1. read — parentheses become trees
+// Every node is a cell: a two-element array. cell[0] is the function side
+// and cell[1] is the argument side, so the application (f x) is the cell
+// [f, x]. There are no tags; every role is recognized by shape:
+//   atom        both sides point at the cell itself
+//   slot        a parameter: itself on the left, its definition on the right
+//   answer      itself on the left, a result on the right
+//   definition  its right side is a slot pointing back at it
 
+// 1. read — parentheses become nested arrays
+
+// Comments are dropped; every token remembers its line and column.
 const tokenize = src =>
   [...src.matchAll(/(;.*$)|"([^"\\]|\\.)*"|[()]|[^()\s]+/gm)]
     .filter(m => !m[1])
@@ -41,37 +50,42 @@ const read = tokens => {
   return forms
 }
 
-// 2. define — a definition is the picture of its own application, built whole;
-//    each mark becomes a slot: a pair that loops to itself and points home;
-//    an atom is a cell that is entirely itself, interned so a spelling names
-//    one cell
+// 2. define — a definition (Name picture) is the picture of a complete call:
+//    the body applied to each parameter in turn, so (K ((x x) y)) reads
+//    "K applied to x and then y leaves x"
 
 const symbol = form =>
   typeof form === 'string'
 
+// A scope is a list of [name, cell] pairs; first match wins.
 const binding = (name, bindings) =>
   bindings.find(([mark]) => mark === name)
 
 const lookup = (name, scopes) =>
   binding(name, scopes.flat())?.[1]
 
+// One cell per spelling, so atoms compare by identity; spellings is the
+// reverse map, used for printing.
 const atoms = new Map()
 const spellings = new Map()
 
-const intern = value => {
-  if (!atoms.has(value)) {
+const intern = spelling => {
+  if (!atoms.has(spelling)) {
     const cell = []
     cell[0] = cell
     cell[1] = cell
-    atoms.set(value, cell)
-    spellings.set(cell, value)
+    atoms.set(spelling, cell)
+    spellings.set(cell, spelling)
   }
-  return atoms.get(value)
+  return atoms.get(spelling)
 }
 
+// Left-nested application: spine(f, [a, b]) is ((f a) b).
 const spine = (first, rest) =>
   rest.reduce((form, next) => [form, next], first)
 
+// A symbol means its binding if it has one, otherwise an atom; a list is
+// its head applied to each item in turn.
 const build = (form, scopes) =>
   !Array.isArray(form)
     ? symbol(form) && lookup(form, scopes) || intern(form)
@@ -80,16 +94,22 @@ const build = (form, scopes) =>
               form.slice(1).map(item => build(item, scopes)))
       : intern('()')
 
+// A top-level (name form) where name is unbound introduces a definition.
 const sourceDefinition = (form, scope) =>
   Array.isArray(form) && form.length === 2
     && symbol(form[0]) && !binding(form[0], scope.names)
 
+// Walk the picture's left edge collecting parameter names, innermost first —
+// the order arguments are supplied; null if there are none.
 const shape = (form, scope, marks = []) =>
   Array.isArray(form) && form.length === 2 && symbol(form[1])
       && !binding(form[1], scope.names) && !marks.includes(form[1])
     ? shape(form[0], scope, [form[1], ...marks])
     : marks.length ? marks : null
 
+// fn is the picture itself; each parameter becomes a slot pointing back at
+// fn. The name binds before the picture builds, so self-reference is a
+// cycle, not an expansion.
 const define = ([name, form], scope) => {
   const marks = shape(form, scope)
   if (!marks) err('Definitions need a body and at least one slot')
@@ -106,51 +126,71 @@ const define = ([name, form], scope) => {
   fn.push(...build(form, [local, scope.names]))
 }
 
-// 3. stitch — slide down the left edge collecting arguments; a definition is
-//    any pair, not itself settled, whose right side is a slot pointing home —
-//    peel its slots back off to reach the body; filling them makes a fresh
-//    answer: a self-loop holding the body with slots swapped for arguments
-// 4. knot — the call being stitched is met again: point back at its answer
+// 3. stitch — reduce: walk a call's function sides to its head; a definition
+//    with enough arguments becomes its answer — the body with each slot
+//    swapped for its argument
+// 4. knot — a call met again while it is being stitched points back at its
+//    own answer, so recursion becomes a cycle; stitching is given finite
+//    patience — running out means divergence
 
+// Observation stops where the function side is the cell itself: atoms,
+// slots, and answers are all stable.
 const stable = form =>
   Array.isArray(form) && form[0] === form
 
+// The outermost cell built by define: its argument side is a slot pointing
+// back at it.
 const definition = form =>
   Array.isArray(form) && !stable(form)
     && stable(form[1]) && form[1][1] === form
 
-const atom = form =>
+// Values need no stitching: stable cells are finished, definitions wait.
+const value = form =>
   stable(form) || definition(form)
 
+// Read a left spine as a call: ((K a) b) is head K, args [a, b].
 const root = (form, args = []) =>
-  atom(form) ? { head: form, args }
+  value(form) ? { head: form, args }
     : root(form[0], [form[1], ...args])
 
+// Strip parameter applications to reach the body; slots return in the order
+// arguments are supplied. A repeated slot belongs to the body, as in M.
 const peel = (fn, node = fn, slots = []) =>
   stable(node[1]) && node[1][1] === fn && !slots.includes(node[1])
     ? peel(fn, node[0], [node[1], ...slots])
     : [node, slots]
 
-const replace = (form, pairs, seen = new Map()) => {
-  const match = pairs.find(([from]) => form === from)
+// Copy with each slot swapped for its argument; values stay shared, and
+// seen keeps sharing and cycles intact in the copy.
+const replace = (form, swaps, seen = new Map()) => {
+  const match = swaps.find(([from]) => form === from)
   if (match) return match[1]
-  if (atom(form)) return form
+  if (value(form)) return form
   if (seen.has(form)) return seen.get(form)
 
   const copy = []
   seen.set(form, copy)
-  form.forEach(item => copy.push(replace(item, pairs, seen)))
+  form.forEach(item => copy.push(replace(item, swaps, seen)))
   return copy
 }
 
+// An in-progress call of the same definition with identical arguments;
+// each knot is [fn, args, focus].
 const knot = (head, args, knots) =>
-  knots.find(([fn, seen]) =>
+  knots.find(([fn, prior]) =>
     fn === head
-      && seen.length === args.length
-      && seen.every((arg, i) => arg === args[i]))
+      && prior.length === args.length
+      && prior.every((arg, i) => arg === args[i]))
 
+// Calls that never repeat would stitch forever; compile sets the budget.
+let patience = 0
+
+// A completed call returns its focus: the call's shape with the answer at
+// its head, so observation runs to the answer and select reads the result.
+// Arguments beyond the slots stay applied to the body.
 const stitch = (form, knots = []) => {
-  if (atom(form)) return form
+  if (value(form)) return form
+  if (--patience < 0) err('Stitching never settles')
 
   const { head, args } = root(form)
   const parts = definition(head) && peel(head)
@@ -163,20 +203,23 @@ const stitch = (form, knots = []) => {
   const tied = knot(head, stitched, knots)
   if (tied) return tied[2]
 
-  const self = []
-  const focus = spine(self, stitched)
-  const pairs = slots.map((slot, i) => [slot, stitched[i]])
-  const filled = replace(spine(body, stitched.slice(slots.length)), pairs)
+  const answer = []
+  const focus = spine(answer, stitched)
+  const swaps = slots.map((slot, i) => [slot, stitched[i]])
+  const filled = replace(spine(body, stitched.slice(slots.length)), swaps)
 
-  self[0] = self
-  self[1] = stitch(filled, [[head, stitched, focus], ...knots])
+  answer[0] = answer
+  answer[1] = stitch(filled, [[head, stitched, focus], ...knots])
 
   return focus
 }
 
+// Definitions extend the scope; the last remaining form is the focus.
 export const compile = source => {
   const scope = { names: [] }
   let focus
+
+  patience = 1e6
 
   for (const form of read(tokenize(source)))
     focus = sourceDefinition(form, scope)
@@ -187,9 +230,11 @@ export const compile = source => {
   return focus
 }
 
-// 5. observe — follow left pointers until a pair points at itself; select reads
-//    its right side; an atom is its own answer and its own payload
+// 5. observe — follow function sides until a cell points at itself; select
+//    reads its argument side; an atom is its own answer and its own payload
 
+// Atoms print as their spelling; a cell met again prints as the path where
+// it first appeared, so sharing and cycles stay visible.
 const paths = (expr, path = '$', seen = new Map()) =>
   !Array.isArray(expr) ? expr
     : spellings.has(expr) ? spellings.get(expr)

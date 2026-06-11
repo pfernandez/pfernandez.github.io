@@ -1,8 +1,10 @@
-// the record as bytes — eight per cell, little-endian; an atom is its own
-// address twice
+// The graph as bytes — eight per cell: two little-endian u32 addresses,
+// function side then argument side. Pointer identity becomes address
+// identity, so an atom is its own address twice.
 
 import { serialize } from '../graph.js'
 
+// Address cells in first-visit order; the legend names the atoms.
 export const image = graph => {
   const placed = new Map()
   const place = node => {
@@ -27,6 +29,7 @@ export const image = graph => {
   return { bytes, focus: placed.get(graph), legend }
 }
 
+// graph.js observe and select, reading addresses instead of references.
 export const observe = (view, pair, trace) => (
   trace?.(pair),
   view.getUint32(pair, true) === pair ? pair
@@ -35,6 +38,8 @@ export const observe = (view, pair, trace) => (
 export const select = (view, found) =>
   view.getUint32(found + 4, true)
 
+// graph.js serialize: atoms print from the legend, repeats print as the
+// path where they first appeared.
 export const imageSerialize = (view, root, legend, seen = new Map()) => {
   const walk = (addr, path) =>
     legend.has(addr) ? String(legend.get(addr))

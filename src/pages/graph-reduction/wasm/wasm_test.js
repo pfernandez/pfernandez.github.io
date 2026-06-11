@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { compile, observe, select, serialize } from './graph.js'
+import { compile, observe, select, serialize } from '../graph.js'
 import { image, imageSerialize, observe as walk, select as pick } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
