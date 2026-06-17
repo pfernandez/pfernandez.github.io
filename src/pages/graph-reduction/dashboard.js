@@ -1,7 +1,45 @@
 import './style.css'
-import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { compile, observe, serialize } from './graph.js'
+import {
+  button,
+  component,
+  div,
+  h2,
+  label,
+  p,
+  pre,
+  span,
+  textarea
+} from '@pfern/elements'
+import { compile, observe, serialize, serializeColor } from './graph.js'
 import lisp from './core.lisp?raw'
+
+const ANSI_COLOR = /\x1b\[38;5;(\d+)m(.*?)\x1b\[0m/g
+
+const ansiRgb = code => {
+  const offset = Number(code) - 16
+  const red = Math.floor(offset / 36)
+  const green = Math.floor(offset / 6) % 6
+  const blue = offset % 6
+  return `rgb(${red * 51} ${green * 51} ${blue * 51})`
+}
+
+const colorized = graph => {
+  const output = serializeColor(graph)
+  const children = []
+  let end = 0
+
+  for (const match of output.matchAll(ANSI_COLOR)) {
+    if (match.index > end) children.push(output.slice(end, match.index))
+    children.push(
+      span(
+        { class: 'identity', style: { color: ansiRgb(match[1]) } },
+        match[2]))
+    end = match.index + match[0].length
+  }
+
+  if (end < output.length) children.push(output.slice(end))
+  return pre({ class: 'output' }, ...children)
+}
 
 const build = source => {
   let graph = [], error
@@ -52,7 +90,11 @@ const dashboard = component(
               button({ onclick: reset, disabled: time === 0 }, 'Reset')),
 
           div({ class: 'description' }, `Steps: ${time}`)),
-      div({ class: 'panel scene' }, error || serialize(graph)))
+      div(
+        { class: 'panel scene' },
+        error
+          ? pre({ class: 'output error' }, String(error))
+          : colorized(graph)))
   })
 
 export default dashboard

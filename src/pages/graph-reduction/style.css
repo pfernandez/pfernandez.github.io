@@ -27,6 +27,20 @@
   width: 100%;
 }
 
+.dashboard .output {
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dashboard .identity {
+  font-weight: 700;
+}
+
 .dashboard textarea {
   width: 100%;
   min-height: 200px;
