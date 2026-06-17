@@ -2,7 +2,11 @@
 // in bytes, focus, and legend.
 
 import { compile } from '../graph.js'
-import { image, serializeImage, observe as observeImage } from './image.js'
+import {
+  image,
+  serializeImageColor,
+  observe as observeImage
+} from './image.js'
 
 // LEB128 integers: unsigned for sizes and counts, signed for constants.
 const uleb = n => {
@@ -154,7 +158,7 @@ export const run = async bytes => {
 
   let traceCount = 0
   const trace = addr =>
-    console.log(traceCount++, serializeImage(view, addr, legend), '\n')
+    console.log(traceCount++, serializeImageColor(view, addr, legend), '\n')
 
   const foundByImage = observeImage(view, focus.value, trace)
   const foundByWasm = instance.exports.observe(focus.value)

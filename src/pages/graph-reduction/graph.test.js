@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { compile, observe, select, serialize } from './graph.js'
+import { compile, observe, select, serialize, serializeColor } from './graph.js'
 import { image } from './wasm/image.js'
 import { emit, readLegend } from './wasm/wasm.js'
 
@@ -171,6 +171,19 @@ describe('true-shape compiler contracts', () => {
     root[1] = [shared, shared]
 
     assert.equal(serialize(root), '($ ((a b) $.1.0))')
+  })
+
+  test('serializeColor uses color for repeated cells', () => {
+    const root = []
+    const shared = ['a', 'b']
+
+    root[0] = root
+    root[1] = [shared, shared]
+
+    const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
+
+    assert.match(serializeColor(root), /\x1b\[38;5;/)
+    assert.equal(stripAnsi(serializeColor(root)), '(() ((a b) ()))')
   })
 })
 

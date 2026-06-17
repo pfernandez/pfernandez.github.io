@@ -244,19 +244,63 @@ export const compile = source => {
 // 5. observe — follow function sides until a cell points at itself; select
 //    reads its argument side; an atom is its own answer and its own payload
 
-// Atoms print as their spelling; a cell met again prints as the path where
-// it first appeared, so sharing and cycles stay visible.
-const printable = (node, path = '$', pathsByNode = new Map()) =>
-  !Array.isArray(node) ? node
-    : spellings.has(node) ? spellings.get(node)
-      : pathsByNode.has(node) ? pathsByNode.get(node)
-        : (pathsByNode.set(node, path),
-          node.map((item, i) => printable(item, `${path}.${i}`, pathsByNode)))
+// Atoms print as their spelling; repeated cells print as the path where the
+// cell first appeared, so sharing and cycles stay visible in plain text.
+const printable = (node, path = '$', pathsByNode = new Map()) => {
+  if (!Array.isArray(node)) return String(node)
+  if (spellings.has(node)) return String(spellings.get(node))
+  if (pathsByNode.has(node)) return pathsByNode.get(node)
+
+  pathsByNode.set(node, path)
+  const left = printable(node[0], `${path}.0`, pathsByNode)
+  const right = printable(node[1], `${path}.1`, pathsByNode)
+  return `(${left} ${right})`
+}
 
 export const serialize = form =>
-  JSON.stringify(printable(form))
-    .replaceAll('[', '(').replaceAll(']', ')')
-    .replaceAll(',', ' ').replaceAll('"', '')
+  printable(form)
+
+const RESET = '\x1b[0m'
+const COLOR_STEPS = [2, 3, 4, 5]
+const COLOR_COUNT = COLOR_STEPS.length ** 3
+
+const colorCode = index => {
+  const offset = index * 29 % COLOR_COUNT
+  const red = COLOR_STEPS[offset % COLOR_STEPS.length]
+  const green =
+    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length) % COLOR_STEPS.length]
+  const blue =
+    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length ** 2)]
+  return 16 + 36 * red + 6 * green + blue
+}
+
+const colorFor = (node, colorsByNode) => {
+  if (!colorsByNode.has(node))
+    colorsByNode.set(node, colorsByNode.size)
+  return colorCode(colorsByNode.get(node))
+}
+
+const colorize = (color, text) =>
+  `\x1b[38;5;${color}m${text}${RESET}`
+
+// Color carries identity for human traces: repeated cells print as () in the
+// same color as the first occurrence.
+export const serializeColor = (
+  node,
+  seen = new Set(),
+  colorsByNode = new Map()
+) => {
+  if (!Array.isArray(node)) return String(node)
+  if (spellings.has(node)) return String(spellings.get(node))
+
+  const color = colorFor(node, colorsByNode)
+  if (seen.has(node)) return colorize(color, '()')
+
+  seen.add(node)
+  const left = serializeColor(node[0], seen, colorsByNode)
+  const right = serializeColor(node[1], seen, colorsByNode)
+  return `${colorize(color, '(')}${left} ${right}${colorize(color, ')')}`
+}
 
 export const observe = (pair, trace) => (
   trace?.(pair),
@@ -267,7 +311,7 @@ export const select = found =>
   found[1]
 
 let traceCount = 0
-const trace = form => console.log(traceCount++, serialize(form), '\n')
+const trace = form => console.log(traceCount++, serializeColor(form), '\n')
 
 const main = () =>
   typeof process !== 'undefined'

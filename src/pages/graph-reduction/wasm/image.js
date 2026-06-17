@@ -39,7 +39,7 @@ export const select = (view, found) =>
   view.getUint32(found + 4, true)
 
 // graph.js serialize, reading addresses: atoms print from the legend,
-// repeats print as the path where they first appeared.
+// repeats print as the path where the cell first appeared.
 export const serializeImage = (view, root, legend, pathsByAddr = new Map()) => {
   const printAddr = (addr, path) => {
     if (legend.has(addr)) return String(legend.get(addr))
@@ -52,4 +52,47 @@ export const serializeImage = (view, root, legend, pathsByAddr = new Map()) => {
   }
 
   return printAddr(root, '$')
+}
+
+const RESET = '\x1b[0m'
+const COLOR_STEPS = [2, 3, 4, 5]
+const COLOR_COUNT = COLOR_STEPS.length ** 3
+
+const colorCode = index => {
+  const offset = index * 29 % COLOR_COUNT
+  const red = COLOR_STEPS[offset % COLOR_STEPS.length]
+  const green =
+    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length) % COLOR_STEPS.length]
+  const blue =
+    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length ** 2)]
+  return 16 + 36 * red + 6 * green + blue
+}
+
+const colorFor = (addr, colorsByAddr) => {
+  if (!colorsByAddr.has(addr))
+    colorsByAddr.set(addr, colorsByAddr.size)
+  return colorCode(colorsByAddr.get(addr))
+}
+
+const colorize = (color, text) =>
+  `\x1b[38;5;${color}m${text}${RESET}`
+
+// graph.js serializeColor, reading addresses.
+export const serializeImageColor = (view, root, legend) => {
+  const seen = new Set()
+  const colorsByAddr = new Map()
+
+  const printAddr = addr => {
+    if (legend.has(addr)) return String(legend.get(addr))
+
+    const color = colorFor(addr, colorsByAddr)
+    if (seen.has(addr)) return colorize(color, '()')
+
+    seen.add(addr)
+    const left = printAddr(view.getUint32(addr, true))
+    const right = printAddr(view.getUint32(addr + 4, true))
+    return `${colorize(color, '(')}${left} ${right}${colorize(color, ')')}`
+  }
+
+  return printAddr(root)
 }
