@@ -61,8 +61,12 @@ const symbol = form =>
 const binding = (name, bindings) =>
   bindings.find(([mark]) => mark === name)
 
-const lookup = (name, scopes) =>
-  binding(name, scopes.flat())?.[1]
+const lookup = (name, scopes) => {
+  for (const scope of scopes) {
+    const found = binding(name, scope)
+    if (found) return found[1]
+  }
+}
 
 // One cell per spelling, so atoms compare by identity; spellings is the
 // reverse map, used for printing.
@@ -244,7 +248,7 @@ const paths = (expr, path = '$', seen = new Map()) =>
 
 export const serialize = form =>
   JSON.stringify(paths(form))
-    ?.replaceAll('[', '(').replaceAll(']', ')')
+    .replaceAll('[', '(').replaceAll(']', ')')
     .replaceAll(',', ' ').replaceAll('"', '')
 
 export const observe = (pair, trace) => (
