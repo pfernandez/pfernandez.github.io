@@ -15,53 +15,30 @@ import lisp from './core.lisp?raw'
 
 const ANSI_COLOR = /\x1b\[38;5;(\d+)m(.*?)\x1b\[0m/g
 
-const ansiRgb = code => {
-  const offset = Number(code) - 16
-  const red = Math.floor(offset / 36)
-  const green = Math.floor(offset / 6) % 6
-  const blue = offset % 6
-  return `rgb(${red * 51} ${green * 51} ${blue * 51})`
-}
-
-const spectrum = colors =>
-  colors.length < 2
-    ? colors[0] || 'transparent'
-    : `linear-gradient(90deg, ${colors.join(', ')})`
+const opacity = (index, count) =>
+  count < 2 ? 1 : 0.2 + index / (count - 1) * 0.8
 
 const graphOutput = graph => {
   const output = serializeColor(graph)
+  const matches = [...output.matchAll(ANSI_COLOR)]
+  const colorOrder = [...new Set(matches.map(match => match[1]))]
   const children = []
-  const colors = []
-  const seenColors = new Set()
   let end = 0
 
-  for (const match of output.matchAll(ANSI_COLOR)) {
-    const color = ansiRgb(match[1])
-    if (!seenColors.has(color)) {
-      seenColors.add(color)
-      colors.push(color)
-    }
-
+  for (const match of matches) {
     if (match.index > end) children.push(output.slice(end, match.index))
     children.push(
       span(
-        { class: 'identity', style: { color } },
+        { class: 'identity',
+          style: {
+            opacity: opacity(colorOrder.indexOf(match[1]), colorOrder.length)
+          } },
         match[2]))
     end = match.index + match[0].length
   }
 
   if (end < output.length) children.push(output.slice(end))
-  return div(
-    { class: 'output-view' },
-    div(
-      { class: 'legend', 'aria-label': 'Cell color legend' },
-      span({ class: 'legend-title' }, 'Cells'),
-      span(
-        { class: 'spectrum',
-          style: { background: spectrum(colors) },
-          title: `${colors.length} visible cell colors` }),
-      span({ class: 'legend-more' }, String(colors.length))),
-    pre({ class: 'output' }, ...children))
+  return pre({ class: 'output' }, ...children)
 }
 
 const build = source => {

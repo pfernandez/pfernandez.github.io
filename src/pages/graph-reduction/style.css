@@ -20,8 +20,6 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .dashboard .scene > pre {
@@ -41,34 +39,6 @@
 
 .dashboard .identity {
   font-weight: 700;
-}
-
-.dashboard .output-view {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-  width: 100%;
-}
-
-.dashboard .legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 22px;
-}
-
-.dashboard .legend-title,
-.dashboard .legend-more {
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.dashboard .spectrum {
-  width: 100px;
-  height: 16px;
-  border-radius: 3px;
-  border: 1px solid color-mix(in oklab, CanvasText 35%, transparent);
 }
 
 .dashboard textarea {
