@@ -133,17 +133,17 @@ describe('true-shape compiler contracts', () => {
     assert.equal(serialize(graph[1]), 'a')
   })
 
-  test('extra arguments remain after the filled body', () =>
+  test('extra arguments remain after reduction', () =>
     assertReduction('(K ((x x) y))', '(K a b c)', '(a c)'))
 
-  test('source applications build as left spines', () => {
+  test('source applications build as left-nested applications', () => {
     const graph = compile('(let x y)')
 
     assert.equal(serialize(graph), '((let x) y)')
     assert.equal(serialize(step(graph)), 'let')
   })
 
-  test('multi-slot definitions are written as spines', () =>
+  test('multi-slot definitions are written as nested applications', () =>
     assert.throws(
       () => compile('(K (x x y))'),
       /Definitions need a body and at least one slot/))
@@ -161,7 +161,7 @@ describe('true-shape compiler contracts', () => {
   test('divergence throws instead of freezing', () =>
     assert.throws(
       () => compile(source('(Grow ((x (Grow (x x))) x))', '(Grow a)')),
-      /Stitching never settles/))
+      /Reduction never settles/))
 
   test('serialize names repeated paths and cycles', () => {
     const root = []
@@ -187,7 +187,7 @@ describe('core forms', () => {
       '(S f g x)',
       '((f x) (g x))'))
 
-  test('composed reductions are tied by default', () =>
+  test('composed reductions share active calls', () =>
     assertReduction(coreDefinitions, '(S K K a)', 'a', 2))
 
   test('B composes functions', () =>
@@ -317,7 +317,7 @@ describe('library forms', () => {
     assert.equal(serialize(repeat(graph, step, 2)), 'm')
   })
 
-  test('a recursive knot makes infinite data finite', () => {
+  test('an active call makes infinite data finite', () => {
     const Cons = serialize(compile(source(coreDefinitions, 'Cons')))
 
     assertReduction(coreDefinitions, '(Repeat a no K)', 'a', 3)

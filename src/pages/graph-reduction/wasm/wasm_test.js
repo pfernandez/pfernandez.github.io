@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { compile, observe, select, serialize } from '../graph.js'
-import { image, imageSerialize, observe as walk, select as pick } from './image.js'
+import {
+  image,
+  serializeImage,
+  observe as observeImage,
+  select as selectImage
+} from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const step = node => select(observe(node))
@@ -29,24 +34,24 @@ const definitions = `(I (x x))
 (First ((p K) p))
 (Second ((p False) p))`
 
-const programs = [
+const forms = [
   '(I a)', '(K a b)', '(K a)', '(K a b c)', '(K 7 b)', '(K () b)',
   '(S f g x)', '(S K K a)', '(B f g x)', '(C f x y)', '(W f x)', '(M x)',
   '(Y f)', '(True a b)', '(False a b)', '(If p a b)',
   '(Pair a b f)', '(First p)', '(Second p)',
   '(let x y)', '(Loop Yield seed)']
 
-const program = focus => compile(`${definitions}\n${focus}`)
+const program = form => compile(`${definitions}\n${form}`)
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
-const machine = async graph => {
-  const record = image(graph)
-  const bytes = emit(record)
+const loadMachine = async graph => {
+  const graphImage = image(graph)
+  const bytes = emit(graphImage)
   const { instance } = await WebAssembly.instantiate(bytes)
 
-  return { focus: record.focus,
-           authored: record.legend,
+  return { focus: graphImage.focus,
+           authoredLegend: graphImage.legend,
            legend: readLegend(bytes),
            memory: new DataView(instance.exports.memory.buffer),
            exports: instance.exports,
@@ -55,23 +60,25 @@ const machine = async graph => {
 
 describe('the image is the graph', () => {
   test('images serialize identically to graphs', () => {
-    for (const focus of programs) {
-      const graph = program(focus)
+    for (const form of forms) {
+      const graph = program(form)
       const { bytes, focus: root, legend } = image(graph)
 
-      assert.equal(imageSerialize(view(bytes), root, legend), serialize(graph))
+      assert.equal(serializeImage(view(bytes), root, legend), serialize(graph))
     }
   })
 
-  test('the image walker agrees with the graph engine, step for step', () => {
-    for (const focus of programs) {
-      const graph = program(focus)
+  test('image observation agrees with the graph engine, step for step', () => {
+    for (const form of forms) {
+      const graph = program(form)
       const { bytes, focus: root, legend } = image(graph)
       const v = view(bytes)
-      const found = walk(v, root)
+      const found = observeImage(v, root)
 
-      assert.equal(imageSerialize(v, found, legend), serialize(observe(graph)))
-      assert.equal(imageSerialize(v, pick(v, found), legend), serialize(step(graph)))
+      assert.equal(serializeImage(v, found, legend), serialize(observe(graph)))
+      assert.equal(
+        serializeImage(v, selectImage(v, found), legend),
+        serialize(step(graph)))
     }
   })
 
@@ -87,58 +94,64 @@ describe('the image is the graph', () => {
   })
 })
 
-describe('the machine runs the record', () => {
+describe('the machine runs graph bytes', () => {
   test('the wasm engine computes every core form', async () => {
-    for (const focus of programs) {
-      const graph = program(focus)
-      const m = await machine(graph)
-      const found = m.exports.observe(m.exports.focus.value)
-      const payload = m.exports.select(found)
+    for (const form of forms) {
+      const graph = program(form)
+      const machine = await loadMachine(graph)
+      const found = machine.exports.observe(machine.exports.focus.value)
+      const payload = machine.exports.select(found)
 
-      assert.equal(m.exports.focus.value, m.focus)
-      assert.equal(imageSerialize(m.memory, payload, m.legend), serialize(step(graph)))
+      assert.equal(machine.exports.focus.value, machine.focus)
+      assert.equal(
+        serializeImage(machine.memory, payload, machine.legend),
+        serialize(step(graph)))
     }
   })
 
   test('observation is idempotent inside the machine', async () => {
-    const m = await machine(program('(I a)'))
-    const found = m.exports.observe(m.focus)
+    const machine = await loadMachine(program('(I a)'))
+    const found = machine.exports.observe(machine.focus)
 
-    assert.equal(m.exports.observe(found), found)
-    assert.equal(m.exports.observe(m.exports.observe(found)), found)
+    assert.equal(machine.exports.observe(found), found)
+    assert.equal(machine.exports.observe(machine.exports.observe(found)), found)
   })
 
   test('composed reductions step through answers', async () => {
     const graph = program('(S K K a)')
-    const m = await machine(graph)
-    const stepped = p => m.exports.select(m.exports.observe(p))
+    const machine = await loadMachine(graph)
+    const stepped = p => machine.exports.select(machine.exports.observe(p))
 
     assert.equal(
-      imageSerialize(m.memory, repeat(m.focus, stepped, 2), m.legend),
+      serializeImage(
+        machine.memory,
+        repeat(machine.focus, stepped, 2),
+        machine.legend),
       serialize(repeat(graph, step, 2)))
   })
 
   test('Loop orbits with period 2, by address', async () => {
-    const m = await machine(program('(Loop Yield seed)'))
-    const stepped = p => m.exports.select(m.exports.observe(p))
-    const yielded = stepped(m.focus)
+    const machine = await loadMachine(program('(Loop Yield seed)'))
+    const stepped = p => machine.exports.select(machine.exports.observe(p))
+    const yielded = stepped(machine.focus)
 
-    assert.notEqual(yielded, m.focus)
-    assert.equal(repeat(m.focus, stepped, 2), m.focus)
-    assert.equal(repeat(m.focus, stepped, 3), yielded)
-    assert.equal(repeat(m.focus, stepped, 4), m.focus)
+    assert.notEqual(yielded, machine.focus)
+    assert.equal(repeat(machine.focus, stepped, 2), machine.focus)
+    assert.equal(repeat(machine.focus, stepped, 3), yielded)
+    assert.equal(repeat(machine.focus, stepped, 4), machine.focus)
   })
 
   test('the module is self-contained: the legend round-trips', async () => {
-    const m = await machine(program('(K 7 b)'))
+    const machine = await loadMachine(program('(K 7 b)'))
 
-    assert.deepEqual([...m.legend], [...m.authored])
+    assert.deepEqual([...machine.legend], [...machine.authoredLegend])
   })
 
   test('every program is the same machine', () => {
     const a = sections(emit(image(program('(I a)'))))
     const b = sections(emit(image(program('(Loop Yield seed)'))))
-    const body = (list, id) => Buffer.from(list.find(s => s.id === id).body).toString('hex')
+    const body = (list, id) =>
+      Buffer.from(list.find(section => section.id === id).body).toString('hex')
 
     for (const id of [1, 3, 5, 6, 7, 10]) assert.equal(body(a, id), body(b, id))
     for (const id of [0, 11]) assert.notEqual(body(a, id), body(b, id))

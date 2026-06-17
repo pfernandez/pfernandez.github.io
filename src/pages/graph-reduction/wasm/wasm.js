@@ -1,9 +1,8 @@
-// every program is the same machine: a four-instruction reader stapled to its
-// record; programs differ only in their data segment, their focus, and their
-// legend
+// Every module uses the same observe/select machine; each graph differs only
+// in bytes, focus, and legend.
 
 import { compile } from '../graph.js'
-import { image, imageSerialize, observe as walk } from './image.js'
+import { image, serializeImage, observe as observeImage } from './image.js'
 
 // LEB128 integers: unsigned for sizes and counts, signed for constants.
 const uleb = n => {
@@ -62,7 +61,7 @@ export const emit = ({ bytes, focus, legend }) => {
     ...section(1, [0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f]),
     // function: two functions of that signature
     ...section(3, [0x02, 0x00, 0x00]),
-    // memory: enough 64K pages to hold the record
+    // memory: enough 64K pages to hold the graph bytes
     ...section(5, [0x01, 0x00,
                    ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
     // global: focus, the address observation starts from
@@ -81,7 +80,7 @@ export const emit = ({ bytes, focus, legend }) => {
       ...uleb(observe.length), ...observe,
       ...uleb(select.length), ...select
     ]),
-    // data: the record itself, at address 0
+    // data: the graph bytes, at address 0
     ...section(11, [0x01, 0x00, 0x41,
                     ...sleb(0), 0x0b, ...uleb(bytes.length), ...bytes]),
     // custom: the legend — address and spelling for every atom
@@ -145,22 +144,24 @@ export const readLegend = bytes => {
   return new Map()
 }
 
-// Replay the observation in JS over the exported memory, run the machine's
-// own observe, and insist they agree before selecting.
+// Replay observation in JS over exported memory, run wasm observe, and insist
+// they agree before selecting.
 export const run = async bytes => {
   const legend = readLegend(bytes)
   const { instance } = await WebAssembly.instantiate(bytes)
   const { memory, focus } = instance.exports
   const view = new DataView(memory.buffer)
 
-  let N = 0
-  const trace = addr => console.log(N++, imageSerialize(view, addr, legend), '\n')
+  let traceCount = 0
+  const trace = addr =>
+    console.log(traceCount++, serializeImage(view, addr, legend), '\n')
 
-  const found = walk(view, focus.value, trace)
-  const machine = instance.exports.observe(focus.value)
-  if (machine !== found) throw new Error('The machine disagrees with the record')
+  const foundByImage = observeImage(view, focus.value, trace)
+  const foundByWasm = instance.exports.observe(focus.value)
+  if (foundByWasm !== foundByImage)
+    throw new Error('Wasm observe disagrees with image observe')
 
-  trace(instance.exports.select(machine))
+  trace(instance.exports.select(foundByWasm))
   return instance
 }
 

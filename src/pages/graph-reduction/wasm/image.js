@@ -6,27 +6,27 @@ import { serialize } from '../graph.js'
 
 // Address cells in first-visit order; the legend names the atoms.
 export const image = graph => {
-  const placed = new Map()
+  const addresses = new Map()
   const place = node => {
-    if (placed.has(node)) return
+    if (addresses.has(node)) return
     if (!Array.isArray(node) || node.length !== 2)
       throw new Error('Image cells must be pairs')
-    placed.set(node, placed.size * 8)
+    addresses.set(node, addresses.size * 8)
     node.forEach(place)
   }
   place(graph)
 
-  const bytes = new Uint8Array(placed.size * 8)
+  const bytes = new Uint8Array(addresses.size * 8)
   const view = new DataView(bytes.buffer)
   const legend = new Map()
 
-  for (const [node, addr] of placed) {
-    view.setUint32(addr, placed.get(node[0]), true)
-    view.setUint32(addr + 4, placed.get(node[1]), true)
+  for (const [node, addr] of addresses) {
+    view.setUint32(addr, addresses.get(node[0]), true)
+    view.setUint32(addr + 4, addresses.get(node[1]), true)
     if (node[0] === node && node[1] === node) legend.set(addr, serialize(node))
   }
 
-  return { bytes, focus: placed.get(graph), legend }
+  return { bytes, focus: addresses.get(graph), legend }
 }
 
 // graph.js observe and select, reading addresses instead of references.
@@ -38,14 +38,18 @@ export const observe = (view, pair, trace) => (
 export const select = (view, found) =>
   view.getUint32(found + 4, true)
 
-// graph.js serialize: atoms print from the legend, repeats print as the
-// path where they first appeared.
-export const imageSerialize = (view, root, legend, seen = new Map()) => {
-  const walk = (addr, path) =>
-    legend.has(addr) ? String(legend.get(addr))
-      : seen.has(addr) ? seen.get(addr)
-        : (seen.set(addr, path),
-          `(${walk(view.getUint32(addr, true), `${path}.0`)} ${walk(view.getUint32(addr + 4, true), `${path}.1`)})`)
+// graph.js serialize, reading addresses: atoms print from the legend,
+// repeats print as the path where they first appeared.
+export const serializeImage = (view, root, legend, pathsByAddr = new Map()) => {
+  const printAddr = (addr, path) => {
+    if (legend.has(addr)) return String(legend.get(addr))
+    if (pathsByAddr.has(addr)) return pathsByAddr.get(addr)
 
-  return walk(root, '$')
+    pathsByAddr.set(addr, path)
+    const left = printAddr(view.getUint32(addr, true), `${path}.0`)
+    const right = printAddr(view.getUint32(addr + 4, true), `${path}.1`)
+    return `(${left} ${right})`
+  }
+
+  return printAddr(root, '$')
 }
