@@ -63,7 +63,8 @@ export const emit = ({ bytes, focus, legend }) => {
     // function: two functions of that signature
     ...section(3, [0x02, 0x00, 0x00]),
     // memory: enough 64K pages to hold the record
-    ...section(5, [0x01, 0x00, ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
+    ...section(5, [0x01, 0x00,
+                   ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
     // global: focus, the address observation starts from
     ...section(6, [0x01, 0x7f, 0x00, 0x41, ...sleb(focus), 0x0b]),
     // exports
@@ -81,7 +82,8 @@ export const emit = ({ bytes, focus, legend }) => {
       ...uleb(select.length), ...select
     ]),
     // data: the record itself, at address 0
-    ...section(11, [0x01, 0x00, 0x41, ...sleb(0), 0x0b, ...uleb(bytes.length), ...bytes]),
+    ...section(11, [0x01, 0x00, 0x41,
+                    ...sleb(0), 0x0b, ...uleb(bytes.length), ...bytes]),
     // custom: the legend — address and spelling for every atom
     ...section(0, [...name('legend'), ...uleb(legend.size), ...entries])
   ])

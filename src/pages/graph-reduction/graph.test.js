@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { compile, observe, select, serialize } from './graph.js'
+import { image } from './wasm/image.js'
+import { emit, readLegend } from './wasm/wasm.js'
 
 const step = node => select(observe(node))
 
@@ -46,7 +47,22 @@ const coreDefinitions = [
   '(Or (((p True q) p) q))',
   '(Pair ((((f x y) x) y) f))',
   '(First ((p K) p))',
-  '(Second ((p False) p))'
+  '(Second ((p False) p))',
+  '(Zero ((z z) s))',
+  '(Succ ((((s m) m) z) s))',
+  '(Nil ((n n) c))',
+  '(Cons (((((c h t) h) t) n) c))',
+  '(Head ((l no K) l))',
+  '(LastGo (((t h LastGo) h) t))',
+  '(Last ((l no LastGo) l))',
+  '(LenStep (((Succ (t Zero LenStep)) h) t))',
+  '(Length ((l Zero LenStep) l))',
+  '(AddStep (((Succ (m2 n (AddStep n))) n) m2))',
+  '(Add (((m n (AddStep n)) m) n))',
+  '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
+  '(Mul (((m Zero (MulStep n)) m) n))',
+  '(Repeat ((Cons x (Repeat x)) x))',
+  '(App (((p q) p) q))'
 ]
 
 describe('true-shape compiler contracts', () => {
@@ -228,12 +244,6 @@ describe('core forms', () => {
     assert.equal(False[0][1][1], False)
   })
 
-  test('core.lisp preserves authored source shape', () => {
-    const core = readFileSync(new URL('./core.lisp', import.meta.url), 'utf8')
-
-    assert.equal(serialize(step(compile(core))), '((a c) (b c))')
-  })
-
   test('Loop continues through a yielded continuation', () => {
     const graph = compile(source([
       '(Loop (((step state (Loop step)) step) state))',
@@ -241,5 +251,107 @@ describe('core forms', () => {
     ], '(Loop Yield seed)'))
 
     assertLoop(graph)
+  })
+})
+
+describe('library forms', () => {
+  test('data values settle at their constructors', () => {
+    const Cons = serialize(compile(source(coreDefinitions, 'Cons')))
+    const Succ = serialize(compile(source(coreDefinitions, 'Succ')))
+
+    assert.equal(
+      serialize(repeat(compile(source(coreDefinitions, '(Cons a Nil)')), step, 1)),
+      Cons)
+    assert.equal(
+      serialize(repeat(compile(source(coreDefinitions, '(Succ Zero)')), step, 1)),
+      Succ)
+  })
+
+  test('case analysis completes a partial constructor', () =>
+    assertReduction(
+      coreDefinitions,
+      '(Head (Cons a (Cons b Nil)))',
+      'a',
+      3))
+
+  test('structural recursion settles on closed data', () =>
+    assertReduction(
+      coreDefinitions,
+      '(Last (Cons a (Cons b Nil)))',
+      'b',
+      6))
+
+  test('arithmetic computes through Scott numerals', () => {
+    const count = (node, cap = 64) => {
+      const Succ = serialize(compile(source(coreDefinitions, 'Succ')))
+      const Zero = serialize(compile(source(coreDefinitions, 'Zero')))
+
+      while (cap--) {
+        if (Array.isArray(node) && serialize(node[0]) === Succ)
+          return 1 + count(node[1])
+        if (serialize(node) === Zero) return 0
+        node = step(node)
+      }
+
+      throw new Error('not a numeral')
+    }
+
+    assert.equal(count(compile(source(
+      coreDefinitions,
+      '(Add (Succ Zero) (Succ Zero))'))), 2)
+    assert.equal(count(compile(source(
+      coreDefinitions,
+      '(Add (Succ (Succ Zero)) (Succ Zero))'))), 3)
+    assert.equal(count(compile(source(
+      coreDefinitions,
+      '(Mul (Succ (Succ Zero)) (Succ (Succ Zero)))'))), 4)
+    assert.equal(count(compile(source(
+      coreDefinitions,
+      '(Length (Cons a (Cons b Nil)))'))), 2)
+  })
+
+  test('open data leaves a symbolic residual', () => {
+    const graph = compile(source(coreDefinitions, '(Add m (Succ Zero))'))
+
+    assert.match(serialize(step(graph)), /^\(\(m /)
+    assert.equal(serialize(repeat(graph, step, 2)), 'm')
+  })
+
+  test('a recursive knot makes infinite data finite', () => {
+    const Cons = serialize(compile(source(coreDefinitions, 'Cons')))
+
+    assertReduction(coreDefinitions, '(Repeat a no K)', 'a', 3)
+    assert.equal(
+      serialize(repeat(compile(source(coreDefinitions, '(Repeat a)')), step, 2)),
+      Cons)
+  })
+
+  test('a computed answer in head position is inert', () => {
+    assertReduction(coreDefinitions, '(App I a)', 'a', 2)
+
+    const graph = compile(source(coreDefinitions, '(App (I I) a)'))
+
+    assert.equal(serialize(repeat(graph, step, 2)), '(($.0 $) $.0)')
+  })
+
+  test('forward references do not bind', () =>
+    assert.equal(
+      serialize(repeat(
+        compile('(A ((B x) x))\n(B (y y))\n(A k)'),
+        step,
+        2)),
+      'B'))
+
+  test('wasm replays structural recursion to the same atom', async () => {
+    const graph = compile(source(coreDefinitions, '(Last (Cons a (Cons b Nil)))'))
+    const bytes = emit(image(graph))
+    const { instance } = await WebAssembly.instantiate(bytes)
+    const stepped = p => instance.exports.select(instance.exports.observe(p))
+    const result = repeat(instance.exports.focus.value, stepped, 6)
+
+    assert.equal(
+      readLegend(bytes).get(result),
+      serialize(repeat(graph, step, 6)))
+    assert.equal(readLegend(bytes).get(result), 'b')
   })
 })

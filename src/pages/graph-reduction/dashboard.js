@@ -1,11 +1,7 @@
 import './style.css'
 import { button, component, div, h2, label, p, textarea } from '@pfern/elements'
-import { compile, observe, select, serialize } from './graph.js'
+import { compile, observe, serialize } from './graph.js'
 import lisp from './core.lisp?raw'
-
-// One step: observe walks to the answer cell, select reads what it holds.
-const step = (graph, trace) =>
-  select(observe(graph, trace))
 
 const build = source => {
   let graph = [], error
@@ -14,15 +10,12 @@ const build = source => {
   return { graph, error }
 }
 
-// Derived state: the step count, where undo leads, and whether stepping
-// would change anything.
 const infer = (
   { graph,
     history,
-    error,
     time = history.length,
     previous = history[time - 1],
-    stable = !error && step(graph) === graph }) => ({ time, previous, stable })
+    stable = graph === history[0] }) => ({ time, previous, stable })
 
 const dashboard = component(
   (state = { ...build(lisp), source: lisp, history: [] }) => {
@@ -32,7 +25,7 @@ const dashboard = component(
 
     const view = () => dashboard(
       { ...state,
-        graph: step(graph, g => console.log(serialize(g))),
+        graph: observe(graph, g => console.log(serialize(g))),
         history: [...history, state] })
 
     const load = source => dashboard(
