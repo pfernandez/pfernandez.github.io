@@ -2,7 +2,7 @@
 // function side then argument side. Pointer identity becomes address
 // identity, so an atom is its own address twice.
 
-import { serialize } from '../graph.js'
+import { partsToAnsi, serialize } from '../graph.js'
 
 // Address cells in first-visit order; the legend names the atoms.
 export const image = graph => {
@@ -54,45 +54,34 @@ export const serializeImage = (view, root, legend, pathsByAddr = new Map()) => {
   return printAddr(root, '$')
 }
 
-const RESET = '\x1b[0m'
-const COLOR_STEPS = [2, 3, 4, 5]
-const COLOR_COUNT = COLOR_STEPS.length ** 3
-
-const colorCode = index => {
-  const offset = index * 29 % COLOR_COUNT
-  const red = COLOR_STEPS[offset % COLOR_STEPS.length]
-  const green =
-    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length) % COLOR_STEPS.length]
-  const blue =
-    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length ** 2)]
-  return 16 + 36 * red + 6 * green + blue
-}
-
-const colorFor = (addr, colorsByAddr) => {
-  if (!colorsByAddr.has(addr))
-    colorsByAddr.set(addr, colorsByAddr.size)
-  return colorCode(colorsByAddr.get(addr))
-}
-
-const colorize = (color, text) =>
-  `\x1b[38;5;${color}m${text}${RESET}`
-
-// graph.js serializeColor, reading addresses.
-export const serializeImageColor = (view, root, legend) => {
+// graph.js serializeParts, reading addresses.
+export const serializeImageParts = (view, root, legend) => {
   const seen = new Set()
-  const colorsByAddr = new Map()
+  const identities = new Map()
 
   const printAddr = addr => {
-    if (legend.has(addr)) return String(legend.get(addr))
+    if (legend.has(addr)) return [{ text: String(legend.get(addr)) }]
 
-    const color = colorFor(addr, colorsByAddr)
-    if (seen.has(addr)) return colorize(color, '()')
+    if (!identities.has(addr)) identities.set(addr, identities.size)
+    const identity = identities.get(addr)
+    if (seen.has(addr)) return [{ text: '()', identity }]
 
     seen.add(addr)
     const left = printAddr(view.getUint32(addr, true))
     const right = printAddr(view.getUint32(addr + 4, true))
-    return `${colorize(color, '(')}${left} ${right}${colorize(color, ')')}`
+    return [
+      { text: '(', identity },
+      ...left,
+      { text: ' ' },
+      ...right,
+      { text: ')', identity }
+    ]
   }
 
   return printAddr(root)
 }
+
+export const serializeImageAnsi = (view, root, legend, scheme = 'color') =>
+  partsToAnsi(serializeImageParts(view, root, legend), scheme)
+
+export const serializeImageColor = serializeImageAnsi

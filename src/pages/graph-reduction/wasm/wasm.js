@@ -155,10 +155,17 @@ export const run = async bytes => {
   const { instance } = await WebAssembly.instantiate(bytes)
   const { memory, focus } = instance.exports
   const view = new DataView(memory.buffer)
+  const scheme =
+    typeof process === 'undefined'
+      ? 'color'
+      : process.env.GRAPH_SCHEME || 'color'
 
   let traceCount = 0
   const trace = addr =>
-    console.log(traceCount++, serializeImageColor(view, addr, legend), '\n')
+    console.log(
+      traceCount++,
+      serializeImageColor(view, addr, legend, scheme),
+      '\n')
 
   const foundByImage = observeImage(view, focus.value, trace)
   const foundByWasm = instance.exports.observe(focus.value)

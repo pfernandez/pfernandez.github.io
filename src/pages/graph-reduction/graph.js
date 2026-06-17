@@ -263,44 +263,161 @@ export const serialize = form =>
 const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
 const COLOR_COUNT = COLOR_STEPS.length ** 3
+const PASTEL_COLORS = [205, 198, 165, 135, 99]
 
-const colorCode = index => {
+const xtermChannel = step =>
+  step === 0 ? 0 : 55 + step * 40
+
+const xtermColor = color => {
+  const offset = color - 16
+  const red = Math.floor(offset / 36)
+  const green = Math.floor(offset / 6) % 6
+  const blue = offset % 6
+  const rgb = [red, green, blue].map(xtermChannel)
+  return { ansi: `38;5;${color}`, css: `rgb(${rgb.join(', ')})`, rgb }
+}
+
+const rgbColor = rgb => ({
+  ansi: `38;2;${rgb.join(';')}`,
+  css: `rgb(${rgb.join(', ')})`,
+  rgb
+})
+
+const interpolate = (start, end, t) =>
+  start.map((channel, i) => Math.round(channel + (end[i] - channel) * t))
+
+const identityColor = index => {
   const offset = index * 29 % COLOR_COUNT
   const red = COLOR_STEPS[offset % COLOR_STEPS.length]
   const green =
     COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length) % COLOR_STEPS.length]
   const blue =
     COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length ** 2)]
-  return 16 + 36 * red + 6 * green + blue
+  return xtermColor(16 + 36 * red + 6 * green + blue)
 }
 
-const colorFor = (node, colorsByNode) => {
-  if (!colorsByNode.has(node))
-    colorsByNode.set(node, colorsByNode.size)
-  return colorCode(colorsByNode.get(node))
+const pastelColor = index =>
+  xtermColor(PASTEL_COLORS[Math.min(index, PASTEL_COLORS.length - 1)])
+
+const pastelGradient = (index, count) => {
+  if (count < 2) return pastelColor(0)
+
+  const position = index / (count - 1) * (PASTEL_COLORS.length - 1)
+  const start = Math.floor(position)
+  const end = Math.min(start + 1, PASTEL_COLORS.length - 1)
+  const t = position - start
+  return rgbColor(interpolate(pastelColor(start).rgb, pastelColor(end).rgb, t))
 }
 
-const colorize = (color, text) =>
-  `\x1b[38;5;${color}m${text}${RESET}`
+const colorScheme = color => ({
+  ansi: (index, count) => color(index, count).ansi,
+  style: (index, count) => ({ color: color(index, count).css })
+})
 
-// Color carries identity for human traces: repeated cells print as () in the
-// same color as the first occurrence.
-export const serializeColor = (
+const opacity = (index, count) =>
+  count < 2 ? 1 : 0.2 + index / (count - 1) * 0.8
+
+export const identitySchemes = {
+  color: colorScheme(identityColor),
+  ink: {
+    ansi: (index, count) =>
+      `38;5;${232 + Math.round(opacity(index, count) * 23)}`,
+    style: (index, count) => ({ opacity: opacity(index, count) })
+  },
+  pastel: colorScheme(pastelGradient),
+  plain: {}
+}
+
+const scheme = name =>
+  identitySchemes[name] || identitySchemes.color
+
+const identityFor = (node, identities) => {
+  if (!identities.has(node))
+    identities.set(node, identities.size)
+  return identities.get(node)
+}
+
+// Parts keep graph identity separate from presentation. Repeated cells print
+// as () with the same identity as their first occurrence.
+export const serializeParts = (
   node,
   seen = new Set(),
-  colorsByNode = new Map()
+  identities = new Map()
 ) => {
-  if (!Array.isArray(node)) return String(node)
-  if (spellings.has(node)) return String(spellings.get(node))
+  if (!Array.isArray(node)) return [{ text: String(node) }]
+  if (spellings.has(node)) return [{ text: String(spellings.get(node)) }]
 
-  const color = colorFor(node, colorsByNode)
-  if (seen.has(node)) return colorize(color, '()')
+  const identity = identityFor(node, identities)
+  if (seen.has(node)) return [{ text: '()', identity }]
 
   seen.add(node)
-  const left = serializeColor(node[0], seen, colorsByNode)
-  const right = serializeColor(node[1], seen, colorsByNode)
-  return `${colorize(color, '(')}${left} ${right}${colorize(color, ')')}`
+  return [
+    { text: '(', identity },
+    ...serializeParts(node[0], seen, identities),
+    { text: ' ' },
+    ...serializeParts(node[1], seen, identities),
+    { text: ')', identity }
+  ]
 }
+
+export const identityCount = parts =>
+  parts.reduce(
+    (count, part) =>
+      part.identity === undefined ? count : Math.max(count, part.identity + 1),
+    0)
+
+export const identityStyle = (identity, name = 'color', count = identity + 1) => {
+  const style = scheme(name).style
+  return style ? style(identity, count) : {}
+}
+
+export const partsToText = parts =>
+  parts.map(part => part.text).join('')
+
+export const partsToAnsi = (parts, name = 'color') => {
+  const ansi = scheme(name).ansi
+  if (!ansi) return partsToText(parts)
+
+  const count = identityCount(parts)
+  return parts.map(part =>
+    part.identity === undefined
+      ? part.text
+      : `\x1b[${ansi(part.identity, count)}m${part.text}${RESET}`)
+    .join('')
+}
+
+const styleText = style =>
+  ['font-weight: 700']
+    .concat(Object.entries(style).map(([name, value]) => `${name}: ${value}`))
+    .join('; ')
+
+export const partsToConsole = (parts, name = 'color') => {
+  const selected = scheme(name)
+  if (!selected.style) return [partsToText(parts)]
+
+  const count = identityCount(parts)
+  let text = ''
+  const styles = []
+
+  for (const part of parts) {
+    if (part.identity === undefined) {
+      text += part.text.replaceAll('%', '%%')
+    } else {
+      text += `%c${part.text.replaceAll('%', '%%')}%c`
+      styles.push(styleText(identityStyle(part.identity, name, count)), '')
+    }
+  }
+
+  return [text, ...styles]
+}
+
+export const serializeAnsi = (node, name = 'color') =>
+  partsToAnsi(serializeParts(node), name)
+
+export const serializeConsole = (node, name = 'color') =>
+  partsToConsole(serializeParts(node), name)
+
+export const serializeColor = serializeAnsi
 
 export const observe = (pair, trace) => (
   trace?.(pair),
@@ -311,7 +428,13 @@ export const select = found =>
   found[1]
 
 let traceCount = 0
-const trace = form => console.log(traceCount++, serializeColor(form), '\n')
+const traceScheme = () =>
+  typeof process === 'undefined'
+    ? 'color'
+    : process.env.GRAPH_SCHEME || 'color'
+
+const trace = form =>
+  console.log(traceCount++, serializeAnsi(form, traceScheme()), '\n')
 
 const main = () =>
   typeof process !== 'undefined'

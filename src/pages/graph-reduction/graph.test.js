@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { compile, observe, select, serialize, serializeColor } from './graph.js'
+import {
+  compile,
+  partsToConsole,
+  partsToText,
+  observe,
+  select,
+  serialize,
+  serializeAnsi,
+  serializeConsole,
+  serializeParts
+} from './graph.js'
 import { image } from './wasm/image.js'
 import { emit, readLegend } from './wasm/wasm.js'
 
@@ -173,17 +183,23 @@ describe('true-shape compiler contracts', () => {
     assert.equal(serialize(root), '($ ((a b) $.1.0))')
   })
 
-  test('serializeColor uses color for repeated cells', () => {
+  test('serializeParts marks repeated cells with identity', () => {
     const root = []
     const shared = ['a', 'b']
 
     root[0] = root
     root[1] = [shared, shared]
 
+    const parts = serializeParts(root)
     const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 
-    assert.match(serializeColor(root), /\x1b\[38;5;/)
-    assert.equal(stripAnsi(serializeColor(root)), '(() ((a b) ()))')
+    assert.equal(partsToText(parts), '(() ((a b) ()))')
+    assert.match(serializeAnsi(root), /\x1b\[38;5;/)
+    assert.equal(stripAnsi(serializeAnsi(root, 'ink')), '(() ((a b) ()))')
+    assert.match(serializeAnsi(root, 'pastel'), /\x1b\[38;2;255;95;175m/)
+    assert.equal(serializeAnsi(root, 'plain'), '(() ((a b) ()))')
+    assert.match(partsToConsole(parts, 'color')[0], /%c/)
+    assert.match(serializeConsole(root, 'ink')[0], /%c/)
   })
 })
 

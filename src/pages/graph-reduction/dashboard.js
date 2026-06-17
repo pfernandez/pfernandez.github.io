@@ -5,39 +5,37 @@ import {
   div,
   h2,
   label,
+  option,
   p,
   pre,
+  select as menu,
   span,
   textarea
 } from '@pfern/elements'
-import { compile, observe, serialize, serializeColor } from './graph.js'
+import {
+  compile,
+  identityCount,
+  identitySchemes,
+  identityStyle,
+  observe,
+  serialize,
+  serializeParts
+} from './graph.js'
 import lisp from './core.lisp?raw'
 
-const ANSI_COLOR = /\x1b\[38;5;(\d+)m(.*?)\x1b\[0m/g
+const schemeNames = ['ink', 'pastel', 'color', 'plain']
 
-const opacity = (index, count) =>
-  count < 2 ? 1 : 0.2 + index / (count - 1) * 0.8
-
-const graphOutput = graph => {
-  const output = serializeColor(graph)
-  const matches = [...output.matchAll(ANSI_COLOR)]
-  const colorOrder = [...new Set(matches.map(match => match[1]))]
-  const children = []
-  let end = 0
-
-  for (const match of matches) {
-    if (match.index > end) children.push(output.slice(end, match.index))
-    children.push(
-      span(
+const graphOutput = (graph, scheme) => {
+  const parts = serializeParts(graph)
+  const count = identityCount(parts)
+  const children = parts.map(part =>
+    part.identity === undefined
+      ? part.text
+      : span(
         { class: 'identity',
-          style: {
-            opacity: opacity(colorOrder.indexOf(match[1]), colorOrder.length)
-          } },
-        match[2]))
-    end = match.index + match[0].length
-  }
+          style: identityStyle(part.identity, scheme, count) },
+        part.text))
 
-  if (end < output.length) children.push(output.slice(end))
   return pre({ class: 'output' }, ...children)
 }
 
@@ -56,9 +54,9 @@ const infer = (
     stable = graph === history[0] }) => ({ time, previous, stable })
 
 const dashboard = component(
-  (state = { ...build(lisp), source: lisp, history: [] }) => {
+  (state = { ...build(lisp), source: lisp, history: [], scheme: 'ink' }) => {
 
-    const { graph, source, history, error } = state
+    const { graph, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
     const view = () => dashboard(
@@ -69,9 +67,11 @@ const dashboard = component(
     const load = source => dashboard(
       { ...state, ...build(source), source, history: [] })
 
-    const undo = () => dashboard(previous)
+    const chooseScheme = scheme => dashboard({ ...state, scheme })
 
-    const reset = () => dashboard(history[0])
+    const undo = () => dashboard({ ...previous, scheme })
+
+    const reset = () => dashboard({ ...history[0], scheme })
 
     return div(
       { class: 'dashboard' },
@@ -89,12 +89,20 @@ const dashboard = component(
               button({ onclick: undo, disabled: time === 0 }, 'Undo'),
               button({ onclick: reset, disabled: time === 0 }, 'Reset')),
 
+          label(
+            'Scheme',
+            menu(
+              { value: scheme, onchange: chooseScheme },
+              ...schemeNames
+                .filter(name => identitySchemes[name])
+                .map(name => option({ value: name }, name)))),
+
           div({ class: 'description' }, `Steps: ${time}`)),
       div(
         { class: 'panel scene' },
         error
           ? pre({ class: 'output error' }, String(error))
-          : graphOutput(graph)))
+          : graphOutput(graph, scheme)))
   })
 
 export default dashboard
