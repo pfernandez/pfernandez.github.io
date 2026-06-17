@@ -23,22 +23,45 @@ const ansiRgb = code => {
   return `rgb(${red * 51} ${green * 51} ${blue * 51})`
 }
 
-const colorized = graph => {
+const spectrum = colors =>
+  colors.length < 2
+    ? colors[0] || 'transparent'
+    : `linear-gradient(90deg, ${colors.join(', ')})`
+
+const graphOutput = graph => {
   const output = serializeColor(graph)
   const children = []
+  const colors = []
+  const seenColors = new Set()
   let end = 0
 
   for (const match of output.matchAll(ANSI_COLOR)) {
+    const color = ansiRgb(match[1])
+    if (!seenColors.has(color)) {
+      seenColors.add(color)
+      colors.push(color)
+    }
+
     if (match.index > end) children.push(output.slice(end, match.index))
     children.push(
       span(
-        { class: 'identity', style: { color: ansiRgb(match[1]) } },
+        { class: 'identity', style: { color } },
         match[2]))
     end = match.index + match[0].length
   }
 
   if (end < output.length) children.push(output.slice(end))
-  return pre({ class: 'output' }, ...children)
+  return div(
+    { class: 'output-view' },
+    div(
+      { class: 'legend', 'aria-label': 'Cell color legend' },
+      span({ class: 'legend-title' }, 'Cells'),
+      span(
+        { class: 'spectrum',
+          style: { background: spectrum(colors) },
+          title: `${colors.length} visible cell colors` }),
+      span({ class: 'legend-more' }, String(colors.length))),
+    pre({ class: 'output' }, ...children))
 }
 
 const build = source => {
@@ -94,7 +117,7 @@ const dashboard = component(
         { class: 'panel scene' },
         error
           ? pre({ class: 'output error' }, String(error))
-          : colorized(graph)))
+          : graphOutput(graph)))
   })
 
 export default dashboard
