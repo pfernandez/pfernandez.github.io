@@ -12,6 +12,14 @@ export default defineConfig({
       allow: [searchForWorkspaceRoot(process.cwd()), elementsRoot]
     }
   },
-  assetsInclude: ['**/*.md']
+  assetsInclude: ['**/*.md'],
+  build: {
+    rollupOptions: {
+      external: [
+        /node:test/,
+        /\.test\.js$/,
+        /\.\.\/elements\/.*\.test\.js$/
+      ]
+    }
+  }
 })
-
