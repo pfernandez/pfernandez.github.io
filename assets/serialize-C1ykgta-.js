@@ -1,0 +1,1 @@
+const a=u=>{const i=(r,s="$",t=new Map)=>{if(!Array.isArray(r))return String(r);if(!r.length)return"()";if(t.has(r))return t.get(r);t.set(r,s);const[$,f]=r;return`(${i($,`${s}[0]`,t)} ${i(f,`${s}[1]`,t)})`};return i(u)};export{a as serialize};
