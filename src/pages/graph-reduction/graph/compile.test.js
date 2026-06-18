@@ -2,17 +2,10 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
-  partsToConsole,
-  partsToText,
   observe,
   select,
-  serialize,
-  serializeAnsi,
-  serializeConsole,
-  serializeParts
-} from './graph.js'
-import { image } from './wasm/image.js'
-import { emit, readLegend } from './wasm/wasm.js'
+  serialize
+} from './index.js'
 
 const step = node => select(observe(node))
 
@@ -172,35 +165,6 @@ describe('true-shape compiler contracts', () => {
     assert.throws(
       () => compile(source('(Grow ((x (Grow (x x))) x))', '(Grow a)')),
       /Reduction never settles/))
-
-  test('serialize names repeated paths and cycles', () => {
-    const root = []
-    const shared = ['a', 'b']
-
-    root[0] = root
-    root[1] = [shared, shared]
-
-    assert.equal(serialize(root), '($ ((a b) $.1.0))')
-  })
-
-  test('serializeParts marks repeated cells with identity', () => {
-    const root = []
-    const shared = ['a', 'b']
-
-    root[0] = root
-    root[1] = [shared, shared]
-
-    const parts = serializeParts(root)
-    const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
-
-    assert.equal(partsToText(parts), '(() ((a b) ()))')
-    assert.match(serializeAnsi(root), /\x1b\[38;5;/)
-    assert.equal(stripAnsi(serializeAnsi(root, 'ink')), '(() ((a b) ()))')
-    assert.match(serializeAnsi(root, 'pastel'), /\x1b\[38;2;255;95;175m/)
-    assert.equal(serializeAnsi(root, 'plain'), '(() ((a b) ()))')
-    assert.match(partsToConsole(parts, 'color')[0], /%c/)
-    assert.match(serializeConsole(root, 'ink')[0], /%c/)
-  })
 })
 
 describe('core forms', () => {
@@ -370,17 +334,4 @@ describe('library forms', () => {
         step,
         2)),
       'B'))
-
-  test('wasm replays structural recursion to the same atom', async () => {
-    const graph = compile(source(coreDefinitions, '(Last (Cons a (Cons b Nil)))'))
-    const bytes = emit(image(graph))
-    const { instance } = await WebAssembly.instantiate(bytes)
-    const stepped = p => instance.exports.select(instance.exports.observe(p))
-    const result = repeat(instance.exports.focus.value, stepped, 6)
-
-    assert.equal(
-      readLegend(bytes).get(result),
-      serialize(repeat(graph, step, 6)))
-    assert.equal(readLegend(bytes).get(result), 'b')
-  })
 })

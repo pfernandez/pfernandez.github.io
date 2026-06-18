@@ -1,10 +1,9 @@
 // Every module uses the same observe/select machine; each graph differs only
 // in bytes, focus, and legend.
 
-import { compile } from '../graph.js'
+import { compile, serializeImageColor } from '../graph/index.js'
 import {
   image,
-  serializeImageColor,
   observe as observeImage
 } from './image.js'
 

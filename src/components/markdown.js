@@ -388,7 +388,7 @@ export const runMarkdownScriptsForBasePath = basePath => {
   const container = document.querySelector(
     `[data-md-base-path="${cssEscape(basePath)}"]`)
   if (!container) return
-  schedule(() => runScriptsInContainer(container, { basePath, extracted: []}))
+  schedule(() => runScriptsInContainer(container, { basePath, extracted: [] }))
 }
 
 export const createMarkdown = () => {

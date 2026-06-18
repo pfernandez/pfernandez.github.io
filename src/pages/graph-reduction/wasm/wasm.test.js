@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { compile, observe, select, serialize } from '../graph.js'
+import {
+  compile,
+  observe,
+  select,
+  serialize,
+  serializeImage
+} from '../graph/index.js'
 import {
   image,
-  serializeImage,
   observe as observeImage,
   select as selectImage
 } from './image.js'
@@ -32,7 +37,11 @@ const definitions = `(I (x x))
 (Or (((p True q) p) q))
 (Pair ((((f x y) x) y) f))
 (First ((p K) p))
-(Second ((p False) p))`
+(Second ((p False) p))
+(Nil ((n n) c))
+(Cons (((((c h t) h) t) n) c))
+(LastGo (((t h LastGo) h) t))
+(Last ((l no LastGo) l))`
 
 const forms = [
   '(I a)', '(K a b)', '(K a)', '(K a b c)', '(K 7 b)', '(K () b)',
@@ -59,15 +68,6 @@ const loadMachine = async graph => {
 }
 
 describe('the image is the graph', () => {
-  test('images serialize identically to graphs', () => {
-    for (const form of forms) {
-      const graph = program(form)
-      const { bytes, focus: root, legend } = image(graph)
-
-      assert.equal(serializeImage(view(bytes), root, legend), serialize(graph))
-    }
-  })
-
   test('image observation agrees with the graph engine, step for step', () => {
     for (const form of forms) {
       const graph = program(form)
@@ -128,6 +128,18 @@ describe('the machine runs graph bytes', () => {
         repeat(machine.focus, stepped, 2),
         machine.legend),
       serialize(repeat(graph, step, 2)))
+  })
+
+  test('structural recursion replays to the same atom', async () => {
+    const graph = program('(Last (Cons a (Cons b Nil)))')
+    const machine = await loadMachine(graph)
+    const stepped = p => machine.exports.select(machine.exports.observe(p))
+    const result = repeat(machine.focus, stepped, 6)
+
+    assert.equal(
+      machine.legend.get(result),
+      serialize(repeat(graph, step, 6)))
+    assert.equal(machine.legend.get(result), 'b')
   })
 
   test('Loop orbits with period 2, by address', async () => {

@@ -20,7 +20,7 @@ import {
   observe,
   serialize,
   serializeParts
-} from './graph.js'
+} from './graph/index.js'
 import lisp from './core.lisp?raw'
 
 const schemeNames = ['ink', 'pastel', 'color', 'plain']
