@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
+  imageLegend,
   partsToConsole,
   partsToText,
   serialize,
@@ -17,8 +18,12 @@ import { image } from '../wasm/image.js'
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
 const imageView = graph => {
-  const { bytes, focus, legend } = image(graph)
-  return { view: view(bytes), focus, legend }
+  const graphImage = image(graph)
+  return {
+    view: view(graphImage.bytes),
+    focus: graphImage.focus,
+    legend: imageLegend(graphImage)
+  }
 }
 
 describe('serialize', () => {

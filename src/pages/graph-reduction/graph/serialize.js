@@ -175,6 +175,16 @@ export const serializeConsole = (node, name = 'color') =>
 
 export const serializeColor = serializeAnsi
 
+export const imageLegend = ({ addresses }) => {
+  const legend = new Map()
+
+  for (const [node, addr] of addresses)
+    if (Array.isArray(node) && node[0] === node && node[1] === node)
+      legend.set(addr, serialize(node))
+
+  return legend
+}
+
 // Same presentation as serialize, reading cells from a DataView of u32 addresses.
 export const serializeImage = (
   view,

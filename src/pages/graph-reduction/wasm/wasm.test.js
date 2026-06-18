@@ -2,16 +2,17 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
+  imageLegend,
   observe,
   select,
   serialize,
   serializeImage
 } from '../graph/index.js'
 import {
-  image,
-  observe as observeImage,
-  select as selectImage
-} from './image.js'
+  observeAddress,
+  selectAddress
+} from './address.js'
+import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const step = node => select(observe(node))
@@ -56,11 +57,12 @@ const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLen
 
 const loadMachine = async graph => {
   const graphImage = image(graph)
-  const bytes = emit(graphImage)
+  const authoredLegend = imageLegend(graphImage)
+  const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
 
   return { focus: graphImage.focus,
-           authoredLegend: graphImage.legend,
+           authoredLegend,
            legend: readLegend(bytes),
            memory: new DataView(instance.exports.memory.buffer),
            exports: instance.exports,
@@ -71,19 +73,23 @@ describe('the image is the graph', () => {
   test('image observation agrees with the graph engine, step for step', () => {
     for (const form of forms) {
       const graph = program(form)
-      const { bytes, focus: root, legend } = image(graph)
+      const graphImage = image(graph)
+      const { bytes, focus: root } = graphImage
+      const legend = imageLegend(graphImage)
       const v = view(bytes)
-      const found = observeImage(v, root)
+      const found = observeAddress(v, root)
 
       assert.equal(serializeImage(v, found, legend), serialize(observe(graph)))
       assert.equal(
-        serializeImage(v, selectImage(v, found), legend),
+        serializeImage(v, selectAddress(v, found), legend),
         serialize(step(graph)))
     }
   })
 
   test('atoms are their own address, twice', () => {
-    const { bytes, legend } = image(program('(K a b)'))
+    const graphImage = image(program('(K a b)'))
+    const { bytes } = graphImage
+    const legend = imageLegend(graphImage)
     const v = view(bytes)
 
     assert.ok(legend.size >= 2)
@@ -160,8 +166,12 @@ describe('the machine runs graph bytes', () => {
   })
 
   test('every program is the same machine', () => {
-    const a = sections(emit(image(program('(I a)'))))
-    const b = sections(emit(image(program('(Loop Yield seed)'))))
+    const emitGraph = graph => {
+      const graphImage = image(graph)
+      return emit({ ...graphImage, legend: imageLegend(graphImage) })
+    }
+    const a = sections(emitGraph(program('(I a)')))
+    const b = sections(emitGraph(program('(Loop Yield seed)')))
     const body = (list, id) =>
       Buffer.from(list.find(section => section.id === id).body).toString('hex')
 

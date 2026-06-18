@@ -5,6 +5,7 @@ export {
   identityCount,
   identitySchemes,
   identityStyle,
+  imageLegend,
   partsToAnsi,
   partsToConsole,
   partsToText,

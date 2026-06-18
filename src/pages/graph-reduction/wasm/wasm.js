@@ -1,11 +1,9 @@
 // Every module uses the same observe/select machine; each graph differs only
 // in bytes, focus, and legend.
 
-import { compile, serializeImageColor } from '../graph/index.js'
-import {
-  image,
-  observe as observeImage
-} from './image.js'
+import { compile, imageLegend, serializeImageColor } from '../graph/index.js'
+import { observeAddress } from './address.js'
+import { image } from './image.js'
 
 // LEB128 integers: unsigned for sizes and counts, signed for constants.
 const uleb = n => {
@@ -36,7 +34,7 @@ const name = text => [...uleb(utf8(text).length), ...utf8(text)]
 // A section is its id, its size, then its body.
 const section = (id, body) => [id, ...uleb(body.length), ...body]
 
-export const emit = ({ bytes, focus, legend }) => {
+export const emit = ({ bytes, focus, legend = new Map() }) => {
   // observe(p): follow function sides until mem[p] == p, then return p
   const observe = [
     0x00,                              // no locals
@@ -166,7 +164,7 @@ export const run = async bytes => {
       serializeImageColor(view, addr, legend, scheme),
       '\n')
 
-  const foundByImage = observeImage(view, focus.value, trace)
+  const foundByImage = observeAddress(view, focus.value, trace)
   const foundByWasm = instance.exports.observe(focus.value)
   if (foundByWasm !== foundByImage)
     throw new Error('Wasm observe disagrees with image observe')
@@ -190,7 +188,8 @@ if (main()) {
   if (path.endsWith('.wasm')) {
     bytes = new Uint8Array(readFileSync(path))
   } else {
-    bytes = emit(image(compile(readFileSync(path, 'utf-8'))))
+    const graphImage = image(compile(readFileSync(path, 'utf-8')))
+    bytes = emit({ ...graphImage, legend: imageLegend(graphImage) })
     const out = path === source
       ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)
       : path.replace(/\.[^./]+$/, '') + '.wasm'
