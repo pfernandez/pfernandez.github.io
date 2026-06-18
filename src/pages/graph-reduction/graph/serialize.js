@@ -1,10 +1,10 @@
-import { spellings } from './compile.js'
+import { spellingOf } from './compile.js'
 
 // Atoms print as their spelling; repeated cells print as the path where the
 // cell first appeared, so sharing and cycles stay visible in plain text.
 const printable = (node, path = '$', pathsByNode = new Map()) => {
   if (!Array.isArray(node)) return String(node)
-  if (spellings.has(node)) return String(spellings.get(node))
+  if (spellingOf(node) !== undefined) return String(spellingOf(node))
   if (pathsByNode.has(node)) return pathsByNode.get(node)
 
   pathsByNode.set(node, path)
@@ -101,7 +101,8 @@ export const serializeParts = (
   identities = new Map()
 ) => {
   if (!Array.isArray(node)) return [{ text: String(node) }]
-  if (spellings.has(node)) return [{ text: String(spellings.get(node)) }]
+  if (spellingOf(node) !== undefined)
+    return [{ text: String(spellingOf(node)) }]
 
   const identity = identityFor(node, identities)
   if (seen.has(node)) return [{ text: '()', identity }]

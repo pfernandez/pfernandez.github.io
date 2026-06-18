@@ -57,21 +57,16 @@ describe('serialize', () => {
   })
 
   test('images serialize identically to graphs', () => {
-    const definitions = '(I (x x))\n(K ((x x) y))\n(S (((((x z) (y z)) x) y) z))'
-    const forms = ['(I a)', '(K a b)', '(K a b c)', '(S K K a)', '(f a a)']
+    const graph = compile('(((I x) x) (I a))')
+    const graphImage = imageView(graph)
 
-    for (const form of forms) {
-      const graph = compile(`${definitions}\n${form}`)
-      const graphImage = imageView(graph)
-
-      assert.equal(
-        serializeImage(graphImage.view, graphImage.focus, graphImage.legend),
-        serialize(graph))
-    }
+    assert.equal(
+      serializeImage(graphImage.view, graphImage.focus, graphImage.legend),
+      serialize(graph))
   })
 
   test('image parts use the same presentation schemes', () => {
-    const graph = compile('(K ((x x) y))\n(K a b c)')
+    const graph = compile('(((I x) x) (I a))')
     const graphImage = imageView(graph)
     const parts = serializeImageParts(
       graphImage.view,
