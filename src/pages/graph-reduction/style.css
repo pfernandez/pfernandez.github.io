@@ -8,6 +8,18 @@
   min-height: 100%;
 }
 
+.dashboard .row {
+  display: flex;
+  gap: 0 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dashboard .row > * {
+  flex-grow: 1;
+}
+
 .dashboard .panel {
   padding: 1.5rem 1.75rem;
 }
@@ -16,25 +28,20 @@
   border-left: 1px solid light-dark(#ccc, #333);
 }
 
-.dashboard .scene {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-
-.dashboard .scene > pre {
-  margin: 0;
-  width: 100%;
+.dashboard .description {
+  opacity: 0.8;
+  font-size: smaller;
 }
 
 .dashboard .output {
+  display: block;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  font-size: 13px;
   line-height: 1.45;
+  margin: 4px 0;
 }
 
 .dashboard .identity {
@@ -42,28 +49,19 @@
 }
 
 .dashboard textarea {
-  width: 100%;
-  min-height: 200px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  font-size: 13px;
+  font-size: smaller;
   line-height: 1.35;
   text-wrap: nowrap;
-  overflow: scroll;
-}
-
-.dashboard .row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-top: 8px;
-}
-
-.dashboard .description {
-  opacity: 0.8;
-  font-size: 13px;
-  margin-top: 8px;
+  color: var(--pico-code-color);
+  background: var(--pico-code-background-color);
+  border: none;
+  outline: none;
+  resize: none;
+  width: 100%;
+  min-height: 250px;
+  margin-bottom: 0;
 }
 
 @media (max-width: 980px) {

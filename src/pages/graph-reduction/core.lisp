@@ -66,4 +66,6 @@
 ; (Add m (Succ Zero))
 ; (Length xs)
 
-(Last (Cons a (Cons b Nil)))
+; (Last (Cons a (Cons b Nil)))
+
+(S a b c)

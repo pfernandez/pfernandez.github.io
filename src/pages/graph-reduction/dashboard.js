@@ -1,42 +1,21 @@
 import './style.css'
-import {
-  button,
-  component,
-  div,
-  h2,
-  label,
-  option,
-  p,
-  pre,
-  select as menu,
-  span,
-  textarea
-} from '@pfern/elements'
-import {
-  compile,
-  identityCount,
-  identitySchemes,
-  identityStyle,
-  observe,
-  serialize,
-  serializeParts
-} from './graph/index.js'
+import { button, component, div, h2, label, select as menu, option, p, pre,
+         span, textarea } from '@pfern/elements'
+import { compile, identityCount, identitySchemes, identityStyle, observe,
+         serialize, serializeParts } from './graph/index.js'
 import lisp from './core.lisp?raw'
 
 const schemeNames = ['ink', 'pastel', 'color', 'plain']
 
 const graphOutput = (graph, scheme) => {
   const parts = serializeParts(graph)
-  const count = identityCount(parts)
-  const children = parts.map(part =>
+  return pre({ class: 'output' }, ...parts.map(part =>
     part.identity === undefined
       ? part.text
       : span(
         { class: 'identity',
-          style: identityStyle(part.identity, scheme, count) },
-        part.text))
-
-  return pre({ class: 'output' }, ...children)
+          style: identityStyle(part.identity, scheme, identityCount(parts)) },
+        part.text)))
 }
 
 const build = source => {
@@ -77,10 +56,20 @@ const dashboard = component(
       { class: 'dashboard' },
       div({ class: 'panel' },
           h2('Graph Reduction'),
-          p({ class: 'description' },
-            'Expressions are converted directly to graph structure.'),
 
-          label('Program / expression',
+          p({ class: 'description' },
+            'Expressions are converted directly to graph structure. ',
+            'Symbols and colors denote memory address'),
+
+          label({ class: 'row' }, 'Color scheme',
+                menu({ value: scheme, onchange: chooseScheme },
+                     ...schemeNames
+                       .filter(name => identitySchemes[name])
+                       .map(name => option({ value: name }, name))))),
+
+      div({ class: 'panel scene' },
+          label({ class: 'row' },
+                'Expression',
                 textarea({ value: source, onchange: load, spellcheck: false })),
 
           div({ class: 'row' },
@@ -89,20 +78,13 @@ const dashboard = component(
               button({ onclick: undo, disabled: time === 0 }, 'Undo'),
               button({ onclick: reset, disabled: time === 0 }, 'Reset')),
 
-          label(
-            'Scheme',
-            menu(
-              { value: scheme, onchange: chooseScheme },
-              ...schemeNames
-                .filter(name => identitySchemes[name])
-                .map(name => option({ value: name }, name)))),
+          label({ class: 'row output' },
+                'Result',
+                error ? pre({ class: 'error' }, String(error))
+                  : graphOutput(graph, scheme)),
 
-          div({ class: 'description' }, `Steps: ${time}`)),
-      div(
-        { class: 'panel scene' },
-        error
-          ? pre({ class: 'output error' }, String(error))
-          : graphOutput(graph, scheme)))
+          div({ class: 'description row' }, `Steps: ${time}`))
+    )
   })
 
 export default dashboard
