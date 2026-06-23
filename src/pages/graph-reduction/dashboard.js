@@ -1,14 +1,15 @@
 import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
-import {
-  compile,
-  observe,
-  schemeNames,
-  schemes,
-  serialize
-} from './graph/index.js'
+import { compile, observe, schemeNames, schemes, serialize }
+  from './graph/index.js'
 import lisp from './core.lisp?raw'
+
+const initialState =
+  { ...compile(lisp),
+    source: lisp,
+    history: [],
+    scheme: schemes.ink }
 
 const infer = (
   { graph,
@@ -18,7 +19,7 @@ const infer = (
     stable = graph === history[0] }) => ({ time, previous, stable })
 
 const dashboard = component(
-  (state = { ...compile(lisp), source: lisp, history: [], scheme: schemes.ink }) => {
+  (state = initialState) => {
 
     const { graph, legend, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
@@ -46,7 +47,7 @@ const dashboard = component(
             'Expressions are converted directly to graph structure. ',
             'Symbols and colors denote memory address'),
 
-          label({ class: 'row' }, 'Color scheme',
+          label({ class: 'row colors' }, 'Color scheme',
                 menu({ value: scheme, onchange: chooseScheme },
                      ...schemeNames
                        .map(name => option({ value: name }, name))))),
@@ -67,8 +68,7 @@ const dashboard = component(
                 error ? pre({ class: 'error' }, String(error))
                   : serialize(graph, { legend, format: 'vdom', scheme })),
 
-          div({ class: 'description row' }, `Steps: ${time}`))
-    )
+          div({ class: 'description row' }, `Steps: ${time}`)))
   })
 
 export default dashboard

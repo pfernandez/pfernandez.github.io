@@ -33,6 +33,13 @@
   font-size: smaller;
 }
 
+.dashboard .colors {
+  font-size: smaller;
+}
+.dashboard .colors select {
+  padding: 4px 8px;
+}
+
 .dashboard .output {
   display: block;
   overflow: auto;

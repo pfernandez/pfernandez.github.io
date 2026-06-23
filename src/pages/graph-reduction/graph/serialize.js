@@ -220,14 +220,10 @@ const tokensToVdom = (tokens, name) => {
   return ['pre', { class: 'output' }, ...tokens.map(token =>
     token.identity === undefined
       ? token.text
-      : [
-        'span',
-        {
-          class: 'identity',
-          style: style(token.identity)
-        },
-        token.text
-      ])]
+      : ['span',
+         { class: 'identity',
+           style: style(token.identity) },
+         token.text])]
 }
 
 const renderTokens = (tokens, { format, scheme }) => {

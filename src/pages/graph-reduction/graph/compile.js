@@ -1,8 +1,5 @@
 import { parse } from './parse.js'
 
-const isSymbol = form =>
-  typeof form === 'string'
-
 const createAtom = (name, legend) => {
   const cell = []
   cell[0] = cell
@@ -30,7 +27,7 @@ const atom = (names, nodes, legend, name) =>
     ?? bind(names, nodes, name, createAtom(name, legend))
 
 const wire = (form, names, nodes, legend) => {
-  if (isSymbol(form))
+  if (typeof form === 'string')
     return atom(names, nodes, legend, form)
 
   if (!Array.isArray(form) || !form.length)
@@ -44,11 +41,15 @@ const wire = (form, names, nodes, legend) => {
 export const compile = source => {
   let graph = [], legend = [], error
   try {
-    const [[[name, ...args], body], focus] = parse(source)[0]
+    const ast = parse(source)[0]
+    const [[[name, ...args], body], focus] = ast
     const result = []
     const names = [name]
     const nodes = [result]
+
     const wiredArgs = focus.slice(1).map(arg => wire(arg, names, nodes, legend))
+
+    console.dir({ ast, name, args, body, focus, legend }, { depth: null })
 
     args.forEach((arg, i) => bind(names, nodes, arg, wiredArgs[i]))
 
