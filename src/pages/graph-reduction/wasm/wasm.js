@@ -189,6 +189,7 @@ if (main()) {
     bytes = new Uint8Array(readFileSync(path))
   } else {
     const compiled = compile(readFileSync(path, 'utf-8'))
+    if (compiled.error) throw compiled.error
     const graphImage = image(compiled.graph)
     bytes = emit({
       ...graphImage,

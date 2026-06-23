@@ -10,13 +10,6 @@ import {
 } from './graph/index.js'
 import lisp from './core.lisp?raw'
 
-const build = source => {
-  let graph = [], legend = [], error
-  try { ({ graph, legend } = compile(source)) }
-  catch (e) { error = e }
-  return { graph, legend, error }
-}
-
 const infer = (
   { graph,
     history,
@@ -25,7 +18,7 @@ const infer = (
     stable = graph === history[0] }) => ({ time, previous, stable })
 
 const dashboard = component(
-  (state = { ...build(lisp), source: lisp, history: [], scheme: schemes.ink }) => {
+  (state = { ...compile(lisp), source: lisp, history: [], scheme: schemes.ink }) => {
 
     const { graph, legend, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
@@ -36,7 +29,7 @@ const dashboard = component(
         history: [...history, state] })
 
     const load = source => dashboard(
-      { ...state, ...build(source), source, history: [] })
+      { ...state, ...compile(source), source, history: [] })
 
     const chooseScheme = scheme => dashboard({ ...state, scheme })
 

@@ -42,17 +42,24 @@ const wire = (form, names, nodes, legend) => {
 }
 
 export const compile = source => {
-  const [[[name, ...args], body], focus] = parse(source)[0]
-  const result = []
-  const names = [name]
-  const nodes = [result]
-  const legend = []
-  const wiredArgs = focus.slice(1).map(arg => wire(arg, names, nodes, legend))
+  let graph = [], legend = [], error
+  try {
+    const [[[name, ...args], body], focus] = parse(source)[0]
+    const result = []
+    const names = [name]
+    const nodes = [result]
+    const wiredArgs = focus.slice(1).map(arg => wire(arg, names, nodes, legend))
 
-  args.forEach((arg, i) => bind(names, nodes, arg, wiredArgs[i]))
+    args.forEach((arg, i) => bind(names, nodes, arg, wiredArgs[i]))
 
-  result[0] = result
-  result[1] = wire(body, names, nodes, legend)
+    result[0] = result
+    result[1] = wire(body, names, nodes, legend)
+    graph = applyArgs(result, wiredArgs)
+  } catch (e) {
+    graph = []
+    legend = []
+    error = e
+  }
 
-  return { graph: applyArgs(result, wiredArgs), legend }
+  return { graph, legend, error }
 }

@@ -15,6 +15,14 @@ describe('compiler wiring', () => {
     assert.equal(serialize(graph, { legend }), '(($.0 a) a)')
     assert.equal(serialize(found, { legend }), '($ a)')
     assert.equal(serialize(select(found), { legend }), 'a')
-    assert.deepEqual(legend.map(([, spelling]) => spelling), ['a'])
+    assert.deepEqual(legend.map(([, name]) => name), ['a'])
+  })
+
+  test('returns an error when source does not compile', () => {
+    const { graph, legend, error } = compile('(')
+
+    assert.deepEqual(graph, [])
+    assert.deepEqual(legend, [])
+    assert.match(error.message, /Missing \)/)
   })
 })
