@@ -2,20 +2,9 @@ export { parse } from './parse.js'
 export { compile } from './compile.js'
 export { observe, select } from './observe.js'
 export {
-  identityCount,
-  identitySchemes,
-  identityStyle,
-  imageLegend,
-  partsToAnsi,
-  partsToConsole,
-  partsToText,
+  addressLegend,
   serialize,
-  serializeAnsi,
-  serializeColor,
-  serializeConsole,
-  serializeImage,
-  serializeImageAnsi,
-  serializeImageColor,
-  serializeImageParts,
-  serializeParts
+  serializeWasm,
+  schemeNames,
+  schemes
 } from './serialize.js'

@@ -1,32 +1,19 @@
-const spellingOf = (legend, node) =>
-  legend.find(([entry]) => entry === node)?.[1]
+export const schemes = Object.freeze({
+  ink: 'ink',
+  pastel: 'pastel',
+  color: 'color',
+  plain: 'plain'
+})
 
-const presentation = (legendOrName, name) =>
-  Array.isArray(legendOrName)
-    ? { legend: legendOrName, name }
-    : { legend: [], name: legendOrName ?? name }
-
-// Atoms print as their spelling; repeated cells print as the path where the
-// cell first appeared, so sharing and cycles stay visible in plain text.
-const printable = (node, legend, path = '$', pathsByNode = new Map()) => {
-  if (!Array.isArray(node)) return String(node)
-  if (spellingOf(legend, node) !== undefined)
-    return String(spellingOf(legend, node))
-  if (pathsByNode.has(node)) return pathsByNode.get(node)
-
-  pathsByNode.set(node, path)
-  const left = printable(node[0], legend, `${path}.0`, pathsByNode)
-  const right = printable(node[1], legend, `${path}.1`, pathsByNode)
-  return `(${left} ${right})`
-}
-
-export const serialize = (form, legend = []) =>
-  printable(form, legend)
+export const schemeNames = Object.values(schemes)
 
 const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
 const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
+
+const nameOf = (legend, node) =>
+  legend.find(([entry]) => entry === node)?.[1]
 
 const xtermChannel = step =>
   step === 0 ? 0 : 55 + step * 40
@@ -80,19 +67,19 @@ const colorScheme = color => ({
 const opacity = (index, count) =>
   count < 2 ? 1 : 0.2 + index / (count - 1) * 0.8
 
-export const identitySchemes = {
-  color: colorScheme(identityColor),
-  ink: {
+const scheme = {
+  [schemes.color]: colorScheme(identityColor),
+  [schemes.ink]: {
     ansi: (index, count) =>
       `38;5;${232 + Math.round(opacity(index, count) * 23)}`,
     style: (index, count) => ({ opacity: opacity(index, count) })
   },
-  pastel: colorScheme(pastelGradient),
-  plain: {}
+  [schemes.pastel]: colorScheme(pastelGradient),
+  [schemes.plain]: {}
 }
 
-const scheme = name =>
-  identitySchemes[name] || identitySchemes.color
+const selectedScheme = name =>
+  scheme[name] || scheme[schemes.color]
 
 const identityFor = (node, identities) => {
   if (!identities.has(node))
@@ -100,55 +87,113 @@ const identityFor = (node, identities) => {
   return identities.get(node)
 }
 
-// Parts keep graph identity separate from presentation. Repeated cells print
-// as () with the same identity as their first occurrence.
-export const serializeParts = (
+const identityCount = tokens =>
+  tokens.reduce(
+    (count, token) =>
+      token.identity === undefined
+        ? count
+        : Math.max(count, token.identity + 1),
+    0)
+
+const textToken = text => ({ text })
+
+const identityToken = (text, identity) =>
+  ({ text, identity })
+
+const graphText = (node, legend, path = '$', seen = new Map()) => {
+  if (!Array.isArray(node)) return String(node)
+
+  const name = nameOf(legend, node)
+  if (name !== undefined) return String(name)
+  if (seen.has(node)) return seen.get(node)
+
+  seen.set(node, path)
+  const left = graphText(node[0], legend, `${path}.0`, seen)
+  const right = graphText(node[1], legend, `${path}.1`, seen)
+  return `(${left} ${right})`
+}
+
+const graphTokens = (
   node,
-  legend = [],
+  legend,
   seen = new Set(),
   identities = new Map()
 ) => {
-  if (!Array.isArray(node)) return [{ text: String(node) }]
-  if (spellingOf(legend, node) !== undefined)
-    return [{ text: String(spellingOf(legend, node)) }]
+  if (!Array.isArray(node)) return [textToken(String(node))]
+
+  const name = nameOf(legend, node)
+  if (name !== undefined) return [textToken(String(name))]
 
   const identity = identityFor(node, identities)
-  if (seen.has(node)) return [{ text: '()', identity }]
+  if (seen.has(node)) return [identityToken('()', identity)]
 
   seen.add(node)
   return [
-    { text: '(', identity },
-    ...serializeParts(node[0], legend, seen, identities),
-    { text: ' ' },
-    ...serializeParts(node[1], legend, seen, identities),
-    { text: ')', identity }
+    identityToken('(', identity),
+    ...graphTokens(node[0], legend, seen, identities),
+    textToken(' '),
+    ...graphTokens(node[1], legend, seen, identities),
+    identityToken(')', identity)
   ]
 }
 
-export const identityCount = parts =>
-  parts.reduce(
-    (count, part) =>
-      part.identity === undefined ? count : Math.max(count, part.identity + 1),
-    0)
+const wasmText = (view, root, legend, path = '$', seen = new Map()) => {
+  if (legend.has(root)) return String(legend.get(root))
+  if (seen.has(root)) return seen.get(root)
 
-export const identityStyle = (identity, name = 'color', count = identity + 1) => {
-  const style = scheme(name).style
-  return style ? style(identity, count) : {}
+  seen.set(root, path)
+  const left =
+    wasmText(view, view.getUint32(root, true), legend, `${path}.0`, seen)
+  const right =
+    wasmText(view, view.getUint32(root + 4, true), legend, `${path}.1`, seen)
+  return `(${left} ${right})`
 }
 
-export const partsToText = parts =>
-  parts.map(part => part.text).join('')
+const wasmTokens = (
+  view,
+  root,
+  legend,
+  seen = new Set(),
+  identities = new Map()
+) => {
+  if (legend.has(root)) return [textToken(String(legend.get(root)))]
 
-export const partsToAnsi = (parts, name = 'color') => {
-  const ansi = scheme(name).ansi
-  if (!ansi) return partsToText(parts)
+  const identity = identityFor(root, identities)
+  if (seen.has(root)) return [identityToken('()', identity)]
 
-  const count = identityCount(parts)
-  return parts.map(part =>
-    part.identity === undefined
-      ? part.text
-      : `\x1b[${ansi(part.identity, count)}m${part.text}${RESET}`)
+  seen.add(root)
+  return [
+    identityToken('(', identity),
+    ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
+    textToken(' '),
+    ...wasmTokens(
+      view,
+      view.getUint32(root + 4, true),
+      legend,
+      seen,
+      identities),
+    identityToken(')', identity)
+  ]
+}
+
+const tokensToText = tokens =>
+  tokens.map(token => token.text).join('')
+
+const tokensToAnsi = (tokens, name) => {
+  const ansi = selectedScheme(name).ansi
+  if (!ansi) return tokensToText(tokens)
+
+  const count = identityCount(tokens)
+  return tokens.map(token =>
+    token.identity === undefined
+      ? token.text
+      : `\x1b[${ansi(token.identity, count)}m${token.text}${RESET}`)
     .join('')
+}
+
+const styleFor = (identity, name, count) => {
+  const style = selectedScheme(name).style
+  return style ? style(identity, count) : {}
 }
 
 const styleText = style =>
@@ -156,95 +201,71 @@ const styleText = style =>
     .concat(Object.entries(style).map(([name, value]) => `${name}: ${value}`))
     .join('; ')
 
-export const partsToConsole = (parts, name = 'color') => {
-  const selected = scheme(name)
-  if (!selected.style) return [partsToText(parts)]
+const tokensToConsole = (tokens, name) => {
+  const style = selectedScheme(name).style
+  if (!style) return [tokensToText(tokens)]
 
-  const count = identityCount(parts)
+  const count = identityCount(tokens)
   let text = ''
   const styles = []
 
-  for (const part of parts) {
-    if (part.identity === undefined) {
-      text += part.text.replaceAll('%', '%%')
+  for (const token of tokens) {
+    if (token.identity === undefined) {
+      text += token.text.replaceAll('%', '%%')
     } else {
-      text += `%c${part.text.replaceAll('%', '%%')}%c`
-      styles.push(styleText(identityStyle(part.identity, name, count)), '')
+      text += `%c${token.text.replaceAll('%', '%%')}%c`
+      styles.push(styleText(styleFor(token.identity, name, count)), '')
     }
   }
 
   return [text, ...styles]
 }
 
-export const serializeAnsi = (node, legendOrName = [], name = 'color') => {
-  const selected = presentation(legendOrName, name)
-  return partsToAnsi(serializeParts(node, selected.legend), selected.name)
+const tokensToVdom = (tokens, name) => {
+  const count = identityCount(tokens)
+  return ['pre', { class: 'output' }, ...tokens.map(token =>
+    token.identity === undefined
+      ? token.text
+      : [
+        'span',
+        {
+          class: 'identity',
+          style: styleFor(token.identity, name, count)
+        },
+        token.text
+      ])]
 }
 
-export const serializeConsole = (node, legendOrName = [], name = 'color') => {
-  const selected = presentation(legendOrName, name)
-  return partsToConsole(serializeParts(node, selected.legend), selected.name)
+const renderTokens = (tokens, { format, scheme }) => {
+  if (format === 'ansi') return tokensToAnsi(tokens, scheme)
+  if (format === 'console') return tokensToConsole(tokens, scheme)
+  if (format === 'vdom') return tokensToVdom(tokens, scheme)
+  return tokensToText(tokens)
 }
 
-export const serializeColor = serializeAnsi
+export const serialize = (
+  graph,
+  { legend = [], format = 'text', scheme = schemes.color } = {}
+) =>
+  format === 'text'
+    ? graphText(graph, legend)
+    : renderTokens(graphTokens(graph, legend), { format, scheme })
 
-export const imageLegend = ({ addresses }, legend = []) => {
+export const addressLegend = ({ addresses }, legend = []) => {
   const byAddress = new Map()
 
-  for (const [node, spelling] of legend)
+  for (const [node, name] of legend)
     if (addresses.has(node))
-      byAddress.set(addresses.get(node), spelling)
+      byAddress.set(addresses.get(node), name)
 
   return byAddress
 }
 
-// Same presentation as serialize, reading cells from a DataView of u32 addresses.
-export const serializeImage = (
+export const serializeWasm = (
   view,
   root,
-  legend,
-  pathsByAddr = new Map()
-) => {
-  const printAddr = (addr, path) => {
-    if (legend.has(addr)) return String(legend.get(addr))
-    if (pathsByAddr.has(addr)) return pathsByAddr.get(addr)
-
-    pathsByAddr.set(addr, path)
-    const left = printAddr(view.getUint32(addr, true), `${path}.0`)
-    const right = printAddr(view.getUint32(addr + 4, true), `${path}.1`)
-    return `(${left} ${right})`
-  }
-
-  return printAddr(root, '$')
-}
-
-// Same presentation as serializeParts, reading cells from a DataView.
-export const serializeImageParts = (view, root, legend) => {
-  const seen = new Set()
-  const identities = new Map()
-
-  const printAddr = addr => {
-    if (legend.has(addr)) return [{ text: String(legend.get(addr)) }]
-
-    const identity = identityFor(addr, identities)
-    if (seen.has(addr)) return [{ text: '()', identity }]
-
-    seen.add(addr)
-    const left = printAddr(view.getUint32(addr, true))
-    const right = printAddr(view.getUint32(addr + 4, true))
-    return [
-      { text: '(', identity },
-      ...left,
-      { text: ' ' },
-      ...right,
-      { text: ')', identity }
-    ]
-  }
-
-  return printAddr(root)
-}
-
-export const serializeImageAnsi = (view, root, legend, scheme = 'color') =>
-  partsToAnsi(serializeImageParts(view, root, legend), scheme)
-
-export const serializeImageColor = serializeImageAnsi
+  { legend = new Map(), format = 'text', scheme = schemes.color } = {}
+) =>
+  format === 'text'
+    ? wasmText(view, root, legend)
+    : renderTokens(wasmTokens(view, root, legend), { format, scheme })

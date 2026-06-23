@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
+  addressLegend,
   compile,
-  imageLegend,
   observe,
   select,
   serialize,
-  serializeImage
+  serializeWasm
 } from '../graph/index.js'
 import {
   observeAddress,
@@ -29,7 +29,7 @@ const view = bytes =>
 
 const loadMachine = async compiled => {
   const graphImage = image(compiled.graph)
-  const authoredLegend = imageLegend(graphImage, compiled.legend)
+  const authoredLegend = addressLegend(graphImage, compiled.legend)
   const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
 
@@ -46,23 +46,23 @@ describe('the image is the graph', () => {
     const compiled = program('a')
     const graphImage = image(compiled.graph)
     const { bytes, focus } = graphImage
-    const legend = imageLegend(graphImage, compiled.legend)
+    const legend = addressLegend(graphImage, compiled.legend)
     const memory = view(bytes)
     const found = observeAddress(memory, focus)
 
     assert.equal(
-      serializeImage(memory, found, legend),
-      serialize(observe(compiled.graph), compiled.legend))
+      serializeWasm(memory, found, { legend }),
+      serialize(observe(compiled.graph), { legend: compiled.legend }))
     assert.equal(
-      serializeImage(memory, selectAddress(memory, found), legend),
-      serialize(step(compiled.graph), compiled.legend))
+      serializeWasm(memory, selectAddress(memory, found), { legend }),
+      serialize(step(compiled.graph), { legend: compiled.legend }))
   })
 
   test('atoms are their own address, twice', () => {
     const compiled = program('a')
     const graphImage = image(compiled.graph)
     const { bytes } = graphImage
-    const legend = imageLegend(graphImage, compiled.legend)
+    const legend = addressLegend(graphImage, compiled.legend)
     const memory = view(bytes)
 
     assert.ok(legend.size >= 1)
@@ -82,8 +82,8 @@ describe('the machine runs graph bytes', () => {
 
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
-      serializeImage(machine.memory, payload, machine.legend),
-      serialize(step(compiled.graph), compiled.legend))
+      serializeWasm(machine.memory, payload, { legend: machine.legend }),
+      serialize(step(compiled.graph), { legend: compiled.legend }))
   })
 
   test('observation is idempotent inside the machine', async () => {
@@ -106,7 +106,7 @@ describe('the machine runs graph bytes', () => {
       const graphImage = image(compiled.graph)
       return emit({
         ...graphImage,
-        legend: imageLegend(graphImage, compiled.legend)
+        legend: addressLegend(graphImage, compiled.legend)
       })
     }
     const a = sections(emitGraph(program('a')))

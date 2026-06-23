@@ -1,7 +1,7 @@
 // Every module uses the same observe/select machine; each graph differs only
 // in bytes, focus, and legend.
 
-import { compile, imageLegend, serializeImageColor } from '../graph/index.js'
+import { addressLegend, compile, serializeWasm } from '../graph/index.js'
 import { observeAddress } from './address.js'
 import { image } from './image.js'
 
@@ -161,7 +161,7 @@ export const run = async bytes => {
   const trace = addr =>
     console.log(
       traceCount++,
-      serializeImageColor(view, addr, legend, scheme),
+      serializeWasm(view, addr, { legend, format: 'ansi', scheme }),
       '\n')
 
   const foundByImage = observeAddress(view, focus.value, trace)
@@ -192,7 +192,7 @@ if (main()) {
     const graphImage = image(compiled.graph)
     bytes = emit({
       ...graphImage,
-      legend: imageLegend(graphImage, compiled.legend)
+      legend: addressLegend(graphImage, compiled.legend)
     })
     const out = path === source
       ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)

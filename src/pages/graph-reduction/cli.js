@@ -2,14 +2,18 @@ import {
   compile,
   observe,
   select,
-  serializeAnsi
+  serialize
 } from './graph/index.js'
 
 const traceScheme = () =>
   process.env.GRAPH_SCHEME || 'color'
 
 const writeGraph = (label, graph, legend) =>
-  console.log(`${label} ${serializeAnsi(graph, legend, traceScheme())}\n`)
+  console.log(`${label} ${serialize(graph, {
+    legend,
+    format: 'ansi',
+    scheme: traceScheme()
+  })}\n`)
 
 const trace = legend => graph =>
   writeGraph('observe', graph, legend)
