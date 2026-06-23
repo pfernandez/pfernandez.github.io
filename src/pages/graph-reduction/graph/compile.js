@@ -1,61 +1,59 @@
 import { parse } from './parse.js'
 
-const createAtom = (name, legend) => {
-  const cell = []
-  cell[0] = cell
-  cell[1] = cell
-  legend.push([cell, name])
-  return cell
-}
-
-const applyArgs = (head, args) =>
-  args.reduce((node, arg) => [node, arg], head)
-
-const binding = (names, nodes, name) => {
-  const index = names.indexOf(name)
-  return index === -1 ? undefined : nodes[index]
-}
-
-const bind = (names, nodes, name, node) => {
-  names.push(name)
-  nodes.push(node)
+const createIdentity = (name, legend) => {
+  const node = []
+  node[0] = node
+  node[1] = node
+  legend.push([node, name])
   return node
 }
 
-const atom = (names, nodes, legend, name) =>
-  binding(names, nodes, name)
-    ?? bind(names, nodes, name, createAtom(name, legend))
+const find = (scope, name) =>
+  scope.find(binding => binding.name === name)?.node
 
-const wire = (form, names, nodes, legend) => {
+const bind = (scope, name, legend) => {
+  const node = createIdentity(name, legend)
+  scope.unshift({ name, node })
+  return node
+}
+
+const identity = (scope, name, legend) =>
+  find(scope, name) ?? bind(scope, name, legend)
+
+const wire = (form, scope, legend) => {
   if (typeof form === 'string')
-    return atom(names, nodes, legend, form)
+    return identity(scope, form, legend)
 
   if (!Array.isArray(form) || !form.length)
-    return atom(names, nodes, legend, '()')
+    return identity(scope, '()', legend)
 
-  return applyArgs(
-    wire(form[0], names, nodes, legend),
-    form.slice(1).map(item => wire(item, names, nodes, legend)))
+  if (isDefinition(form))
+    return wireDefinition(form, scope, legend)
+
+  return form.map(item => wire(item, scope, legend))
+}
+
+const isDefinition = form =>
+  Array.isArray(form[0])
+    && typeof form[0][0] === 'string'
+    && form.length === 2
+
+const wireDefinition = ([[name, ...args], body], scope, legend) => {
+  const node = identity(scope, name, legend)
+  const bodyScope = scope.slice()
+  const signature = [
+    node,
+    ...args.map(arg => bind(bodyScope, arg, legend))
+  ]
+
+  return [signature, wire(body, bodyScope, legend)]
 }
 
 export const compile = source => {
   let graph = [], legend = [], error
   try {
-    const ast = parse(source)[0]
-    const [[[name, ...args], body], focus] = ast
-    const result = []
-    const names = [name]
-    const nodes = [result]
-
-    const wiredArgs = focus.slice(1).map(arg => wire(arg, names, nodes, legend))
-
-    console.dir({ ast, name, args, body, focus, legend }, { depth: null })
-
-    args.forEach((arg, i) => bind(names, nodes, arg, wiredArgs[i]))
-
-    result[0] = result
-    result[1] = wire(body, names, nodes, legend)
-    graph = applyArgs(result, wiredArgs)
+    graph = wire(parse(source)[0], [], legend)
+    console.dir({ graph, legend }, { depth: null })
   } catch (e) {
     graph = []
     legend = []

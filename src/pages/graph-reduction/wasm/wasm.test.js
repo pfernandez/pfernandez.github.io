@@ -74,7 +74,7 @@ describe('the image is the graph', () => {
 })
 
 describe('the machine runs graph bytes', () => {
-  test('the wasm engine observes the wired I graph', async () => {
+  test('the wasm engine observes the source graph', async () => {
     const compiled = program('a')
     const machine = await loadMachine(compiled)
     const found = machine.exports.observe(machine.exports.focus.value)
@@ -94,10 +94,10 @@ describe('the machine runs graph bytes', () => {
     assert.equal(machine.exports.observe(machine.exports.observe(found)), found)
   })
 
-  test('the module is self-contained: the legend round-trips', async () => {
+  test('the module is self-contained: source names round-trip', async () => {
     const machine = await loadMachine(program('a'))
 
-    assert.deepEqual([...machine.authoredLegend.values()], ['a'])
+    assert.deepEqual([...machine.authoredLegend.values()], ['I', 'x', 'a'])
     assert.deepEqual([...machine.legend], [...machine.authoredLegend])
   })
 

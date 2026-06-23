@@ -35,12 +35,14 @@ const name = text => [...uleb(utf8(text).length), ...utf8(text)]
 const section = (id, body) => [id, ...uleb(body.length), ...body]
 
 export const emit = ({ bytes, focus, legend = new Map() }) => {
-  // observe(p): follow function sides until mem[p] == p, then return p
+  // observe(p): follow function sides until mem[mem[p]] == mem[p]
   const observe = [
     0x00,                              // no locals
     0x02, 0x40, 0x03, 0x40,            // block, loop
     0x20, 0x00, 0x28, 0x02, 0x00,      //   load mem[p]
-    0x20, 0x00, 0x46, 0x0d, 0x01,      //   equal to p? exit: the answer
+    0x20, 0x00, 0x28, 0x02, 0x00,      //   load mem[p]
+    0x28, 0x02, 0x00,                  //   load mem[mem[p]]
+    0x46, 0x0d, 0x01,                  //   left identity? exit with p
     0x20, 0x00, 0x28, 0x02, 0x00,      //   p = mem[p]
     0x21, 0x00, 0x0c, 0x00,            //   again
     0x0b, 0x0b, 0x20, 0x00, 0x0b      // end loop, end block, return p
