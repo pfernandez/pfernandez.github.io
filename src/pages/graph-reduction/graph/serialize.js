@@ -49,10 +49,11 @@ const identityColor = index => {
 const pastelColor = index =>
   xtermColor(PASTEL_COLORS[Math.min(index, PASTEL_COLORS.length - 1)])
 
-const pastelGradient = (index, count) => {
-  if (count < 2) return pastelColor(0)
+const spread = index =>
+  index * 29 % COLOR_COUNT / (COLOR_COUNT - 1)
 
-  const position = index / (count - 1) * (PASTEL_COLORS.length - 1)
+const pastelGradient = index => {
+  const position = spread(index) * (PASTEL_COLORS.length - 1)
   const start = Math.floor(position)
   const end = Math.min(start + 1, PASTEL_COLORS.length - 1)
   const t = position - start
@@ -60,19 +61,19 @@ const pastelGradient = (index, count) => {
 }
 
 const colorScheme = color => ({
-  ansi: (index, count) => color(index, count).ansi,
-  style: (index, count) => ({ color: color(index, count).css })
+  ansi: identity => color(identity).ansi,
+  style: identity => ({ color: color(identity).css })
 })
 
-const opacity = (index, count) =>
-  count < 2 ? 1 : 0.2 + index / (count - 1) * 0.8
+const opacity = index =>
+  0.2 + spread(index) * 0.8
 
 const scheme = {
   [schemes.color]: colorScheme(identityColor),
   [schemes.ink]: {
-    ansi: (index, count) =>
-      `38;5;${232 + Math.round(opacity(index, count) * 23)}`,
-    style: (index, count) => ({ opacity: opacity(index, count) })
+    ansi: index =>
+      `38;5;${232 + Math.round(opacity(index) * 23)}`,
+    style: index => ({ opacity: opacity(index) })
   },
   [schemes.pastel]: colorScheme(pastelGradient),
   [schemes.plain]: {}
@@ -81,19 +82,20 @@ const scheme = {
 const selectedScheme = name =>
   scheme[name] || scheme[schemes.color]
 
-const identityFor = (node, identities) => {
-  if (!identities.has(node))
-    identities.set(node, identities.size)
-  return identities.get(node)
+const jsIdentities = new WeakMap()
+let nextJsIdentity = 0
+
+const jsIdentity = node => {
+  if (!jsIdentities.has(node))
+    jsIdentities.set(node, nextJsIdentity++)
+  return jsIdentities.get(node)
 }
 
-const identityCount = tokens =>
-  tokens.reduce(
-    (count, token) =>
-      token.identity === undefined
-        ? count
-        : Math.max(count, token.identity + 1),
-    0)
+const wasmIdentity = (address, identities) => {
+  if (!identities.has(address))
+    identities.set(address, identities.size)
+  return identities.get(address)
+}
 
 const textToken = text => ({ text })
 
@@ -116,23 +118,22 @@ const graphText = (node, legend, path = '$', seen = new Map()) => {
 const graphTokens = (
   node,
   legend,
-  seen = new Set(),
-  identities = new Map()
+  seen = new Set()
 ) => {
   if (!Array.isArray(node)) return [textToken(String(node))]
 
   const name = nameOf(legend, node)
   if (name !== undefined) return [textToken(String(name))]
 
-  const identity = identityFor(node, identities)
+  const identity = jsIdentity(node)
   if (seen.has(node)) return [identityToken('()', identity)]
 
   seen.add(node)
   return [
     identityToken('(', identity),
-    ...graphTokens(node[0], legend, seen, identities),
+    ...graphTokens(node[0], legend, seen),
     textToken(' '),
-    ...graphTokens(node[1], legend, seen, identities),
+    ...graphTokens(node[1], legend, seen),
     identityToken(')', identity)
   ]
 }
@@ -158,7 +159,7 @@ const wasmTokens = (
 ) => {
   if (legend.has(root)) return [textToken(String(legend.get(root)))]
 
-  const identity = identityFor(root, identities)
+  const identity = wasmIdentity(root, identities)
   if (seen.has(root)) return [identityToken('()', identity)]
 
   seen.add(root)
@@ -183,17 +184,11 @@ const tokensToAnsi = (tokens, name) => {
   const ansi = selectedScheme(name).ansi
   if (!ansi) return tokensToText(tokens)
 
-  const count = identityCount(tokens)
   return tokens.map(token =>
     token.identity === undefined
       ? token.text
-      : `\x1b[${ansi(token.identity, count)}m${token.text}${RESET}`)
+      : `\x1b[${ansi(token.identity)}m${token.text}${RESET}`)
     .join('')
-}
-
-const styleFor = (identity, name, count) => {
-  const style = selectedScheme(name).style
-  return style ? style(identity, count) : {}
 }
 
 const styleText = style =>
@@ -205,7 +200,6 @@ const tokensToConsole = (tokens, name) => {
   const style = selectedScheme(name).style
   if (!style) return [tokensToText(tokens)]
 
-  const count = identityCount(tokens)
   let text = ''
   const styles = []
 
@@ -214,7 +208,7 @@ const tokensToConsole = (tokens, name) => {
       text += token.text.replaceAll('%', '%%')
     } else {
       text += `%c${token.text.replaceAll('%', '%%')}%c`
-      styles.push(styleText(styleFor(token.identity, name, count)), '')
+      styles.push(styleText(style(token.identity)), '')
     }
   }
 
@@ -222,7 +216,7 @@ const tokensToConsole = (tokens, name) => {
 }
 
 const tokensToVdom = (tokens, name) => {
-  const count = identityCount(tokens)
+  const style = selectedScheme(name).style ?? (() => ({}))
   return ['pre', { class: 'output' }, ...tokens.map(token =>
     token.identity === undefined
       ? token.text
@@ -230,7 +224,7 @@ const tokensToVdom = (tokens, name) => {
         'span',
         {
           class: 'identity',
-          style: styleFor(token.identity, name, count)
+          style: style(token.identity)
         },
         token.text
       ])]

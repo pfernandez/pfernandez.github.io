@@ -72,6 +72,22 @@ describe('serialize', () => {
       ])
   })
 
+  test('vdom colors are stable for the same cell across renders', () => {
+    const root = []
+    root[0] = root
+    root[1] = 'a'
+
+    const other = []
+    other[0] = other
+    other[1] = 'b'
+
+    const first = serialize(root, { format: 'vdom', scheme: schemes.ink })
+    serialize(other, { format: 'vdom', scheme: schemes.ink })
+    const second = serialize(root, { format: 'vdom', scheme: schemes.ink })
+
+    assert.deepEqual(second, first)
+  })
+
   test('wasm serializes identically to graphs', () => {
     const compiled = compile('(((I x) x) (I a))')
     const graphImage = imageView(compiled)
