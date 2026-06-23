@@ -7,8 +7,8 @@ import lisp from './core.lisp?raw'
 
 const schemeNames = ['ink', 'pastel', 'color', 'plain']
 
-const graphOutput = (graph, scheme) => {
-  const parts = serializeParts(graph)
+const graphOutput = (graph, legend, scheme) => {
+  const parts = serializeParts(graph, legend)
   return pre({ class: 'output' }, ...parts.map(part =>
     part.identity === undefined
       ? part.text
@@ -19,10 +19,10 @@ const graphOutput = (graph, scheme) => {
 }
 
 const build = source => {
-  let graph = [], error
-  try { graph = compile(source) }
+  let graph = [], legend = [], error
+  try { ({ graph, legend } = compile(source)) }
   catch (e) { error = e }
-  return { graph, error }
+  return { graph, legend, error }
 }
 
 const infer = (
@@ -35,12 +35,12 @@ const infer = (
 const dashboard = component(
   (state = { ...build(lisp), source: lisp, history: [], scheme: 'ink' }) => {
 
-    const { graph, source, history, error, scheme } = state
+    const { graph, legend, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
     const view = () => dashboard(
       { ...state,
-        graph: observe(graph, g => console.log(serialize(g))),
+        graph: observe(graph, g => console.log(serialize(g, legend))),
         history: [...history, state] })
 
     const load = source => dashboard(
@@ -81,7 +81,7 @@ const dashboard = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : graphOutput(graph, scheme)),
+                  : graphOutput(graph, legend, scheme)),
 
           div({ class: 'description row' }, `Steps: ${time}`))
     )

@@ -188,8 +188,12 @@ if (main()) {
   if (path.endsWith('.wasm')) {
     bytes = new Uint8Array(readFileSync(path))
   } else {
-    const graphImage = image(compile(readFileSync(path, 'utf-8')))
-    bytes = emit({ ...graphImage, legend: imageLegend(graphImage) })
+    const compiled = compile(readFileSync(path, 'utf-8'))
+    const graphImage = image(compiled.graph)
+    bytes = emit({
+      ...graphImage,
+      legend: imageLegend(graphImage, compiled.legend)
+    })
     const out = path === source
       ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)
       : path.replace(/\.[^./]+$/, '') + '.wasm'

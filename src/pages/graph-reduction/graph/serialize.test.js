@@ -17,12 +17,12 @@ import { image } from '../wasm/image.js'
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
-const imageView = graph => {
+const imageView = ({ graph, legend }) => {
   const graphImage = image(graph)
   return {
     view: view(graphImage.bytes),
     focus: graphImage.focus,
-    legend: imageLegend(graphImage)
+    legend: imageLegend(graphImage, legend)
   }
 }
 
@@ -57,24 +57,26 @@ describe('serialize', () => {
   })
 
   test('images serialize identically to graphs', () => {
-    const graph = compile('(((I x) x) (I a))')
-    const graphImage = imageView(graph)
+    const compiled = compile('(((I x) x) (I a))')
+    const graphImage = imageView(compiled)
 
     assert.equal(
       serializeImage(graphImage.view, graphImage.focus, graphImage.legend),
-      serialize(graph))
+      serialize(compiled.graph, compiled.legend))
   })
 
   test('image parts use the same presentation schemes', () => {
-    const graph = compile('(((I x) x) (I a))')
-    const graphImage = imageView(graph)
+    const compiled = compile('(((I x) x) (I a))')
+    const graphImage = imageView(compiled)
     const parts = serializeImageParts(
       graphImage.view,
       graphImage.focus,
       graphImage.legend)
     const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 
-    assert.equal(partsToText(parts), partsToText(serializeParts(graph)))
+    assert.equal(
+      partsToText(parts),
+      partsToText(serializeParts(compiled.graph, compiled.legend)))
     assert.equal(
       stripAnsi(serializeImageAnsi(
         graphImage.view,

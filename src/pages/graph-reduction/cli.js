@@ -8,11 +8,11 @@ import {
 const traceScheme = () =>
   process.env.GRAPH_SCHEME || 'color'
 
-const writeGraph = (label, graph) =>
-  console.log(`${label} ${serializeAnsi(graph, traceScheme())}\n`)
+const writeGraph = (label, graph, legend) =>
+  console.log(`${label} ${serializeAnsi(graph, legend, traceScheme())}\n`)
 
-const trace = graph =>
-  writeGraph('observe', graph)
+const trace = legend => graph =>
+  writeGraph('observe', graph, legend)
 
 const main = () =>
   typeof process !== 'undefined'
@@ -22,8 +22,8 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const graph = compile(readFileSync(file, 'utf-8'))
-  const found = observe(graph, trace)
+  const { graph, legend } = compile(readFileSync(file, 'utf-8'))
+  const found = observe(graph, trace(legend))
 
-  writeGraph('select ', select(found))
+  writeGraph('select ', select(found), legend)
 }

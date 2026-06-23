@@ -3,16 +3,11 @@ import { parse } from './parse.js'
 const isSymbol = form =>
   typeof form === 'string'
 
-const spelling = Symbol(JSON.stringify)
-
-export const spellingOf = node =>
-  Array.isArray(node) ? node[spelling] : undefined
-
-const createAtom = name => {
+const createAtom = (name, legend) => {
   const cell = []
   cell[0] = cell
   cell[1] = cell
-  cell[spelling] = name
+  legend.push([cell, name])
   return cell
 }
 
@@ -30,19 +25,20 @@ const bind = (names, nodes, name, node) => {
   return node
 }
 
-const atom = (names, nodes, name) =>
-  binding(names, nodes, name) ?? bind(names, nodes, name, createAtom(name))
+const atom = (names, nodes, legend, name) =>
+  binding(names, nodes, name)
+    ?? bind(names, nodes, name, createAtom(name, legend))
 
-const wire = (form, names, nodes) => {
+const wire = (form, names, nodes, legend) => {
   if (isSymbol(form))
-    return atom(names, nodes, form)
+    return atom(names, nodes, legend, form)
 
   if (!Array.isArray(form) || !form.length)
-    return atom(names, nodes, '()')
+    return atom(names, nodes, legend, '()')
 
   return applyArgs(
-    wire(form[0], names, nodes),
-    form.slice(1).map(item => wire(item, names, nodes)))
+    wire(form[0], names, nodes, legend),
+    form.slice(1).map(item => wire(item, names, nodes, legend)))
 }
 
 export const compile = source => {
@@ -50,12 +46,13 @@ export const compile = source => {
   const result = []
   const names = [name]
   const nodes = [result]
-  const wiredArgs = focus.slice(1).map(arg => wire(arg, names, nodes))
+  const legend = []
+  const wiredArgs = focus.slice(1).map(arg => wire(arg, names, nodes, legend))
 
   args.forEach((arg, i) => bind(names, nodes, arg, wiredArgs[i]))
 
   result[0] = result
-  result[1] = wire(body, names, nodes)
+  result[1] = wire(body, names, nodes, legend)
 
-  return applyArgs(result, wiredArgs)
+  return { graph: applyArgs(result, wiredArgs), legend }
 }

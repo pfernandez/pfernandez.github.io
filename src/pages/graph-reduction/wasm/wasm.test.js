@@ -27,9 +27,9 @@ const step = node =>
 const view = bytes =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
-const loadMachine = async graph => {
-  const graphImage = image(graph)
-  const authoredLegend = imageLegend(graphImage)
+const loadMachine = async compiled => {
+  const graphImage = image(compiled.graph)
+  const authoredLegend = imageLegend(graphImage, compiled.legend)
   const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
 
@@ -43,23 +43,26 @@ const loadMachine = async graph => {
 
 describe('the image is the graph', () => {
   test('image observation agrees with the graph engine', () => {
-    const graph = program('a')
-    const graphImage = image(graph)
+    const compiled = program('a')
+    const graphImage = image(compiled.graph)
     const { bytes, focus } = graphImage
-    const legend = imageLegend(graphImage)
+    const legend = imageLegend(graphImage, compiled.legend)
     const memory = view(bytes)
     const found = observeAddress(memory, focus)
 
-    assert.equal(serializeImage(memory, found, legend), serialize(observe(graph)))
+    assert.equal(
+      serializeImage(memory, found, legend),
+      serialize(observe(compiled.graph), compiled.legend))
     assert.equal(
       serializeImage(memory, selectAddress(memory, found), legend),
-      serialize(step(graph)))
+      serialize(step(compiled.graph), compiled.legend))
   })
 
   test('atoms are their own address, twice', () => {
-    const graphImage = image(program('a'))
+    const compiled = program('a')
+    const graphImage = image(compiled.graph)
     const { bytes } = graphImage
-    const legend = imageLegend(graphImage)
+    const legend = imageLegend(graphImage, compiled.legend)
     const memory = view(bytes)
 
     assert.ok(legend.size >= 1)
@@ -72,15 +75,15 @@ describe('the image is the graph', () => {
 
 describe('the machine runs graph bytes', () => {
   test('the wasm engine observes the wired I graph', async () => {
-    const graph = program('a')
-    const machine = await loadMachine(graph)
+    const compiled = program('a')
+    const machine = await loadMachine(compiled)
     const found = machine.exports.observe(machine.exports.focus.value)
     const payload = machine.exports.select(found)
 
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
       serializeImage(machine.memory, payload, machine.legend),
-      serialize(step(graph)))
+      serialize(step(compiled.graph), compiled.legend))
   })
 
   test('observation is idempotent inside the machine', async () => {
@@ -94,13 +97,17 @@ describe('the machine runs graph bytes', () => {
   test('the module is self-contained: the legend round-trips', async () => {
     const machine = await loadMachine(program('a'))
 
+    assert.deepEqual([...machine.authoredLegend.values()], ['a'])
     assert.deepEqual([...machine.legend], [...machine.authoredLegend])
   })
 
   test('every program is the same machine', () => {
-    const emitGraph = graph => {
-      const graphImage = image(graph)
-      return emit({ ...graphImage, legend: imageLegend(graphImage) })
+    const emitGraph = compiled => {
+      const graphImage = image(compiled.graph)
+      return emit({
+        ...graphImage,
+        legend: imageLegend(graphImage, compiled.legend)
+      })
     }
     const a = sections(emitGraph(program('a')))
     const b = sections(emitGraph(program('b')))

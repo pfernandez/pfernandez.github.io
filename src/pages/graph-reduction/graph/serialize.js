@@ -1,20 +1,27 @@
-import { spellingOf } from './compile.js'
+const spellingOf = (legend, node) =>
+  legend.find(([entry]) => entry === node)?.[1]
+
+const presentation = (legendOrName, name) =>
+  Array.isArray(legendOrName)
+    ? { legend: legendOrName, name }
+    : { legend: [], name: legendOrName ?? name }
 
 // Atoms print as their spelling; repeated cells print as the path where the
 // cell first appeared, so sharing and cycles stay visible in plain text.
-const printable = (node, path = '$', pathsByNode = new Map()) => {
+const printable = (node, legend, path = '$', pathsByNode = new Map()) => {
   if (!Array.isArray(node)) return String(node)
-  if (spellingOf(node) !== undefined) return String(spellingOf(node))
+  if (spellingOf(legend, node) !== undefined)
+    return String(spellingOf(legend, node))
   if (pathsByNode.has(node)) return pathsByNode.get(node)
 
   pathsByNode.set(node, path)
-  const left = printable(node[0], `${path}.0`, pathsByNode)
-  const right = printable(node[1], `${path}.1`, pathsByNode)
+  const left = printable(node[0], legend, `${path}.0`, pathsByNode)
+  const right = printable(node[1], legend, `${path}.1`, pathsByNode)
   return `(${left} ${right})`
 }
 
-export const serialize = form =>
-  printable(form)
+export const serialize = (form, legend = []) =>
+  printable(form, legend)
 
 const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
@@ -97,12 +104,13 @@ const identityFor = (node, identities) => {
 // as () with the same identity as their first occurrence.
 export const serializeParts = (
   node,
+  legend = [],
   seen = new Set(),
   identities = new Map()
 ) => {
   if (!Array.isArray(node)) return [{ text: String(node) }]
-  if (spellingOf(node) !== undefined)
-    return [{ text: String(spellingOf(node)) }]
+  if (spellingOf(legend, node) !== undefined)
+    return [{ text: String(spellingOf(legend, node)) }]
 
   const identity = identityFor(node, identities)
   if (seen.has(node)) return [{ text: '()', identity }]
@@ -110,9 +118,9 @@ export const serializeParts = (
   seen.add(node)
   return [
     { text: '(', identity },
-    ...serializeParts(node[0], seen, identities),
+    ...serializeParts(node[0], legend, seen, identities),
     { text: ' ' },
-    ...serializeParts(node[1], seen, identities),
+    ...serializeParts(node[1], legend, seen, identities),
     { text: ')', identity }
   ]
 }
@@ -168,22 +176,26 @@ export const partsToConsole = (parts, name = 'color') => {
   return [text, ...styles]
 }
 
-export const serializeAnsi = (node, name = 'color') =>
-  partsToAnsi(serializeParts(node), name)
+export const serializeAnsi = (node, legendOrName = [], name = 'color') => {
+  const selected = presentation(legendOrName, name)
+  return partsToAnsi(serializeParts(node, selected.legend), selected.name)
+}
 
-export const serializeConsole = (node, name = 'color') =>
-  partsToConsole(serializeParts(node), name)
+export const serializeConsole = (node, legendOrName = [], name = 'color') => {
+  const selected = presentation(legendOrName, name)
+  return partsToConsole(serializeParts(node, selected.legend), selected.name)
+}
 
 export const serializeColor = serializeAnsi
 
-export const imageLegend = ({ addresses }) => {
-  const legend = new Map()
+export const imageLegend = ({ addresses }, legend = []) => {
+  const byAddress = new Map()
 
-  for (const [node, addr] of addresses)
-    if (Array.isArray(node) && node[0] === node && node[1] === node)
-      legend.set(addr, serialize(node))
+  for (const [node, spelling] of legend)
+    if (addresses.has(node))
+      byAddress.set(addresses.get(node), spelling)
 
-  return legend
+  return byAddress
 }
 
 // Same presentation as serialize, reading cells from a DataView of u32 addresses.

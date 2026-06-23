@@ -9,11 +9,12 @@ import {
 
 describe('compiler wiring', () => {
   test('I wires its argument to its body', () => {
-    const graph = compile('(((I x) x) (I a))')
+    const { graph, legend } = compile('(((I x) x) (I a))')
     const found = observe(graph)
 
-    assert.equal(serialize(graph), '(($.0 a) a)')
-    assert.equal(serialize(found), '($ a)')
-    assert.equal(serialize(select(found)), 'a')
+    assert.equal(serialize(graph, legend), '(($.0 a) a)')
+    assert.equal(serialize(found, legend), '($ a)')
+    assert.equal(serialize(select(found), legend), 'a')
+    assert.deepEqual(legend.map(([, spelling]) => spelling), ['a'])
   })
 })
