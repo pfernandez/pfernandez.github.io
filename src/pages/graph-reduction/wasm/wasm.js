@@ -192,7 +192,7 @@ if (main()) {
   } else {
     const compiled = compile(readFileSync(path, 'utf-8'))
     if (compiled.error) throw compiled.error
-    const graphImage = image(compiled.graph)
+    const graphImage = image(compiled.graph, compiled.focus)
     bytes = emit({
       ...graphImage,
       legend: addressLegend(graphImage, compiled.legend)

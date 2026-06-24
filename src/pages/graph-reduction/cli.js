@@ -26,9 +26,9 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const { graph, legend, error } = compile(readFileSync(file, 'utf-8'))
+  const { focus, legend, error } = compile(readFileSync(file, 'utf-8'))
   if (error) throw error
-  const found = observe(graph, trace(legend))
+  const found = observe(focus, trace(legend))
 
   writeGraph('select ', select(found), legend)
 }
