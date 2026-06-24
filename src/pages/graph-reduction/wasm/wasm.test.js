@@ -12,7 +12,7 @@ import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const source = arg =>
-  `(((I x) x) (I ${arg}))`
+  `((${arg} (${arg} ${arg})) ((I (I ${arg})) (I ${arg})))`
 
 const program = arg =>
   compile(source(arg))
@@ -48,18 +48,21 @@ describe('the image is the graph', () => {
       serialize(observe(compiled.graph), { legend: compiled.legend }))
   })
 
-  test('atoms are their own address, twice', () => {
+  test('source identities retain their links', () => {
     const compiled = program('a')
     const graphImage = image(compiled.graph)
     const { bytes } = graphImage
     const legend = addressLegend(graphImage, compiled.legend)
     const memory = view(bytes)
+    const address = name =>
+      [...legend].find(([, entry]) => entry === name)[0]
+    const a = address('a')
+    const I = address('I')
 
-    assert.ok(legend.size >= 1)
-    for (const addr of legend.keys()) {
-      assert.equal(memory.getUint32(addr, true), addr)
-      assert.equal(memory.getUint32(addr + 4, true), addr)
-    }
+    assert.equal(memory.getUint32(a, true), a)
+    assert.equal(memory.getUint32(a + 4, true), a)
+    assert.equal(memory.getUint32(I, true), I)
+    assert.equal(memory.getUint32(I + 4, true), a)
   })
 })
 
@@ -86,7 +89,7 @@ describe('the machine runs graph bytes', () => {
   test('the module is self-contained: source names round-trip', async () => {
     const machine = await loadMachine(program('a'))
 
-    assert.deepEqual([...machine.authoredLegend.values()], ['a'])
+    assert.deepEqual([...machine.authoredLegend.values()], ['a', 'I'])
     assert.deepEqual([...machine.legend], [...machine.authoredLegend])
   })
 

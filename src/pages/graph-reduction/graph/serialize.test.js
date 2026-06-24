@@ -89,7 +89,7 @@ describe('serialize', () => {
   })
 
   test('wasm serializes identically to graphs', () => {
-    const compiled = compile('(((I x) x) (I a))')
+    const compiled = compile('((a (a a)) ((I (I a)) (I a)))')
     const graphImage = imageView(compiled)
 
     assert.equal(
@@ -100,7 +100,7 @@ describe('serialize', () => {
   })
 
   test('wasm presentation uses the same formats', () => {
-    const compiled = compile('(((I x) x) (I a))')
+    const compiled = compile('((a (a a)) ((I (I a)) (I a)))')
     const graphImage = imageView(compiled)
 
     assert.equal(

@@ -7,16 +7,21 @@ import {
 } from './index.js'
 
 describe('compiler wiring', () => {
-  test('wires arguments into the definition body', () => {
-    const { graph, legend } = compile('(((I x) x) (I a))')
-    const [call, argument] = graph
-    const result = call[1]
+  test('wires identities defined by pairs', () => {
+    const source = `
+      ((a (a a))
+       ((x a)
+        ((I (I x))
+         (I x))))
+    `
+    const { graph, legend } = compile(source)
+    const [I, a] = graph
 
-    assert.equal(serialize(graph, { legend }), '(($.0 a) a)')
-    assert.equal(call[0], call)
-    assert.equal(result, argument)
-    assert.equal(observe(graph), argument)
-    assert.deepEqual(legend.map(([, name]) => name), ['a'])
+    assert.equal(serialize(graph, { legend }), '(I a)')
+    assert.equal(I[0], I)
+    assert.equal(I[1], a)
+    assert.equal(observe(graph), a)
+    assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
   })
 
   test('returns an error when source does not compile', () => {

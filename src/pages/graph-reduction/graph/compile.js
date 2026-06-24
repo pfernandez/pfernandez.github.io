@@ -7,35 +7,27 @@ const isDefinition = form =>
 const compileSource = source => {
   const legend = []
 
-  const createIdentity = symbol => {
-    const node = []
-    node[0] = node
-    node[1] = node
-    legend.push([node, symbol])
-    return node
-  }
-
   const identity = (scope, symbol) =>
     scope.find(([name]) => name === symbol)?.[1]
-      ?? legend.find(([, name]) => name === symbol)?.[0]
-      ?? createIdentity(symbol)
 
-  const wire = (form, scope) =>
-    typeof form === 'string' ? identity(scope, form)
-      : !form.length ? identity(scope, '()')
-          : isDefinition(form[0]) ? wireDefinition(form, scope)
-            : form.map(item => wire(item, scope))
+  const wire = (form, scope) => {
+    if (typeof form === 'string')
+      return identity(scope, form)
 
-  const wireDefinition = (form, scope) => {
-    const [[[name, ...params], body], [, ...argForms]] = form
-    const node = []
-    const definitionScope = [[name, node], ...scope]
-    const args = argForms.map(arg => wire(arg, definitionScope))
-    const bodyScope = [...params.map((param, i) => [param, args[i]]),
-                       ...definitionScope]
-    node[0] = node
-    node[1] = wire(body, bodyScope)
-    return [node, ...args]
+    if (!isDefinition(form))
+      return form.map(item => wire(item, scope))
+
+    const [[name, value], body] = form
+    const binding = [name, value]
+    const definitionScope = [binding, ...scope]
+
+    if (typeof value === 'string')
+      binding[1] = wire(value, scope)
+    else
+      [value[0], value[1]] = wire(value, definitionScope)
+
+    legend.push([binding[1], name])
+    return wire(body, definitionScope)
   }
 
   const graph = wire(parse(source)[0], [])
