@@ -1,4 +1,4 @@
-// Every module uses the same observe/select machine; each graph differs only
+// Every module uses the same observe machine; each graph differs only
 // in bytes, focus, and legend.
 
 import { addressLegend, compile, serializeWasm } from '../graph/index.js'
@@ -35,23 +35,16 @@ const name = text => [...uleb(utf8(text).length), ...utf8(text)]
 const section = (id, body) => [id, ...uleb(body.length), ...body]
 
 export const emit = ({ bytes, focus, legend = new Map() }) => {
-  // observe(p): follow function sides until mem[mem[p]] == mem[p]
+  // observe(p): follow function sides until mem[p] == p, then return its right
   const observe = [
     0x00,                              // no locals
     0x02, 0x40, 0x03, 0x40,            // block, loop
     0x20, 0x00, 0x28, 0x02, 0x00,      //   load mem[p]
-    0x20, 0x00, 0x28, 0x02, 0x00,      //   load mem[p]
-    0x28, 0x02, 0x00,                  //   load mem[mem[p]]
-    0x46, 0x0d, 0x01,                  //   left identity? exit with p
+    0x20, 0x00, 0x46, 0x0d, 0x01,      //   equal to p? exit loop
     0x20, 0x00, 0x28, 0x02, 0x00,      //   p = mem[p]
     0x21, 0x00, 0x0c, 0x00,            //   again
-    0x0b, 0x0b, 0x20, 0x00, 0x0b      // end loop, end block, return p
-  ]
-
-  // select(p): return mem[p + 4], the argument side
-  const select = [
-    0x00,                              // no locals
-    0x20, 0x00, 0x28, 0x02, 0x04,      // load mem[p + 4]
+    0x0b, 0x0b,                        // end loop, end block
+    0x20, 0x00, 0x28, 0x02, 0x04,      // return mem[p + 4]
     0x0b
   ]
 
@@ -62,8 +55,8 @@ export const emit = ({ bytes, focus, legend = new Map() }) => {
     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,    // \0asm, version 1
     // type: one signature, i32 -> i32
     ...section(1, [0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f]),
-    // function: two functions of that signature
-    ...section(3, [0x02, 0x00, 0x00]),
+    // function: observe
+    ...section(3, [0x01, 0x00]),
     // memory: enough 64K pages to hold the graph bytes
     ...section(5, [0x01, 0x00,
                    ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
@@ -71,17 +64,15 @@ export const emit = ({ bytes, focus, legend = new Map() }) => {
     ...section(6, [0x01, 0x7f, 0x00, 0x41, ...sleb(focus), 0x0b]),
     // exports
     ...section(7, [
-      0x04,
+      0x03,
       ...name('memory'), 0x02, 0x00,
       ...name('focus'), 0x03, 0x00,
-      ...name('observe'), 0x00, 0x00,
-      ...name('select'), 0x00, 0x01
+      ...name('observe'), 0x00, 0x00
     ]),
-    // code: the two bodies
+    // code: observe
     ...section(10, [
-      0x02,
-      ...uleb(observe.length), ...observe,
-      ...uleb(select.length), ...select
+      0x01,
+      ...uleb(observe.length), ...observe
     ]),
     // data: the graph bytes, at address 0
     ...section(11, [0x01, 0x00, 0x41,
@@ -148,7 +139,7 @@ export const readLegend = bytes => {
 }
 
 // Replay observation in JS over exported memory, run wasm observe, and insist
-// they agree before selecting.
+// they agree.
 export const run = async bytes => {
   const legend = readLegend(bytes)
   const { instance } = await WebAssembly.instantiate(bytes)
@@ -171,7 +162,7 @@ export const run = async bytes => {
   if (foundByWasm !== foundByImage)
     throw new Error('Wasm observe disagrees with image observe')
 
-  trace(instance.exports.select(foundByWasm))
+  trace(foundByWasm)
   return instance
 }
 
@@ -192,7 +183,7 @@ if (main()) {
   } else {
     const compiled = compile(readFileSync(path, 'utf-8'))
     if (compiled.error) throw compiled.error
-    const graphImage = image(compiled.graph, compiled.focus)
+    const graphImage = image(compiled.graph)
     bytes = emit({
       ...graphImage,
       legend: addressLegend(graphImage, compiled.legend)

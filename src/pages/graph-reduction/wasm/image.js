@@ -3,7 +3,7 @@
 // identity, so an atom is its own address twice.
 
 // Address cells in first-visit order.
-export const image = (graph, focus = graph) => {
+export const image = graph => {
   const addresses = new Map()
   const place = node => {
     if (addresses.has(node)) return
@@ -22,5 +22,5 @@ export const image = (graph, focus = graph) => {
     view.setUint32(addr + 4, addresses.get(node[1]), true)
   }
 
-  return { bytes, focus: addresses.get(focus), addresses }
+  return { bytes, focus: addresses.get(graph), addresses }
 }
