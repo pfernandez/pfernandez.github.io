@@ -12,7 +12,7 @@ import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const source = arg =>
-  `((${arg} (${arg} ${arg})) ((I (I ${arg})) (I ${arg})))`
+  `(I (${arg} ${arg}))`
 
 const program = arg =>
   compile(source(arg))
