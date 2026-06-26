@@ -1,32 +1,39 @@
 import { parse } from './parse.js'
 
-const compileSource = source => {
+const identityOf = (form, scope) => scope.find(([name]) => name === form)?.[1]
+const isSymbol = form => typeof form === 'string'
+const isNewSymbol = (form, scope) => isSymbol(form) && !identityOf(form, scope)
+
+const graphify = ast => {
   const legend = []
 
-  const identity = (scope, symbol) =>
-    scope.find(([name]) => name === symbol)?.[1]
-
-  const wire = (form, scope) => {
-    if (typeof form === 'string')
-      return identity(scope, form)
+  const link = (form, scope = []) => {
+    if (isSymbol(form)) return identityOf(form, scope)
 
     const [left, right] = form
-    const named = typeof left === 'string' && !identity(scope, left)
-    const pairScope = named ? [[left, form], ...scope] : scope
-    form[0] = named ? form : wire(left, scope)
-    form[1] = wire(right, pairScope)
-    if (named) legend.push([form, left])
+
+    if (isNewSymbol(left, scope)) {
+      form[0] = form
+      form[1] = link(right, [[left, form], ...scope])
+      legend.push([form, left])
+    } else {
+      form[0] = link(left, scope)
+      form[1] = link(right, scope)
+    }
+
     return form
   }
 
-  const graph = wire(parse(source)[0], [])
+  const graph = link(ast)
   console.dir({ graph, legend }, { depth: null })
   return { graph, legend }
 }
 
 export const compile = source => {
   try {
-    return compileSource(source)
+    const ast = parse(source)[0]
+    console.dir({ ast }, { depth: null })
+    return graphify(ast)
   } catch (error) {
     return { graph: [], legend: [], error }
   }
