@@ -34,6 +34,7 @@ export const parse = source => {
       items.push(readForm())
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
+    if (items.length === 0) return items
     if (items.length !== 2) err('Expressions must be pairs', opener)
     return items
   }

@@ -42,6 +42,16 @@ describe('compiler wiring', () => {
     assert.deepEqual(legend.map(([, name]) => name), ['x', 'I', 'a'])
   })
 
+  test('empty parens reference the root', () => {
+    const { graph, legend } = compile('(((I x) x) (() (I a)))')
+    const result = graph[1]
+
+    assert.equal(result[0], graph)
+    assert.equal(result[1][0], graph[0])
+    assert.equal(observe(graph), result)
+    assert.deepEqual(legend.map(([, name]) => name), ['x', 'I', 'a'])
+  })
+
   test('left spine definitions can have multiple arguments', () => {
     const { graph: K, legend } = compile('(((K x) y) x)')
     const y = K[0]
