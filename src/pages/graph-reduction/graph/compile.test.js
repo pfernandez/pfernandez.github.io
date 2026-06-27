@@ -24,13 +24,14 @@ describe('compiler wiring', () => {
     assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
   })
 
-  test('later siblings can reference earlier identities', () => {
+  test('the outer pair can be the identity referenced by later siblings', () => {
     const { graph, legend } = compile('(((I x) x) (I a))')
-    const I = graph[0]
-    const x = I[0]
-    const call = graph[1]
+    const I = graph
+    const body = I[0]
+    const x = body[0]
+    const call = I[1]
 
-    assert.equal(I[1], x)
+    assert.equal(body[1], x)
     assert.equal(x[0], I)
     assert.equal(x[1], x)
     assert.equal(call[0], I)

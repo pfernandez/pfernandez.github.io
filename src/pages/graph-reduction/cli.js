@@ -28,5 +28,8 @@ if (main()) {
   const { graph, legend, error } = compile(readFileSync(file, 'utf-8'))
   if (error) throw error
 
-  writeGraph('result ', observe(graph, trace(legend)), legend)
+  writeGraph(
+    'result ',
+    observe(observe(graph, trace(legend)), trace(legend)),
+    legend)
 }

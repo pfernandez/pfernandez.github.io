@@ -1,7 +1,3 @@
-export const observe = (graph, trace) => {
-  const rotate = form =>
-    (trace?.(form),
-    form === graph ? form[1] : rotate(form[0]))
-
-  return rotate(graph)
-}
+export const observe = (pair, trace, graph = pair) =>
+  (trace?.(pair),
+  pair === graph ? pair[1] : observe(pair[0], trace, graph))

@@ -1,76 +1,59 @@
 import { parse } from './parse.js'
 
-const identityOf = (form, scope) => scope.find(([name]) => name === form)?.[1]
+const identityOf = (form, stack) => stack.find(([name]) => name === form)?.[1]
 const isSymbol = form => typeof form === 'string'
-const isNewSymbol = (form, scope) => isSymbol(form) && !identityOf(form, scope)
+const uniqueNames = entries =>
+  entries.filter(([name], index) =>
+    entries.findIndex(([other]) => other === name) === index)
 
-const definition = (form, scope) => {
-  if (isSymbol(form[0])) return
+const leftSpine = (form, params = []) =>
+  isSymbol(form[0])
+    ? {
+      name: form[0],
+      params: uniqueNames(params.filter(([name]) => isSymbol(name)))
+    }
+    : leftSpine(form[0], [[form[0][1], form[0]], ...params])
 
-  const leftmostSymbol = (form, nodes = []) =>
-    isSymbol(form[0])
-      ? { name: form[0], nodes }
-      : leftmostSymbol(form[0], [form[0], ...nodes])
+const identityIntroducedBy = (form, stack) => {
+  const identity = leftSpine(form)
 
-  const containsSymbols = (form, symbols) =>
-    isSymbol(form)
-      ? symbols.includes(form)
-      : containsSymbols(form[0], symbols) || containsSymbols(form[1], symbols)
+  if (identityOf(identity.name, stack)) return
 
-  const candidate = leftmostSymbol(form)
-  const params = candidate.nodes.map(node => node[1]).filter(isSymbol)
-
-  if (isNewSymbol(candidate.name, scope) && containsSymbols(form[1], params))
-    return candidate
+  return identity
 }
 
 const graphify = ast => {
   const legend = []
-  const link = (form, scope = []) => {
-    if (isSymbol(form)) return identityOf(form, scope) ?? form
+  const push = (stack, name, identity) => {
+    legend.push([identity, name])
+    stack.unshift([name, identity])
+  }
+
+  const wire = (form, stack = []) => {
+    if (isSymbol(form)) return identityOf(form, stack) ?? form
 
     const [left, right] = form
-    const found = definition(form, scope)
+    const identity = identityIntroducedBy(form, stack)
 
-    if (found) {
-      const { name, nodes } = found
-      const params = nodes
-        .map(node => [node[1], node])
-        .filter(([param]) => isSymbol(param))
-      const localScope = [...params, [name, form], ...scope]
+    if (identity) {
+      const localStack = [...identity.params, [identity.name, form], ...stack]
 
-      console.dir({ found, localScope, scope, legend }, { depth: null })
+      console.dir({ identity, localStack, stack, legend }, { depth: null })
 
-      form[0] = link(left, localScope)
-      form[1] = link(right, localScope)
+      form[0] = wire(left, localStack)
+      form[1] = wire(right, localStack)
 
-      legend.push(...params.map(([param, node]) => [node, param]), [form, name])
-      scope.unshift([name, form])
-    } else if (isNewSymbol(left, scope)) {
-      const binding = [left, form]
-      const bodyScope = [binding, ...scope]
-
-      form[0] = form
-
-      if (isNewSymbol(right, bodyScope)) {
-        form[1] = form
-
-        scope.unshift([right, form])
-      } else {
-        form[1] = link(right, bodyScope)
-      }
-
-      legend.push([form, left])
-      scope.unshift(binding)
+      identity.params.forEach(([param, node]) => legend.push([node, param]))
+      push(stack, identity.name, form)
     } else {
-      form[0] = link(left, scope)
-      form[1] = link(right, scope)
+      form[0] = wire(left, stack)
+      form[1] = wire(right, stack)
     }
 
     return form
   }
 
-  const graph = link(ast)
+  const graph = wire(ast)
   console.dir({ graph, legend }, { depth: null })
   return { graph, legend }
 }
