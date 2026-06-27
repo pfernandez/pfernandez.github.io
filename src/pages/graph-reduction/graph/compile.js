@@ -9,6 +9,11 @@ const uniqueNames = entries =>
   entries.filter(([name], index) =>
     entries.findIndex(([other]) => other === name) === index)
 
+const mentions = (form, names) =>
+  isSymbol(form)
+    ? names.includes(form)
+    : mentions(form[0], names) || mentions(form[1], names)
+
 const leftSpine = (form, params = []) =>
   isSymbol(form[0])
     ? {
@@ -25,9 +30,22 @@ const identityIntroducedBy = (form, frames) => {
   return identity
 }
 
+const isDefinition = form => {
+  if (isSymbol(form) || isSymbol(form[0])) return false
+
+  const { params } = leftSpine(form)
+  const names = params.map(([name]) => name)
+
+  return names.length > 0 && mentions(form[1], names)
+}
+
+const isSequence = form =>
+  !isSymbol(form) && !isSymbol(form[0]) && isDefinition(form[0])
+
 const graphify = ast => {
   const legend = []
   const frames = []
+  const atoms = new Map()
   const enter = pair =>
     frames.unshift({ pair, bindings: [] })
   const leave = () =>
@@ -42,16 +60,25 @@ const graphify = ast => {
     if (!legend.some(([node, symbol]) => node === identity && symbol === name))
       legend.push([identity, name])
   }
+  const atom = name => {
+    if (!atoms.has(name)) {
+      const identity = []
+
+      identity[0] = identity
+      identity[1] = identity
+      atoms.set(name, identity)
+      record(name, identity)
+    }
+
+    return atoms.get(name)
+  }
 
   const wire = form => {
     if (isSymbol(form)) {
       const identity = identityOf(form, frames)
       if (identity) return identity
 
-      const enclosing = frames[0]?.pair
-      if (enclosing) record(form, enclosing)
-
-      return enclosing ?? form
+      return atom(form)
     }
 
     enter(form)
@@ -75,12 +102,29 @@ const graphify = ast => {
       form[1] = wire(right)
     }
 
+    const exported = identity && [identity.name, form]
+
     leave()
+
+    if (exported && frames[0]) push(...exported)
 
     return form
   }
 
-  const graph = wire(ast)
+  const wireSequence = form => {
+    form[0] = wire(form[0])
+    form[1] = isSequence(form[1])
+      ? wireSequence(form[1])
+      : wire(form[1])
+
+    form[1][0] = form
+
+    return form[1]
+  }
+
+  const graph = isSequence(ast)
+    ? (enter(ast), wireSequence(ast), leave(), ast)
+    : wire(ast)
   console.dir({ graph, legend }, { depth: null })
   return { graph, legend }
 }

@@ -24,19 +24,22 @@ describe('compiler wiring', () => {
     assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
   })
 
-  test('the outer pair can be the identity referenced by later siblings', () => {
+  test('the root is referenced by the result pointing to an atom', () => {
     const { graph, legend } = compile('(((I x) x) (I a))')
-    const I = graph
-    const body = I[0]
-    const x = body[0]
-    const call = I[1]
+    const I = graph[0]
+    const x = I[0]
+    const result = graph[1]
+    const a = result[1]
 
-    assert.equal(body[1], x)
+    assert.equal(I[1], x)
     assert.equal(x[0], I)
     assert.equal(x[1], x)
-    assert.equal(call[0], I)
-    assert.equal(call[1], call)
-    assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
+    assert.equal(result[0], graph)
+    assert.equal(a[0], a)
+    assert.equal(a[1], a)
+    assert.equal(observe(graph), result)
+    assert.equal(observe(result), a)
+    assert.deepEqual(legend.map(([, name]) => name), ['x', 'I', 'a'])
   })
 
   test('left spine definitions can have multiple arguments', () => {
