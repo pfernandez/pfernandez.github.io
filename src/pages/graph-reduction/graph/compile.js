@@ -2,7 +2,7 @@ import { parse } from './parse.js'
 
 const identityOf = (form, frames) =>
   frames
-    .map(frame => frame.find(([name]) => name === form))
+    .map(frame => frame.bindings.find(([name]) => name === form))
     .find(Boolean)?.[1]
 const isSymbol = form => typeof form === 'string'
 const uniqueNames = entries =>
@@ -28,23 +28,33 @@ const identityIntroducedBy = (form, frames) => {
 const graphify = ast => {
   const legend = []
   const frames = []
-  const enter = () =>
-    frames.unshift([])
+  const enter = pair =>
+    frames.unshift({ pair, bindings: [] })
   const leave = () =>
     frames.shift()
   const push = (name, identity) =>
-    frames[0].unshift([name, identity])
+    frames[0].bindings.unshift([name, identity])
   const pushParams = params =>
     [...params]
       .reverse()
       .forEach(([param, node]) => push(param, node))
-  const record = (name, identity) =>
-    legend.push([identity, name])
+  const record = (name, identity) => {
+    if (!legend.some(([node, symbol]) => node === identity && symbol === name))
+      legend.push([identity, name])
+  }
 
   const wire = form => {
-    if (isSymbol(form)) return identityOf(form, frames) ?? form
+    if (isSymbol(form)) {
+      const identity = identityOf(form, frames)
+      if (identity) return identity
 
-    enter()
+      const enclosing = frames[0]?.pair
+      if (enclosing) record(form, enclosing)
+
+      return enclosing ?? form
+    }
+
+    enter(form)
 
     const [left, right] = form
     const identity = identityIntroducedBy(form, frames)

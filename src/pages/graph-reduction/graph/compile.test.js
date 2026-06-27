@@ -35,8 +35,8 @@ describe('compiler wiring', () => {
     assert.equal(x[0], I)
     assert.equal(x[1], x)
     assert.equal(call[0], I)
-    assert.equal(call[1], 'a')
-    assert.deepEqual(legend.map(([, name]) => name), ['x', 'I'])
+    assert.equal(call[1], call)
+    assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
   })
 
   test('left spine definitions can have multiple arguments', () => {
