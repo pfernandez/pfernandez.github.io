@@ -74,10 +74,12 @@ const graphify = ast => {
   }
   const atom = (name, parent) => {
     if (!atoms.has(name)) {
-      const identity = []
+      const identity = parent ?? []
 
-      identity[0] = parent ?? identity
-      identity[1] = identity
+      if (!parent) {
+        identity[0] = identity
+        identity[1] = identity
+      }
       atoms.set(name, identity)
       record(name, identity)
     }
