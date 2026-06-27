@@ -72,11 +72,11 @@ const graphify = ast => {
     if (!legend.some(([node, symbol]) => node === identity && symbol === name))
       legend.push([identity, name])
   }
-  const atom = name => {
+  const atom = (name, parent) => {
     if (!atoms.has(name)) {
       const identity = []
 
-      identity[0] = identity
+      identity[0] = parent ?? identity
       identity[1] = identity
       atoms.set(name, identity)
       record(name, identity)
@@ -85,14 +85,14 @@ const graphify = ast => {
     return atoms.get(name)
   }
 
-  const wire = form => {
+  const wire = (form, atomParent) => {
     if (isRoot(form)) return root
 
     if (isSymbol(form)) {
       const identity = identityOf(form, frames)
       if (identity) return identity
 
-      return atom(form)
+      return atom(form, atomParent ?? frames[0]?.pair)
     }
 
     enter(form)
@@ -112,8 +112,10 @@ const graphify = ast => {
       identity.params.forEach(([param, node]) => record(param, node))
       record(identity.name, form)
     } else {
-      form[0] = wire(left)
-      form[1] = wire(right)
+      const childAtomParent = atomParent ?? (isRoot(left) ? form : undefined)
+
+      form[0] = wire(left, atomParent)
+      form[1] = wire(right, childAtomParent)
     }
 
     const exported = identity && [identity.name, form]

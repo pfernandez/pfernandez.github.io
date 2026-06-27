@@ -35,7 +35,7 @@ describe('compiler wiring', () => {
     assert.equal(x[0], I)
     assert.equal(x[1], x)
     assert.equal(result[0], graph)
-    assert.equal(a[0], a)
+    assert.equal(a[0], result)
     assert.equal(a[1], a)
     assert.equal(observe(graph), result)
     assert.equal(observe(result), a)
@@ -45,9 +45,13 @@ describe('compiler wiring', () => {
   test('empty parens reference the root', () => {
     const { graph, legend } = compile('(((I x) x) (() (I a)))')
     const result = graph[1]
+    const call = result[1]
+    const a = call[1]
 
     assert.equal(result[0], graph)
-    assert.equal(result[1][0], graph[0])
+    assert.equal(call[0], graph[0])
+    assert.equal(a[0], result)
+    assert.equal(a[1], a)
     assert.equal(observe(graph), result)
     assert.deepEqual(legend.map(([, name]) => name), ['x', 'I', 'a'])
   })
