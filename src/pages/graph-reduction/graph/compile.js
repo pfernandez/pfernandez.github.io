@@ -85,14 +85,14 @@ const graphify = ast => {
     return atoms.get(name)
   }
 
-  const wire = (form, atomParent) => {
+  const wire = form => {
     if (isRoot(form)) return root
 
     if (isSymbol(form)) {
       const identity = identityOf(form, frames)
       if (identity) return identity
 
-      return atom(form, atomParent ?? frames[0]?.pair)
+      return atom(form, frames[0]?.pair)
     }
 
     enter(form)
@@ -112,10 +112,8 @@ const graphify = ast => {
       identity.params.forEach(([param, node]) => record(param, node))
       record(identity.name, form)
     } else {
-      const childAtomParent = atomParent ?? (isRoot(left) ? form : undefined)
-
-      form[0] = wire(left, atomParent)
-      form[1] = wire(right, childAtomParent)
+      form[0] = wire(left)
+      form[1] = wire(right)
     }
 
     const exported = identity && [identity.name, form]
@@ -132,8 +130,6 @@ const graphify = ast => {
     form[1] = isSequence(form[1])
       ? wireSequence(form[1])
       : wire(form[1])
-
-    form[1][0] = form
 
     return form[1]
   }

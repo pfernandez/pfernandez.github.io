@@ -24,7 +24,7 @@ describe('compiler wiring', () => {
     assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
   })
 
-  test('the root is referenced by the result pointing to an atom', () => {
+  test('the result is the call pair', () => {
     const { graph, legend } = compile('(((I x) x) (I a))')
     const I = graph[0]
     const x = I[0]
@@ -34,7 +34,7 @@ describe('compiler wiring', () => {
     assert.equal(I[1], x)
     assert.equal(x[0], I)
     assert.equal(x[1], x)
-    assert.equal(result[0], graph)
+    assert.equal(result[0], I)
     assert.equal(a[0], result)
     assert.equal(a[1], a)
     assert.equal(observe(graph), result)
@@ -50,7 +50,7 @@ describe('compiler wiring', () => {
 
     assert.equal(result[0], graph)
     assert.equal(call[0], graph[0])
-    assert.equal(a[0], result)
+    assert.equal(a[0], call)
     assert.equal(a[1], a)
     assert.equal(observe(graph), result)
     assert.deepEqual(legend.map(([, name]) => name), ['x', 'I', 'a'])
