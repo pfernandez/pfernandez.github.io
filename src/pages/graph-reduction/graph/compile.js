@@ -1,6 +1,9 @@
 import { parse } from './parse.js'
 
-const identityOf = (form, stack) => stack.find(([name]) => name === form)?.[1]
+const identityOf = (form, frames) =>
+  frames
+    .map(frame => frame.find(([name]) => name === form))
+    .find(Boolean)?.[1]
 const isSymbol = form => typeof form === 'string'
 const uniqueNames = entries =>
   entries.filter(([name], index) =>
@@ -9,46 +12,60 @@ const uniqueNames = entries =>
 const leftSpine = (form, params = []) =>
   isSymbol(form[0])
     ? {
-      name: form[0],
-      params: uniqueNames(params.filter(([name]) => isSymbol(name)))
-    }
+        name: form[0],
+        params: uniqueNames(params.filter(([name]) => isSymbol(name)))
+      }
     : leftSpine(form[0], [[form[0][1], form[0]], ...params])
 
-const identityIntroducedBy = (form, stack) => {
+const identityIntroducedBy = (form, frames) => {
   const identity = leftSpine(form)
 
-  if (identityOf(identity.name, stack)) return
+  if (identityOf(identity.name, frames)) return
 
   return identity
 }
 
 const graphify = ast => {
   const legend = []
-  const push = (stack, name, identity) => {
+  const frames = []
+  const enter = () =>
+    frames.unshift([])
+  const leave = () =>
+    frames.shift()
+  const push = (name, identity) =>
+    frames[0].unshift([name, identity])
+  const pushParams = params =>
+    [...params]
+      .reverse()
+      .forEach(([param, node]) => push(param, node))
+  const record = (name, identity) =>
     legend.push([identity, name])
-    stack.unshift([name, identity])
-  }
 
-  const wire = (form, stack = []) => {
-    if (isSymbol(form)) return identityOf(form, stack) ?? form
+  const wire = form => {
+    if (isSymbol(form)) return identityOf(form, frames) ?? form
+
+    enter()
 
     const [left, right] = form
-    const identity = identityIntroducedBy(form, stack)
+    const identity = identityIntroducedBy(form, frames)
 
     if (identity) {
-      const localStack = [...identity.params, [identity.name, form], ...stack]
+      push(identity.name, form)
+      pushParams(identity.params)
 
-      console.dir({ identity, localStack, stack, legend }, { depth: null })
+      console.dir({ identity, frames, legend }, { depth: null })
 
-      form[0] = wire(left, localStack)
-      form[1] = wire(right, localStack)
+      form[0] = wire(left)
+      form[1] = wire(right)
 
-      identity.params.forEach(([param, node]) => legend.push([node, param]))
-      push(stack, identity.name, form)
+      identity.params.forEach(([param, node]) => record(param, node))
+      record(identity.name, form)
     } else {
-      form[0] = wire(left, stack)
-      form[1] = wire(right, stack)
+      form[0] = wire(left)
+      form[1] = wire(right)
     }
+
+    leave()
 
     return form
   }
