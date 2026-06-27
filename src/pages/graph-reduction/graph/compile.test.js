@@ -24,6 +24,32 @@ describe('compiler wiring', () => {
     assert.deepEqual(legend.map(([, name]) => name), ['a', 'x', 'I'])
   })
 
+  test('later siblings can reference earlier identities', () => {
+    const { graph, legend } = compile('(((I x) x) (I a))')
+    const I = graph[0]
+    const x = I[0]
+    const call = graph[1]
+
+    assert.equal(I[1], x)
+    assert.equal(x[0], I)
+    assert.equal(x[1], x)
+    assert.equal(call[0], I)
+    assert.equal(call[1], 'a')
+    assert.deepEqual(legend.map(([, name]) => name), ['x', 'I'])
+  })
+
+  test('left spine definitions can have multiple arguments', () => {
+    const { graph: K, legend } = compile('(((K x) y) x)')
+    const y = K[0]
+    const x = K[1]
+
+    assert.equal(x[0], K)
+    assert.equal(x[1], x)
+    assert.equal(y[0], x)
+    assert.equal(y[1], y)
+    assert.deepEqual(legend.map(([, name]) => name), ['x', 'y', 'K'])
+  })
+
   test('K links back to its first input', () => {
     const { graph: K, legend } = compile('(K (x (y x)))')
     const x = K[1]
