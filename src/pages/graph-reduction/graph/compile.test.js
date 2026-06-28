@@ -29,12 +29,14 @@ describe('compiler wiring', () => {
     const I = graph[0]
     const x = I[0]
     const result = graph[1]
+    const iCall = result[0]
     const a = result[1]
 
     assert.equal(I[1], x)
     assert.equal(x[0], I)
     assert.equal(x[1], x)
-    assert.equal(result[0], I)
+    assert.equal(iCall[0], I)
+    assert.equal(iCall[1], iCall)
     assert.equal(a, result)
     assert.equal(result[1], result)
     assert.equal(observe(graph), result)
@@ -46,10 +48,12 @@ describe('compiler wiring', () => {
     const { graph, legend } = compile('(((I x) x) (() (I a)))')
     const result = graph[1]
     const call = result[1]
+    const iCall = call[0]
     const a = call[1]
 
     assert.equal(result[0], graph)
-    assert.equal(call[0], graph[0])
+    assert.equal(iCall[0], graph[0])
+    assert.equal(iCall[1], iCall)
     assert.equal(a, call)
     assert.equal(call[1], call)
     assert.equal(observe(graph), result)
@@ -78,6 +82,18 @@ describe('compiler wiring', () => {
     assert.equal(y[0], y)
     assert.equal(y[1], x)
     assert.deepEqual(legend.map(([, name]) => name), ['y', 'x', 'K'])
+  })
+
+  test('K returns its first argument', () => {
+    const { graph, legend } = compile('((((K x) y) x) ((K a) b))')
+    const K = graph[0]
+    const a = observe(graph)
+    const kCall = a[0]
+
+    assert.equal(kCall[0], K)
+    assert.equal(kCall[1], kCall)
+    assert.equal(a[1], a)
+    assert.equal(serialize(observe(graph), { legend }), 'a')
   })
 
   test('S shares its third input between both branches', () => {
