@@ -27,9 +27,8 @@ if (main()) {
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
   const { graph, legend, error } = compile(readFileSync(file, 'utf-8'))
   if (error) throw error
-  observe(graph, trace(legend))
-  // writeGraph(
-  //   'result ',
-  //   observe(observe(graph, trace(legend)), trace(legend)),
-  //   legend)
+  const result = observe(graph, trace(legend))
+
+  writeGraph('result', result, legend)
+  writeGraph('repeat', observe(result, trace(legend)), legend)
 }

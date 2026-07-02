@@ -4,20 +4,33 @@ export const compile = source => {
   const legend = [], defs = [], locals = []
 
   const link = (parent, root = parent) => {
+    let left, right, signature
+
+    const promote = (entry, form) => {
+      entry[0] = form
+      entry.slots.forEach(([parent, i]) => parent[i] = form)
+      return entry
+    }
+
     parent.forEach((node, i) => {
       const [def] = defs.find(([_, symbol]) => node === symbol) ?? []
       const [arg] = locals.find(([_, symbol]) => node === symbol) ?? []
 
       if (Array.isArray(node)) {
-        link(node, i === 0 && !Array.isArray(parent[1]) ? root : node)
+        const child = link(node)
+        if (i === 0) left = child
+        else right = child
       } else if (def) {  // definition already cached
         parent[i] = def
       } else if (arg) {  // argument already cached
         parent[i] = arg
       } else if (parent.every(s => !Array.isArray(s))) {  // innermost signature
         parent[i] = root
-        defs.push([root, node])
-        legend.push([root, node])
+        const entry = [root, node]
+        Object.defineProperty(entry, 'slots', { value: [[parent, i]] })
+        defs.push(entry)
+        legend.push(entry)
+        signature = entry
         locals.length = 0
       } else {  // new argument
         const self = []
@@ -26,6 +39,8 @@ export const compile = source => {
         legend.push([self, node])
       }
     })
+
+    return left && !right ? promote(left, parent) : signature
   }
 
   try {
