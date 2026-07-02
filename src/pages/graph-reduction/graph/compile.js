@@ -9,7 +9,7 @@ export const compile = source => {
       const [arg] = locals.find(([_, symbol]) => node === symbol) ?? []
 
       if (Array.isArray(node)) {
-        link(node, parent)
+        link(node, i === 0 && !Array.isArray(parent[1]) ? root : node)
       } else if (def) {  // definition already cached
         parent[i] = def
       } else if (arg) {  // argument already cached
