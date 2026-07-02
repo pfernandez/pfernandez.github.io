@@ -3,6 +3,7 @@ import { log, parse } from './parse.js'
 export const compile = source => {
   const stack = []
   const legend = []
+  const signatures = new Map()
   const isSymbol = node => !Array.isArray(node)
   const hasOnlySymbols = parent => parent.every(isSymbol)
   const remember = entry => (
@@ -37,9 +38,9 @@ export const compile = source => {
 
       if (Array.isArray(node)) {
         const child = link(node)
-        form[i] = child.form
-        if (i === 0) leftSignature = child.signature
-        else rightSignature = child.signature
+        form[i] = child
+        if (i === 0) leftSignature = signatures.get(child)
+        else rightSignature = signatures.get(child)
       } else if (i === 0 && isSignature && !entry) {
         signature = createSignature(form, i, node)
       } else if (entry) {
@@ -59,13 +60,14 @@ export const compile = source => {
       stack.push(result)
     }
 
-    return { form, signature: result }
+    signatures.set(form, result)
+    return form
   }
 
   try {
-    const ast = parse(source)[0]
-    const { form } = link(ast)
-    return log({ graph: form, legend })
+    const tree = parse(source)[0]
+    const graph = link(tree)
+    return log({ graph, legend })
   } catch (error) {
     return { graph: [], legend: [], error }
   }
