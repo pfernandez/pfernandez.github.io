@@ -1,54 +1,58 @@
 import { log, parse } from './parse.js'
 
 export const compile = source => {
-  const legend = [], defs = [], locals = []
+  const stack = []
+  const isSymbol = node => !Array.isArray(node)
+  const hasOnlySymbols = parent => parent.every(isSymbol)
 
-  const link = (parent, root = parent) => {
-    let left, right, signature
+  const createNode = (parent, i, symbol) => {
+    const node = parent[i] = []
+    node[0] = node[1] = node
+    stack.push({ node, symbol })
+  }
 
-    const bind = (entry, form) => {
-      const [name, parent, i] = entry
-      name[0] = form
-      parent[i] = form
-      return entry
-    }
+  const bind = (entry, form) => {
+    entry.node = form
+    entry.parent[entry.index] = form
+    return entry
+  }
+
+  const link = parent => {
+    const mark = stack.length
+    let leftSignature, rightSignature, signature
 
     parent.forEach((node, i) => {
-      const found = defs.find(([[, symbol]]) => node === symbol)
-      const def = found?.[0][0]
-      const [arg] = locals.find(([_, symbol]) => node === symbol) ?? []
+      const index = stack.findLastIndex(({ symbol }) => node === symbol)
+      const entry = stack[index]
+      const isSignature = hasOnlySymbols(parent)
+      const isLocal =
+        (signature && isSignature)
+        || (leftSignature && i === 1 && index < mark)
 
       if (Array.isArray(node)) {
-        const child = link(node)
-        if (i === 0) left = child
-        else right = child
-      } else if (def) {  // definition already cached
-        parent[i] = def
-      } else if (arg) {  // argument already cached
-        parent[i] = arg
-      } else if (i === 0 && parent.every(s => !Array.isArray(s))) {  // innermost signature
-        const name = [root, node]
-        const entry = [name, parent, i]
-        defs.push(entry)
-        legend.push(name)
-        signature = entry
-        locals.length = 0
-      } else {  // new argument
-        const self = []
-        parent[i] = self[0] = self[1] = self
-        locals.push([self, node])
-        legend.push([self, node])
+        const childSignature = link(node)
+        if (i === 0) leftSignature = childSignature
+        else rightSignature = childSignature
+      } else if (i === 0 && isSignature && !entry) {
+        signature = { node: parent, symbol: node, parent, index: i }
+        stack.push(signature)
+      } else if (entry && !isLocal) {
+        parent[i] = entry.node
+      } else {
+        createNode(parent, i, node)
       }
     })
 
-    return left && !right ? bind(left, parent) : signature
+    return leftSignature && !rightSignature
+      ? bind(leftSignature, parent)
+      : signature
   }
 
   try {
     const ast = parse(source)[0]
     link(ast)
-    log({ graph: ast, legend })
-    return { graph: ast, legend }
+    const legend = stack.map(({ node, symbol }) => [node, symbol])
+    return log({ graph: ast, legend })
   } catch (error) {
     return { graph: [], legend: [], error }
   }
