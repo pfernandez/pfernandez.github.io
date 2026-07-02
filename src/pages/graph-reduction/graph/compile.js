@@ -26,30 +26,32 @@ export const compile = source => {
     return entry
   }
 
-  const link = parent => {
+  const link = source => {
+    const form = []
     const mark = stack.length
     let leftSignature, rightSignature, signature, hasNewRightLocal
 
-    parent.forEach((node, i) => {
+    source.forEach((node, i) => {
       const entry = stack.findLast(({ symbol }) => node === symbol)
-      const isSignature = hasOnlySymbols(parent)
+      const isSignature = hasOnlySymbols(source)
 
       if (Array.isArray(node)) {
-        const childSignature = link(node)
-        if (i === 0) leftSignature = childSignature
-        else rightSignature = childSignature
+        const child = link(node)
+        form[i] = child.form
+        if (i === 0) leftSignature = child.signature
+        else rightSignature = child.signature
       } else if (i === 0 && isSignature && !entry) {
-        signature = createSignature(parent, i, node)
+        signature = createSignature(form, i, node)
       } else if (entry) {
-        parent[i] = entry.node
+        form[i] = entry.node
       } else {
-        createNode(parent, i, node)
+        createNode(form, i, node)
         hasNewRightLocal ||= i === 1 && leftSignature
       }
     })
 
     const result = leftSignature && !rightSignature
-      ? bind(leftSignature, parent)
+      ? bind(leftSignature, form)
       : signature
 
     if (leftSignature && result && !hasNewRightLocal) {
@@ -57,13 +59,13 @@ export const compile = source => {
       stack.push(result)
     }
 
-    return result
+    return { form, signature: result }
   }
 
   try {
     const ast = parse(source)[0]
-    link(ast)
-    return log({ graph: ast, legend })
+    const { form } = link(ast)
+    return log({ graph: form, legend })
   } catch (error) {
     return { graph: [], legend: [], error }
   }
