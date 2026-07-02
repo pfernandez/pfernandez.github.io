@@ -7,13 +7,15 @@ export const compile = source => {
     let left, right, signature
 
     const bind = (entry, form) => {
-      entry[0] = form
-      entry.slot[0][entry.slot[1]] = form
+      const [name, parent, i] = entry
+      name[0] = form
+      parent[i] = form
       return entry
     }
 
     parent.forEach((node, i) => {
-      const [def] = defs.find(([_, symbol]) => node === symbol) ?? []
+      const found = defs.find(([[, symbol]]) => node === symbol)
+      const def = found?.[0][0]
       const [arg] = locals.find(([_, symbol]) => node === symbol) ?? []
 
       if (Array.isArray(node)) {
@@ -25,10 +27,10 @@ export const compile = source => {
       } else if (arg) {  // argument already cached
         parent[i] = arg
       } else if (i === 0 && parent.every(s => !Array.isArray(s))) {  // innermost signature
-        const entry = [root, node]
-        Object.defineProperty(entry, 'slot', { value: [parent, i] })
+        const name = [root, node]
+        const entry = [name, parent, i]
         defs.push(entry)
-        legend.push(entry)
+        legend.push(name)
         signature = entry
         locals.length = 0
       } else {  // new argument
