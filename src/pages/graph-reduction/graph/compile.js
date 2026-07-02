@@ -6,9 +6,9 @@ export const compile = source => {
   const link = (parent, root = parent) => {
     let left, right, signature
 
-    const promote = (entry, form) => {
+    const bind = (entry, form) => {
       entry[0] = form
-      entry.slots.forEach(([parent, i]) => parent[i] = form)
+      entry.slot[0][entry.slot[1]] = form
       return entry
     }
 
@@ -24,10 +24,9 @@ export const compile = source => {
         parent[i] = def
       } else if (arg) {  // argument already cached
         parent[i] = arg
-      } else if (parent.every(s => !Array.isArray(s))) {  // innermost signature
-        parent[i] = root
+      } else if (i === 0 && parent.every(s => !Array.isArray(s))) {  // innermost signature
         const entry = [root, node]
-        Object.defineProperty(entry, 'slots', { value: [[parent, i]] })
+        Object.defineProperty(entry, 'slot', { value: [parent, i] })
         defs.push(entry)
         legend.push(entry)
         signature = entry
@@ -40,7 +39,7 @@ export const compile = source => {
       }
     })
 
-    return left && !right ? promote(left, parent) : signature
+    return left && !right ? bind(left, parent) : signature
   }
 
   try {
