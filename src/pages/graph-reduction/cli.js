@@ -1,21 +1,8 @@
 import {
   compile,
   observe,
-  serialize
+  trace
 } from './graph/index.js'
-
-const traceScheme = () =>
-  process.env.GRAPH_SCHEME || 'color'
-
-const writeGraph = (label, graph, legend) =>
-  console.log(`${label} ${serialize(graph, {
-    legend,
-    format: 'ansi',
-    scheme: traceScheme()
-  })}\n`)
-
-const trace = legend => graph =>
-  writeGraph('observe', graph, legend)
 
 const main = () =>
   typeof process !== 'undefined'
@@ -27,8 +14,11 @@ if (main()) {
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
   const { graph, legend, error } = compile(readFileSync(file, 'utf-8'))
   if (error) throw error
-  const result = observe(graph, trace(legend))
 
-  writeGraph('result', result, legend)
-  writeGraph('repeat', observe(result, trace(legend)), legend)
+  const _trace = (x, label = 'observe') => trace(x, { label, legend })
+
+  const result = observe(graph, _trace)
+  trace(result, { label: 'result', legend })
+  const repeat = observe(result, _trace)
+  trace(repeat, { label: 'repeat', legend })
 }

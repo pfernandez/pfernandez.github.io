@@ -1,11 +1,10 @@
 import { log, parse } from './parse.js'
 
-export const compile = source => {
+export const link = tree => {
   const stack = []
   const legend = []
-  const signatures = new Map()
   const isSymbol = node => !Array.isArray(node)
-  const hasOnlySymbols = parent => parent.every(isSymbol)
+
   const remember = entry => (
     stack.push(entry),
     legend.push(entry.name),
@@ -27,32 +26,32 @@ export const compile = source => {
     return entry
   }
 
-  const link = source => {
-    const form = []
+  const walk = source => {
+    const graph = []
     const mark = stack.length
     let leftSignature, rightSignature, signature, hasNewRightLocal
 
     source.forEach((node, i) => {
       const entry = stack.findLast(({ symbol }) => node === symbol)
-      const isSignature = hasOnlySymbols(source)
+      const isSignature = parent => parent.every(isSymbol)
 
-      if (Array.isArray(node)) {
-        const child = link(node)
-        form[i] = child
-        if (i === 0) leftSignature = signatures.get(child)
-        else rightSignature = signatures.get(child)
+      if (!isSymbol(node)) {
+        const child = walk(node)
+        graph[i] = child.graph
+        if (i === 0) leftSignature = child.signature
+        else rightSignature = child.signature
       } else if (i === 0 && isSignature && !entry) {
-        signature = createSignature(form, i, node)
+        signature = createSignature(graph, i, node)
       } else if (entry) {
-        form[i] = entry.node
+        graph[i] = entry.node
       } else {
-        createNode(form, i, node)
+        createNode(graph, i, node)
         hasNewRightLocal ||= i === 1 && leftSignature
       }
     })
 
     const result = leftSignature && !rightSignature
-      ? bind(leftSignature, form)
+      ? bind(leftSignature, graph)
       : signature
 
     if (leftSignature && result && !hasNewRightLocal) {
@@ -60,14 +59,16 @@ export const compile = source => {
       stack.push(result)
     }
 
-    signatures.set(form, result)
-    return form
+    return { graph, signature: result }
   }
 
+  return { graph: walk(tree).graph, legend }
+}
+
+export const compile = source => {
   try {
     const tree = parse(source)[0]
-    const graph = link(tree)
-    return log({ graph, legend })
+    return log(link(tree))
   } catch (error) {
     return { graph: [], legend: [], error }
   }

@@ -1,7 +1,7 @@
 // Every module uses the same observe machine; each graph differs only
 // in bytes, focus, and legend.
 
-import { addressLegend, compile, serializeWasm } from '../graph/index.js'
+import { addressLegend, compile, traceWasm } from '../graph/index.js'
 import { observeAddress } from './address.js'
 import { image } from './image.js'
 
@@ -145,24 +145,20 @@ export const run = async bytes => {
   const { instance } = await WebAssembly.instantiate(bytes)
   const { memory, focus } = instance.exports
   const view = new DataView(memory.buffer)
-  const scheme =
-    typeof process === 'undefined'
-      ? 'color'
-      : process.env.GRAPH_SCHEME || 'color'
+  const traceOptions = {
+    count: true,
+    legend,
+    format: 'ansi'
+  }
 
-  let traceCount = 0
-  const trace = addr =>
-    console.log(
-      traceCount++,
-      serializeWasm(view, addr, { legend, format: 'ansi', scheme }),
-      '\n')
-
-  const foundByImage = observeAddress(view, focus.value, trace)
+  const foundByImage =
+    observeAddress(view, focus.value, root =>
+      traceWasm(view, root, traceOptions))
   const foundByWasm = instance.exports.observe(focus.value)
   if (foundByWasm !== foundByImage)
     throw new Error('Wasm observe disagrees with image observe')
 
-  trace(foundByWasm)
+  traceWasm(view, foundByWasm, traceOptions)
   return instance
 }
 

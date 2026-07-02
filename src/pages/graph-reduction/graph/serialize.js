@@ -12,8 +12,10 @@ const COLOR_STEPS = [2, 3, 4, 5]
 const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
 
-const nameOf = (legend, node) =>
-  legend.find(([entry]) => entry === node)?.[1]
+const nameOf = (legend, node) => {
+  const entry = legend.find(([identity]) => identity === node)
+  return entry && entry[1]
+}
 
 const xtermChannel = step =>
   step === 0 ? 0 : 55 + step * 40
@@ -68,7 +70,7 @@ const colorScheme = color => ({
 const opacity = index =>
   0.2 + spread(index) * 0.8
 
-const scheme = {
+const schemeRenderers = {
   [schemes.color]: colorScheme(identityColor),
   [schemes.ink]: {
     ansi: index =>
@@ -80,7 +82,7 @@ const scheme = {
 }
 
 const selectedScheme = name =>
-  scheme[name] || scheme[schemes.color]
+  schemeRenderers[name] || schemeRenderers[schemes.color]
 
 const jsIdentities = new WeakMap()
 let nextJsIdentity = 0
@@ -180,8 +182,8 @@ const wasmTokens = (
 const tokensToText = tokens =>
   tokens.map(token => token.text).join('')
 
-const tokensToAnsi = (tokens, name) => {
-  const ansi = selectedScheme(name).ansi
+const tokensToAnsi = (tokens, schemeName) => {
+  const ansi = selectedScheme(schemeName).ansi
   if (!ansi) return tokensToText(tokens)
 
   return tokens.map(token =>
@@ -196,8 +198,8 @@ const styleText = style =>
     .concat(Object.entries(style).map(([name, value]) => `${name}: ${value}`))
     .join('; ')
 
-const tokensToConsole = (tokens, name) => {
-  const style = selectedScheme(name).style
+const tokensToConsole = (tokens, schemeName) => {
+  const style = selectedScheme(schemeName).style
   if (!style) return [tokensToText(tokens)]
 
   let text = ''
@@ -215,8 +217,8 @@ const tokensToConsole = (tokens, name) => {
   return [text, ...styles]
 }
 
-const tokensToVdom = (tokens, name) => {
-  const style = selectedScheme(name).style ?? (() => ({}))
+const tokensToVdom = (tokens, schemeName) => {
+  const style = selectedScheme(schemeName).style ?? (() => ({}))
   return ['pre', { class: 'output' }, ...tokens.map(token =>
     token.identity === undefined
       ? token.text
@@ -233,6 +235,20 @@ const renderTokens = (tokens, { format, scheme }) => {
   return tokensToText(tokens)
 }
 
+const writeTrace = (output, options) => {
+  const { label } = options
+  const count = options.count === true ? 0 : options.count
+  const prefix = [
+    count === false || count === undefined ? undefined : count,
+    label
+  ].filter(part => part !== undefined).join(' ')
+
+  if (count !== false && count !== undefined)
+    options.count = count + 1
+
+  console.log(`${prefix ? `${prefix} ` : ''}${output}\n`)
+}
+
 export const serialize = (
   graph,
   { legend = [], format = 'text', scheme = schemes.color } = {}
@@ -240,6 +256,16 @@ export const serialize = (
   format === 'text'
     ? graphText(graph, legend)
     : renderTokens(graphTokens(graph, legend), { format, scheme })
+
+export const trace = (graph, options = {}) => {
+  const {
+    legend,
+    format = 'ansi',
+    scheme = schemes.color
+  } = options
+  const output = serialize(graph, { legend: legend ?? [], format, scheme })
+  writeTrace(output, options)
+}
 
 export const addressLegend = ({ addresses }, legend = []) => {
   const byAddress = new Map()
@@ -259,3 +285,18 @@ export const serializeWasm = (
   format === 'text'
     ? wasmText(view, root, legend)
     : renderTokens(wasmTokens(view, root, legend), { format, scheme })
+
+export const traceWasm = (view, root, options = {}) => {
+  const {
+    legend,
+    format = 'ansi',
+    scheme = schemes.color
+  } = options
+  const output = serializeWasm(view, root, {
+    legend: legend ?? new Map(),
+    format,
+    scheme
+  })
+
+  writeTrace(output, options)
+}

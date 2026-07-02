@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
+  link,
+  parse,
   serialize
 } from './index.js'
 
@@ -16,6 +18,15 @@ const named = legend => Object.fromEntries(
   legend.map(([node, name], index) => [`${name}${index}`, node]))
 
 describe('compile', () => {
+  test('links a parsed tree without mutating it', () => {
+    const tree = parse(core)[0]
+    const sourceTree = structuredClone(tree)
+    const { graph, legend } = link(tree)
+
+    assert.deepEqual(tree, sourceTree)
+    assert.equal(serialize(graph, { legend }), '(((I K) S) ((K a) b))')
+  })
+
   test('wires the current core graph', () => {
     const { graph, legend, error } = compile(core)
     assert.equal(error, undefined)

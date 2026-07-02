@@ -6,7 +6,9 @@ import {
   schemeNames,
   schemes,
   serialize,
-  serializeWasm
+  serializeWasm,
+  trace,
+  traceWasm
 } from './index.js'
 import { image } from '../wasm/image.js'
 
@@ -15,8 +17,9 @@ const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 
 const imageView = ({ graph, legend }) => {
   const graphImage = image(graph)
+  const graphView = view(graphImage.bytes)
   return {
-    view: view(graphImage.bytes),
+    view: graphView,
     focus: graphImage.focus,
     legend: addressLegend(graphImage, legend)
   }
@@ -88,15 +91,51 @@ describe('serialize', () => {
     assert.deepEqual(second, first)
   })
 
+  test('trace writes an optional label and uses presentation defaults', () => {
+    const compiled = compile('(I (a a))')
+    const graphImage = imageView(compiled)
+    const write = console.log
+    const output = []
+    const countOptions = { count: true, label: 'count', scheme: schemes.plain }
+    console.log = (...args) => output.push(args.join(' '))
+
+    try {
+      trace(['a', 'b'], { label: 'result' })
+      trace(['a', 'b'], { scheme: schemes.plain })
+      trace(['a', 'b'], countOptions)
+      trace(['c', 'd'], countOptions)
+      traceWasm(graphImage.view, graphImage.focus, {
+        legend: graphImage.legend,
+        label: 'wasm',
+        scheme: schemes.plain
+      })
+    } finally {
+      console.log = write
+    }
+
+    assert.equal(stripAnsi(output[0]), 'result (a b)\n')
+    assert.equal(output[1], '(a b)\n')
+    assert.equal(output[2], '0 count (a b)\n')
+    assert.equal(output[3], '1 count (c d)\n')
+    assert.equal(
+      output[4],
+      `wasm ${serializeWasm(graphImage.view, graphImage.focus, {
+        legend: graphImage.legend,
+        format: 'ansi',
+        scheme: schemes.plain
+      })}\n`)
+  })
+
   test('wasm serializes identically to graphs', () => {
     const compiled = compile('(I (a a))')
     const graphImage = imageView(compiled)
+    const text = serialize(compiled.graph, { legend: compiled.legend })
 
     assert.equal(
       serializeWasm(graphImage.view, graphImage.focus, {
         legend: graphImage.legend
       }),
-      serialize(compiled.graph, { legend: compiled.legend }))
+      text)
   })
 
   test('wasm presentation uses the same formats', () => {
