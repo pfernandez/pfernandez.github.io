@@ -1,5 +1,5 @@
 export { parse } from './parse.js'
-export { compile, link } from './compile.js'
+export { link } from './link.js'
 export { observe } from './observe.js'
 export {
   addressLegend,

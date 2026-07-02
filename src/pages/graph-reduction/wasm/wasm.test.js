@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   addressLegend,
-  compile,
+  link,
   observe,
   serialize,
   serializeWasm
@@ -15,14 +15,14 @@ const source = arg =>
   `(I (${arg} ${arg}))`
 
 const program = arg =>
-  compile(source(arg))
+  link(source(arg))
 
 const view = bytes =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
-const loadMachine = async compiled => {
-  const graphImage = image(compiled.graph)
-  const authoredLegend = addressLegend(graphImage, compiled.legend)
+const loadMachine = async linked => {
+  const graphImage = image(linked.graph)
+  const authoredLegend = addressLegend(graphImage, linked.legend)
   const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
 
@@ -36,23 +36,23 @@ const loadMachine = async compiled => {
 
 describe('the image is the graph', () => {
   test('image observation agrees with the graph engine', () => {
-    const compiled = program('a')
-    const graphImage = image(compiled.graph)
+    const linked = program('a')
+    const graphImage = image(linked.graph)
     const { bytes, focus } = graphImage
-    const legend = addressLegend(graphImage, compiled.legend)
+    const legend = addressLegend(graphImage, linked.legend)
     const memory = view(bytes)
     const found = observeAddress(memory, focus)
 
     assert.equal(
       serializeWasm(memory, found, { legend }),
-      serialize(observe(compiled.graph), { legend: compiled.legend }))
+      serialize(observe(linked.graph), { legend: linked.legend }))
   })
 
   test('source identities retain their links', () => {
-    const compiled = program('a')
-    const graphImage = image(compiled.graph)
+    const linked = program('a')
+    const graphImage = image(linked.graph)
     const { bytes } = graphImage
-    const legend = addressLegend(graphImage, compiled.legend)
+    const legend = addressLegend(graphImage, linked.legend)
     const memory = view(bytes)
     const address = name =>
       [...legend].find(([, entry]) => entry === name)[0]
@@ -68,14 +68,14 @@ describe('the image is the graph', () => {
 
 describe('the machine runs graph bytes', () => {
   test('the wasm engine observes the source graph', async () => {
-    const compiled = program('a')
-    const machine = await loadMachine(compiled)
+    const linked = program('a')
+    const machine = await loadMachine(linked)
     const result = machine.exports.observe(machine.exports.focus.value)
 
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
       serializeWasm(machine.memory, result, { legend: machine.legend }),
-      serialize(observe(compiled.graph), { legend: compiled.legend }))
+      serialize(observe(linked.graph), { legend: linked.legend }))
   })
 
   test('observation is idempotent inside the machine', async () => {
@@ -94,11 +94,11 @@ describe('the machine runs graph bytes', () => {
   })
 
   test('every program is the same machine', () => {
-    const emitGraph = compiled => {
-      const graphImage = image(compiled.graph)
+    const emitGraph = linked => {
+      const graphImage = image(linked.graph)
       return emit({
         ...graphImage,
-        legend: addressLegend(graphImage, compiled.legend)
+        legend: addressLegend(graphImage, linked.legend)
       })
     }
     const a = sections(emitGraph(program('a')))

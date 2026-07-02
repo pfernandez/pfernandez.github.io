@@ -1,4 +1,6 @@
-export const log = x => (console.dir(x, { depth: null }), x)
+export const log = x => (
+  typeof x === 'string' ? console.log(x) : console.dir(x, { depth: null }),
+  x)
 
 // Comments are dropped; every token remembers its line and column.
 const tokenize = source =>

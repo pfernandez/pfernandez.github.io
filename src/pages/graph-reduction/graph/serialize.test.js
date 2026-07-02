@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   addressLegend,
-  compile,
+  link,
   schemeNames,
   schemes,
   serialize,
@@ -92,19 +92,20 @@ describe('serialize', () => {
   })
 
   test('trace writes an optional label and uses presentation defaults', () => {
-    const compiled = compile('(I (a a))')
-    const graphImage = imageView(compiled)
+    const linked = link('(I (a a))')
+    const graphImage = imageView(linked)
     const write = console.log
     const output = []
     const countOptions = { count: true, label: 'count', scheme: schemes.plain }
+    let firstTrace, wasmTrace
     console.log = (...args) => output.push(args.join(' '))
 
     try {
-      trace(['a', 'b'], { label: 'result' })
+      firstTrace = trace(['a', 'b'], { label: 'result' })
       trace(['a', 'b'], { scheme: schemes.plain })
       trace(['a', 'b'], countOptions)
       trace(['c', 'd'], countOptions)
-      traceWasm(graphImage.view, graphImage.focus, {
+      wasmTrace = traceWasm(graphImage.view, graphImage.focus, {
         legend: graphImage.legend,
         label: 'wasm',
         scheme: schemes.plain
@@ -114,6 +115,7 @@ describe('serialize', () => {
     }
 
     assert.equal(stripAnsi(output[0]), 'result (a b)\n')
+    assert.equal(stripAnsi(firstTrace), 'result (a b)\n')
     assert.equal(output[1], '(a b)\n')
     assert.equal(output[2], '0 count (a b)\n')
     assert.equal(output[3], '1 count (c d)\n')
@@ -124,12 +126,13 @@ describe('serialize', () => {
         format: 'ansi',
         scheme: schemes.plain
       })}\n`)
+    assert.equal(wasmTrace, output[4])
   })
 
   test('wasm serializes identically to graphs', () => {
-    const compiled = compile('(I (a a))')
-    const graphImage = imageView(compiled)
-    const text = serialize(compiled.graph, { legend: compiled.legend })
+    const linked = link('(I (a a))')
+    const graphImage = imageView(linked)
+    const text = serialize(linked.graph, { legend: linked.legend })
 
     assert.equal(
       serializeWasm(graphImage.view, graphImage.focus, {
@@ -139,8 +142,8 @@ describe('serialize', () => {
   })
 
   test('wasm presentation uses the same formats', () => {
-    const compiled = compile('(I (a a))')
-    const graphImage = imageView(compiled)
+    const linked = link('(I (a a))')
+    const graphImage = imageView(linked)
 
     assert.equal(
       stripAnsi(serializeWasm(graphImage.view, graphImage.focus, {
@@ -148,8 +151,8 @@ describe('serialize', () => {
         format: 'ansi',
         scheme: schemes.ink
       })),
-      serialize(compiled.graph, {
-        legend: compiled.legend,
+      serialize(linked.graph, {
+        legend: linked.legend,
         format: 'ansi',
         scheme: schemes.plain
       }))

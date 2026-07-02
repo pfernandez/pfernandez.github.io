@@ -1,5 +1,5 @@
 import {
-  compile,
+  link,
   observe,
   trace
 } from './graph/index.js'
@@ -12,7 +12,7 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const { graph, legend, error } = compile(readFileSync(file, 'utf-8'))
+  const { graph, legend, error } = link(readFileSync(file, 'utf-8'))
   if (error) throw error
 
   const _trace = (x, label = 'observe') => trace(x, { label, legend })

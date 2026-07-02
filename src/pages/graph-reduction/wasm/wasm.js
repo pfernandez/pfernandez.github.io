@@ -1,7 +1,7 @@
 // Every module uses the same observe machine; each graph differs only
 // in bytes, focus, and legend.
 
-import { addressLegend, compile, traceWasm } from '../graph/index.js'
+import { addressLegend, link, traceWasm } from '../graph/index.js'
 import { observeAddress } from './address.js'
 import { image } from './image.js'
 
@@ -177,12 +177,12 @@ if (main()) {
   if (path.endsWith('.wasm')) {
     bytes = new Uint8Array(readFileSync(path))
   } else {
-    const compiled = compile(readFileSync(path, 'utf-8'))
-    if (compiled.error) throw compiled.error
-    const graphImage = image(compiled.graph)
+    const linked = link(readFileSync(path, 'utf-8'))
+    if (linked.error) throw linked.error
+    const graphImage = image(linked.graph)
     bytes = emit({
       ...graphImage,
-      legend: addressLegend(graphImage, compiled.legend)
+      legend: addressLegend(graphImage, linked.legend)
     })
     const out = path === source
       ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)

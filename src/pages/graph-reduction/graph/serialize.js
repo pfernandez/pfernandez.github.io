@@ -1,3 +1,5 @@
+import { log } from './parse.js'
+
 export const schemes = Object.freeze({
   ink: 'ink',
   pastel: 'pastel',
@@ -246,7 +248,7 @@ const writeTrace = (output, options) => {
   if (count !== false && count !== undefined)
     options.count = count + 1
 
-  console.log(`${prefix ? `${prefix} ` : ''}${output}\n`)
+  return log(`${prefix ? `${prefix} ` : ''}${output}\n`)
 }
 
 export const serialize = (
@@ -264,7 +266,7 @@ export const trace = (graph, options = {}) => {
     scheme = schemes.color
   } = options
   const output = serialize(graph, { legend: legend ?? [], format, scheme })
-  writeTrace(output, options)
+  return writeTrace(output, options)
 }
 
 export const addressLegend = ({ addresses }, legend = []) => {
@@ -298,5 +300,5 @@ export const traceWasm = (view, root, options = {}) => {
     scheme
   })
 
-  writeTrace(output, options)
+  return writeTrace(output, options)
 }

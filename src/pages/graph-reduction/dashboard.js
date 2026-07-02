@@ -1,12 +1,12 @@
 import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
-import { compile, observe, schemeNames, schemes, serialize }
+import { link, observe, schemeNames, schemes, serialize }
   from './graph/index.js'
 import lisp from './core.lisp?raw'
 
 const initialState =
-  { ...compile(lisp),
+  { ...link(lisp),
     source: lisp,
     history: [],
     scheme: schemes.ink }
@@ -30,7 +30,7 @@ const dashboard = component(
         history: [...history, state] })
 
     const load = source => dashboard(
-      { ...state, ...compile(source), source, history: [] })
+      { ...state, ...link(source), source, history: [] })
 
     const chooseScheme = scheme => dashboard({ ...state, scheme })
 
