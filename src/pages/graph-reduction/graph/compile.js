@@ -2,56 +2,67 @@ import { log, parse } from './parse.js'
 
 export const compile = source => {
   const stack = []
+  const legend = []
   const isSymbol = node => !Array.isArray(node)
   const hasOnlySymbols = parent => parent.every(isSymbol)
+  const remember = entry => (
+    stack.push(entry),
+    legend.push(entry.name),
+    entry)
 
   const createNode = (parent, i, symbol) => {
     const node = parent[i] = []
     node[0] = node[1] = node
-    stack.push({ node, symbol })
+    return remember({ node, symbol, name: [node, symbol] })
   }
+
+  const createSignature = (parent, i, symbol) =>
+    remember({ node: parent, symbol, name: [parent, symbol], parent, index: i })
 
   const bind = (entry, form) => {
     entry.node = form
     entry.parent[entry.index] = form
+    entry.name[0] = form
     return entry
   }
 
   const link = parent => {
     const mark = stack.length
-    let leftSignature, rightSignature, signature
+    let leftSignature, rightSignature, signature, hasNewRightLocal
 
     parent.forEach((node, i) => {
-      const index = stack.findLastIndex(({ symbol }) => node === symbol)
-      const entry = stack[index]
+      const entry = stack.findLast(({ symbol }) => node === symbol)
       const isSignature = hasOnlySymbols(parent)
-      const isLocal =
-        (signature && isSignature)
-        || (leftSignature && i === 1 && index < mark)
 
       if (Array.isArray(node)) {
         const childSignature = link(node)
         if (i === 0) leftSignature = childSignature
         else rightSignature = childSignature
       } else if (i === 0 && isSignature && !entry) {
-        signature = { node: parent, symbol: node, parent, index: i }
-        stack.push(signature)
-      } else if (entry && !isLocal) {
+        signature = createSignature(parent, i, node)
+      } else if (entry) {
         parent[i] = entry.node
       } else {
         createNode(parent, i, node)
+        hasNewRightLocal ||= i === 1 && leftSignature
       }
     })
 
-    return leftSignature && !rightSignature
+    const result = leftSignature && !rightSignature
       ? bind(leftSignature, parent)
       : signature
+
+    if (leftSignature && result && !hasNewRightLocal) {
+      stack.length = mark
+      stack.push(result)
+    }
+
+    return result
   }
 
   try {
     const ast = parse(source)[0]
     link(ast)
-    const legend = stack.map(({ node, symbol }) => [node, symbol])
     return log({ graph: ast, legend })
   } catch (error) {
     return { graph: [], legend: [], error }
