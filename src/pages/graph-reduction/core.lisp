@@ -1,5 +1,5 @@
 ; Traversal via a single stack:
-; - Stack height begins at 0: ().
+; - Stack height begins at 0: () and increases as definitions are gathered.
 ; - Stack moves left to right, one step per recursion.
 ; - <string>* means ref.
 
