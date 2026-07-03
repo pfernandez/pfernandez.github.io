@@ -34,31 +34,35 @@ export const link = source => {
 
   const walk = tree => {
     const graph = []
-    const mark = stack.length
+    const scopeStart = stack.length
     const isSignature = tree.every(isSymbol)
-    let leftDefinition, rightDefinition, definition, hasNewParameter
+    let leftDefinition, definition, hasRightDefinition, hasNewParameter
 
     tree.forEach((node, i) => {
-      // Symbol seen before: Reuse the closest stack entry.
-      const entry = stack.findLast(({ symbol }) => node === symbol)
-
       if (!isSymbol(node)) {
         // Pair found: Link it before handling the enclosing pair.
         const child = walk(node)
-        graph[i] = child.graph // Linked child: Insert it into this pair.
+        // Linked child: Insert it into this pair.
+        graph[i] = child.graph
         // Definition found on the left: Let it name the enclosing pair.
         if (i === 0) {
           leftDefinition = child.definition
         } else {
           // Right definition: Block completion.
-          rightDefinition = child.definition
+          hasRightDefinition ||= !!child.definition
         }
-      } else if (i === 0 && isSignature && !entry) {
+        return
+      }
+
+      // Symbol seen before: Reuse the closest stack entry.
+      const entry = stack.findLast(({ symbol }) => node === symbol)
+
+      if (entry) {
+        // Cached identity: Replace the symbol.
+        graph[i] = entry.node
+      } else if (i === 0 && isSignature) {
         // New leftmost signature symbol: Start a definition.
         definition = startDefinition(graph, i, node)
-      } else if (entry) {
-        // Definition already cached: Replace the symbol.
-        graph[i] = entry.node
       } else {
         // New argument or value: Create an identity.
         const variable = createNode(graph, i, node)
@@ -73,13 +77,13 @@ export const link = source => {
     })
 
     // Signature has a body: Complete the definition.
-    const result = leftDefinition && !rightDefinition
+    const result = leftDefinition && !hasRightDefinition
       ? completeDefinition(leftDefinition, graph)
       : definition
 
     if (leftDefinition && result && !hasNewParameter) {
       // Definition complete: Keep its name and pop its parameters.
-      stack.length = mark
+      stack.length = scopeStart
       stack.push(result)
     }
 
