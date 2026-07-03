@@ -15,8 +15,8 @@ const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
 
 const nameOf = (legend, node) => {
-  const entry = legend.find(([identity]) => identity === node)
-  return entry && entry[1]
+  const entry = legend.find(entry => entry.node === node)
+  return entry && entry.symbol
 }
 
 const xtermChannel = step =>
@@ -272,9 +272,9 @@ export const trace = (graph, options = {}) => {
 export const addressLegend = ({ addresses }, legend = []) => {
   const byAddress = new Map()
 
-  for (const [node, name] of legend)
+  for (const { node, symbol } of legend)
     if (addresses.has(node))
-      byAddress.set(addresses.get(node), name)
+      byAddress.set(addresses.get(node), symbol)
 
   return byAddress
 }

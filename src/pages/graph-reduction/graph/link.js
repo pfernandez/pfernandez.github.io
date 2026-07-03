@@ -2,33 +2,32 @@ import { parse } from './parse.js'
 
 export const link = source => {
   const stack = []
+  const legend = []
   const isSymbol = node => !Array.isArray(node)
 
   const createNode = (parent, i, symbol) => {
     const node = parent[i] = []
     node[0] = node[1] = node
-    const entry = { node, symbol, name: [node, symbol], variables: [] }
+    const entry = { node, symbol }
     stack.push(entry)
-    return entry
+    legend.push(entry)
   }
 
   const startDefinition = (parent, i, symbol) => {
     const entry = {
       node: parent,
       symbol,
-      name: [parent, symbol],
-      variables: [],
       parent,
       index: i
     }
     stack.push(entry)
+    legend.push(entry)
     return entry
   }
 
   const completeDefinition = (entry, form) => {
     entry.node = form
     entry.parent[entry.index] = form
-    entry.name[0] = form
     return entry
   }
 
@@ -65,12 +64,7 @@ export const link = source => {
         definition = startDefinition(graph, i, node)
       } else {
         // New argument or value: Create an identity.
-        const variable = createNode(graph, i, node)
-        // Signature or body context: Find the definition that owns it.
-        const owner = isSignature ? definition : leftDefinition
-
-        // Definition in progress: Remember its parameter.
-        if (owner) owner.variables.push(variable.name)
+        createNode(graph, i, node)
         // New right-side parameter: Keep walking before popping scope.
         hasNewParameter ||= i === 1 && leftDefinition
       }
@@ -91,9 +85,10 @@ export const link = source => {
   }
 
   try {
+    const label = ({ node, symbol }) => ({ node, symbol })
     return {
       graph: walk(parse(source)[0]).graph,
-      legend: stack.flatMap(({ name, variables }) => [name, ...variables])
+      legend: legend.map(label)
     }
   } catch (error) {
     return { graph: [], legend: [], error }

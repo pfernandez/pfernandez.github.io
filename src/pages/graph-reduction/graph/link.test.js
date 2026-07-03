@@ -13,7 +13,7 @@ const core = `
 `
 
 const named = legend => Object.fromEntries(
-  legend.map(([node, name], index) => [`${name}${index}`, node]))
+  legend.map(({ node, symbol }, index) => [`${symbol}${index}`, node]))
 
 describe('link', () => {
   test('links source text', () => {
@@ -43,7 +43,7 @@ describe('link', () => {
 
     assert.equal(serialize(graph, { legend }), '(((I K) S) ((K a) b))')
     assert.deepEqual(
-      legend.map(([, name]) => name),
+      legend.map(({ symbol }) => symbol),
       ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b'])
 
     assert.equal(graph[0][0][0], I)
