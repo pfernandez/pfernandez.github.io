@@ -39,31 +39,46 @@ export const link = source => {
     let leftDefinition, rightDefinition, definition, hasNewParameter
 
     tree.forEach((node, i) => {
+      // Symbol seen before: Reuse the closest stack entry.
       const entry = stack.findLast(({ symbol }) => node === symbol)
 
       if (!isSymbol(node)) {
+        // Pair found: Link it before handling the enclosing pair.
         const child = walk(node)
-        graph[i] = child.graph
-        if (i === 0) leftDefinition = child.definition
-        else rightDefinition = child.definition
+        graph[i] = child.graph // Linked child: Insert it into this pair.
+        // Definition found on the left: Let it name the enclosing pair.
+        if (i === 0) {
+          leftDefinition = child.definition
+        } else {
+          // Right definition: Block completion.
+          rightDefinition = child.definition
+        }
       } else if (i === 0 && isSignature && !entry) {
+        // New leftmost signature symbol: Start a definition.
         definition = startDefinition(graph, i, node)
       } else if (entry) {
+        // Definition already cached: Replace the symbol.
         graph[i] = entry.node
       } else {
+        // New argument or value: Create an identity.
         const variable = createNode(graph, i, node)
+        // Signature or body context: Find the definition that owns it.
         const owner = isSignature ? definition : leftDefinition
 
+        // Definition in progress: Remember its parameter.
         if (owner) owner.variables.push(variable.name)
+        // New right-side parameter: Keep walking before popping scope.
         hasNewParameter ||= i === 1 && leftDefinition
       }
     })
 
+    // Signature has a body: Complete the definition.
     const result = leftDefinition && !rightDefinition
       ? completeDefinition(leftDefinition, graph)
       : definition
 
     if (leftDefinition && result && !hasNewParameter) {
+      // Definition complete: Keep its name and pop its parameters.
       stack.length = mark
       stack.push(result)
     }
