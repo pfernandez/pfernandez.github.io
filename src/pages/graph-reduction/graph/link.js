@@ -31,62 +31,81 @@ export const link = source => {
     return entry
   }
 
+  const definitionFor = node =>
+    stack.find(entry => entry.node === node && entry.body)
+
+  const startCall = (graph, definition) => {
+    const answer = []
+    answer[0] = answer
+    graph[0] = answer
+    legend.push({ node: answer, symbol: definition.symbol })
+    return { answer, definition, arguments: [] }
+  }
+
   const walk = (tree, replacements) => {
+    let graph, left, right, definition
+
     if (replacements) {
       const replacement = replacements.find(([from]) => tree === from)
-      if (replacement) return { graph: replacement[1] }
-      if (tree[0] === tree || stack.some(({ node }) => node === tree))
-        return { graph: tree }
-      return { graph: tree.map(node => walk(node, replacements).graph) }
-    }
+      const node = replacement?.[1] ?? tree
+      const reference = definitionFor(node)
 
-    const graph = tree
-    const scopeStart = stack.length
-    const isSignature = tree.every(isSymbol)
+      if (replacement || tree[0] === tree || reference)
+        return { graph: node, reference }
 
-    const [left, right] = tree.map((node, i) => {
-      if (!isSymbol(node)) {
-        // Pair found: Link it before handling the enclosing pair.
-        return walk(node)
-      }
+      const children = tree.map(node => walk(node, replacements))
+      left = children[0]
+      right = children[1]
+      graph = [left.graph, right.graph]
+    } else {
+      graph = tree
+      const scopeStart = stack.length
+      const isSignature = tree.every(isSymbol)
+      const defining = stack.some(entry => entry.parameters && !entry.body)
 
-      // Symbol seen before: Reuse the closest stack entry.
-      const entry = stack.findLast(({ symbol }) => node === symbol)
-
-      if (entry) {
-        if (i === 0 && entry.body) {
-          // Definition applied: Give this call its own answer identity.
-          const answer = []
-          answer[0] = answer
-          graph[i] = answer
-          legend.push({ node: answer, symbol: node })
-          return { call: { answer, definition: entry, arguments: [] } }
+      const children = tree.map((node, i) => {
+        if (!isSymbol(node)) {
+          // Pair found: Link it before handling the enclosing pair.
+          return walk(node)
         }
 
-        // Cached identity: Replace the symbol.
-        graph[i] = entry.node
-        return {}
-      } else if (i === 0 && isSignature) {
-        // New leftmost signature symbol: Start a definition.
-        return { definition: startDefinition(graph, i, node) }
-      } else {
-        // New argument or value: Give it a fixed identity.
-        return { introduced: identifyAtom(graph, i, node) }
+        // Symbol seen before: Reuse the closest stack entry.
+        const entry = stack.findLast(({ symbol }) => node === symbol)
+
+        if (entry) {
+          // Cached identity: Replace the symbol.
+          graph[i] = entry.node
+          return {
+            reference: i === 0 && entry.body && !defining
+              ? entry
+              : undefined
+          }
+        } else if (i === 0 && isSignature) {
+          // New leftmost signature symbol: Start a definition.
+          return { definition: startDefinition(graph, i, node) }
+        } else {
+          // New argument or value: Give it a fixed identity.
+          return { introduced: identifyAtom(graph, i, node) }
+        }
+      })
+      left = children[0]
+      right = children[1]
+
+      // Walk outward through the signature unless another definition follows.
+      definition = left.definition && !right.definition
+        ? completeDefinition(left.definition, graph, right.introduced)
+        : undefined
+
+      if (definition && !right.introduced) {
+        // Definition complete: Keep its name and pop its parameters.
+        stack.length = scopeStart
+        stack.push(definition)
       }
-    })
-
-    // Walk outward through the signature unless another definition follows.
-    const definition = left.definition && !right.definition
-      ? completeDefinition(left.definition, graph, right.introduced)
-      : undefined
-
-    if (definition && !right.introduced) {
-      // Definition complete: Keep its name and pop its parameters.
-      stack.length = scopeStart
-      stack.push(definition)
     }
 
-    const call = left.call
+    const call = left.call ?? (
+      left.reference && startCall(graph, left.reference))
+
     if (call) {
       call.arguments.push(graph[1])
       const arity = call.definition.parameters.length
@@ -101,7 +120,7 @@ export const link = source => {
         call.answer[1] = walk(call.definition.body, replacements).graph
       } else {
         // Keep arguments supplied after the completed call.
-        call.answer[1] = [call.answer[1], graph[1]]
+        call.answer[1] = walk([call.answer[1], graph[1]], []).graph
       }
     }
 
@@ -109,12 +128,11 @@ export const link = source => {
   }
 
   try {
-    const result = {
-      graph: walk(parse(source)[0]).graph,
+    const graph = walk(parse(source)[0]).graph
+    return {
+      graph,
       legend: legend.map(({ node, symbol }) => ({ node, symbol }))
     }
-
-    return result
   } catch (error) {
     return { graph: [], legend: [], error }
   }

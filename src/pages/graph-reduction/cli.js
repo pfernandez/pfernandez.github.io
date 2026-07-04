@@ -18,6 +18,8 @@ if (main()) {
   const _trace = (x, label = 'observe') =>
     (console.log(label + '\n'), console.dir(x, { depth: null }))
 
+  trace(graph, { label: 'graph\n', legend })
+
   const result = observe(graph[1], _trace)
   trace(result, { label: 'result', legend })
 }

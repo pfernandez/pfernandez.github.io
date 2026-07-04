@@ -50,8 +50,8 @@ describe('link', () => {
       x6: Sx,
       y7: Sy,
       z8: Sz,
-      K9: appliedK,
-      a10: a,
+      a9: a,
+      K10: appliedK,
       b11: b
     } = named(legend)
 
@@ -60,7 +60,7 @@ describe('link', () => {
       '(((I K) S) ((K a) b))')
     assert.deepEqual(
       legend.map(({ symbol }) => symbol),
-      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'K', 'a', 'b'])
+      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'K', 'b'])
 
     assert.equal(graph[0][0][0], I)
     assert.equal(graph[0][0][1], K)
@@ -124,5 +124,31 @@ describe('link', () => {
     assert.deepEqual(
       [result[0][0], result[0][1], result[1][0], result[1][1]],
       [value('a'), value('c'), value('b'), value('c')])
+  })
+
+  test('answers calls created by copies', () => {
+    for (const [expression, first, second] of [
+      ['(((S K) K) a)', '((K a) (K a))', 'a'],
+      ['((I I) a)', '(I a)', 'a']
+    ]) {
+      const { graph, legend, error } = link(withCore(expression))
+      assert.equal(error, undefined)
+      const result = observe(graph[1])
+      assert.equal(serialize(result, { legend, expand: false }), first)
+      assert.equal(
+        serialize(observe(result), { legend, expand: false }),
+        second)
+    }
+
+    const { graph, legend, error } =
+      link('((((I x) x) ((T x) (I x))) (T a))')
+    assert.equal(error, undefined)
+    const result = observe(graph[1])
+    assert.equal(serialize(result, { legend, expand: false }), '(I a)')
+    assert.equal(serialize(observe(result), { legend, expand: false }), 'a')
+
+    const partial = link('(((((K x) y) x) ((T x) (K x))) (T a))')
+    const partialResult = observe(partial.graph[1])
+    assert.equal(observe(partialResult), partialResult)
   })
 })
