@@ -38,17 +38,17 @@ describe('link', () => {
     assert.equal(error, undefined)
 
     const {
-      b0: b,
-      a1: a,
+      I0: I,
+      x1: Ix,
       K2: K,
-      z3: Sz,
-      y4: Sy,
-      x5: Sx,
-      S6: S,
-      x7: Kx,
-      y8: Ky,
-      x9: Ix,
-      I10: I
+      x3: Kx,
+      y4: Ky,
+      S5: S,
+      x6: Sx,
+      y7: Sy,
+      z8: Sz,
+      a9: a,
+      b10: b
     } = named(legend)
 
     assert.equal(
@@ -56,7 +56,7 @@ describe('link', () => {
       '(((I K) S) ((K a) b))')
     assert.deepEqual(
       legend.map(({ symbol }) => symbol),
-      ['b', 'a', 'K', 'z', 'y', 'x', 'S', 'x', 'y', 'x', 'I'])
+      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b'])
 
     assert.equal(graph[0][0][0], I)
     assert.equal(graph[0][0][1], K)
