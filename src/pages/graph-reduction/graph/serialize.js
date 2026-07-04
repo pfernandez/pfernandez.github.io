@@ -19,6 +19,21 @@ const nameOf = (legend, node) => {
   return entry && entry.symbol
 }
 
+const isFixed = node =>
+  Array.isArray(node) && node[0] === node
+
+const isDefinition = (legend, node) =>
+  nameOf(legend, node) !== undefined && !isFixed(node)
+
+const isDefinitionSequence = (legend, node) =>
+  isDefinition(legend, node) ||
+    (Array.isArray(node) && !isFixed(node) &&
+      isDefinitionSequence(legend, node[0]) &&
+      isDefinitionSequence(legend, node[1]))
+
+const indentOf = path =>
+  path.split('.').length + 1
+
 const xtermChannel = step =>
   step === 0 ? 0 : 55 + step * 40
 
@@ -106,39 +121,63 @@ const textToken = text => ({ text })
 const identityToken = (text, identity) =>
   ({ text, identity })
 
-const graphText = (node, legend, path = '$', seen = new Map()) => {
-  if (!Array.isArray(node)) return String(node)
-
-  const name = nameOf(legend, node)
-  if (name !== undefined) return String(name)
-  if (seen.has(node)) return seen.get(node)
-
-  seen.set(node, path)
-  const left = graphText(node[0], legend, `${path}.0`, seen)
-  const right = graphText(node[1], legend, `${path}.1`, seen)
-  return `(${left} ${right})`
-}
-
 const graphTokens = (
   node,
   legend,
-  seen = new Set()
+  {
+    expand = false,
+    path = '$',
+    seen = new Map(),
+    inName = false,
+    inDefinitions = false,
+    repeat = 'identity'
+  } = {}
 ) => {
   if (!Array.isArray(node)) return [textToken(String(node))]
 
   const name = nameOf(legend, node)
-  if (name !== undefined) return [textToken(String(name))]
+  if (name !== undefined && (!expand || isFixed(node) || seen.has(node)))
+    return [textToken(String(name))]
 
-  const identity = jsIdentity(node)
-  if (seen.has(node)) return [identityToken('()', identity)]
+  if (seen.has(node))
+    return repeat === 'path'
+      ? [textToken(seen.get(node))]
+      : [identityToken('()', jsIdentity(node))]
 
-  seen.add(node)
+  seen.set(node, path)
+  const next = {
+    expand,
+    path,
+    seen,
+    inName: inName || name !== undefined,
+    inDefinitions,
+    repeat
+  }
+  const startsDefinitions = expand && !inName && name === undefined && (
+    inDefinitions ||
+      (path === '$' && isDefinitionSequence(legend, node[0])) ||
+      (isDefinitionSequence(legend, node[0]) &&
+        isDefinitionSequence(legend, node[1])))
+  const separator = startsDefinitions
+    ? `\n${' '.repeat(indentOf(path))}`
+    : ' '
+  const pairToken = text =>
+    repeat === 'path' ? textToken(text) : identityToken(text, jsIdentity(node))
+
   return [
-    identityToken('(', identity),
-    ...graphTokens(node[0], legend, seen),
-    textToken(' '),
-    ...graphTokens(node[1], legend, seen),
-    identityToken(')', identity)
+    pairToken('('),
+    ...graphTokens(node[0], legend, {
+      ...next,
+      path: `${path}.0`,
+      inDefinitions: startsDefinitions && isDefinitionSequence(legend, node[0])
+    }),
+    textToken(separator),
+    ...graphTokens(node[1], legend, {
+      ...next,
+      path: `${path}.1`,
+      inDefinitions: startsDefinitions && isDefinitionSequence(legend, node[1])
+    }),
+    pairToken(')')
   ]
 }
 
@@ -253,19 +292,25 @@ const writeTrace = (output, options) => {
 
 export const serialize = (
   graph,
-  { legend = [], format = 'text', scheme = schemes.color } = {}
+  { legend = [], format = 'text', scheme = schemes.color, expand = true } = {}
 ) =>
   format === 'text'
-    ? graphText(graph, legend)
-    : renderTokens(graphTokens(graph, legend), { format, scheme })
+    ? tokensToText(graphTokens(graph, legend, { expand, repeat: 'path' }))
+    : renderTokens(graphTokens(graph, legend, { expand }), { format, scheme })
 
 export const trace = (graph, options = {}) => {
   const {
     legend,
     format = 'ansi',
-    scheme = schemes.color
+    scheme = schemes.color,
+    expand = true
   } = options
-  const output = serialize(graph, { legend: legend ?? [], format, scheme })
+  const output = serialize(graph, {
+    legend: legend ?? [],
+    format,
+    scheme,
+    expand
+  })
   return writeTrace(output, options)
 }
 

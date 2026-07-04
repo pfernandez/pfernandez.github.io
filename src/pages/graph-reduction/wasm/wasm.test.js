@@ -45,7 +45,10 @@ describe('the image is the graph', () => {
 
     assert.equal(
       serializeWasm(memory, found, { legend }),
-      serialize(observe(linked.graph), { legend: linked.legend }))
+      serialize(observe(linked.graph), {
+        legend: linked.legend,
+        expand: false
+      }))
   })
 
   test('source identities retain their links', () => {
@@ -75,7 +78,10 @@ describe('the machine runs graph bytes', () => {
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
       serializeWasm(machine.memory, result, { legend: machine.legend }),
-      serialize(observe(linked.graph), { legend: linked.legend }))
+      serialize(observe(linked.graph), {
+        legend: linked.legend,
+        expand: false
+      }))
   })
 
   test('observation is idempotent inside the machine', async () => {

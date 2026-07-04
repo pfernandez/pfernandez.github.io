@@ -14,6 +14,23 @@ import { image } from '../wasm/image.js'
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
+const withCore = expression => `
+(((((I x) x)
+  (((K x) y) x))
+  ((((S x) y) z) ((x z) (y z))))
+ ${expression})
+`
+
+const withoutConsoleDir = fn => {
+  const write = console.dir
+  console.dir = () => {}
+
+  try {
+    return fn()
+  } finally {
+    console.dir = write
+  }
+}
 
 const imageView = ({ graph, legend }) => {
   const graphImage = image(graph)
@@ -55,6 +72,37 @@ describe('serialize', () => {
       serialize(root, { format: 'ansi', scheme: schemes.plain }),
       '(() ((a b) ()))')
     assert.match(serialize(root, { format: 'console' })[0], /%c/)
+  })
+
+  test('expand shows named definition structure once', () => {
+    const linked = withoutConsoleDir(() => link(withCore('(((S a) b) c)')))
+    const expanded = [
+      '(((((I x) x)',
+      '    (((K x) y) x))',
+      '   ((((S x) y) z) ((x z) (y z))))',
+      '  (((S a) b) c))'
+    ].join('\n')
+
+    assert.equal(serialize(linked.graph, {
+      legend: linked.legend,
+      expand: false
+    }), [
+      '(((I K) S) (((S a) b) c))'
+    ].join(''))
+    assert.equal(
+      serialize(linked.graph, { legend: linked.legend }),
+      expanded)
+    assert.equal(
+      stripAnsi(serialize(linked.graph, {
+        legend: linked.legend,
+        format: 'ansi',
+        scheme: schemes.plain
+      })),
+      expanded)
+    assert.match(serialize(linked.graph, {
+      legend: linked.legend,
+      format: 'ansi'
+    }), /\x1b\[38;5;/)
   })
 
   test('vdom format returns an elements-style array', () => {
@@ -132,7 +180,10 @@ describe('serialize', () => {
   test('wasm serializes identically to graphs', () => {
     const linked = link('(I (a a))')
     const graphImage = imageView(linked)
-    const text = serialize(linked.graph, { legend: linked.legend })
+    const text = serialize(linked.graph, {
+      legend: linked.legend,
+      expand: false
+    })
 
     assert.equal(
       serializeWasm(graphImage.view, graphImage.focus, {
@@ -153,6 +204,7 @@ describe('serialize', () => {
       })),
       serialize(linked.graph, {
         legend: linked.legend,
+        expand: false,
         format: 'ansi',
         scheme: schemes.plain
       }))

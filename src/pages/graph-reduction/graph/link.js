@@ -86,10 +86,13 @@ export const link = source => {
 
   try {
     const label = ({ node, symbol }) => ({ node, symbol })
-    return {
+    const result = {
       graph: walk(parse(source)[0]).graph,
       legend: legend.map(label)
     }
+
+    // console.dir(result, { depth: null })
+    return result
   } catch (error) {
     return { graph: [], legend: [], error }
   }

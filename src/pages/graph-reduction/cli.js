@@ -15,7 +15,7 @@ if (main()) {
   const { graph, legend, error } = link(readFileSync(file, 'utf-8'))
   if (error) throw error
 
-  const _trace = (x, label = 'observe') => trace(x, { label, legend })
+  const _trace = (x, label = 'observe\n') => trace(x, { label, legend })
 
   const result = observe(graph, _trace)
   trace(result, { label: 'result', legend })

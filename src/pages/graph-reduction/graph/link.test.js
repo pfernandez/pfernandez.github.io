@@ -20,7 +20,9 @@ describe('link', () => {
     const { graph, legend, error } = link(core)
 
     assert.equal(error, undefined)
-    assert.equal(serialize(graph, { legend }), '(((I K) S) ((K a) b))')
+    assert.equal(
+      serialize(graph, { legend, expand: false }),
+      '(((I K) S) ((K a) b))')
   })
 
   test('wires the current core graph', () => {
@@ -41,7 +43,9 @@ describe('link', () => {
       b10: b
     } = named(legend)
 
-    assert.equal(serialize(graph, { legend }), '(((I K) S) ((K a) b))')
+    assert.equal(
+      serialize(graph, { legend, expand: false }),
+      '(((I K) S) ((K a) b))')
     assert.deepEqual(
       legend.map(({ symbol }) => symbol),
       ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b'])
