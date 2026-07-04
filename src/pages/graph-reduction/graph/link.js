@@ -14,12 +14,7 @@ export const link = source => {
   }
 
   const startDefinition = (parent, i, symbol) => {
-    const entry = {
-      node: parent,
-      symbol,
-      parent,
-      index: i
-    }
+    const entry = { node: parent, symbol, parent, index: i }
     stack.push(entry)
     legend.push(entry)
     return entry
@@ -32,7 +27,7 @@ export const link = source => {
   }
 
   const walk = tree => {
-    const graph = []
+    const graph = tree
     const scopeStart = stack.length
     const isSignature = tree.every(isSymbol)
     let leftDefinition, definition, hasRightDefinition, hasNewParameter
@@ -41,8 +36,7 @@ export const link = source => {
       if (!isSymbol(node)) {
         // Pair found: Link it before handling the enclosing pair.
         const child = walk(node)
-        // Linked child: Insert it into this pair.
-        graph[i] = child.graph
+        // The linked child already occupies its place in the original tree.
         // Definition found on the left: Let it name the enclosing pair.
         if (i === 0) {
           leftDefinition = child.definition
@@ -85,10 +79,9 @@ export const link = source => {
   }
 
   try {
-    const label = ({ node, symbol }) => ({ node, symbol })
     const result = {
       graph: walk(parse(source)[0]).graph,
-      legend: legend.map(label)
+      legend: legend.map(({ node, symbol }) => ({ node, symbol }))
     }
 
     // console.dir(result, { depth: null })
