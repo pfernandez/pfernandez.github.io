@@ -22,7 +22,15 @@ describe('link', () => {
     assert.equal(error, undefined)
     assert.equal(
       serialize(graph, { legend, expand: false }),
-      '(((I K) S) ((K a) b))')
+      '(((I K) S) b)')
+    assert.equal(
+      serialize(graph, { legend }),
+      [
+        '(((((I x) x)',
+        '    (((K x) y) x))',
+        '   ((((S x) y) z) ((x z) (y z))))',
+        '  ((K a) b))'
+      ].join('\n'))
   })
 
   test('wires the current core graph', () => {
@@ -45,7 +53,7 @@ describe('link', () => {
 
     assert.equal(
       serialize(graph, { legend, expand: false }),
-      '(((I K) S) ((K a) b))')
+      '(((I K) S) b)')
     assert.deepEqual(
       legend.map(({ symbol }) => symbol),
       ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b'])
@@ -75,8 +83,17 @@ describe('link', () => {
     assert.equal(S[1][1][0], Sy)
     assert.equal(S[1][1][1], Sz)
 
-    for (const node of [Ix, Kx, Ky, Sx, Sy, Sz, a, b]) {
-      assert.equal(node[0], node)
+    for (const [node, left] of [
+      [Ix, I],
+      [Kx, K],
+      [Ky, Kx],
+      [Sx, S],
+      [Sy, Sx],
+      [Sz, Sy],
+      [a, K],
+      [b, a]
+    ]) {
+      assert.equal(node[0], left)
       assert.equal(node[1], node)
     }
   })

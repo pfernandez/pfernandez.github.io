@@ -5,10 +5,9 @@ export const link = source => {
   const legend = []
   const isSymbol = node => !Array.isArray(node)
 
-  const createNode = (parent, i, symbol) => {
-    const node = parent[i] = []
-    node[0] = node[1] = node
-    const entry = { node, symbol }
+  const identifyPair = (parent, i, symbol) => {
+    parent[i] = parent
+    const entry = { node: parent, symbol }
     stack.push(entry)
     legend.push(entry)
   }
@@ -57,8 +56,8 @@ export const link = source => {
         // New leftmost signature symbol: Start a definition.
         definition = startDefinition(graph, i, node)
       } else {
-        // New argument or value: Create an identity.
-        createNode(graph, i, node)
+        // New argument or value: Let it name this pair.
+        identifyPair(graph, i, node)
         // New right-side parameter: Keep walking before popping scope.
         hasNewParameter ||= i === 1 && leftDefinition
       }
