@@ -29,21 +29,11 @@ export const link = source => {
     const graph = tree
     const scopeStart = stack.length
     const isSignature = tree.every(isSymbol)
-    let leftDefinition, definition, hasRightDefinition, hasNewParameter
 
-    tree.forEach((node, i) => {
+    const [left, right] = tree.map((node, i) => {
       if (!isSymbol(node)) {
         // Pair found: Link it before handling the enclosing pair.
-        const child = walk(node)
-        // The linked child already occupies its place in the original tree.
-        // Definition found on the left: Let it name the enclosing pair.
-        if (i === 0) {
-          leftDefinition = child.definition
-        } else {
-          // Right definition: Block completion.
-          hasRightDefinition ||= !!child.definition
-        }
-        return
+        return walk(node)
       }
 
       // Symbol seen before: Reuse the closest stack entry.
@@ -52,29 +42,29 @@ export const link = source => {
       if (entry) {
         // Cached identity: Replace the symbol.
         graph[i] = entry.node
+        return {}
       } else if (i === 0 && isSignature) {
         // New leftmost signature symbol: Start a definition.
-        definition = startDefinition(graph, i, node)
+        return { definition: startDefinition(graph, i, node) }
       } else {
         // New argument or value: Let it name this pair.
         identifyPair(graph, i, node)
-        // New right-side parameter: Keep walking before popping scope.
-        hasNewParameter ||= i === 1 && leftDefinition
+        return { introduced: true }
       }
     })
 
-    // Signature has a body: Complete the definition.
-    const result = leftDefinition && !hasRightDefinition
-      ? completeDefinition(leftDefinition, graph)
-      : definition
+    // Walk outward through the signature unless another definition follows.
+    const definition = left.definition && !right.definition
+      ? completeDefinition(left.definition, graph)
+      : undefined
 
-    if (leftDefinition && result && !hasNewParameter) {
+    if (definition && !right.introduced) {
       // Definition complete: Keep its name and pop its parameters.
       stack.length = scopeStart
-      stack.push(result)
+      stack.push(definition)
     }
 
-    return { graph, definition: result }
+    return { graph, definition }
   }
 
   try {
