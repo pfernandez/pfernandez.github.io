@@ -5,8 +5,10 @@ import { link, observe, schemeNames, schemes, serialize }
   from './graph/index.js'
 import lisp from './core.lisp?raw'
 
+const linked = link(lisp)
 const initialState =
-  { ...link(lisp),
+  { ...linked,
+    focus: linked.graph[1],
     source: lisp,
     history: [],
     scheme: schemes.ink }
@@ -21,16 +23,19 @@ const infer = (
 const dashboard = component(
   (state = initialState) => {
 
-    const { graph, legend, source, history, error, scheme } = state
+    const { graph, focus, legend, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
     const view = () => dashboard(
       { ...state,
-        graph: observe(graph, g => console.log(serialize(g, { legend }))),
+        graph: observe(focus, g => console.log(serialize(g, { legend }))),
         history: [...history, state] })
 
-    const load = source => dashboard(
-      { ...state, ...link(source), source, history: [] })
+    const load = source => {
+      const linked = link(source)
+      return dashboard(
+        { ...state, ...linked, focus: linked.graph[1], source, history: [] })
+    }
 
     const chooseScheme = scheme => dashboard({ ...state, scheme })
 

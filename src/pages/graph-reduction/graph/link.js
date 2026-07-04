@@ -11,22 +11,35 @@ export const link = source => {
     const entry = { node, symbol }
     stack.push(entry)
     legend.push(entry)
+    return entry
   }
 
   const startDefinition = (parent, i, symbol) => {
-    const entry = { node: parent, symbol, parent, index: i }
+    const entry = { node: parent, symbol, parent, index: i, parameters: [] }
     stack.push(entry)
     legend.push(entry)
     return entry
   }
 
-  const completeDefinition = (entry, form) => {
+  const completeDefinition = (entry, form, parameter) => {
     entry.node = form
     entry.parent[entry.index] = form
+    if (parameter)
+      entry.parameters.push(parameter.node)
+    else
+      entry.body = form[1]
     return entry
   }
 
-  const walk = tree => {
+  const walk = (tree, replacements) => {
+    if (replacements) {
+      const replacement = replacements.find(([from]) => tree === from)
+      if (replacement) return { graph: replacement[1] }
+      if (tree[0] === tree || stack.some(({ node }) => node === tree))
+        return { graph: tree }
+      return { graph: tree.map(node => walk(node, replacements).graph) }
+    }
+
     const graph = tree
     const scopeStart = stack.length
     const isSignature = tree.every(isSymbol)
@@ -41,6 +54,15 @@ export const link = source => {
       const entry = stack.findLast(({ symbol }) => node === symbol)
 
       if (entry) {
+        if (i === 0 && entry.body) {
+          // Definition applied: Give this call its own answer identity.
+          const answer = []
+          answer[0] = answer
+          graph[i] = answer
+          legend.push({ node: answer, symbol: node })
+          return { call: { answer, definition: entry, arguments: [] } }
+        }
+
         // Cached identity: Replace the symbol.
         graph[i] = entry.node
         return {}
@@ -49,14 +71,13 @@ export const link = source => {
         return { definition: startDefinition(graph, i, node) }
       } else {
         // New argument or value: Give it a fixed identity.
-        identifyAtom(graph, i, node)
-        return { introduced: true }
+        return { introduced: identifyAtom(graph, i, node) }
       }
     })
 
     // Walk outward through the signature unless another definition follows.
     const definition = left.definition && !right.definition
-      ? completeDefinition(left.definition, graph)
+      ? completeDefinition(left.definition, graph, right.introduced)
       : undefined
 
     if (definition && !right.introduced) {
@@ -65,7 +86,26 @@ export const link = source => {
       stack.push(definition)
     }
 
-    return { graph, definition }
+    const call = left.call
+    if (call) {
+      call.arguments.push(graph[1])
+      const arity = call.definition.parameters.length
+
+      if (call.arguments.length < arity) {
+        // A partial call observes as itself.
+        call.answer[1] = graph
+      } else if (call.arguments.length === arity) {
+        // A complete call observes as a copy with its parameters replaced.
+        const replacements = call.definition.parameters.map((parameter, i) =>
+          [parameter, call.arguments[i]])
+        call.answer[1] = walk(call.definition.body, replacements).graph
+      } else {
+        // Keep arguments supplied after the completed call.
+        call.answer[1] = [call.answer[1], graph[1]]
+      }
+    }
+
+    return { graph, definition, call }
   }
 
   try {
@@ -74,7 +114,6 @@ export const link = source => {
       legend: legend.map(({ node, symbol }) => ({ node, symbol }))
     }
 
-    // console.dir(result, { depth: null })
     return result
   } catch (error) {
     return { graph: [], legend: [], error }

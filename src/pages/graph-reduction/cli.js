@@ -15,10 +15,9 @@ if (main()) {
   const { graph, legend, error } = link(readFileSync(file, 'utf-8'))
   if (error) throw error
 
-  const _trace = (x, label = 'observe\n') => trace(x, { label, legend })
+  const _trace = (x, label = 'observe') =>
+    (console.log(label + '\n'), console.dir(x, { depth: null }))
 
-  const result = observe(graph, _trace)
+  const result = observe(graph[1], _trace)
   trace(result, { label: 'result', legend })
-  const repeat = observe(result, _trace)
-  trace(repeat, { label: 'repeat', legend })
 }

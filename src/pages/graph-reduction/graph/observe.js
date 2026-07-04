@@ -1,3 +1,3 @@
-export const observe = (pair, trace, graph = pair) =>
+export const observe = (pair, trace) =>
   (trace?.(pair),
-  pair === graph ? pair[1] : observe(pair[0], trace, graph))
+  pair[0] === pair ? pair[1] : observe(pair[0], trace))

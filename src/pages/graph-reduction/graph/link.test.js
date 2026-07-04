@@ -2,15 +2,18 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   link,
+  observe,
   serialize
 } from './index.js'
 
-const core = `
+const withCore = expression => `
 (((((I x) x)
   (((K x) y) x))
   ((((S x) y) z) ((x z) (y z))))
- ((K a) b))
+ ${expression})
 `
+
+const core = withCore('((K a) b)')
 
 const named = legend => Object.fromEntries(
   legend.map(({ node, symbol }, index) => [`${symbol}${index}`, node]))
@@ -47,8 +50,9 @@ describe('link', () => {
       x6: Sx,
       y7: Sy,
       z8: Sz,
-      a9: a,
-      b10: b
+      K9: appliedK,
+      a10: a,
+      b11: b
     } = named(legend)
 
     assert.equal(
@@ -56,14 +60,17 @@ describe('link', () => {
       '(((I K) S) ((K a) b))')
     assert.deepEqual(
       legend.map(({ symbol }) => symbol),
-      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b'])
+      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'K', 'a', 'b'])
 
     assert.equal(graph[0][0][0], I)
     assert.equal(graph[0][0][1], K)
     assert.equal(graph[0][1], S)
-    assert.equal(graph[1][0][0], K)
+    assert.equal(graph[1][0][0], appliedK)
     assert.equal(graph[1][0][1], a)
     assert.equal(graph[1][1], b)
+    assert.notEqual(appliedK, K)
+    assert.equal(appliedK[0], appliedK)
+    assert.equal(appliedK[1], a)
 
     assert.equal(I[0][0], I)
     assert.equal(I[0][1], Ix)
@@ -87,5 +94,35 @@ describe('link', () => {
       assert.equal(node[0], node)
       assert.equal(node[1], node)
     }
+  })
+
+  test('copies complete calls and preserves partial calls', () => {
+    for (const [expression, expected] of [
+      ['(I a)', 'a'],
+      ['(K a)', '(K a)'],
+      ['((K a) b)', 'a'],
+      ['(((K a) b) c)', '(a c)'],
+      ['((S a) b)', '((S a) b)'],
+      ['(((S a) b) c)', '((a c) (b c))']
+    ]) {
+      const { graph, legend, error } = link(withCore(expression))
+      assert.equal(error, undefined)
+      assert.equal(
+        serialize(observe(graph[1]), { legend, expand: false }),
+        expected)
+      assert.equal(
+        serialize(graph, { legend, expand: false }),
+        `(((I K) S) ${expression})`)
+    }
+
+    const partial = link(withCore('((S a) b)'))
+    assert.equal(observe(partial.graph[1]), partial.graph[1])
+
+    const { graph, legend } = link(withCore('(((S a) b) c)'))
+    const result = observe(graph[1])
+    const value = symbol => legend.findLast(entry => entry.symbol === symbol).node
+    assert.deepEqual(
+      [result[0][0], result[0][1], result[1][0], result[1][1]],
+      [value('a'), value('c'), value('b'), value('c')])
   })
 })
