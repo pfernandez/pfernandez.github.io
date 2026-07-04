@@ -22,7 +22,7 @@ describe('link', () => {
     assert.equal(error, undefined)
     assert.equal(
       serialize(graph, { legend, expand: false }),
-      '(((I K) S) b)')
+      '(((I K) S) ((K a) b))')
     assert.equal(
       serialize(graph, { legend }),
       [
@@ -38,25 +38,25 @@ describe('link', () => {
     assert.equal(error, undefined)
 
     const {
-      I0: I,
-      x1: Ix,
+      b0: b,
+      a1: a,
       K2: K,
-      x3: Kx,
-      y4: Ky,
-      S5: S,
-      x6: Sx,
-      y7: Sy,
-      z8: Sz,
-      a9: a,
-      b10: b
+      z3: Sz,
+      y4: Sy,
+      x5: Sx,
+      S6: S,
+      x7: Kx,
+      y8: Ky,
+      x9: Ix,
+      I10: I
     } = named(legend)
 
     assert.equal(
       serialize(graph, { legend, expand: false }),
-      '(((I K) S) b)')
+      '(((I K) S) ((K a) b))')
     assert.deepEqual(
       legend.map(({ symbol }) => symbol),
-      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b'])
+      ['b', 'a', 'K', 'z', 'y', 'x', 'S', 'x', 'y', 'x', 'I'])
 
     assert.equal(graph[0][0][0], I)
     assert.equal(graph[0][0][1], K)
@@ -83,17 +83,8 @@ describe('link', () => {
     assert.equal(S[1][1][0], Sy)
     assert.equal(S[1][1][1], Sz)
 
-    for (const [node, left] of [
-      [Ix, I],
-      [Kx, K],
-      [Ky, Kx],
-      [Sx, S],
-      [Sy, Sx],
-      [Sz, Sy],
-      [a, K],
-      [b, a]
-    ]) {
-      assert.equal(node[0], left)
+    for (const node of [Ix, Kx, Ky, Sx, Sy, Sz, a, b]) {
+      assert.equal(node[0], node)
       assert.equal(node[1], node)
     }
   })
