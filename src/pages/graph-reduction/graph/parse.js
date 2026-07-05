@@ -4,14 +4,11 @@ export const log = x => (
 
 // Comments are dropped; every token remembers its line and column.
 const tokenize = source =>
-  [...source.matchAll(/(;.*$)|"([^"\\]|\\.)*"|[()]|[^()\s]+/gm)]
+  [...source.matchAll(/(;.*$)|[()]|[^()\s]+/gm)]
     .filter(match => !match[1])
     .map(match => {
       const lines = source.slice(0, match.index).split('\n')
       return { text: match[0],
-               value: match[0].startsWith('"')
-                 ? match[0].slice(1, -1).replace(/\\"/g, '"')
-                 : isNaN(match[0]) ? match[0] : Number(match[0]),
                line: lines.length,
                col: lines.at(-1).length + 1 }
     })
@@ -29,7 +26,7 @@ export const parse = source => {
     const token = tokens[index++]
     if (token.text === '(') return readList(token)
     if (token.text === ')') err('Unexpected )', token)
-    return token.value
+    err('Source must contain only parentheses', token)
   }
 
   const readList = opener => {
