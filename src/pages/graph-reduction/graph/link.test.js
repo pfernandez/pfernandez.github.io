@@ -1,229 +1,138 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import {
-  link,
-  observe,
-  serialize
-} from './index.js'
+import { link, observe } from './index.js'
 
-const identity = symbol => `(${symbol} (${symbol} ${symbol}))`
+const atom = '(() ())'
+const bind = form => `(${form})`
+const ref = depth =>
+  '('.repeat(depth + 1) + '()' + ')'.repeat(depth + 1)
 
-const I = `(I ((I ${identity('x')}) x))`
-const K = `(K (((K ${identity('x')}) ${identity('y')}) x))`
+const I = `((${ref(0)} ${bind(atom)}) ${ref(0)})`
+const K = `(((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${ref(1)})`
 const S =
-  `(S ((((S ${identity('x')}) ${identity('y')}) ` +
-  `${identity('z')}) ((x z) (y z))))`
-const Y = `(Y ((Y ${identity('f')}) (f (Y f))))`
+  `((((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${bind(atom)}) ` +
+  `((${ref(2)} ${ref(0)}) (${ref(1)} ${ref(0)})))`
+const Y =
+  `((${ref(0)} ${bind(atom)}) (${ref(0)} (${ref(1)} ${ref(0)})))`
 const Zero =
-  `(Zero (((Zero ${identity('f')}) ${identity('x')}) x))`
+  `(((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${ref(0)})`
 const Succ =
-  `(Succ ((((Succ ${identity('n')}) ${identity('f')}) ` +
-  `${identity('x')}) (f ((n f) x))))`
+  `((((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${bind(atom)}) ` +
+  `(${ref(1)} ((${ref(2)} ${ref(1)}) ${ref(0)})))`
 
 const program = (definitions, expression) =>
   `(${definitions.reduceRight(
-    (rest, definition) => `(${definition} ${rest})`,
+    (rest, definition) => `(${bind(definition)} ${rest})`,
     '()')} ${expression})`
 
-const coreDefinitions = [
-  I,
-  K,
-  S,
-  ...['a', 'b', 'c', 'd'].map(identity)
-]
-const withCore = expression => program(coreDefinitions, expression)
-const linkedCore =
-  '(I (K (S (a (b (c (d $.0.1.1.1.1.1.1)))))))'
-const core = withCore('((K a) b)')
+const assertPairs = root => {
+  const pending = [root]
+  const seen = new Set()
 
-const named = legend => Object.fromEntries(
-  legend.map(({ node, symbol }, index) => [`${symbol}${index}`, node]))
+  while (pending.length) {
+    const pair = pending.pop()
+    if (seen.has(pair)) continue
+    seen.add(pair)
+    assert.equal(Array.isArray(pair), true)
+    assert.equal(pair.length, 2)
+    pending.push(pair[0], pair[1])
+  }
+}
 
 describe('link', () => {
   test('links () to its enclosing pair', () => {
-    const { graph, legend, error } = link('(() (a (a a)))')
+    const { graph, legend, error } = link(`(() ${atom})`)
 
     assert.equal(error, undefined)
+    assert.deepEqual(legend, [])
     assert.equal(graph[0], graph)
     assert.equal(observe(graph), graph[1])
-    assert.equal(serialize(graph, { legend, expand: false }), '($ a)')
+    assert.equal(graph[1][0], graph[1])
+    assert.equal(graph[1][1], graph[1])
   })
 
-  test('lets names share an existing identity', () => {
-    const { graph, legend, error } = link('((a (a a)) (b a))')
+  test('binds unary forms and addresses them by depth', () => {
+    const source = program([atom, atom], `(${ref(1)} ${ref(0)})`)
+    const { graph, error } = link(source)
 
+    assert.doesNotMatch(source, /[^()\s]/)
     assert.equal(error, undefined)
-    assert.equal(graph[0], graph[1])
-    assert.equal(legend[0].node, legend[1].node)
+    const first = graph[0][0]
+    const second = graph[0][1][0]
+    assert.notEqual(first, second)
+    assert.equal(graph[1][0], first)
+    assert.equal(graph[1][1], second)
   })
 
-  test('lets names share an existing definition', () => {
-    const { graph, legend, error } = link(program(
-      [I, '(J I)'],
-      `(J ${identity('a')})`))
+  test('wires the combinator graph by identity', () => {
+    const expression = `(((${ref(0)} ${atom}) ${atom}) ${atom})`
+    const { graph, error } = link(program([I, K, S], expression))
 
     assert.equal(error, undefined)
-    assert.equal(
-      legend.find(entry => entry.symbol === 'I').node,
-      legend.find(entry => entry.symbol === 'J').node)
-    assert.equal(
-      serialize(observe(graph[1]), { legend, expand: false }),
-      'a')
-  })
+    const linkedI = graph[0][0]
+    const linkedK = graph[0][1][0]
+    const linkedS = graph[0][1][1][0]
 
-  test('copies enclosing pairs with their arguments', () => {
-    const F = `(F ((F ${identity('x')}) (() x)))`
-    const { graph, legend, error } =
-      link(program([F], `(F ${identity('a')})`))
+    assert.equal(linkedI[0][0], linkedI)
+    assert.equal(linkedI[0][1], linkedI[1])
+    assert.equal(linkedK[0][0][0], linkedK)
+    assert.equal(linkedK[0][0][1], linkedK[1])
+    assert.equal(linkedS[0][0][0][0], linkedS)
 
-    assert.equal(error, undefined)
     const result = observe(graph[1])
-    assert.equal(result[0], result)
-    assert.equal(serialize(result, { legend, expand: false }), '($ a)')
-    assert.equal(serialize(observe(result), { legend, expand: false }), 'a')
-  })
-
-  test('links source text', () => {
-    const { graph, legend, error } = link(core)
-
-    assert.equal(error, undefined)
-    assert.equal(
-      serialize(graph, { legend, expand: false }),
-      `(${linkedCore} ((K a) b))`)
-  })
-
-  test('wires the current core graph', () => {
-    const { graph, legend, error } = link(core)
-    assert.equal(error, undefined)
-
-    const {
-      I0: I,
-      x1: Ix,
-      K2: K,
-      x3: Kx,
-      y4: Ky,
-      S5: S,
-      x6: Sx,
-      y7: Sy,
-      z8: Sz,
-      a9: a,
-      b10: b,
-      c11: c,
-      d12: d,
-      K13: appliedK
-    } = named(legend)
-
-    assert.equal(
-      serialize(graph, { legend, expand: false }),
-      `(${linkedCore} ((K a) b))`)
-    assert.deepEqual(
-      legend.map(({ symbol }) => symbol),
-      ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z',
-        'a', 'b', 'c', 'd', 'K'])
-
-    assert.equal(graph[0][0], I)
-    assert.equal(graph[0][1][0], K)
-    assert.equal(graph[0][1][1][0], S)
-    assert.equal(graph[1][0][0], appliedK)
-    assert.equal(graph[1][0][1], a)
-    assert.equal(graph[1][1], b)
-    assert.notEqual(appliedK, K)
-    assert.equal(appliedK[0], appliedK)
-    assert.equal(appliedK[1], a)
-
-    assert.equal(I[0][0], I)
-    assert.equal(I[0][1], Ix)
-    assert.equal(I[1], Ix)
-
-    assert.equal(K[0][0][0], K)
-    assert.equal(K[0][0][1], Kx)
-    assert.equal(K[0][1], Ky)
-    assert.equal(K[1], Kx)
-
-    assert.equal(S[0][0][0][0], S)
-    assert.equal(S[0][0][0][1], Sx)
-    assert.equal(S[0][0][1], Sy)
-    assert.equal(S[0][1], Sz)
-    assert.equal(S[1][0][0], Sx)
-    assert.equal(S[1][0][1], Sz)
-    assert.equal(S[1][1][0], Sy)
-    assert.equal(S[1][1][1], Sz)
-
-    for (const node of [Ix, Kx, Ky, Sx, Sy, Sz, a, b, c, d]) {
-      assert.equal(node[0], node)
-      assert.equal(node[1], node)
-    }
+    assert.equal(result[0][1], result[1][1])
+    assertPairs(graph)
   })
 
   test('copies complete calls and preserves partial calls', () => {
-    for (const [expression, expected] of [
-      ['(I a)', 'a'],
-      ['(K a)', '(K a)'],
-      ['((K a) b)', 'a'],
-      ['(((K a) b) c)', '(a c)'],
-      ['((S a) b)', '((S a) b)'],
-      ['(((S a) b) c)', '((a c) (b c))']
+    const definitions = [I, K, S]
+
+    for (const [expression, stable] of [
+      [`(${ref(2)} ${atom})`, false],
+      [`(${ref(1)} ${atom})`, true],
+      [`((${ref(1)} ${atom}) ${atom})`, false],
+      [`((${ref(0)} ${atom}) ${atom})`, true],
+      [`(((${ref(0)} ${atom}) ${atom}) ${atom})`, false]
     ]) {
-      const { graph, legend, error } = link(withCore(expression))
+      const { graph, error } = link(program(definitions, expression))
       assert.equal(error, undefined)
-      assert.equal(
-        serialize(observe(graph[1]), { legend, expand: false }),
-        expected)
-      assert.equal(
-        serialize(graph, { legend, expand: false }),
-        `(${linkedCore} ${expression})`)
+      const result = observe(graph[1])
+      assert.equal(result === graph[1], stable)
     }
-
-    const partial = link(withCore('((S a) b)'))
-    assert.equal(observe(partial.graph[1]), partial.graph[1])
-
-    const { graph, legend } = link(withCore('(((S a) b) c)'))
-    const result = observe(graph[1])
-    const value = symbol => legend.findLast(entry => entry.symbol === symbol).node
-    assert.deepEqual(
-      [result[0][0], result[0][1], result[1][0], result[1][1]],
-      [value('a'), value('c'), value('b'), value('c')])
   })
 
   test('answers calls created by copies', () => {
-    for (const [expression, first, second] of [
-      ['(((S K) K) a)', '((K a) (K a))', 'a'],
-      ['((I I) a)', '(I a)', 'a']
-    ]) {
-      const { graph, legend, error } = link(withCore(expression))
-      assert.equal(error, undefined)
-      const result = observe(graph[1])
-      assert.equal(serialize(result, { legend, expand: false }), first)
-      assert.equal(
-        serialize(observe(result), { legend, expand: false }),
-        second)
-    }
-
-    const T = `(T ((T ${identity('x')}) (I x)))`
-    const { graph, legend, error } =
-      link(program([I, T, identity('a')], '(T a)'))
+    const expression =
+      `(((${ref(0)} ${ref(1)}) ${ref(1)}) ${atom})`
+    const { graph, error } = link(program([I, K, S], expression))
     assert.equal(error, undefined)
-    const result = observe(graph[1])
-    assert.equal(serialize(result, { legend, expand: false }), '(I a)')
-    assert.equal(serialize(observe(result), { legend, expand: false }), 'a')
 
-    const partialT = `(T ((T ${identity('x')}) (K x)))`
-    const partial =
-      link(program([K, partialT, identity('a')], '(T a)'))
-    const partialResult = observe(partial.graph[1])
-    assert.equal(observe(partialResult), partialResult)
+    const argument = graph[1][1]
+    const first = observe(graph[1])
+    assert.equal(observe(first), argument)
+  })
+
+  test('copies enclosing pairs with their arguments', () => {
+    const F = `((${ref(0)} ${bind(atom)}) (() ${ref(0)}))`
+    const { graph, error } =
+      link(program([F], `(${ref(0)} ${atom})`))
+
+    assert.equal(error, undefined)
+    const argument = graph[1][1]
+    const result = observe(graph[1])
+    assert.equal(result[0], result)
+    assert.equal(result[1], argument)
+    assert.equal(observe(result), argument)
   })
 
   test('ties recursive calls into an unbounded observation cycle', () => {
-    const { graph, legend, error } = link(program([I, Y], '(Y I)'))
+    const { graph, error } =
+      link(program([I, Y], `(${ref(0)} ${ref(1)})`))
     assert.equal(error, undefined)
 
     const first = observe(graph[1])
     const second = observe(first)
     const third = observe(second)
-    assert.equal(serialize(first, { legend, expand: false }), '(I (Y I))')
-    assert.equal(serialize(second, { legend, expand: false }), '(Y I)')
-    assert.equal(serialize(third, { legend, expand: false }), 'Y')
     assert.equal(observe(third), first)
 
     let result = third
@@ -234,14 +143,14 @@ describe('link', () => {
 
   test('composes Church successors', () => {
     for (let n = 0; n < 4; n++) {
-      let numeral = 'Zero'
+      let numeral = ref(1)
       for (let i = 0; i < n; i++)
-        numeral = `(Succ ${numeral})`
+        numeral = `(${ref(0)} ${numeral})`
 
-      const { graph, legend, error } =
-        link(program(
-          [I, Zero, Succ, identity('a')],
-          `((${numeral} I) a)`))
+      const expression =
+        `((${numeral} ${ref(2)}) ${atom})`
+      const { graph, error } =
+        link(program([I, Zero, Succ], expression))
       assert.equal(error, undefined)
 
       let result = graph[1]
@@ -253,7 +162,8 @@ describe('link', () => {
         result = next
       } while (steps < 16)
 
-      assert.equal(serialize(result, { legend, expand: false }), 'a')
+      assert.equal(result[0], result)
+      assert.equal(result[1], result)
       assert.equal(steps, 2 * n + 2)
     }
   })

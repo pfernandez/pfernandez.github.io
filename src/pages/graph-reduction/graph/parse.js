@@ -39,7 +39,7 @@ export const parse = source => {
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
     if (items.length === 0) return items
-    if (items.length !== 2) err('Expressions must be pairs', opener)
+    if (items.length > 2) err('Expressions contain at most two forms', opener)
     return items
   }
 

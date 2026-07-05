@@ -1,16 +1,26 @@
 import { parse } from './parse.js'
 
 export const link = source => {
-  // The same stack holds names in scope and calls under construction.
+  // The same stack holds identities in scope and calls under construction.
   const stack = []
-  // Names are kept beside the graph for display, not stored inside it.
-  const legend = []
-  const isSymbol = node => !Array.isArray(node)
   // () refers to the pair that directly contains it.
   const isEnclosure = node => Array.isArray(node) && !node.length
 
-  const entryFor = symbol =>
-    stack.findLast(entry => entry.symbol === symbol)
+  // Unary enclosures ending in () count outward through the identity stack.
+  const referenceDepth = tree => {
+    let depth = 0
+    while (Array.isArray(tree) && tree.length === 1) {
+      tree = tree[0]
+      if (isEnclosure(tree)) return depth
+      depth += 1
+    }
+  }
+
+  const referenceAt = depth => {
+    for (let i = stack.length - 1; i >= 0; i--)
+      if (stack[i].node && depth-- === 0)
+        return stack[i]
+  }
 
   const definitionFor = node =>
     stack.find(entry => entry.node === node && entry.body)
@@ -20,29 +30,22 @@ export const link = source => {
       entry.answer?.[1] === node &&
       entry.arguments.length < entry.definition.parameters.length)
 
+  // Every other unary form binds the form inside it to the current scope.
   const identify = tree => {
     const scopeStart = stack.length
-    // An unseen left name points to the complete form on its right.
-    const entry = { node: tree[1], symbol: tree[0] }
+    const entry = { node: tree[0] }
     stack.push(entry)
-    legend.push(entry)
 
-    // Inner names stay in scope while the complete form is linked.
+    // Inner identities stay in scope while the complete form is linked.
     const graph = walk(entry.node, undefined, true).graph
-    entry.node = graph
     const parameters =
       stack.slice(scopeStart + 1).map(({ node }) => node)
-    // Then only the outer name remains in the enclosing scope.
+    // Then only the outer identity remains in the enclosing scope.
     stack.length = scopeStart
     stack.push(entry)
 
-    // An alias shares call metadata as well as pair identity.
-    const definition = definitionFor(graph)
-    if (definition) {
-      entry.parameters = definition.parameters
-      entry.body = definition.body
-    } else if (graph[0] !== graph) {
-      // Every bound form that is not fixed-left is callable.
+    // Every bound form that is not fixed-left is callable.
+    if (graph[0] !== graph) {
       entry.parameters = parameters
       entry.body = graph[1]
     }
@@ -53,7 +56,6 @@ export const link = source => {
     // Observation stops at this fixed-left pair and returns its right side.
     const answer = []
     answer[0] = answer
-    legend.push({ node: answer, symbol: definition.symbol })
 
     const call = { answer, definition, arguments: [...priorArguments] }
     let pair = answer
@@ -78,20 +80,23 @@ export const link = source => {
           (node[0] === node && node[1] === node) ||
           reference || partial)
         return { graph: node, reference, partial }
-    } else if (isSymbol(tree)) {
-      // A known name becomes its pair identity.
-      const entry = entryFor(tree)
-      return {
-        graph: entry.node,
-        reference: entry.body && !defining && entry
+    } else {
+      if (!Array.isArray(tree))
+        throw new Error('Source must contain only parentheses')
+      const depth = referenceDepth(tree)
+      if (depth !== undefined) {
+        const entry = referenceAt(depth)
+        return {
+          graph: entry.node,
+          reference: entry.body && !defining && entry
+        }
+      } else if (tree.length === 1) {
+        return identify(tree)
       }
-    } else if (isSymbol(tree[0]) && !entryFor(tree[0])) {
-      // An unknown name on the left introduces the form on the right.
-      return identify(tree)
     }
 
     graph = replacements ? [] : tree
-    // An enclosure reference becomes the pair currently being linked.
+    // Empty and already-linked self references become the current pair.
     left = isEnclosure(tree[0]) || tree[0] === tree
       ? { graph }
       : walk(tree[0], replacements, defining)
@@ -145,10 +150,7 @@ export const link = source => {
 
   try {
     const graph = walk(parse(source)[0]).graph
-    return {
-      graph,
-      legend: legend.map(({ node, symbol }) => ({ node, symbol }))
-    }
+    return { graph, legend: [] }
   } catch (error) {
     return { graph: [], legend: [], error }
   }
