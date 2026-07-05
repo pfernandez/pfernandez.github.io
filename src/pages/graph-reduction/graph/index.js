@@ -3,6 +3,7 @@ export { link } from './link.js'
 export { observe } from './observe.js'
 export {
   addressLegend,
+  log,
   serialize,
   serializeWasm,
   schemeNames,

@@ -27,8 +27,8 @@ export const link = source => {
 
   const partialFor = node =>
     stack.find(entry =>
-      entry.answer?.[1] === node &&
-      entry.arguments.length < entry.parameters.length)
+      entry.answer?.[1] === node
+      && entry.arguments.length < entry.parameters.length)
 
   const startCall = (graph, definition, priorArguments = []) => {
     // Observation stops at this fixed-left pair and returns its right side.
@@ -62,9 +62,9 @@ export const link = source => {
       const reference = definitionFor(node)
       const partial = partialFor(node)
 
-      if (replacement ||
-          (node[0] === node && node[1] === node) ||
-          reference || partial)
+      if (replacement
+          || node[0] === node && node[1] === node
+          || reference || partial)
         return { graph: node, reference, partial }
     } else {
       const depth = referenceDepth(tree)
@@ -98,8 +98,8 @@ export const link = source => {
     graph[0] = left.graph
     graph[1] = right.graph
 
-    const call = left.call ??
-      (left.reference
+    const call = left.call
+      ?? (left.reference
         ? startCall(graph, left.reference)
         : left.partial && startCall(
           graph,
@@ -115,10 +115,10 @@ export const link = source => {
         call.answer[1] = graph
       } else if (call.arguments.length === arity) {
         const prior = stack.find(entry =>
-          entry !== call &&
-          entry.definition === call.definition &&
-          entry.arguments?.length === arity &&
-          entry.arguments.every((argument, i) =>
+          entry !== call
+          && entry.definition === call.definition
+          && entry.arguments?.length === arity
+          && entry.arguments.every((argument, i) =>
             argument === call.arguments[i]))
 
         if (prior) {
@@ -141,7 +141,8 @@ export const link = source => {
   }
 
   try {
-    const graph = walk(parse(source)[0]).graph
+    const tree = typeof source === 'string' ? parse(source)[0] : source
+    const graph = walk(tree).graph
     return { graph, legend: [] }
   } catch (error) {
     return { graph: [], legend: [], error }

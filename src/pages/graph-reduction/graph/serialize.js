@@ -1,4 +1,8 @@
-import { log } from './parse.js'
+export const log = x =>
+  (typeof x === 'string'
+    ? console.log(x)
+    : console.dir(x, { depth: null }),
+  x)
 
 export const schemes = Object.freeze({
   ink: 'ink',
@@ -31,8 +35,8 @@ const isDefinitionSequence = (legend, node, seen = new Set()) => {
   if (seen.has(node)) return true
 
   seen.add(node)
-  return isDefinitionSequence(legend, node[0], seen) &&
-    isDefinitionSequence(legend, node[1], seen)
+  return isDefinitionSequence(legend, node[0], seen)
+    && isDefinitionSequence(legend, node[1], seen)
 }
 
 const indentOf = path =>
@@ -158,10 +162,10 @@ const graphTokens = (
     repeat
   }
   const startsDefinitions = expand && !inName && name === undefined && (
-    inDefinitions ||
-      (path === '$' && isDefinitionSequence(legend, node[0])) ||
-      (isDefinitionSequence(legend, node[0]) &&
-        isDefinitionSequence(legend, node[1])))
+    inDefinitions
+      || path === '$' && isDefinitionSequence(legend, node[0])
+      || isDefinitionSequence(legend, node[0])
+        && isDefinitionSequence(legend, node[1]))
   const separator = startsDefinitions
     ? `\n${' '.repeat(indentOf(path))}`
     : ' '
