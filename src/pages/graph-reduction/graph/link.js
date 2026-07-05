@@ -29,14 +29,20 @@ export const link = source => {
 
     // Inner names stay in scope while the complete form is linked.
     const graph = walk(entry.node, undefined, true).graph
+    entry.node = graph
     const parameters =
       stack.slice(scopeStart + 1).map(({ node }) => node)
     // Then only the outer name remains in the enclosing scope.
     stack.length = scopeStart
     stack.push(entry)
 
-    // A fixed-left form is a value. Every other bound form is callable.
-    if (graph[0] !== graph) {
+    // An alias shares call metadata as well as pair identity.
+    const definition = definitionFor(graph)
+    if (definition) {
+      entry.parameters = definition.parameters
+      entry.body = definition.body
+    } else if (graph[0] !== graph) {
+      // Every bound form that is not fixed-left is callable.
       entry.parameters = parameters
       entry.body = graph[1]
     }
@@ -68,7 +74,9 @@ export const link = source => {
       const reference = definitionFor(node)
       const partial = partialFor(node)
 
-      if (replacement || node[0] === node || reference || partial)
+      if (replacement ||
+          (node[0] === node && node[1] === node) ||
+          reference || partial)
         return { graph: node, reference, partial }
     } else if (isSymbol(tree)) {
       // A known name becomes its pair identity.
@@ -84,10 +92,10 @@ export const link = source => {
 
     graph = replacements ? [] : tree
     // An enclosure reference becomes the pair currently being linked.
-    left = isEnclosure(tree[0])
+    left = isEnclosure(tree[0]) || tree[0] === tree
       ? { graph }
       : walk(tree[0], replacements, defining)
-    right = isEnclosure(tree[1])
+    right = isEnclosure(tree[1]) || tree[1] === tree
       ? { graph }
       : walk(tree[1], replacements, defining)
     graph[0] = left.graph

@@ -49,6 +49,40 @@ describe('link', () => {
     assert.equal(serialize(graph, { legend, expand: false }), '($ a)')
   })
 
+  test('lets names share an existing identity', () => {
+    const { graph, legend, error } = link('((a (a a)) (b a))')
+
+    assert.equal(error, undefined)
+    assert.equal(graph[0], graph[1])
+    assert.equal(legend[0].node, legend[1].node)
+  })
+
+  test('lets names share an existing definition', () => {
+    const { graph, legend, error } = link(program(
+      [I, '(J I)'],
+      `(J ${identity('a')})`))
+
+    assert.equal(error, undefined)
+    assert.equal(
+      legend.find(entry => entry.symbol === 'I').node,
+      legend.find(entry => entry.symbol === 'J').node)
+    assert.equal(
+      serialize(observe(graph[1]), { legend, expand: false }),
+      'a')
+  })
+
+  test('copies enclosing pairs with their arguments', () => {
+    const F = `(F ((F ${identity('x')}) (() x)))`
+    const { graph, legend, error } =
+      link(program([F], `(F ${identity('a')})`))
+
+    assert.equal(error, undefined)
+    const result = observe(graph[1])
+    assert.equal(result[0], result)
+    assert.equal(serialize(result, { legend, expand: false }), '($ a)')
+    assert.equal(serialize(observe(result), { legend, expand: false }), 'a')
+  })
+
   test('links source text', () => {
     const { graph, legend, error } = link(core)
 
