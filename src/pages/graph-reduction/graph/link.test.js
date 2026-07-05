@@ -151,4 +151,57 @@ describe('link', () => {
     const partialResult = observe(partial.graph[1])
     assert.equal(observe(partialResult), partialResult)
   })
+
+  test('ties recursive calls into an unbounded observation cycle', () => {
+    const source = `
+    ((((I x) x)
+      ((Y f) (f (Y f))))
+     (Y I))
+    `
+    const { graph, legend, error } = link(source)
+    assert.equal(error, undefined)
+
+    const first = observe(graph[1])
+    const second = observe(first)
+    const third = observe(second)
+    assert.equal(serialize(first, { legend, expand: false }), '(I (Y I))')
+    assert.equal(serialize(second, { legend, expand: false }), '(Y I)')
+    assert.equal(serialize(third, { legend, expand: false }), 'Y')
+    assert.equal(observe(third), first)
+
+    let result = third
+    for (let i = 0; i < 999; i++)
+      result = observe(result)
+    assert.equal(result, third)
+  })
+
+  test('composes Church successors', () => {
+    const definitions = `
+    ((((I x) x)
+      (((Zero f) x) x))
+     ((((Succ n) f) x) (f ((n f) x))))
+    `
+
+    for (let n = 0; n < 4; n++) {
+      let numeral = 'Zero'
+      for (let i = 0; i < n; i++)
+        numeral = `(Succ ${numeral})`
+
+      const { graph, legend, error } =
+        link(`(${definitions} ((${numeral} I) a))`)
+      assert.equal(error, undefined)
+
+      let result = graph[1]
+      let steps = 0
+      do {
+        const next = observe(result)
+        steps += 1
+        if (next === result) break
+        result = next
+      } while (steps < 16)
+
+      assert.equal(serialize(result, { legend, expand: false }), 'a')
+      assert.equal(steps, 2 * n + 2)
+    }
+  })
 })
