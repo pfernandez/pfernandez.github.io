@@ -25,11 +25,15 @@ const isFixed = node =>
 const isDefinition = (legend, node) =>
   nameOf(legend, node) !== undefined && !isFixed(node)
 
-const isDefinitionSequence = (legend, node) =>
-  isDefinition(legend, node) ||
-    (Array.isArray(node) && !isFixed(node) &&
-      isDefinitionSequence(legend, node[0]) &&
-      isDefinitionSequence(legend, node[1]))
+const isDefinitionSequence = (legend, node, seen = new Set()) => {
+  if (isDefinition(legend, node)) return true
+  if (!Array.isArray(node) || isFixed(node)) return false
+  if (seen.has(node)) return true
+
+  seen.add(node)
+  return isDefinitionSequence(legend, node[0], seen) &&
+    isDefinitionSequence(legend, node[1], seen)
+}
 
 const indentOf = path =>
   path.split('.').length + 1
