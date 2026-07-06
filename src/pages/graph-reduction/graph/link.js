@@ -1,10 +1,54 @@
-import { parse } from './parse.js'
+import { parse as defaultParser } from './parse.js'
 
-export const link = source => {
-  // The same stack holds identity pairs and calls under construction.
+export const link = (source, parser = defaultParser) => {
+  // Source lists become left-associated pairs before the graph walk begins.
+  const fold = tree => {
+    if (!Array.isArray(tree)) return tree
+    const items = tree.map(fold)
+    return items.length < 3
+      ? items
+      : items.slice(1).reduce((left, right) => [left, right], items[0])
+  }
+
+  // The same stack holds identities, their names, and calls under construction.
   const stack = []
+  // Names describe graph identities but are not part of the graph.
+  const legend = []
   // () refers to the pair that directly contains it.
   const isEnclosure = node => Array.isArray(node) && !node.length
+
+  const named = symbol =>
+    stack.findLast(entry => entry.symbol === symbol)
+
+  const bind = (node, symbol) => {
+    const entry = { node, symbol }
+    stack.push(node, entry)
+    legend.push(entry)
+    return entry
+  }
+
+  // A free name becomes a graph-native atom.
+  const identify = symbol => {
+    const node = []
+    node[0] = node[1] = node
+    return bind(node, symbol)
+  }
+
+  // Read a left-associated signature without changing it.
+  const signatureOf = tree => {
+    const signature = []
+    while (Array.isArray(tree) && tree.length === 2) {
+      signature.unshift(tree[1])
+      tree = tree[0]
+    }
+    signature.unshift(tree)
+    return signature.length > 1
+      && signature.every(symbol => !Array.isArray(symbol))
+      && signature
+  }
+
+  const definitionAt = tree =>
+    Array.isArray(tree) && tree.length === 2 && signatureOf(tree[0])
 
   // Unary enclosures ending in () count outward through the identity stack.
   const referenceDepth = tree => {
@@ -55,6 +99,15 @@ export const link = source => {
   const walk = (tree, replacements, defining = false) => {
     let graph, left, right
 
+    if (!Array.isArray(tree)) {
+      const entry = named(tree) ?? identify(tree)
+      const { node } = entry
+      return {
+        graph: node,
+        reference: node[0] !== node && !defining && node
+      }
+    }
+
     if (replacements) {
       // Calls copy bodies, but identities and existing calls remain shared.
       const replacement = replacements.find(([from]) => tree === from)
@@ -74,6 +127,42 @@ export const link = source => {
           graph: node,
           reference: node[0] !== node && !defining && node
         }
+      } else {
+        const signature = signatureOf(tree[0])
+        const next = definitionAt(tree[1])
+        // Another fresh signature on the right makes this a definition
+        // sequence; a body may instead begin with one of its parameters.
+        if (signature && !named(signature[0])
+            && (!next || signature.includes(next[0]))) {
+          // A new signature binds its definition name and parameters.
+          const scopeStart = stack.length
+          const graph = tree
+          const entry = bind(graph, signature[0])
+          for (const parameter of signature.slice(1))
+            identify(parameter)
+          const left = walk(tree[0], undefined, true)
+          const right = walk(tree[1], undefined, true)
+          graph[0] = left.graph
+          graph[1] = right.graph
+          // Parameters leave scope while the completed definition remains.
+          stack.length = scopeStart
+          stack.push(graph, entry)
+          return { graph }
+        }
+      }
+
+      if (tree.length === 2
+          && !Array.isArray(tree[0])
+          && !named(tree[0])) {
+        // An unknown name on the left binds the form on its right.
+        const scopeStart = stack.length
+        const graph = tree[1]
+        const entry = bind(graph, tree[0])
+        walk(graph, undefined, true)
+        // Inner identities leave scope while the named identity remains.
+        stack.length = scopeStart
+        stack.push(graph, entry)
+        return { graph }
       } else if (tree.length === 1) {
         // Every other unary form binds its contents to the current scope.
         const scopeStart = stack.length
@@ -141,9 +230,12 @@ export const link = source => {
   }
 
   try {
-    const tree = typeof source === 'string' ? parse(source)[0] : source
+    const tree = fold(parser(source))
     const graph = walk(tree).graph
-    return { graph, legend: [] }
+    return {
+      graph,
+      legend: legend.map(({ node, symbol }) => ({ node, symbol }))
+    }
   } catch (error) {
     return { graph: [], legend: [], error }
   }

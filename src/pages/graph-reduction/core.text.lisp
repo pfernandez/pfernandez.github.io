@@ -1,4 +1,5 @@
-; Explicit names compile to unary bindings and enclosure-depth references.
+; An unknown name on the left binds its right side to the current scope.
+; Any other new name becomes a graph-native atom.
 
 (
  ((I ((I (x (() ()))) x))

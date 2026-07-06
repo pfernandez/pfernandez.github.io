@@ -8,25 +8,17 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const syntax = process.argv[3] && await import(process.argv[3])
+  const parser = process.argv[3]
+    && (await import(process.argv[3])).parse
   const source = readFileSync(file, 'utf-8')
 
-  const program = syntax ? syntax.compile(source) : { source }
-
-  const linked = link(program.source)
-  const { graph, error } = linked
-
-  const legend = [
-    ...linked.legend,
-    ...program.legend ?? [],
-    ...program.decorate?.(graph) ?? []
-  ]
-
+  const linked = link(source, parser)
+  const { graph, legend, error } = linked
   if (error) throw error
 
   const _trace = (x, label = 'observe') => trace(x, { label, legend })
 
-  log({ file, syntax, source, program, linked, legend })
+  log({ file, parser, source, linked })
 
   trace(graph, { label: 'graph\n', legend })
 

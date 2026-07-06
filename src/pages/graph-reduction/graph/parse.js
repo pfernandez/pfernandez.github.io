@@ -22,7 +22,7 @@ export const parse = source => {
     const token = tokens[index++]
     if (token.text === '(') return readList(token)
     if (token.text === ')') err('Unexpected )', token)
-    err('Source must contain only parentheses', token)
+    return token.text
   }
 
   const readList = opener => {
@@ -31,13 +31,12 @@ export const parse = source => {
       items.push(readForm())
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
-    if (items.length === 0) return items
-    if (items.length > 2) err('Expressions contain at most two forms', opener)
     return items
   }
 
   const forms = []
   while (index < tokens.length) forms.push(readForm())
   if (forms.length === 0) err('Missing expression')
-  return forms
+  if (forms.length > 1) err('Expected one expression')
+  return forms[0]
 }
