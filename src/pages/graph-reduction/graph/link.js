@@ -1,14 +1,14 @@
 import { parse as defaultParser } from './parse.js'
 
 export const link = (source, parser = defaultParser) => {
-  // Source lists become left-associated pairs before the graph walk begins.
-  const fold = tree => {
-    if (!Array.isArray(tree)) return tree
-    const items = tree.map(fold)
-    return items.length < 3
-      ? items
-      : items.slice(1).reduce((left, right) => [left, right], items[0])
-  }
+  // Fold each source list left before the graph walk begins.
+  const pair = items =>
+    items.length
+      ? items.slice(1).reduce((left, right) => [left, right], items[0])
+      : []
+
+  const fold = tree =>
+    Array.isArray(tree) ? pair(tree.map(fold)) : tree
 
   // The same stack holds identities, their names, and calls under construction.
   const stack = []
@@ -27,43 +27,11 @@ export const link = (source, parser = defaultParser) => {
     return entry
   }
 
-  // A free name becomes a graph-native atom.
+  // A parameter or free name becomes a graph-native atom.
   const identify = symbol => {
     const node = []
     node[0] = node[1] = node
     return bind(node, symbol)
-  }
-
-  // Read a left-associated signature without changing it.
-  const signatureOf = tree => {
-    const signature = []
-    while (Array.isArray(tree) && tree.length === 2) {
-      signature.unshift(tree[1])
-      tree = tree[0]
-    }
-    signature.unshift(tree)
-    return signature.length > 1
-      && signature.every(symbol => !Array.isArray(symbol))
-      && signature
-  }
-
-  const definitionAt = tree =>
-    Array.isArray(tree) && tree.length === 2 && signatureOf(tree[0])
-
-  // Unary enclosures ending in () count outward through the identity stack.
-  const referenceDepth = tree => {
-    let depth = 0
-    while (Array.isArray(tree) && tree.length === 1) {
-      tree = tree[0]
-      if (isEnclosure(tree)) return depth
-      depth += 1
-    }
-  }
-
-  const referenceAt = depth => {
-    for (let i = stack.length - 1; i >= 0; i--)
-      if (Array.isArray(stack[i]) && depth-- === 0)
-        return stack[i]
   }
 
   const definitionFor = node =>
@@ -78,6 +46,8 @@ export const link = (source, parser = defaultParser) => {
     // Observation stops at this fixed-left pair and returns its right side.
     const answer = []
     answer[0] = answer
+    const name = legend.find(entry => entry.node === definition)
+    if (name) legend.push({ node: answer, symbol: name.symbol })
 
     const parameters = []
     for (let pair = definition[0]; pair !== definition; pair = pair[0])
@@ -119,61 +89,6 @@ export const link = (source, parser = defaultParser) => {
           || node[0] === node && node[1] === node
           || reference || partial)
         return { graph: node, reference, partial }
-    } else {
-      const depth = referenceDepth(tree)
-      if (depth !== undefined) {
-        const node = referenceAt(depth)
-        return {
-          graph: node,
-          reference: node[0] !== node && !defining && node
-        }
-      } else {
-        const signature = signatureOf(tree[0])
-        const next = definitionAt(tree[1])
-        // Another fresh signature on the right makes this a definition
-        // sequence; a body may instead begin with one of its parameters.
-        if (signature && !named(signature[0])
-            && (!next || signature.includes(next[0]))) {
-          // A new signature binds its definition name and parameters.
-          const scopeStart = stack.length
-          const graph = tree
-          const entry = bind(graph, signature[0])
-          for (const parameter of signature.slice(1))
-            identify(parameter)
-          const left = walk(tree[0], undefined, true)
-          const right = walk(tree[1], undefined, true)
-          graph[0] = left.graph
-          graph[1] = right.graph
-          // Parameters leave scope while the completed definition remains.
-          stack.length = scopeStart
-          stack.push(graph, entry)
-          return { graph }
-        }
-      }
-
-      if (tree.length === 2
-          && !Array.isArray(tree[0])
-          && !named(tree[0])) {
-        // An unknown name on the left binds the form on its right.
-        const scopeStart = stack.length
-        const graph = tree[1]
-        const entry = bind(graph, tree[0])
-        walk(graph, undefined, true)
-        // Inner identities leave scope while the named identity remains.
-        stack.length = scopeStart
-        stack.push(graph, entry)
-        return { graph }
-      } else if (tree.length === 1) {
-        // Every other unary form binds its contents to the current scope.
-        const scopeStart = stack.length
-        const graph = tree[0]
-        stack.push(graph)
-        walk(graph, undefined, true)
-        // Inner identities leave scope while the outer identity remains.
-        stack.length = scopeStart
-        stack.push(graph)
-        return { graph }
-      }
     }
 
     graph = replacements ? [] : tree
@@ -229,13 +144,28 @@ export const link = (source, parser = defaultParser) => {
     return { graph, call }
   }
 
+  // The raw signature tells us which names belong to this definition.
+  const walkDefinition = (tree, [name, ...parameters]) => {
+    const scopeStart = stack.length
+    const entry = bind(tree, name)
+    for (const parameter of parameters)
+      identify(parameter)
+    walk(tree, undefined, true)
+    // Parameters leave scope while the completed definition remains.
+    stack.length = scopeStart
+    stack.push(tree, entry)
+  }
+
   try {
-    const tree = fold(parser(source))
-    const graph = walk(tree).graph
-    return {
-      graph,
-      legend: legend.map(({ node, symbol }) => ({ node, symbol }))
-    }
+    const [sourceDefinitions, sourceFocus] = parser(source)
+    // Fold definitions separately so their raw signatures remain available.
+    const definitions = sourceDefinitions.map(definition => fold(definition))
+    definitions.forEach((definition, i) =>
+      walkDefinition(definition, sourceDefinitions[i][0]))
+    const graph = []
+    graph[0] = definitions.length ? pair(definitions) : graph
+    graph[1] = walk(fold(sourceFocus)).graph
+    return { graph, legend }
   } catch (error) {
     return { graph: [], legend: [], error }
   }

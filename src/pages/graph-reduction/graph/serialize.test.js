@@ -14,19 +14,13 @@ import { image } from '../wasm/image.js'
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
-const atom = '(() ())'
-const bind = form => `(${form})`
-const ref = depth =>
-  '('.repeat(depth + 1) + '()' + ')'.repeat(depth + 1)
-const I = `((${ref(0)} ${bind(atom)}) ${ref(0)})`
-const K = `(((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${ref(1)})`
-const S =
-  `((((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${bind(atom)}) ` +
-  `((${ref(2)} ${ref(0)}) (${ref(1)} ${ref(0)})))`
+const I = '((I x) x)'
+const K = '((K x y) x)'
+const S = '((S x y z) ((x z) (y z)))'
 const withCore = expression =>
-  `(${[I, K, S].reduceRight(
-    (rest, definition) => `(${bind(definition)} ${rest})`,
-    '()')} ${expression})`
+  `((${[I, K, S].join('\n')}) ${expression})`
+
+const linkedAtom = () => link(`((${I}) (I a))`)
 
 const withoutConsoleDir = fn => {
   const write = console.dir
@@ -83,40 +77,21 @@ describe('serialize', () => {
 
   test('expand shows named definition structure once', () => {
     const linked = withoutConsoleDir(() => link(withCore(
-      `(((${ref(0)} ${atom}) ${atom}) ${atom})`)))
-    const I = linked.graph[0][0]
-    const K = linked.graph[0][1][0]
-    const S = linked.graph[0][1][1][0]
-    const focus = linked.graph[1]
-    const legend = [
-      { node: I, symbol: 'I' },
-      { node: I[0][1], symbol: 'x' },
-      { node: K, symbol: 'K' },
-      { node: K[0][0][1], symbol: 'x' },
-      { node: K[0][1], symbol: 'y' },
-      { node: S, symbol: 'S' },
-      { node: S[0][0][0][1], symbol: 'x' },
-      { node: S[0][0][1], symbol: 'y' },
-      { node: S[0][1], symbol: 'z' },
-      { node: focus[0][0][0], symbol: 'S' },
-      { node: focus[0][0][1], symbol: 'a' },
-      { node: focus[0][1], symbol: 'b' },
-      { node: focus[1], symbol: 'c' }
-    ]
+      '(S a b c)')))
+    const { legend } = linked
     const expanded = [
-      '((((I x) x)',
-      '   ((((K x) y) x)',
-      '    (((((S x) y) z) ((x z) (y z)))',
-      '     $.0.1.1)))',
+      '(((((I x) x)',
+      '    (((K x) y) x))',
+      '   ((((S x) y) z) ((x z) (y z))))',
       '  (((S a) b) c))'
     ].join('\n')
-    const presented = expanded.replace('$.0.1.1', '()')
+    const presented = expanded
 
     assert.equal(serialize(linked.graph, {
       legend,
       expand: false
     }), [
-      '((I (K (S $.0.1.1))) (((S a) b) c))'
+      '(((I K) S) (((S a) b) c))'
     ].join(''))
     assert.equal(
       serialize(linked.graph, { legend }),
@@ -169,7 +144,7 @@ describe('serialize', () => {
   })
 
   test('trace writes an optional label and uses presentation defaults', () => {
-    const linked = link(atom)
+    const linked = linkedAtom()
     const graphImage = imageView(linked)
     const write = console.log
     const output = []
@@ -207,7 +182,7 @@ describe('serialize', () => {
   })
 
   test('wasm serializes identically to graphs', () => {
-    const linked = link(atom)
+    const linked = linkedAtom()
     const graphImage = imageView(linked)
     const text = serialize(linked.graph, {
       legend: linked.legend,
@@ -222,7 +197,7 @@ describe('serialize', () => {
   })
 
   test('wasm presentation uses the same formats', () => {
-    const linked = link(atom)
+    const linked = linkedAtom()
     const graphImage = imageView(linked)
 
     assert.equal(

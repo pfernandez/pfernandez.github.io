@@ -2,28 +2,24 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { link, observe } from './index.js'
 
-const atom = '(() ())'
-const bind = form => `(${form})`
-const ref = depth =>
-  '('.repeat(depth + 1) + '()' + ')'.repeat(depth + 1)
-
-const I = `((${ref(0)} ${bind(atom)}) ${ref(0)})`
-const K = `(((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${ref(1)})`
-const S =
-  `((((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${bind(atom)}) ` +
-  `((${ref(2)} ${ref(0)}) (${ref(1)} ${ref(0)})))`
-const Y =
-  `((${ref(0)} ${bind(atom)}) (${ref(0)} (${ref(1)} ${ref(0)})))`
-const Zero =
-  `(((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${ref(0)})`
-const Succ =
-  `((((${ref(0)} ${bind(atom)}) ${bind(atom)}) ${bind(atom)}) ` +
-  `(${ref(1)} ((${ref(2)} ${ref(1)}) ${ref(0)})))`
+const I = '((I x) x)'
+const K = '((K x y) x)'
+const S = '((S x y z) ((x z) (y z)))'
+const Y = '((Y f) (f (Y f)))'
+const Zero = '((Zero f x) x)'
+const Succ = '((Succ n f x) (f (n f x)))'
 
 const program = (definitions, expression) =>
-  `(${definitions.reduceRight(
-    (rest, definition) => `(${bind(definition)} ${rest})`,
-    '()')} ${expression})`
+  `((${definitions.join('\n')}) ${expression})`
+
+const linked = source => {
+  const result = link(source)
+  if (result.error) throw result.error
+  return result
+}
+
+const named = (legend, symbol) =>
+  legend.find(entry => entry.symbol === symbol).node
 
 const assertPairs = root => {
   const pending = [root]
@@ -40,38 +36,31 @@ const assertPairs = root => {
 }
 
 describe('link', () => {
-  test('links () to its enclosing pair', () => {
-    const { graph, legend, error } = link(`(() ${atom})`)
+  test('links a program without definitions', () => {
+    const { graph, legend } = linked('(() a)')
 
-    assert.equal(error, undefined)
-    assert.deepEqual(legend, [])
     assert.equal(graph[0], graph)
-    assert.equal(observe(graph), graph[1])
-    assert.equal(graph[1][0], graph[1])
-    assert.equal(graph[1][1], graph[1])
+    assert.equal(observe(graph), named(legend, 'a'))
+    assertPairs(graph)
   })
 
-  test('binds unary forms and addresses them by depth', () => {
-    const source = program([atom, atom], `(${ref(1)} ${ref(0)})`)
-    const { graph, error } = link(source)
+  test('links () to its enclosing pair', () => {
+    const F = '((F x) (() x))'
+    const { graph, legend } = linked(program([F], '(F a)'))
+    const argument = named(legend, 'a')
+    const result = observe(graph[1])
 
-    assert.doesNotMatch(source, /[^()\s]/)
-    assert.equal(error, undefined)
-    const first = graph[0][0]
-    const second = graph[0][1][0]
-    assert.notEqual(first, second)
-    assert.equal(graph[1][0], first)
-    assert.equal(graph[1][1], second)
+    assert.equal(result[0], result)
+    assert.equal(result[1], argument)
+    assert.equal(observe(result), argument)
   })
 
   test('wires the combinator graph by identity', () => {
-    const expression = `(((${ref(0)} ${atom}) ${atom}) ${atom})`
-    const { graph, error } = link(program([I, K, S], expression))
-
-    assert.equal(error, undefined)
-    const linkedI = graph[0][0]
-    const linkedK = graph[0][1][0]
-    const linkedS = graph[0][1][1][0]
+    const { graph, legend } =
+      linked(program([I, K, S], '(S a b c)'))
+    const linkedI = named(legend, 'I')
+    const linkedK = named(legend, 'K')
+    const linkedS = named(legend, 'S')
 
     assert.equal(linkedI[0][0], linkedI)
     assert.equal(linkedI[0][1], linkedI[1])
@@ -85,50 +74,28 @@ describe('link', () => {
   })
 
   test('copies complete calls and preserves partial calls', () => {
-    const definitions = [I, K, S]
-
     for (const [expression, stable] of [
-      [`(${ref(2)} ${atom})`, false],
-      [`(${ref(1)} ${atom})`, true],
-      [`((${ref(1)} ${atom}) ${atom})`, false],
-      [`((${ref(0)} ${atom}) ${atom})`, true],
-      [`(((${ref(0)} ${atom}) ${atom}) ${atom})`, false]
+      ['(I a)', false],
+      ['(K a)', true],
+      ['(K a b)', false],
+      ['(S a b)', true],
+      ['(S a b c)', false]
     ]) {
-      const { graph, error } = link(program(definitions, expression))
-      assert.equal(error, undefined)
-      const result = observe(graph[1])
-      assert.equal(result === graph[1], stable)
+      const { graph } = linked(program([I, K, S], expression))
+      assert.equal(observe(graph[1]) === graph[1], stable)
     }
   })
 
   test('answers calls created by copies', () => {
-    const expression =
-      `(((${ref(0)} ${ref(1)}) ${ref(1)}) ${atom})`
-    const { graph, error } = link(program([I, K, S], expression))
-    assert.equal(error, undefined)
-
+    const { graph } = linked(program([I, K, S], '(S K K a)'))
     const argument = graph[1][1]
     const first = observe(graph[1])
+
     assert.equal(observe(first), argument)
   })
 
-  test('copies enclosing pairs with their arguments', () => {
-    const F = `((${ref(0)} ${bind(atom)}) (() ${ref(0)}))`
-    const { graph, error } =
-      link(program([F], `(${ref(0)} ${atom})`))
-
-    assert.equal(error, undefined)
-    const argument = graph[1][1]
-    const result = observe(graph[1])
-    assert.equal(result[0], result)
-    assert.equal(result[1], argument)
-    assert.equal(observe(result), argument)
-  })
-
   test('ties recursive calls into an unbounded observation cycle', () => {
-    const { graph, error } =
-      link(program([I, Y], `(${ref(0)} ${ref(1)})`))
-    assert.equal(error, undefined)
+    const { graph } = linked(program([I, Y], '(Y I)'))
 
     const first = observe(graph[1])
     const second = observe(first)
@@ -143,15 +110,12 @@ describe('link', () => {
 
   test('composes Church successors', () => {
     for (let n = 0; n < 4; n++) {
-      let numeral = ref(1)
+      let numeral = 'Zero'
       for (let i = 0; i < n; i++)
-        numeral = `(${ref(0)} ${numeral})`
+        numeral = `(Succ ${numeral})`
 
-      const expression =
-        `((${numeral} ${ref(2)}) ${atom})`
-      const { graph, error } =
-        link(program([I, Zero, Succ], expression))
-      assert.equal(error, undefined)
+      const { graph } =
+        linked(program([I, Zero, Succ], `(${numeral} I a)`))
 
       let result = graph[1]
       let steps = 0

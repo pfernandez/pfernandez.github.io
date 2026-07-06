@@ -1,23 +1,19 @@
-; In a binary form, () names the pair that directly contains it.
-; (()) addresses the latest binding; each extra enclosure steps outward.
-; Every other unary form binds its contents. Binary forms are ordinary pairs.
+; Canonical source: the first list contains definitions.
+; Lists are folded left into pairs before linking.
+; Names outside a signature become graph-native atoms.
 
 (
- (((((()) ((() ()))) (())))                         ; I
-  ((((((()) ((() ()))) ((() ()))) ((()))))          ; K
-   (((((((()) ((() ()))) ((() ()))) ((() ())))      ; S
-        (((((()))) (())) (((())) (())))))
-    (((((()) ((() ()))) ((()) (((())) (())))))       ; Y
-     ((((((()) ((() ()))) ((() ()))) (())))          ; Zero
-      (((((((()) ((() ()))) ((() ()))) ((() ())))   ; Succ
-           (((())) (((((()))) ((()))) (())))))
-       ()))))))
- ; (((((((())))))) (() ()))                          ; I
- ; (((((((()))))) (() ())) (() ()))                  ; K
- ; (((((((())))) (() ())) (() ())) (() ()))          ; S
- ; ((((()))) ((((((())))))))                         ; Y I, repeats forever
- ; ((((()))) ((((((()))))) (() ())))                 ; Y (K atom)
- ; ((((())) ((((((()))))))) (() ()))                 ; Zero I atom
- ; ((((()) ((()))) ((((((()))))))) (() ()))          ; Succ Zero I atom
- (((((((())))) (() ())) (() ())) (() ()))            ; S
-)
+ (((I x) x)
+  ((K x y) x)
+  ((S x y z) ((x z) (y z)))
+  ((Y f) (f (Y f)))
+  ((Zero f x) x)
+  ((Succ n f x) (f (n f x))))
+ ; (I a)
+ ; (K a b)
+ ; (S a b c)
+ ; (Y I) ; repeats forever
+ ; (Y (K a))
+ ; (Zero I a)
+ ; (Succ Zero I a)
+ (S a b c))

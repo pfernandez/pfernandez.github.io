@@ -33,21 +33,6 @@ const assertS = ({ result, legend }) => {
   assert.equal(result[1][1], named('c'))
 }
 
-test('links explicit lexical names', () => {
-  const linked = resultOf(`
-  (
-   ((I ((I (x (() ()))) x))
-    ())
-   (I (a (() ())))
-  )
-  `)
-
-  assert.deepEqual(
-    linked.legend.map(entry => entry.symbol),
-    ['I', 'x', 'a'])
-  assert.equal(linked.result, linked.legend[2].node)
-})
-
 test('folds signatures and applications before linking names', () => {
   const linked = resultOf(`
   (
@@ -60,6 +45,7 @@ test('folds signatures and applications before linking names', () => {
 
   assert.deepEqual(
     linked.legend.map(entry => entry.symbol),
-    ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z', 'a', 'b', 'c'])
+    ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z',
+     'a', 'S', 'b', 'c'])
   assertS(linked)
 })
