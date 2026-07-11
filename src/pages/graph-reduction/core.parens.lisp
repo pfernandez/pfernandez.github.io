@@ -1,8 +1,6 @@
-; Parenthesis-only demonstration of the canonical program.
-; This historical form is not part of the canonical linker input.
-; In a binary form, () names the pair that directly contains it.
-; (()) addresses the latest binding; each extra enclosure steps outward.
-; Every other unary form binds its contents. Binary forms are ordinary pairs.
+; Historical parenthesis-only demonstration of the canonical program.
+; This old enclosure notation is not part of the canonical linker input.
+; The current linker treats a walked () as a fresh anonymous atom.
 
 (
  (((((()) ((() ()))) (())))                         ; I

@@ -44,15 +44,13 @@ describe('link', () => {
     assertPairs(graph)
   })
 
-  test('links () to its enclosing pair', () => {
-    const F = '((F x) (() x))'
-    const { graph, legend } = linked(program([F], '(F a)'))
-    const argument = named(legend, 'a')
-    const result = observe(graph[1])
+  test('links () as an anonymous atom', () => {
+    const { graph } = linked('(() ())')
+    const atom = observe(graph)
 
-    assert.equal(result[0], result)
-    assert.equal(result[1], argument)
-    assert.equal(observe(result), argument)
+    assert.equal(atom[0], atom)
+    assert.equal(atom[1], atom)
+    assertPairs(graph)
   })
 
   test('wires the combinator graph by identity', () => {

@@ -1,4 +1,5 @@
 import { parse as defaultParser } from './parse.js'
+import { log } from './serialize.js'
 
 export const link = (source, parser = defaultParser) => {
   // Fold each source list left before the graph walk begins.
@@ -14,9 +15,6 @@ export const link = (source, parser = defaultParser) => {
   const stack = []
   // Names describe graph identities but are not part of the graph.
   const legend = []
-  // () refers to the pair that directly contains it.
-  const isEnclosure = node => Array.isArray(node) && !node.length
-
   const named = symbol =>
     stack.findLast(entry => entry.symbol === symbol)
 
@@ -27,12 +25,15 @@ export const link = (source, parser = defaultParser) => {
     return entry
   }
 
-  // A parameter or free name becomes a graph-native atom.
-  const identify = symbol => {
+  const atom = () => {
     const node = []
     node[0] = node[1] = node
-    return bind(node, symbol)
+    return node
   }
+
+  // A parameter or free name becomes a graph-native atom.
+  const identify = symbol =>
+    bind(atom(), symbol)
 
   const definitionFor = node =>
     stack.includes(node) && node[0] !== node && node
@@ -78,6 +79,9 @@ export const link = (source, parser = defaultParser) => {
       }
     }
 
+    if (!tree.length)
+      return { graph: atom() }
+
     if (replacements) {
       // Calls copy bodies, but identities and existing calls remain shared.
       const replacement = replacements.find(([from]) => tree === from)
@@ -92,11 +96,11 @@ export const link = (source, parser = defaultParser) => {
     }
 
     graph = replacements ? [] : tree
-    // Empty and already-linked self references become the current pair.
-    left = isEnclosure(tree[0]) || tree[0] === tree
+    // Already-linked self references become the current pair.
+    left = tree[0] === tree
       ? { graph }
       : walk(tree[0], replacements, defining)
-    right = isEnclosure(tree[1]) || tree[1] === tree
+    right = tree[1] === tree
       ? { graph }
       : walk(tree[1], replacements, defining)
     graph[0] = left.graph
@@ -164,6 +168,9 @@ export const link = (source, parser = defaultParser) => {
       walkDefinition(definition, sourceDefinitions[i][0]))
     const graph = []
     graph[0] = definitions.length ? pair(definitions) : graph
+
+    log(graph[0])
+
     graph[1] = walk(fold(sourceFocus)).graph
     return { graph, legend }
   } catch (error) {

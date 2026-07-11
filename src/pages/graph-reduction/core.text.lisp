@@ -1,10 +1,9 @@
-; Explicit-binding demonstration of the canonical program.
-; This historical form is not part of the canonical linker input.
+; Historical explicit-binding demonstration of the canonical program.
+; This old enclosure notation is not part of the canonical linker input.
 ; An unknown name on the left binds its right side to the current scope.
 ; Any other new name becomes a graph-native atom.
 
-(
- ((I ((I (x (() ()))) x))
+(((I ((I (x (() ()))) x))
   ((K (((K (x (() ()))) (y (() ()))) x))
    ((S ((((S (x (() ()))) (y (() ()))) (z (() ())))
         ((x z) (y z))))

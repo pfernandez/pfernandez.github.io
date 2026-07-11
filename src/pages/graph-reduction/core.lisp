@@ -11,9 +11,9 @@
   ((Succ n f x) (f (n f x))))
  ; (I a)
  ; (K a b)
- ; (S a b c)
+ (S a b c)
  ; (Y I) ; repeats forever
  ; (Y (K a))
  ; (Zero I a)
  ; (Succ Zero I a)
- (S a b c))
+ )
