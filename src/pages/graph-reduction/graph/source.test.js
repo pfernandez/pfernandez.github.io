@@ -33,19 +33,17 @@ const assertS = ({ result, legend }) => {
   assert.equal(result[1][1], named('c'))
 }
 
-test('folds signatures and applications before linking names', () => {
+test('folds forms before linking names', () => {
   const linked = resultOf(`
-  (
-   (((I x) x)
-    ((K x y) x)
-    ((S x y z) ((x z) (y z))))
-   (S a b c)
-  )
+  ((I x x)
+   (K x y x)
+   (S x y z ((x z) (y z)))
+   (S a b c))
   `)
 
   assert.deepEqual(
-    linked.legend.map(entry => entry.symbol),
-    ['I', 'x', 'K', 'x', 'y', 'S', 'x', 'y', 'z',
-     'a', 'S', 'b', 'c'])
+    linked.legend.map(entry => entry.symbol).sort(),
+    ['I', 'K', 'S', 'S', 'a', 'b', 'c', 'x', 'x', 'x', 'y', 'y', 'z']
+      .sort())
   assertS(linked)
 })

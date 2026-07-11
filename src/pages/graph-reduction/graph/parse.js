@@ -18,28 +18,25 @@ export const parse = source => {
   const tokens = tokenize(source)
   let index = 0
 
-  // The first child of the program may be () for "no definitions".
-  // No other empty source list has a runtime meaning.
-  const readForm = (program = false, allowEmpty = false) => {
+  const readForm = () => {
     const token = tokens[index++]
-    if (token.text === '(') return readList(token, program, allowEmpty)
+    if (token.text === '(') return readList(token)
     if (token.text === ')') err('Unexpected )', token)
     return token.text
   }
 
-  const readList = (opener, program, allowEmpty) => {
+  const readList = opener => {
     const items = []
     while (index < tokens.length && tokens[index].text !== ')')
-      items.push(readForm(false, program && !items.length))
+      items.push(readForm())
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
-    if (!items.length && !allowEmpty)
-      err('Unexpected ()', opener)
+    if (!items.length) err('Unexpected ()', opener)
     return items
   }
 
   const forms = []
-  while (index < tokens.length) forms.push(readForm(!forms.length))
+  while (index < tokens.length) forms.push(readForm())
   if (forms.length === 0) err('Missing expression')
   if (forms.length > 1) err('Expected one expression')
   return forms[0]

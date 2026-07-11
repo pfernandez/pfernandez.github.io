@@ -2,15 +2,15 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { link, observe } from './index.js'
 
-const I = '((I x) x)'
-const K = '((K x y) x)'
-const S = '((S x y z) ((x z) (y z)))'
-const Y = '((Y f) (f (Y f)))'
-const Zero = '((Zero f x) x)'
-const Succ = '((Succ n f x) (f (n f x)))'
+const I = '(I x x)'
+const K = '(K x y x)'
+const S = '(S x y z ((x z) (y z)))'
+const Y = '(Y f (f (Y f)))'
+const Zero = '(Zero f x x)'
+const Succ = '(Succ n f x (f (n f x)))'
 
 const program = (definitions, expression) =>
-  `((${definitions.join('\n')}) ${expression})`
+  `(${definitions.join('\n')} ${expression})`
 
 const linked = source => {
   const result = link(source)
@@ -36,11 +36,12 @@ const assertPairs = root => {
 }
 
 describe('link', () => {
-  test('links a program without definitions', () => {
-    const { graph, legend } = linked('(() a)')
+  test('links a bare atom', () => {
+    const { graph, legend } = linked('a')
 
     assert.equal(graph[0], graph)
-    assert.equal(observe(graph), named(legend, 'a'))
+    assert.equal(observe(graph), graph)
+    assert.equal(graph, named(legend, 'a'))
     assertPairs(graph)
   })
 

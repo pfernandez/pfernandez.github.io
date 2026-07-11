@@ -12,7 +12,7 @@ import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const source = arg =>
-  `((((I x) x)) (I ${arg}))`
+  `((I x x) (I ${arg}))`
 
 const program = arg =>
   link(source(arg))
@@ -62,12 +62,12 @@ describe('the image is the graph', () => {
     const a = address('a')
     const x = address('x')
     const I = address('I')
-    const signature = memory.getUint32(I, true)
+    const spine = memory.getUint32(I, true)
 
     assert.equal(memory.getUint32(a, true), a)
     assert.equal(memory.getUint32(a + 4, true), a)
-    assert.equal(memory.getUint32(signature, true), I)
-    assert.equal(memory.getUint32(signature + 4, true), x)
+    assert.equal(memory.getUint32(spine, true), I)
+    assert.equal(memory.getUint32(spine + 4, true), x)
     assert.equal(memory.getUint32(I + 4, true), x)
   })
 })

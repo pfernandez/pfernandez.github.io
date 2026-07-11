@@ -14,8 +14,7 @@ test('requires one complete expression', () => {
   assert.throws(() => parse('a b'), /Expected one expression/)
 })
 
-test('keeps () out of runtime source', () => {
-  assert.deepEqual(parse('(() a)'), [[], 'a'])
+test('keeps () out of source', () => {
   assert.throws(() => parse('()'), /Unexpected \(\)/)
   assert.throws(() => parse('(() ())'), /Unexpected \(\)/)
 })

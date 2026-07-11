@@ -14,11 +14,11 @@ import { image } from '../wasm/image.js'
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
-const I = '((I x) x)'
-const K = '((K x y) x)'
-const S = '((S x y z) ((x z) (y z)))'
+const I = '(I x x)'
+const K = '(K x y x)'
+const S = '(S x y z ((x z) (y z)))'
 const withCore = expression =>
-  `((${[I, K, S].join('\n')}) ${expression})`
+  `(${[I, K, S].join('\n')} ${expression})`
 
 const linkedAtom = () => link(`((${I}) (I a))`)
 

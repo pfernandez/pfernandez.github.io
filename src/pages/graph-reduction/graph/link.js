@@ -1,16 +1,8 @@
 import { parse as defaultParser } from './parse.js'
 
 export const link = (source, parser = defaultParser) => {
-  // Source is (definitions expression). A definition is
-  // ((Name ...parameters) body). Lists are folded left into binary pairs.
-  const pair = items =>
-    items.length
-      ? items.slice(1).reduce((left, right) => [left, right], items[0])
-      : []
-
-  const fold = tree =>
-    Array.isArray(tree) ? pair(tree.map(fold)) : tree
-
+  // A list folds left. If its first entry is a new symbol, that symbol names
+  // the whole folded form. Later new symbols become graph-native atoms.
   // The same stack holds identities, their names, and calls under construction.
   const stack = []
   // The graph contains only arrays. Names stay here for lookup and display.
@@ -25,7 +17,7 @@ export const link = (source, parser = defaultParser) => {
     return entry
   }
 
-  // A parameter or free name becomes a graph-native atom.
+  // A later new name becomes a graph-native atom.
   const identify = symbol => {
     const node = []
     node[0] = node[1] = node
@@ -40,67 +32,10 @@ export const link = (source, parser = defaultParser) => {
       entry.answer?.[1] === node
       && entry.arguments.length < entry.parameters.length)
 
-  const startCall = (graph, definition, priorArguments = []) => {
-    // The call rewrites this pair's left side to an answer spine.
-    // Observation stops at the self-left answer and returns its right side.
-    const answer = []
-    answer[0] = answer
-    const name = legend.find(entry => entry.node === definition)
-    if (name) legend.push({ node: answer, symbol: name.symbol })
-
-    // Definition parameters are the right branches of the signature spine.
-    const parameters = []
-    for (let pair = definition[0]; pair !== definition; pair = pair[0])
-      parameters.unshift(pair[1])
-    const call = {
-      answer,
-      definition,
-      parameters,
-      arguments: [...priorArguments]
-    }
-    let pair = answer
-    for (const argument of call.arguments)
-      pair = [pair, argument]
-    graph[0] = pair
-    stack.push(call)
-    return call
-  }
-
-  const walk = (tree, replacements, defining = false) => {
-    let graph, left, right
-
-    if (!Array.isArray(tree)) {
-      const entry = named(tree) ?? identify(tree)
-      const { node } = entry
-      return {
-        graph: node,
-        reference: node[0] !== node && !defining && node
-      }
-    }
-
-    if (replacements) {
-      // Body copies replace parameter identities but share existing identities.
-      const replacement = replacements.find(([from]) => tree === from)
-      const node = replacement?.[1] ?? tree
-      const reference = definitionFor(node)
-      const partial = partialFor(node)
-
-      if (replacement
-          || node[0] === node && node[1] === node
-          || reference || partial)
-        return { graph: node, reference, partial }
-    }
-
-    graph = replacements ? [] : tree
-    // Already-linked self references become the current pair.
-    left = tree[0] === tree
-      ? { graph }
-      : walk(tree[0], replacements, defining)
-    right = tree[1] === tree
-      ? { graph }
-      : walk(tree[1], replacements, defining)
+  const finish = (graph, left, right) => {
     graph[0] = left.graph
     graph[1] = right.graph
+    graph.length = 2
 
     const call = left.call
       ?? (left.reference
@@ -144,27 +79,93 @@ export const link = (source, parser = defaultParser) => {
     return { graph, call }
   }
 
-  // The raw signature names the definition and its local parameter identities.
-  const walkDefinition = (tree, [name, ...parameters]) => {
-    const scopeStart = stack.length
-    const entry = bind(tree, name)
-    for (const parameter of parameters)
-      identify(parameter)
-    walk(tree, undefined, true)
-    // Parameters leave scope while the completed definition remains.
-    stack.length = scopeStart
-    stack.push(tree, entry)
+  const startCall = (graph, definition, priorArguments = []) => {
+    // The call rewrites this pair's left side to an answer spine.
+    // Observation stops at the self-left answer and returns its right side.
+    const answer = []
+    answer[0] = answer
+    const name = legend.find(entry => entry.node === definition)
+    if (name) legend.push({ node: answer, symbol: name.symbol })
+
+    // Definition parameters are the right branches of the left spine.
+    const parameters = []
+    for (let pair = definition[0]; pair !== definition; pair = pair[0])
+      parameters.unshift(pair[1])
+    const call = {
+      answer,
+      definition,
+      parameters,
+      arguments: [...priorArguments]
+    }
+    let pair = answer
+    for (const argument of call.arguments)
+      pair = [pair, argument]
+    graph[0] = pair
+    stack.push(call)
+    return call
+  }
+
+  const walk = (tree, replacements, defining = false) => {
+    if (!Array.isArray(tree)) {
+      const entry = named(tree) ?? identify(tree)
+      const { node } = entry
+      return {
+        graph: node,
+        reference: node[0] !== node && !defining && node
+      }
+    }
+
+    if (!replacements) {
+      if (tree.length === 1)
+        return walk(tree[0], undefined, defining)
+
+      const length = tree.length
+      const graph = tree
+      const scopeStart = stack.length
+      const entry =
+        !Array.isArray(tree[0]) && !named(tree[0]) && bind(graph, tree[0])
+
+      let result
+      tree.forEach((node, i) => {
+        const child = walk(node, undefined, defining || Boolean(entry))
+        result = i
+          ? finish(i === length - 1 ? tree : [], result, child)
+          : child
+      })
+
+      if (entry) {
+        // Local parameter names leave scope; the named form remains.
+        stack.length = scopeStart
+        stack.push(graph, entry)
+      }
+
+      return result
+    }
+
+    // Body copies replace parameter identities but share existing identities.
+    const replacement = replacements.find(([from]) => tree === from)
+    const node = replacement?.[1] ?? tree
+    const reference = definitionFor(node)
+    const partial = partialFor(node)
+
+    if (replacement
+        || node[0] === node && node[1] === node
+        || reference || partial)
+      return { graph: node, reference, partial }
+
+    const graph = []
+    // Already-linked self references become the current pair.
+    const left = tree[0] === tree
+      ? { graph }
+      : walk(tree[0], replacements, defining)
+    const right = tree[1] === tree
+      ? { graph }
+      : walk(tree[1], replacements, defining)
+    return finish(graph, left, right)
   }
 
   try {
-    const [sourceDefinitions, sourceFocus] = parser(source)
-    // Fold after reading signatures so arity remains explicit in source.
-    const definitions = sourceDefinitions.map(definition => fold(definition))
-    definitions.forEach((definition, i) =>
-      walkDefinition(definition, sourceDefinitions[i][0]))
-    const graph = []
-    graph[0] = definitions.length ? pair(definitions) : graph
-    graph[1] = walk(fold(sourceFocus)).graph
+    const graph = walk(parser(source)).graph
     return { graph, legend }
   } catch (error) {
     return { graph: [], legend: [], error }
