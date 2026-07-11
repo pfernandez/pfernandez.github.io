@@ -18,26 +18,26 @@ export const parse = source => {
   const tokens = tokenize(source)
   let index = 0
 
-  const readForm = (path = []) => {
+  const readForm = (program = false, allowEmpty = false) => {
     const token = tokens[index++]
-    if (token.text === '(') return readList(token, path)
+    if (token.text === '(') return readList(token, program, allowEmpty)
     if (token.text === ')') err('Unexpected )', token)
     return token.text
   }
 
-  const readList = (opener, path) => {
+  const readList = (opener, program, allowEmpty) => {
     const items = []
     while (index < tokens.length && tokens[index].text !== ')')
-      items.push(readForm([...path, items.length]))
+      items.push(readForm(false, program && !items.length))
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
-    if (!items.length && !(path.length === 1 && path[0] === 0))
+    if (!items.length && !allowEmpty)
       err('Unexpected ()', opener)
     return items
   }
 
   const forms = []
-  while (index < tokens.length) forms.push(readForm())
+  while (index < tokens.length) forms.push(readForm(!forms.length))
   if (forms.length === 0) err('Missing expression')
   if (forms.length > 1) err('Expected one expression')
   return forms[0]

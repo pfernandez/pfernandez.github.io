@@ -22,17 +22,6 @@ const withCore = expression =>
 
 const linkedAtom = () => link(`((${I}) (I a))`)
 
-const withoutConsoleDir = fn => {
-  const write = console.dir
-  console.dir = () => {}
-
-  try {
-    return fn()
-  } finally {
-    console.dir = write
-  }
-}
-
 const imageView = ({ graph, legend }) => {
   const graphImage = image(graph)
   const graphView = view(graphImage.bytes)
@@ -76,8 +65,7 @@ describe('serialize', () => {
   })
 
   test('expand shows named definition structure once', () => {
-    const linked = withoutConsoleDir(() => link(withCore(
-      '(S a b c)')))
+    const linked = link(withCore('(S a b c)'))
     const { legend } = linked
     const expanded = [
       '(((((I x) x)',

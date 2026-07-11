@@ -1,5 +1,4 @@
 import { parse as defaultParser } from './parse.js'
-import { log } from './serialize.js'
 
 export const link = (source, parser = defaultParser) => {
   // Fold each source list left before the graph walk begins.
@@ -162,9 +161,6 @@ export const link = (source, parser = defaultParser) => {
       walkDefinition(definition, sourceDefinitions[i][0]))
     const graph = []
     graph[0] = definitions.length ? pair(definitions) : graph
-
-    log(graph[0])
-
     graph[1] = walk(fold(sourceFocus)).graph
     return { graph, legend }
   } catch (error) {
