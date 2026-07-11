@@ -1,6 +1,6 @@
 export { parse } from './parse.js'
 export { link } from './link.js'
-export { observe } from './observe.js'
+export { step } from './step.js'
 export {
   addressLegend,
   log,

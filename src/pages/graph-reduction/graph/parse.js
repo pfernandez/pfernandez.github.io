@@ -37,6 +37,7 @@ export const parse = source => {
 
   const forms = []
   while (index < tokens.length) forms.push(readForm())
+
   if (forms.length === 0) err('Missing expression')
   if (forms.length > 1) err('Expected one expression')
   return forms[0]

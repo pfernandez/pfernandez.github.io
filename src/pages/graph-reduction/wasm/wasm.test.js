@@ -3,11 +3,11 @@ import { describe, test } from 'node:test'
 import {
   addressLegend,
   link,
-  observe,
   serialize,
   serializeWasm
 } from '../graph/index.js'
-import { observeAddress } from './address.js'
+import { step } from '../graph/index.js'
+import { stepAddress } from './address.js'
 import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
@@ -35,17 +35,17 @@ const loadMachine = async linked => {
 }
 
 describe('the image is the graph', () => {
-  test('image observation agrees with the graph engine', () => {
+  test('image step agrees with the graph engine', () => {
     const linked = program('a')
     const graphImage = image(linked.graph, linked.graph[1])
     const { bytes, focus } = graphImage
     const legend = addressLegend(graphImage, linked.legend)
     const memory = view(bytes)
-    const found = observeAddress(memory, focus)
+    const found = stepAddress(memory, focus)
 
     assert.equal(
       serializeWasm(memory, found, { legend }),
-      serialize(observe(linked.graph[1]), {
+      serialize(step(linked.graph[1]), {
         legend: linked.legend,
         expand: false
       }))
@@ -73,26 +73,26 @@ describe('the image is the graph', () => {
 })
 
 describe('the machine runs graph bytes', () => {
-  test('the wasm engine observes the source graph', async () => {
+  test('the wasm engine steps the source graph', async () => {
     const linked = program('a')
     const machine = await loadMachine(linked)
-    const result = machine.exports.observe(machine.exports.focus.value)
+    const result = machine.exports.step(machine.exports.focus.value)
 
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
       serializeWasm(machine.memory, result, { legend: machine.legend }),
-      serialize(observe(linked.graph[1]), {
+      serialize(step(linked.graph[1]), {
         legend: linked.legend,
         expand: false
       }))
   })
 
-  test('observation is idempotent inside the machine', async () => {
+  test('partials are idempotent inside the machine', async () => {
     const machine = await loadMachine(program('a'))
-    const found = machine.exports.observe(machine.focus)
+    const found = machine.exports.step(machine.focus)
 
-    assert.equal(machine.exports.observe(found), found)
-    assert.equal(machine.exports.observe(machine.exports.observe(found)), found)
+    assert.equal(machine.exports.step(found), found)
+    assert.equal(machine.exports.step(machine.exports.step(found)), found)
   })
 
   test('the module is self-contained: source names round-trip', async () => {

@@ -1,8 +1,8 @@
-// Every module uses the same observe machine; each graph differs only
+// Every module uses the same step machine; each graph differs only
 // in bytes, focus, and legend.
 
 import { addressLegend, link, traceWasm } from '../graph/index.js'
-import { observeAddress } from './address.js'
+import { stepAddress } from './address.js'
 import { image } from './image.js'
 
 // LEB128 integers: unsigned for sizes and counts, signed for constants.
@@ -35,15 +35,9 @@ const name = text => [...uleb(utf8(text).length), ...utf8(text)]
 const section = (id, body) => [id, ...uleb(body.length), ...body]
 
 export const emit = ({ bytes, focus, legend = new Map() }) => {
-  // observe(p): follow function sides until mem[p] == p, then return its right
-  const observe = [
+  // step(p): return mem[p + 4]
+  const step = [
     0x00,                              // no locals
-    0x02, 0x40, 0x03, 0x40,            // block, loop
-    0x20, 0x00, 0x28, 0x02, 0x00,      //   load mem[p]
-    0x20, 0x00, 0x46, 0x0d, 0x01,      //   equal to p? exit loop
-    0x20, 0x00, 0x28, 0x02, 0x00,      //   p = mem[p]
-    0x21, 0x00, 0x0c, 0x00,            //   again
-    0x0b, 0x0b,                        // end loop, end block
     0x20, 0x00, 0x28, 0x02, 0x04,      // return mem[p + 4]
     0x0b
   ]
@@ -55,24 +49,24 @@ export const emit = ({ bytes, focus, legend = new Map() }) => {
     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,    // \0asm, version 1
     // type: one signature, i32 -> i32
     ...section(1, [0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f]),
-    // function: observe
+    // function: step
     ...section(3, [0x01, 0x00]),
     // memory: enough 64K pages to hold the graph bytes
     ...section(5, [0x01, 0x00,
                    ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
-    // global: focus, the address observation starts from
+    // global: focus, the address stepping starts from
     ...section(6, [0x01, 0x7f, 0x00, 0x41, ...sleb(focus), 0x0b]),
     // exports
     ...section(7, [
       0x03,
       ...name('memory'), 0x02, 0x00,
       ...name('focus'), 0x03, 0x00,
-      ...name('observe'), 0x00, 0x00
+      ...name('step'), 0x00, 0x00
     ]),
-    // code: observe
+    // code: step
     ...section(10, [
       0x01,
-      ...uleb(observe.length), ...observe
+      ...uleb(step.length), ...step
     ]),
     // data: the graph bytes, at address 0
     ...section(11, [0x01, 0x00, 0x41,
@@ -138,7 +132,7 @@ export const readLegend = bytes => {
   return new Map()
 }
 
-// Replay observation in JS over exported memory, run wasm observe, and insist
+// Replay one step in JS over exported memory, run wasm step, and insist
 // they agree.
 export const run = async bytes => {
   const legend = readLegend(bytes)
@@ -151,12 +145,11 @@ export const run = async bytes => {
     format: 'ansi'
   }
 
-  const foundByImage =
-    observeAddress(view, focus.value, root =>
-      traceWasm(view, root, traceOptions))
-  const foundByWasm = instance.exports.observe(focus.value)
+  traceWasm(view, focus.value, traceOptions)
+  const foundByImage = stepAddress(view, focus.value)
+  const foundByWasm = instance.exports.step(focus.value)
   if (foundByWasm !== foundByImage)
-    throw new Error('Wasm observe disagrees with image observe')
+    throw new Error('Wasm step disagrees with image step')
 
   traceWasm(view, foundByWasm, traceOptions)
   return instance

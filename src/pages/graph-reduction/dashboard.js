@@ -1,53 +1,36 @@
 import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
-import { link, observe, schemeNames, schemes, serialize }
-  from './graph/index.js'
+import { link, schemeNames, schemes, serialize, step } from './graph/index.js'
 import lisp from './core.lisp?raw'
 
-const linked = link(lisp)
 const initialState =
-  { ...linked,
-    focus: linked.graph[1],
-    source: lisp,
-    history: [],
-    scheme: schemes.ink }
+  { ...link(lisp), source: lisp, history: [], scheme: schemes.ink }
 
 const infer = (
   { graph,
     history,
     time = history.length,
     previous = history[time - 1],
-    stable = graph === history[0] }) => ({ time, previous, stable })
+    stable = step(graph) === graph }) => ({ time, previous, stable })
 
 const dashboard = component(
   (state = initialState) => {
-
-    const { graph, focus, legend, source, history, error, scheme } = state
+    const { graph, legend, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
-    const view = () => dashboard(
-      { ...state,
-        graph: observe(focus, g => console.log(serialize(g, { legend }))),
-        history: [...history, state] })
-
-    const load = source => {
-      const linked = link(source)
-      return dashboard(
-        { ...state, ...linked, focus: linked.graph[1], source, history: [] })
-    }
-
+    const view = () =>
+      dashboard({ ...state, graph: step(graph), history: [...history, state] })
+    const load = source =>
+      dashboard({ ...state, ...link(source), source, history: [] })
     const chooseScheme = scheme => dashboard({ ...state, scheme })
-
     const undo = () => dashboard({ ...previous, scheme })
-
     const reset = () => dashboard({ ...history[0], scheme })
 
     return div(
       { class: 'dashboard' },
       div({ class: 'panel' },
           h2('Graph Reduction'),
-
           p({ class: 'description' },
             'Expressions are converted directly to graph structure. ',
             'Symbols and colors denote memory address'),

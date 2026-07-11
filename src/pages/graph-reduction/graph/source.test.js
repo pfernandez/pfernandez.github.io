@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { link, observe } from './index.js'
+import { link, step } from './index.js'
 
 const assertPairs = root => {
   const pending = [root]
@@ -20,7 +20,7 @@ const resultOf = source => {
   const { graph, legend, error } = link(source)
   if (error) throw error
   assertPairs(graph)
-  return { result: observe(graph[1]), legend }
+  return { result: step(step(graph)), legend }
 }
 
 const assertS = ({ result, legend }) => {

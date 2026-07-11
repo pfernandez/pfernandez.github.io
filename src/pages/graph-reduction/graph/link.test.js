@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { link, observe } from './index.js'
+import { link, step } from './index.js'
 
 const I = '(I x x)'
 const K = '(K x y x)'
@@ -21,6 +21,13 @@ const linked = source => {
 const named = (legend, symbol) =>
   legend.find(entry => entry.symbol === symbol).node
 
+const steps = (graph, count) => {
+  let result = graph
+  for (let i = 0; i < count; i++)
+    result = step(result)
+  return result
+}
+
 const assertPairs = root => {
   const pending = [root]
   const seen = new Set()
@@ -40,7 +47,7 @@ describe('link', () => {
     const { graph, legend } = linked('a')
 
     assert.equal(graph[0], graph)
-    assert.equal(observe(graph), graph)
+    assert.equal(step(graph), graph)
     assert.equal(graph, named(legend, 'a'))
     assertPairs(graph)
   })
@@ -58,7 +65,7 @@ describe('link', () => {
     assert.equal(linkedK[0][0][1], linkedK[1])
     assert.equal(linkedS[0][0][0][0], linkedS)
 
-    const result = observe(graph[1])
+    const result = steps(graph, 2)
     assert.equal(result[0][1], result[1][1])
     assertPairs(graph)
   })
@@ -72,30 +79,41 @@ describe('link', () => {
       ['(S a b c)', false]
     ]) {
       const { graph } = linked(program([I, K, S], expression))
-      assert.equal(observe(graph[1]) === graph[1], stable)
+      const focus = step(graph)
+      assert.equal(step(focus) === focus, stable)
     }
   })
 
   test('answers calls created by copies', () => {
-    const { graph } = linked(program([I, K, S], '(S K K a)'))
-    const argument = graph[1][1]
-    const first = observe(graph[1])
+    const { graph, legend } = linked(program([I, K, S], '(S K K a)'))
 
-    assert.equal(observe(first), argument)
+    assert.equal(steps(graph, 3), named(legend, 'a'))
   })
 
-  test('ties recursive calls into an unbounded observation cycle', () => {
+  test('lets a binary root carry a live future on the right', () => {
+    const { graph, legend } = linked(program([I, S], '(Root (S a b c))'))
+    const root = step(graph)
+    const future = step(root)
+    const result = step(future)
+
+    assert.equal(root[0], root)
+    assert.equal(root, named(legend, 'Root'))
+    assert.equal(result[0][1], result[1][1])
+  })
+
+  test('ties recursive calls into an unbounded step cycle', () => {
     const { graph } = linked(program([I, Y], '(Y I)'))
 
-    const first = observe(graph[1])
-    const second = observe(first)
-    const third = observe(second)
-    assert.equal(observe(third), first)
+    const first = step(graph)
+    const second = step(first)
+    const third = step(second)
+    const fourth = step(third)
+    assert.equal(step(fourth), second)
 
-    let result = third
+    let result = fourth
     for (let i = 0; i < 999; i++)
-      result = observe(result)
-    assert.equal(result, third)
+      result = step(result)
+    assert.equal(result, fourth)
   })
 
   test('composes Church successors', () => {
@@ -107,10 +125,10 @@ describe('link', () => {
       const { graph } =
         linked(program([I, Zero, Succ], `(${numeral} I a)`))
 
-      let result = graph[1]
+      let result = graph
       let steps = 0
       do {
-        const next = observe(result)
+        const next = step(result)
         steps += 1
         if (next === result) break
         result = next
@@ -118,7 +136,7 @@ describe('link', () => {
 
       assert.equal(result[0], result)
       assert.equal(result[1], result)
-      assert.equal(steps, 2 * n + 2)
+      assert.equal(steps, 2 * n + 3)
     }
   })
 })

@@ -1,15 +1,8 @@
 export const log = x =>
-  (typeof x === 'string'
-    ? console.log(x)
-    : console.dir(x, { depth: null }),
-  x)
+  (typeof x === 'string' ? console.log(x) : console.dir(x, { depth: null }), x)
 
-export const schemes = Object.freeze({
-  ink: 'ink',
-  pastel: 'pastel',
-  color: 'color',
-  plain: 'plain'
-})
+export const schemes = Object.freeze(
+  { ink: 'ink', pastel: 'pastel', color: 'color', plain: 'plain' })
 
 export const schemeNames = Object.values(schemes)
 
@@ -39,11 +32,9 @@ const isDefinitionSequence = (legend, node, seen = new Set()) => {
     && isDefinitionSequence(legend, node[1], seen)
 }
 
-const indentOf = path =>
-  path.split('.').length + 1
+const indentOf = path => path.split('.').length + 1
 
-const xtermChannel = step =>
-  step === 0 ? 0 : 55 + step * 40
+const xtermChannel = step => step === 0 ? 0 : 55 + step * 40
 
 const xtermColor = color => {
   const offset = color - 16
@@ -54,11 +45,8 @@ const xtermColor = color => {
   return { ansi: `38;5;${color}`, css: `rgb(${rgb.join(', ')})`, rgb }
 }
 
-const rgbColor = rgb => ({
-  ansi: `38;2;${rgb.join(';')}`,
-  css: `rgb(${rgb.join(', ')})`,
-  rgb
-})
+const rgbColor = rgb =>
+  ({ ansi: `38;2;${rgb.join(';')}`, css: `rgb(${rgb.join(', ')})`, rgb })
 
 const interpolate = (start, end, t) =>
   start.map((channel, i) => Math.round(channel + (end[i] - channel) * t))
@@ -68,16 +56,14 @@ const identityColor = index => {
   const red = COLOR_STEPS[offset % COLOR_STEPS.length]
   const green =
     COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length) % COLOR_STEPS.length]
-  const blue =
-    COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length ** 2)]
+  const blue = COLOR_STEPS[Math.floor(offset / COLOR_STEPS.length ** 2)]
   return xtermColor(16 + 36 * red + 6 * green + blue)
 }
 
 const pastelColor = index =>
   xtermColor(PASTEL_COLORS[Math.min(index, PASTEL_COLORS.length - 1)])
 
-const spread = index =>
-  index * 29 % COLOR_COUNT / (COLOR_COUNT - 1)
+const spread = index => index * 29 % COLOR_COUNT / (COLOR_COUNT - 1)
 
 const pastelGradient = index => {
   const position = spread(index) * (PASTEL_COLORS.length - 1)
@@ -87,24 +73,19 @@ const pastelGradient = index => {
   return rgbColor(interpolate(pastelColor(start).rgb, pastelColor(end).rgb, t))
 }
 
-const colorScheme = color => ({
-  ansi: identity => color(identity).ansi,
-  style: identity => ({ color: color(identity).css })
-})
+const colorScheme = color =>
+  ({ ansi: identity => color(identity).ansi,
+     style: identity => ({ color: color(identity).css }) })
 
-const opacity = index =>
-  0.2 + spread(index) * 0.8
+const opacity = index => 0.2 + spread(index) * 0.8
 
-const schemeRenderers = {
-  [schemes.color]: colorScheme(identityColor),
-  [schemes.ink]: {
-    ansi: index =>
-      `38;5;${232 + Math.round(opacity(index) * 23)}`,
-    style: index => ({ opacity: opacity(index) })
-  },
-  [schemes.pastel]: colorScheme(pastelGradient),
-  [schemes.plain]: {}
-}
+const schemeRenderers =
+  { [schemes.color]: colorScheme(identityColor),
+    [schemes.ink]:
+    { ansi: index => `38;5;${232 + Math.round(opacity(index) * 23)}`,
+      style: index => ({ opacity: opacity(index) }) },
+    [schemes.pastel]: colorScheme(pastelGradient),
+    [schemes.plain]: {} }
 
 const selectedScheme = name =>
   schemeRenderers[name] || schemeRenderers[schemes.color]
@@ -113,33 +94,24 @@ const jsIdentities = new WeakMap()
 let nextJsIdentity = 0
 
 const jsIdentity = node => {
-  if (!jsIdentities.has(node))
-    jsIdentities.set(node, nextJsIdentity++)
+  if (!jsIdentities.has(node)) jsIdentities.set(node, nextJsIdentity++)
   return jsIdentities.get(node)
 }
 
 const wasmIdentity = (address, identities) => {
-  if (!identities.has(address))
-    identities.set(address, identities.size)
+  if (!identities.has(address)) identities.set(address, identities.size)
   return identities.get(address)
 }
 
 const textToken = text => ({ text })
 
-const identityToken = (text, identity) =>
-  ({ text, identity })
+const identityToken = (text, identity) => ({ text, identity })
 
 const graphTokens = (
   node,
   legend,
-  {
-    expand = false,
-    path = '$',
-    seen = new Map(),
-    inName = false,
-    inDefinitions = false,
-    repeat = 'identity'
-  } = {}
+  { expand = false, path = '$', seen = new Map(), inName = false,
+    inDefinitions = false, repeat = 'identity' } = {}
 ) => {
   if (!Array.isArray(node)) return [textToken(String(node))]
 
@@ -153,22 +125,17 @@ const graphTokens = (
       : [identityToken('()', jsIdentity(node))]
 
   seen.set(node, path)
-  const next = {
-    expand,
-    path,
-    seen,
-    inName: inName || name !== undefined,
-    inDefinitions,
-    repeat
-  }
+  const next = { expand, path, seen, inName: inName || name !== undefined,
+                 inDefinitions, repeat }
+
   const startsDefinitions = expand && !inName && name === undefined && (
     inDefinitions
       || path === '$' && isDefinitionSequence(legend, node[0])
       || isDefinitionSequence(legend, node[0])
         && isDefinitionSequence(legend, node[1]))
-  const separator = startsDefinitions
-    ? `\n${' '.repeat(indentOf(path))}`
-    : ' '
+
+  const separator = startsDefinitions ? `\n${' '.repeat(indentOf(path))}` : ' '
+
   const pairToken = text =>
     repeat === 'path' ? textToken(text) : identityToken(text, jsIdentity(node))
 
@@ -194,10 +161,10 @@ const wasmText = (view, root, legend, path = '$', seen = new Map()) => {
   if (seen.has(root)) return seen.get(root)
 
   seen.set(root, path)
-  const left =
-    wasmText(view, view.getUint32(root, true), legend, `${path}.0`, seen)
-  const right =
-    wasmText(view, view.getUint32(root + 4, true), legend, `${path}.1`, seen)
+  const left = wasmText(
+    view, view.getUint32(root, true), legend, `${path}.0`, seen)
+  const right = wasmText(
+    view, view.getUint32(root + 4, true), legend, `${path}.1`, seen)
   return `(${left} ${right})`
 }
 
@@ -219,11 +186,7 @@ const wasmTokens = (
     ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
     textToken(' '),
     ...wasmTokens(
-      view,
-      view.getUint32(root + 4, true),
-      legend,
-      seen,
-      identities),
+      view, view.getUint32(root + 4, true), legend, seen, identities),
     identityToken(')', identity)
   ]
 }
@@ -287,13 +250,11 @@ const renderTokens = (tokens, { format, scheme }) => {
 const writeTrace = (output, options) => {
   const { label } = options
   const count = options.count === true ? 0 : options.count
-  const prefix = [
-    count === false || count === undefined ? undefined : count,
-    label
-  ].filter(part => part !== undefined).join(' ')
+  const prefix =
+    [count === false || count === undefined ? undefined : count,
+     label].filter(part => part !== undefined).join(' ')
 
-  if (count !== false && count !== undefined)
-    options.count = count + 1
+  if (count !== false && count !== undefined) options.count = count + 1
 
   return log(`${prefix ? `${prefix} ` : ''}${output}\n`)
 }
@@ -307,18 +268,11 @@ export const serialize = (
     : renderTokens(graphTokens(graph, legend, { expand }), { format, scheme })
 
 export const trace = (graph, options = {}) => {
-  const {
-    legend,
-    format = 'ansi',
-    scheme = schemes.color,
-    expand = true
-  } = options
-  const output = serialize(graph, {
-    legend: legend ?? [],
-    format,
-    scheme,
-    expand
-  })
+  const { legend, format = 'ansi', scheme = schemes.color, expand = true }
+    = options
+  const output = serialize(
+    graph, { legend: legend ?? [], format, scheme, expand })
+
   return writeTrace(output, options)
 }
 
@@ -342,16 +296,8 @@ export const serializeWasm = (
     : renderTokens(wasmTokens(view, root, legend), { format, scheme })
 
 export const traceWasm = (view, root, options = {}) => {
-  const {
-    legend,
-    format = 'ansi',
-    scheme = schemes.color
-  } = options
-  const output = serializeWasm(view, root, {
-    legend: legend ?? new Map(),
-    format,
-    scheme
-  })
-
+  const { legend, format = 'ansi', scheme = schemes.color } = options
+  const output = serializeWasm(
+    view, root, { legend: legend ?? new Map(), format, scheme })
   return writeTrace(output, options)
 }

@@ -1,4 +1,4 @@
-import { link, log, observe, trace } from './graph/index.js'
+import { link, log, step, trace } from './graph/index.js'
 
 const main = () =>
   typeof process !== 'undefined'
@@ -8,29 +8,19 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const parser = process.argv[3]
-    && (await import(process.argv[3])).parse
   const source = readFileSync(file, 'utf-8')
 
-  const linked = link(source, parser)
-  const { graph, legend, error } = linked
+  const { graph, legend, error } = link(source)
   if (error) throw error
 
-  const _trace = (x, label = 'observe') => trace(x, { label, legend })
-
-  log({ file, parser, source, linked })
+  log({ file, source, graph, legend })
 
   trace(graph, { label: 'graph\n', legend })
-
-  const result = observe(graph[1], _trace)
+  const focus = step(graph)
+  trace(focus, { label: 'step', legend })
+  const result = step(focus)
   trace(result, { label: 'result', legend })
 
-  // Repeated observation continues reduction because `observe` returns
-  // `pair[1]`. Returning `pair` instead provides a result that is stable under
-  // repeated observation, but the right side (the function body) must then be
-  // selected. This may point to a graph-native left observer with accumulated
-  // history, and right focus with incoming next event.
-  //
-  // const next = observe(result, _trace)
-  // trace(next, { label: 'next', legend })
+  // `step` is only a right-edge projection. The graph must carry any observer
+  // state, history, and next event needed to make that projection meaningful.
 }

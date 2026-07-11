@@ -71,7 +71,7 @@ describe('serialize', () => {
       '(((((I x) x)',
       '    (((K x) y) x))',
       '   ((((S x) y) z) ((x z) (y z))))',
-      '  (((S a) b) c))'
+      '  ((((S a) b) c) ((a c) (b c))))'
     ].join('\n')
     const presented = expanded
 
@@ -79,7 +79,7 @@ describe('serialize', () => {
       legend,
       expand: false
     }), [
-      '(((I K) S) (((S a) b) c))'
+      '(((I K) S) ((((S a) b) c) ((a c) (b c))))'
     ].join(''))
     assert.equal(
       serialize(linked.graph, { legend }),
