@@ -1,6 +1,6 @@
 ; Historical parenthesis-only demonstration of the canonical program.
 ; This old enclosure notation is not part of the canonical linker input.
-; The current linker treats a walked () as a fresh anonymous atom.
+; The current linker gives () no runtime-source meaning.
 
 (
  (((((()) ((() ()))) (())))                         ; I

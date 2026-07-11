@@ -25,15 +25,12 @@ export const link = (source, parser = defaultParser) => {
     return entry
   }
 
-  const atom = () => {
+  // A parameter or free name becomes a graph-native atom.
+  const identify = symbol => {
     const node = []
     node[0] = node[1] = node
-    return node
+    return bind(node, symbol)
   }
-
-  // A parameter or free name becomes a graph-native atom.
-  const identify = symbol =>
-    bind(atom(), symbol)
 
   const definitionFor = node =>
     stack.includes(node) && node[0] !== node && node
@@ -78,9 +75,6 @@ export const link = (source, parser = defaultParser) => {
         reference: node[0] !== node && !defining && node
       }
     }
-
-    if (!tree.length)
-      return { graph: atom() }
 
     if (replacements) {
       // Calls copy bodies, but identities and existing calls remain shared.

@@ -18,19 +18,21 @@ export const parse = source => {
   const tokens = tokenize(source)
   let index = 0
 
-  const readForm = () => {
+  const readForm = (path = []) => {
     const token = tokens[index++]
-    if (token.text === '(') return readList(token)
+    if (token.text === '(') return readList(token, path)
     if (token.text === ')') err('Unexpected )', token)
     return token.text
   }
 
-  const readList = opener => {
+  const readList = (opener, path) => {
     const items = []
     while (index < tokens.length && tokens[index].text !== ')')
-      items.push(readForm())
+      items.push(readForm([...path, items.length]))
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
+    if (!items.length && !(path.length === 1 && path[0] === 0))
+      err('Unexpected ()', opener)
     return items
   }
 

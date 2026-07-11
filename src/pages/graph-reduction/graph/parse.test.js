@@ -11,5 +11,11 @@ test('returns the source tree without folding its forms', () => {
 test('requires one complete expression', () => {
   assert.throws(() => parse(''), /Missing expression/)
   assert.throws(() => parse('('), /Missing \)/)
-  assert.throws(() => parse('() ()'), /Expected one expression/)
+  assert.throws(() => parse('a b'), /Expected one expression/)
+})
+
+test('keeps () out of runtime source', () => {
+  assert.deepEqual(parse('(() a)'), [[], 'a'])
+  assert.throws(() => parse('()'), /Unexpected \(\)/)
+  assert.throws(() => parse('(() ())'), /Unexpected \(\)/)
 })

@@ -44,15 +44,6 @@ describe('link', () => {
     assertPairs(graph)
   })
 
-  test('links () as an anonymous atom', () => {
-    const { graph } = linked('(() ())')
-    const atom = observe(graph)
-
-    assert.equal(atom[0], atom)
-    assert.equal(atom[1], atom)
-    assertPairs(graph)
-  })
-
   test('wires the combinator graph by identity', () => {
     const { graph, legend } =
       linked(program([I, K, S], '(S a b c)'))
