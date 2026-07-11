@@ -18,6 +18,8 @@ export const parse = source => {
   const tokens = tokenize(source)
   let index = 0
 
+  // The first child of the program may be () for "no definitions".
+  // No other empty source list has a runtime meaning.
   const readForm = (program = false, allowEmpty = false) => {
     const token = tokens[index++]
     if (token.text === '(') return readList(token, program, allowEmpty)

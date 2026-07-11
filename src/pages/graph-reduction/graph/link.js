@@ -1,7 +1,8 @@
 import { parse as defaultParser } from './parse.js'
 
 export const link = (source, parser = defaultParser) => {
-  // Fold each source list left before the graph walk begins.
+  // Source is (definitions expression). A definition is
+  // ((Name ...parameters) body). Lists are folded left into binary pairs.
   const pair = items =>
     items.length
       ? items.slice(1).reduce((left, right) => [left, right], items[0])
@@ -12,7 +13,7 @@ export const link = (source, parser = defaultParser) => {
 
   // The same stack holds identities, their names, and calls under construction.
   const stack = []
-  // Names describe graph identities but are not part of the graph.
+  // The graph contains only arrays. Names stay here for lookup and display.
   const legend = []
   const named = symbol =>
     stack.findLast(entry => entry.symbol === symbol)
@@ -40,12 +41,14 @@ export const link = (source, parser = defaultParser) => {
       && entry.arguments.length < entry.parameters.length)
 
   const startCall = (graph, definition, priorArguments = []) => {
-    // Observation stops at this fixed-left pair and returns its right side.
+    // The call rewrites this pair's left side to an answer spine.
+    // Observation stops at the self-left answer and returns its right side.
     const answer = []
     answer[0] = answer
     const name = legend.find(entry => entry.node === definition)
     if (name) legend.push({ node: answer, symbol: name.symbol })
 
+    // Definition parameters are the right branches of the signature spine.
     const parameters = []
     for (let pair = definition[0]; pair !== definition; pair = pair[0])
       parameters.unshift(pair[1])
@@ -76,7 +79,7 @@ export const link = (source, parser = defaultParser) => {
     }
 
     if (replacements) {
-      // Calls copy bodies, but identities and existing calls remain shared.
+      // Body copies replace parameter identities but share existing identities.
       const replacement = replacements.find(([from]) => tree === from)
       const node = replacement?.[1] ?? tree
       const reference = definitionFor(node)
@@ -123,7 +126,7 @@ export const link = (source, parser = defaultParser) => {
             argument === call.arguments[i]))
 
         if (prior) {
-          // Reusing an active call ties recursion into a finite cycle.
+          // A repeated active call shares its existing answer, tying recursion.
           call.answer[1] = prior.answer
         } else {
           // A new complete call copies its body with argument identities.
@@ -141,7 +144,7 @@ export const link = (source, parser = defaultParser) => {
     return { graph, call }
   }
 
-  // The raw signature tells us which names belong to this definition.
+  // The raw signature names the definition and its local parameter identities.
   const walkDefinition = (tree, [name, ...parameters]) => {
     const scopeStart = stack.length
     const entry = bind(tree, name)
@@ -155,7 +158,7 @@ export const link = (source, parser = defaultParser) => {
 
   try {
     const [sourceDefinitions, sourceFocus] = parser(source)
-    // Fold definitions separately so their raw signatures remain available.
+    // Fold after reading signatures so arity remains explicit in source.
     const definitions = sourceDefinitions.map(definition => fold(definition))
     definitions.forEach((definition, i) =>
       walkDefinition(definition, sourceDefinitions[i][0]))
