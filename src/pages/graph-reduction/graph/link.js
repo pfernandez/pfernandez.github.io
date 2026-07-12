@@ -2,7 +2,7 @@ import { parse } from './parse.js'
 
 export const link = source => {
   // A list folds left. If its first entry is a new symbol, that symbol names
-  // the whole folded form. Later new symbols become graph-native atoms.
+  // the fold of the remaining entries. Later new symbols become atoms.
   // The same stack holds identities, their names, and calls under construction.
   const stack = []
 
@@ -13,9 +13,9 @@ export const link = source => {
     stack.findLast(entry => entry.symbol === symbol)
 
   const bind = (node, symbol) => {
-    const entry = { node, symbol }
+    const entry = { node, symbol, label: { node, symbol } }
     stack.push(node, entry)
-    legend.push(entry)
+    legend.push(entry.label)
     return entry
   }
 
@@ -26,8 +26,11 @@ export const link = source => {
     return bind(node, symbol)
   }
 
+  const parametersOf = node =>
+    node[0] === node ? [node] : [...parametersOf(node[0]), node[1]]
+
   const definitionFor = node =>
-    stack.includes(node) && node[0] !== node && node
+    stack.find(entry => entry.node === node && entry.parameters)
 
   const partialFor = node =>
     stack.find(entry =>
@@ -67,7 +70,7 @@ export const link = source => {
           // A new complete call copies its body with argument identities.
           const replacements = call.parameters.map(
             (parameter, i) => [parameter, call.arguments[i]])
-          call.answer[1] = walk(call.definition[1], replacements).graph
+          call.answer[1] = walk(call.definition.node[1], replacements).graph
         }
       } else {
         // Arguments after a complete call apply to its answer.
@@ -84,21 +87,18 @@ export const link = source => {
     return { graph, call }
   }
 
-  const startCall = (graph, definition, priorArguments = []) => {
+  const startCall = (graph, entry, priorArguments = []) => {
     // The call rewrites this pair as a redex on the left and its next state
     // on the right, so a machine step can stay a plain right-edge projection.
     const answer = []
     answer[0] = answer
-    const name = legend.find(entry => entry.node === definition)
-    if (name) legend.push({ node: answer, symbol: name.symbol })
-
-    // Definition parameters are the right branches of the left spine.
-    const parameters = []
-    for (let pair = definition[0]; pair !== definition; pair = pair[0])
-      parameters.unshift(pair[1])
+    legend.push({ node: answer, symbol: entry.symbol })
 
     const call =
-      { answer, definition, parameters, arguments: [...priorArguments] }
+      { answer,
+        definition: entry,
+        parameters: entry.parameters,
+        arguments: [...priorArguments] }
 
     let pair = answer
     for (const argument of call.arguments) pair = [pair, argument]
@@ -112,8 +112,7 @@ export const link = source => {
     if (!Array.isArray(tree)) {
       const entry = named(tree) ?? identify(tree)
       const { node } = entry
-      return { graph: node,
-               reference: node[0] !== node && !defining && node }
+      return { graph: node, reference: !defining && definitionFor(node) }
     }
 
     if (!replacements) {
@@ -127,9 +126,10 @@ export const link = source => {
 
       let result
       tree.forEach((node, i) => {
-        const buildingName = Boolean(entry) && (i === 0 || length > 2)
+        if (entry && i === 0) return
+        const buildingName = Boolean(entry) && length > 2
         const child = walk(node, undefined, defining || buildingName)
-        result = i
+        result = result
           ? finish(i === length - 1 ? tree : [], result, child)
           : child
       })
@@ -137,7 +137,9 @@ export const link = source => {
       if (entry) {
         // Local parameter names leave scope; the named form remains.
         stack.length = scopeStart
-        stack.push(graph, entry)
+        entry.label.node = entry.node = result.graph
+        if (length > 2) entry.parameters = parametersOf(result.graph[0])
+        stack.push(result.graph, entry)
       }
 
       return result

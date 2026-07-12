@@ -68,9 +68,9 @@ describe('serialize', () => {
     const linked = link(withCore('(S a b c)'))
     const { legend } = linked
     const expanded = [
-      '(((((I x) x)',
-      '    (((K x) y) x))',
-      '   ((((S x) y) z) ((x z) (y z))))',
+      '((((x x)',
+      '    ((x y) x))',
+      '   (((x y) z) ((x z) (y z))))',
       '  ((((S a) b) c) ((a c) (b c))))'
     ].join('\n')
     const presented = expanded

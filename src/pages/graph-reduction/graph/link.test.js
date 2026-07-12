@@ -59,11 +59,12 @@ describe('link', () => {
     const linkedK = named(legend, 'K')
     const linkedS = named(legend, 'S')
 
-    assert.equal(linkedI[0][0], linkedI)
-    assert.equal(linkedI[0][1], linkedI[1])
-    assert.equal(linkedK[0][0][0], linkedK)
-    assert.equal(linkedK[0][0][1], linkedK[1])
-    assert.equal(linkedS[0][0][0][0], linkedS)
+    assert.equal(linkedI[0], linkedI[1])
+    assert.equal(linkedK[0][0], linkedK[1])
+    assert.equal(linkedS[1][0][0], linkedS[0][0][0])
+    assert.equal(linkedS[1][0][1], linkedS[0][1])
+    assert.equal(linkedS[1][1][0], linkedS[0][0][1])
+    assert.equal(linkedS[1][1][1], linkedS[0][1])
 
     const result = steps(graph, 2)
     assert.equal(result[0][1], result[1][1])
@@ -90,14 +91,12 @@ describe('link', () => {
     assert.equal(steps(graph, 3), named(legend, 'a'))
   })
 
-  test('lets a binary root carry a live future on the right', () => {
+  test('lets a binary name point directly at a live future', () => {
     const { graph, legend } = linked(program([I, S], '(Root (S a b c))'))
-    const root = step(graph)
-    const future = step(root)
+    const future = step(graph)
     const result = step(future)
 
-    assert.equal(root[0], root)
-    assert.equal(root, named(legend, 'Root'))
+    assert.equal(future, named(legend, 'Root'))
     assert.equal(result[0][1], result[1][1])
   })
 

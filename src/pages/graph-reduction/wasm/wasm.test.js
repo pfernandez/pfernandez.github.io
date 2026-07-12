@@ -62,12 +62,10 @@ describe('the image is the graph', () => {
     const a = address('a')
     const x = address('x')
     const I = address('I')
-    const spine = memory.getUint32(I, true)
 
     assert.equal(memory.getUint32(a, true), a)
     assert.equal(memory.getUint32(a + 4, true), a)
-    assert.equal(memory.getUint32(spine, true), I)
-    assert.equal(memory.getUint32(spine + 4, true), x)
+    assert.equal(memory.getUint32(I, true), x)
     assert.equal(memory.getUint32(I + 4, true), x)
   })
 })
