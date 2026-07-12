@@ -103,6 +103,9 @@ const wasmIdentity = (address, identities) => {
   return identities.get(address)
 }
 
+const isWasmPair = address =>
+  address % 8 === 4
+
 const textToken = text => ({ text })
 
 const identityToken = (text, identity) => ({ text, identity })
@@ -161,10 +164,15 @@ const wasmText = (view, root, legend, path = '$', seen = new Map()) => {
   if (seen.has(root)) return seen.get(root)
 
   seen.set(root, path)
+  if (!isWasmPair(root)) {
+    const self = wasmText(view, view.getUint32(root, true), legend, path, seen)
+    return `(${self} ${self})`
+  }
+
   const left = wasmText(
-    view, view.getUint32(root, true), legend, `${path}.0`, seen)
+    view, view.getUint32(root - 4, true), legend, `${path}.0`, seen)
   const right = wasmText(
-    view, view.getUint32(root + 4, true), legend, `${path}.1`, seen)
+    view, view.getUint32(root, true), legend, `${path}.1`, seen)
   return `(${left} ${right})`
 }
 
@@ -181,12 +189,22 @@ const wasmTokens = (
   if (seen.has(root)) return [identityToken('()', identity)]
 
   seen.add(root)
+
+  if (!isWasmPair(root))
+    return [
+      identityToken('(', identity),
+      ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
+      textToken(' '),
+      ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
+      identityToken(')', identity)
+    ]
+
   return [
     identityToken('(', identity),
-    ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
-    textToken(' '),
     ...wasmTokens(
-      view, view.getUint32(root + 4, true), legend, seen, identities),
+      view, view.getUint32(root - 4, true), legend, seen, identities),
+    textToken(' '),
+    ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
     identityToken(')', identity)
   ]
 }

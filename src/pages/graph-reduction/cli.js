@@ -18,7 +18,9 @@ if (main()) {
   trace(graph, { label: 'graph\n', legend })
   const focus = step(graph)
   trace(focus, { label: 'step', legend })
-  const result = step(focus)
+  let result = step(focus)
+  trace(result, { label: 'result', legend })
+  result = step(focus)
   trace(result, { label: 'result', legend })
 
   // `step` is only a right-edge projection. The graph must carry any observer
