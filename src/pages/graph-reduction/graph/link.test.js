@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { image } from '../wasm/image.js'
 import { link, step } from './index.js'
@@ -127,6 +128,17 @@ describe('link', () => {
 
     assert.equal(graph, named(legend, 'Loop'))
     assert.equal(step(graph), graph)
+    assertPairs(graph)
+    assert.doesNotThrow(() => image(graph))
+  })
+
+  test('links the graph-native core source to an image-safe graph', () => {
+    const source = readFileSync(
+      new URL('../core.graph.lisp', import.meta.url),
+      'utf-8')
+    const { graph, legend } = linked(source)
+
+    assertS({ result: steps(graph, 2), legend })
     assertPairs(graph)
     assert.doesNotThrow(() => image(graph))
   })
