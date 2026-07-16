@@ -1,8 +1,7 @@
 import {
-  compile,
-  observe,
-  select,
-  serializeAnsi
+  link,
+  serializeAnsi,
+  step
 } from './graph/index.js'
 
 let traceCount = 0
@@ -10,8 +9,11 @@ let traceCount = 0
 const traceScheme = () =>
   process.env.GRAPH_SCHEME || 'color'
 
-const trace = form =>
-  console.log(traceCount++, serializeAnsi(form, traceScheme()), '\n')
+const trace = (form, legend) =>
+  console.log(
+    traceCount++,
+    serializeAnsi(form, { legend, scheme: traceScheme() }),
+    '\n')
 
 const main = () =>
   typeof process !== 'undefined'
@@ -20,7 +22,13 @@ const main = () =>
 
 if (main()) {
   const { readFileSync } = await import('node:fs')
-  const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const found = observe(compile(readFileSync(file, 'utf-8')), trace)
-  trace(select(found))
+  const file = process.argv[2] ?? new URL('./core.graph.lisp', import.meta.url)
+  const { graph, legend, error } = link(readFileSync(file, 'utf-8'))
+  if (error) throw error
+
+  let focus = graph
+  for (let i = 0; i < 3; i++) {
+    trace(focus, legend)
+    focus = step(focus)
+  }
 }

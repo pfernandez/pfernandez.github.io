@@ -1,20 +1,30 @@
 import { spellings } from './compile.js'
 
+const legendName = (node, legend = []) =>
+  legend.find?.(entry => entry.node === node)?.symbol
+
+const graphName = (node, legend) =>
+  legendName(node, legend) ?? spellings.get(node)
+
 // Atoms print as their spelling; repeated cells print as the path where the
 // cell first appeared, so sharing and cycles stay visible in plain text.
-const printable = (node, path = '$', pathsByNode = new Map()) => {
+const printable = (node, path = '$', pathsByNode = new Map(), legend = []) => {
   if (!Array.isArray(node)) return String(node)
-  if (spellings.has(node)) return String(spellings.get(node))
-  if (pathsByNode.has(node)) return pathsByNode.get(node)
+
+  const name = graphName(node, legend)
+  if (pathsByNode.has(node))
+    return name !== undefined ? String(name) : pathsByNode.get(node)
+  if (name !== undefined && node[0] === node && node[1] === node)
+    return String(name)
 
   pathsByNode.set(node, path)
-  const left = printable(node[0], `${path}.0`, pathsByNode)
-  const right = printable(node[1], `${path}.1`, pathsByNode)
+  const left = printable(node[0], `${path}.0`, pathsByNode, legend)
+  const right = printable(node[1], `${path}.1`, pathsByNode, legend)
   return `(${left} ${right})`
 }
 
-export const serialize = form =>
-  printable(form)
+export const serialize = (form, { legend = [] } = {}) =>
+  printable(form, '$', new Map(), legend)
 
 const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
@@ -95,26 +105,33 @@ const identityFor = (node, identities) => {
 
 // Parts keep graph identity separate from presentation. Repeated cells print
 // as () with the same identity as their first occurrence.
-export const serializeParts = (
-  node,
-  seen = new Set(),
-  identities = new Map()
-) => {
+const parts = (node, legend, seen, identities) => {
   if (!Array.isArray(node)) return [{ text: String(node) }]
-  if (spellings.has(node)) return [{ text: String(spellings.get(node)) }]
+
+  const name = graphName(node, legend)
+  if (seen.has(node))
+    return name !== undefined
+      ? [{ text: String(name) }]
+      : [{ text: '()', identity: identityFor(node, identities) }]
+  if (name !== undefined && node[0] === node && node[1] === node)
+    return [{ text: String(name) }]
 
   const identity = identityFor(node, identities)
-  if (seen.has(node)) return [{ text: '()', identity }]
 
   seen.add(node)
   return [
     { text: '(', identity },
-    ...serializeParts(node[0], seen, identities),
+    ...parts(node[0], legend, seen, identities),
     { text: ' ' },
-    ...serializeParts(node[1], seen, identities),
+    ...parts(node[1], legend, seen, identities),
     { text: ')', identity }
   ]
 }
+
+// Parts keep graph identity separate from presentation. Repeated cells print
+// as () with the same identity as their first occurrence.
+export const serializeParts = (node, { legend = [] } = {}) =>
+  parts(node, legend, new Set(), new Map())
 
 export const identityCount = parts =>
   parts.reduce(
@@ -167,11 +184,15 @@ export const partsToConsole = (parts, name = 'color') => {
   return [text, ...styles]
 }
 
-export const serializeAnsi = (node, name = 'color') =>
-  partsToAnsi(serializeParts(node), name)
+export const serializeAnsi = (node, options = 'color') =>
+  typeof options === 'string'
+    ? partsToAnsi(serializeParts(node), options)
+    : partsToAnsi(serializeParts(node, options), options.scheme)
 
-export const serializeConsole = (node, name = 'color') =>
-  partsToConsole(serializeParts(node), name)
+export const serializeConsole = (node, options = 'color') =>
+  typeof options === 'string'
+    ? partsToConsole(serializeParts(node), options)
+    : partsToConsole(serializeParts(node, options), options.scheme)
 
 export const serializeColor = serializeAnsi
 

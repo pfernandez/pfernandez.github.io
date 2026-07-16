@@ -3,6 +3,7 @@ import { describe, test } from 'node:test'
 import {
   compile,
   imageLegend,
+  link,
   partsToConsole,
   partsToText,
   serialize,
@@ -11,7 +12,8 @@ import {
   serializeImage,
   serializeImageAnsi,
   serializeImageParts,
-  serializeParts
+  serializeParts,
+  step
 } from './index.js'
 import { image } from '../wasm/image.js'
 
@@ -54,6 +56,27 @@ describe('serialize', () => {
     assert.equal(serializeAnsi(root, 'plain'), '(() ((a b) ()))')
     assert.match(partsToConsole(parts, 'color')[0], /%c/)
     assert.match(serializeConsole(root, 'ink')[0], /%c/)
+  })
+
+  test('legend names linked graph identities', () => {
+    const { graph, legend, error } = link(`
+      ((I x x)
+       (K x y x)
+       (S x y z ((x z) (y z)))
+       (S a b c))
+    `)
+    if (error) throw error
+
+    assert.equal(
+      serialize(step(step(graph)), { legend }),
+      '((a c) (b c))')
+    assert.equal(
+      partsToText(serializeParts(step(step(graph)), { legend })),
+      '((a c) (b c))')
+    assert.match(serialize(graph, { legend }), /S/)
+    assert.equal(
+      serializeAnsi(step(step(graph)), { legend, scheme: 'plain' }),
+      '((a c) (b c))')
   })
 
   test('images serialize identically to graphs', () => {
