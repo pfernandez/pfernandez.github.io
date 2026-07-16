@@ -1,6 +1,8 @@
 export { parse } from './parse.js'
 export { compile } from './compile.js'
+export { link } from './link.js'
 export { observe, select } from './observe.js'
+export { step } from './step.js'
 export {
   identityCount,
   identitySchemes,
