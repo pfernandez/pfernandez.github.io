@@ -7,7 +7,9 @@
 ; This is a finite dynamic loop: the visible state advances from Zero to
 ; Succ Zero to Succ (Succ Zero), then returns to the first frame. The unbounded
 ; Grow form below documents the next target, but it needs a real delayed future
-; boundary before link can build it.
+; boundary before link can build it. The executable TODO in graph/link.test.js
+; asks only for the first Grow step: what creates the next relation when the
+; recursive call changes arguments?
 
 ((Zero f x x)
  (Succ n f x (f (n f x)))

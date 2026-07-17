@@ -245,6 +245,8 @@ Current tests already cover:
 - `successor.graph.lisp` exposes a finite dynamic successor orbit
 - direct recursive calls with changed arguments report the missing delayed
   future boundary instead of overflowing the host stack
+- an executable TODO records the first desired `Grow Zero` contract: link a
+  pair-only graph that exposes at least the first changed future
 - trace-corpus-inspired focus staging for `(I a)`, `(K a b)`,
   `(S a b c)`, `(I (K a b))`, `(K (I a) b)`, `(K (S a b c) d)`,
   and `(S K K a)`
@@ -360,6 +362,12 @@ up front. It should create or expose a graph shape where stepping into the next
 slot makes `Grow (Succ n)` the available future by ordinary edge-following.
 That may require a source-level observer/root, a different source shape, or a
 small linker rule, but it should not require a smarter `step`.
+
+The current executable TODO in `graph/link.test.js` asks only for the first
+crossing of that boundary. It does not require an infinite stream yet, because
+that would be easy to fake with a longer finite unroll. The useful first
+question is narrower: when a recursive call changes arguments, what creates the
+next relation?
 
 Acceptance tests:
 
@@ -527,10 +535,10 @@ branch for review.
 
 ## Suggested next work
 
-1. Write one tiny failing contract for a delayed future or stable event boundary
-   rather than a broad reducer.
-2. Use that contract to decide whether the missing structure belongs in source,
-   `link`, or a source-level observer/root.
+1. Decide what creates the next relation for the executable `Grow Zero` TODO:
+   source shape, a linker allocation rule, or a graph-root observer state.
+2. Make that decision with the smallest implementation that keeps `step` as
+   edge-following.
 3. Port the remaining `compile.test.js` behavior only after that boundary is
    clear enough not to smuggle evaluator logic into `link` or `step`.
 4. Move the dashboard to `link + step` after the event boundary has a graph

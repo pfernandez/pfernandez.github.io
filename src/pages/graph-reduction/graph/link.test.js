@@ -320,6 +320,24 @@ describe('link', () => {
                  /Recursive Grow call changes arguments/)
   })
 
+  test('links the first delayed Grow future', {
+    todo: 'needs graph-native allocation or an observer-carried next relation'
+  }, () => {
+    const { graph } = linked(program([
+      Zero,
+      Succ,
+      'Slot',
+      '(Frame view next ((Slot view) next))',
+      '(Grow n (Frame n (Grow (Succ n))))'
+    ], '(Grow Zero)'))
+    const zero = steps(graph, 1)
+    const one = steps(graph, 3)
+
+    assert.notEqual(zero, one)
+    assertPairs(graph)
+    assert.doesNotThrow(() => image(graph))
+  })
+
   test('preserves trace-corpus focus shapes', () => {
     const IKA = linked(program([I, K], '(I (K a b))'))
     const IKAOuter = steps(IKA.graph, 1)
