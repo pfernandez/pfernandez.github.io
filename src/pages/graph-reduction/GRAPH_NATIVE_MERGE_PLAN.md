@@ -161,6 +161,8 @@ Current tests already cover:
 - `S a b c` reaches `((a c) (b c))`
 - partial calls remain visible until enough arguments arrive
 - copied body calls work
+- `B`, `C`, `W`, and `M`
+- `True`, `False`, `If`, `Not`, `Pair`, `First`, and `Second`
 - root self-reference is pair-pure
 - `core.graph.lisp` is image-safe
 - source-level observer state can be written
@@ -171,9 +173,7 @@ Current tests already cover:
 Next tests to port from `compile.test.js` before deleting `compile.js`:
 
 - extra arguments remain after call completion
-- `B`, `C`, `W`, `M`
-- booleans: `True`, `False`, `If`, `Not`, `And`, `Or`
-- Church/Scott pair selectors: `Pair`, `First`, `Second`
+- boolean composition: `And`, `Or`
 - data constructors: `Nil`, `Cons`
 - eliminators: `Head`, `Last`, `Length`
 - arithmetic: `Add`, `Mul`
@@ -193,20 +193,41 @@ Pure `step(pair) = pair[1]` consumes the old stable wrapper. The old
 
 Target:
 
-Represent observation events structurally. A minimal event may be a fixed-left
-pair:
+Represent observation events structurally. With `step(pair) = pair[1]`, the
+minimal stable event shape is a fixed-right pair:
 
 ```js
-event[0] === event
-event[1] === payload
+event[0] === payload
+event[1] === event
 ```
 
-But then decide what the next step should mean:
+The view/select operation reads `event[0]`; the machine keeps stepping through
+`event[1]`.
 
-- If stepping the event returns `payload`, then another mechanism must prevent
-  unwanted descent into the payload when viewing.
-- If the machine should keep running forever, the event may need to carry both
-  `payload` and `next`.
+Current source-level observer tests can write a stable state such as:
+
+```lisp
+(Done payload Done)
+```
+
+That proves the boundary can live in source. It does not yet prove that source
+can dynamically allocate a new stable event whose left edge is the exact
+computed answer identity.
+
+Rejected experiment:
+
+- Wrapping every completed call as `[answer, self]` inside `link.finish` made
+  final answers stable, but it froze intermediate calls such as `S K K a` before
+  their copied bodies could compose. Event boundaries must be explicit in source
+  or inserted only by a real observer/final-yield structure, not by every
+  completed function call.
+
+Still decide:
+
+- how to build a fresh stable event for a computed payload without host-side
+  observer logic
+- whether the event also carries an explicit `next` state, or whether stability
+  is enough for the current dashboard/CLI boundary
 - Source-level observer definitions like `Observe`, `Loop`, and `Yield` should
   be the first place to express this, before adding host machinery.
 
