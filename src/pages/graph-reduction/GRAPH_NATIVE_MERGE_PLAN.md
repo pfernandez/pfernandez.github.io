@@ -167,6 +167,7 @@ Current tests already cover:
 - `True`, `False`, `If`, `Not`, `And`, `Or`, `Pair`, `First`, and `Second`
 - root self-reference is pair-pure
 - `core.graph.lisp` is image-safe
+- `loop.graph.lisp` carries a source-level frame through a repeated orbit
 - source-level observer state can be written
 - a library can be carried through a source loop
 - `Y I` ties a cycle
@@ -219,6 +220,20 @@ Current source-level observer tests can write a stable state such as:
 That proves the boundary can live in source. It does not yet prove that source
 can dynamically allocate a new stable event whose left edge is the exact
 computed answer identity.
+
+The first loop fixture is `loop.graph.lisp`:
+
+```lisp
+(Frame view next (view next))
+(Loop view self (Frame view self))
+(Y (Loop (S a b c)))
+```
+
+It makes a real repeated path: after setup, `step` returns to the same frame by
+identity. This is useful as a visible loop, but it is still a bridge. Because
+`link` eagerly completes calls, the frame contains the staged call structure
+with the `S` answer visible inside it rather than a freshly allocated final
+event whose left edge is only `((a c) (b c))`.
 
 Rejected experiment:
 
@@ -384,6 +399,7 @@ From `src/pages/graph-reduction`:
 
 ```sh
 env GRAPH_SCHEME=plain node cli.js
+env GRAPH_SCHEME=plain node cli.js loop.graph.lisp 12
 node --test --test-reporter spec graph/link.test.js graph/serialize.test.js
 npm test
 env GRAPH_SCHEME=plain node wasm/wasm.js

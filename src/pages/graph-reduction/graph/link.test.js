@@ -249,6 +249,27 @@ describe('link', () => {
     assert.doesNotThrow(() => image(graph))
   })
 
+  test('links the source-level loop fixture', () => {
+    const source = readFileSync(
+      new URL('../loop.graph.lisp', import.meta.url),
+      'utf-8')
+    const { graph, legend } = linked(source)
+    const frame = steps(graph, 4)
+    const answer = find(frame, node =>
+      Array.isArray(node)
+      && Array.isArray(node[0])
+      && Array.isArray(node[1])
+      && node[0][0] === named(legend, 'a')
+      && node[0][1] === named(legend, 'c')
+      && node[1][0] === named(legend, 'b')
+      && node[1][1] === named(legend, 'c'))
+
+    assert.equal(steps(graph, 9), frame)
+    assert.ok(answer)
+    assertPairs(graph)
+    assert.doesNotThrow(() => image(graph))
+  })
+
   test('can write an observer state in source', () => {
     const { graph, legend } = linked(program([
       Observe,
