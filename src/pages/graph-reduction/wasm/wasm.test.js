@@ -8,12 +8,14 @@ import {
   serialize,
   serializeImage
 } from '../graph/index.js'
-import {
-  observeAddress,
-  selectAddress
-} from './address.js'
 import { image } from './image.js'
-import { emit, readLegend, sections } from './wasm.js'
+import {
+  emit,
+  observeAddress,
+  readLegend,
+  sections,
+  selectAddress
+} from './wasm.js'
 
 const step = node => select(observe(node))
 

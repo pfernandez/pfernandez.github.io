@@ -1,4 +1,3 @@
-export { parse } from './parse.js'
 export { compile } from './compile.js'
 export { observe, select } from './observe.js'
 export {
@@ -6,12 +5,10 @@ export {
   identitySchemes,
   identityStyle,
   imageLegend,
-  partsToAnsi,
   partsToConsole,
   partsToText,
   serialize,
   serializeAnsi,
-  serializeColor,
   serializeConsole,
   serializeImage,
   serializeImageAnsi,

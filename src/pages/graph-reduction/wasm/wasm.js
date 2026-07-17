@@ -2,7 +2,6 @@
 // in bytes, focus, and legend.
 
 import { compile, imageLegend, serializeImageColor } from '../graph/index.js'
-import { observeAddress } from './address.js'
 import { image } from './image.js'
 
 // LEB128 integers: unsigned for sizes and counts, signed for constants.
@@ -145,6 +144,15 @@ export const readLegend = bytes => {
   return new Map()
 }
 
+// Same observation rule as the wasm machine, replayed over image bytes.
+export const observeAddress = (view, pair, trace) => (
+  trace?.(pair),
+  view.getUint32(pair, true) === pair ? pair
+    : observeAddress(view, view.getUint32(pair, true), trace))
+
+export const selectAddress = (view, found) =>
+  view.getUint32(found + 4, true)
+
 // Replay observation in JS over exported memory, run wasm observe, and insist
 // they agree before selecting.
 export const run = async bytes => {
@@ -179,7 +187,7 @@ const main = () =>
     && decodeURIComponent(new URL(import.meta.url).pathname) === process.argv[1]
 
 if (main()) {
-  const { readFileSync, writeFileSync } = await import('node:fs')
+  const { readFileSync } = await import('node:fs')
   const source = decodeURIComponent(new URL('../core.lisp', import.meta.url).pathname)
   const path = process.argv[2]
     ?? source
@@ -190,11 +198,7 @@ if (main()) {
   } else {
     const graphImage = image(compile(readFileSync(path, 'utf-8')))
     bytes = emit({ ...graphImage, legend: imageLegend(graphImage) })
-    const out = path === source
-      ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)
-      : path.replace(/\.[^./]+$/, '') + '.wasm'
-    writeFileSync(out, bytes)
-    console.log(out, '—', bytes.length, 'bytes\n')
+    console.log(bytes.length, 'bytes\n')
   }
 
   await run(bytes)
