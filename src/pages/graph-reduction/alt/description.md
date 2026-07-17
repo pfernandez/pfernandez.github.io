@@ -1,57 +1,77 @@
 # Graph Reduction
 
-This page encodes a tiny Lisp surface syntax as binary pair graphs:
+This page is a lab for expressing Lisp-like computation as binary pair graphs.
+The current branch is moving from the older observer-local compiler toward a
+smaller graph-native path:
 
-- `()` is the local root/identity pattern.
-- `(a b)` is a pair, and application is ordinary pair structure.
-- `(f x y z)` is left-associated as `(((f x) y) z)`.
-- `(define name body)` creates a source alias.
-- `(define (name x y ...) body)` creates a source function.
-
-The source loader expands definitions into graph motifs before observation.
-Fully applied function calls are compiled into structural wrappers: the wrapper
-contains both the source argument shape and the graph that should be exposed
-when the observer reaches the matching boundary.
-
-The smallest runtime operation is still one observation step. A frame is:
-
-```
-[observer, focus]
+```text
+source text -> parse -> link -> graph + legend -> step -> view
 ```
 
-Starting from `focus`, `observe` walks the left spine until it finds a pair
-whose first slot is exactly `observer`, then returns that pair's second slot.
-The walk does not allocate, mutate, normalize, or know Lisp names.
+The graph itself is pairs only. Source names are construction and display
+handles; after linking, the machine should be able to run by identity and
+pointer shape alone.
 
-For example:
+## Current branch path
 
+The active graph-native experiment is:
+
+- `graph/parse.js` reads source into plain syntax trees.
+- `graph/link.js` links lexical identities into a pair-only graph.
+- `graph/step.js` is deliberately boring: `step(pair) = pair[1]`.
+- `graph/serialize.js` projects graph structure back into readable text, using
+  the legend only for display.
+
+The default graph-native source is currently `core.graph.lisp`. It is not yet
+canonical `core.lisp`; the older compiler path remains in place until the new
+path carries the same important behavior.
+
+## What the older paths are for
+
+The old and alternate implementations are still useful, but they now have
+specific roles:
+
+- `graph/compile.js` is the behavior oracle. Its tests cover the Lisp behaviors
+  we do not want to lose, including data constructors, structural recursion,
+  arithmetic, open residuals, and active-call sharing.
+- `alt/compilers/traces/` is the focus-shape oracle. Those saved traces show
+  the application spine that should remain visible before an answer is reached.
+- `alt/observer/` is the machine/root/future oracle. Its tests explore passive
+  observation, closed machines, linked futures, IO ports, and carried history.
+
+None of those paths is the target engine. They are references for deciding what
+the graph-native path must preserve.
+
+## The important boundary
+
+The current `link` still completes known calls while building the graph. For
+example, an `S` call can already contain the answer:
+
+```lisp
+((a c) (b c))
 ```
-(define (S a b c) ((a c) (b c)))
-(S x y z)
+
+That is acceptable as a bridge only if the linked graph still preserves the
+application focus shape that exposes where the answer came from. The saved
+compiler traces show this older shape clearly:
+
+```text
+(((($ ((a c) (b c))) a) b) c)
 ```
 
-compiles to a self-rooted wrapper and one observation exposes:
+The long-term goal is not to hide evaluation in the linker or the stepper. A
+future event should be present as graph structure. The unsolved problem is how
+to represent delayed futures, such as an unbounded successor stream, without
+putting evaluator logic back into host code.
 
+## Runtime rule
+
+The branch deliberately constrains the runtime step:
+
+```js
+export const step = pair => pair[1]
 ```
-((x z) (y z))
-```
 
-The two `z` positions are one shared graph value, not copied text. The tree view
-duplicates that value for readability; the lattice view shows the sharing and
-fixed-point loops directly.
-
-## Boundary
-
-There are three layers in the current lab:
-
-- `observe` is the tiny machine step over pairs and reference identity.
-- `lisp.js` is the source loader and graph builder.
-- `serialize` is a projection from graph structure back to readable text.
-
-The dashboard uses this same boundary. It compiles the source into an
-observable graph, displays the current graph, and advances by applying the
-current runtime's `observe` once.
-
-The active compiler for this page is the observer-local Lisp compiler in
-`observer/lisp.js`, which can target either JavaScript arrays or the WASM
-pointer heap.
+Any choice about what that edge means must already be encoded in the graph. This
+is why loops, stable events, machine roots, and carried history are source/graph
+problems rather than `step` problems.

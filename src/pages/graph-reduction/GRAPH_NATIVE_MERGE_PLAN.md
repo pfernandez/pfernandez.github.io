@@ -18,6 +18,12 @@ Commits on top of `main`:
 - `2b9410a Add graph-native link contracts`
 - `99b3fc5 Show linked graphs in the CLI`
 - `0271aad Cover graph-native core source`
+- `f31aad8 Document graph-native merge plan`
+- `1c90231 Expand graph-native core`
+- `a486f0b Cover graph-native call contracts`
+- `3bdc3b1 Add graph-native loop fixture`
+- `e96887d Fix CLI trace count`
+- `30aa1f5 Add successor orbit fixture`
 
 New files:
 
@@ -25,6 +31,8 @@ New files:
 - `graph/step.js`: pure right-edge stepper
 - `graph/link.test.js`: contract tests for pair-only linked graphs
 - `core.graph.lisp`: graph-native source, not yet canonical `core.lisp`
+- `loop.graph.lisp`: source-level loop fixture
+- `successor.graph.lisp`: finite successor orbit fixture
 - `GRAPH_NATIVE_MERGE_PLAN.md`: this plan
 
 Existing files intentionally left in place:
@@ -37,6 +45,41 @@ Existing files intentionally left in place:
 
 The branch currently keeps `main` operational while making the new path runnable
 from `node cli.js`.
+
+## Research findings
+
+The old and alternate implementations are useful in different ways, but none is
+a drop-in replacement for `link + step`.
+
+- `graph/compile.js` is the best behavior oracle. Its tests cover data
+  constructors, structural recursion, arithmetic, open residuals, active-call
+  sharing, and loops. It should stay until those behaviors have equivalent
+  graph-native tests. It is not the target engine because it recursively reduces
+  during compilation with a patience budget.
+- `alt/compilers/traces/` is the best evidence for the desired compiled focus
+  shape. The traces preserve an observable answer at the head of the original
+  application spine, for example `S a b c` stages as roughly:
+
+  ```text
+  (((($ ((a c) (b c))) a) b) c)
+  ```
+
+  before exposing `((a c) (b c))`.
+- `alt/compilers/` is stale as runnable code. Its `compile.test.mjs` imports a
+  missing `compile.mjs`, and the latest numbered compiler no longer accepts the
+  `(() focus)` source form its tests expect. Mine it for ideas, not code.
+- `alt/observer/` is the best machine/root/IO theory lab. Its tests around
+  closed machines, linked futures, next-only potential, and carried history are
+  directly relevant to the delayed-future problem.
+
+The current conclusion:
+
+```text
+compile.js          -> behavior oracle
+alt/compilers/traces -> focus-shape oracle
+alt/observer         -> machine/root/future oracle
+link.js             -> branch engine path
+```
 
 ## Invariants
 
@@ -120,6 +163,11 @@ uses a pure stepper, but it still performs compile-time call completion. The
 final engine should push that causal/event boundary into graph structure rather
 than relying on eager host-side reduction.
 
+The trace corpus sharpens this concern: eager call completion is acceptable only
+as long as it preserves the visible application focus shape. It must not turn
+the linked graph into only the final answer, and it must not erase the path that
+shows where the answer came from.
+
 ## Desired end state
 
 Canonical files should eventually look like this:
@@ -172,6 +220,23 @@ Current tests already cover:
 - a library can be carried through a source loop
 - `Y I` ties a cycle
 - `Zero` and `Succ` compose through stepping
+- `successor.graph.lisp` exposes a finite dynamic successor orbit
+- direct recursive calls with changed arguments report the missing delayed
+  future boundary instead of overflowing the host stack
+
+Next tests to add from `alt/compilers/traces/`:
+
+- `(I a)`
+- `(K a b)`
+- `(S a b c)`
+- `(I (K a b))`
+- `(K (I a) b)`
+- `(K (S a b c) d)`
+- `(S K K a)`
+
+These should not assert exact serializer path strings. They should assert
+semantic identity, pair-only graph shape, and the important staging fact: the
+application focus remains visible before the answer is reached.
 
 Next tests to port from `compile.test.js` before deleting `compile.js`:
 
@@ -261,6 +326,17 @@ Possible source-level shape to explore:
 
 The exact names are not important; the structure is. The graph should contain
 the boundary that the host currently simulates with `observe/select`.
+
+The successor fixture records the boundary of the current bridge:
+
+```lisp
+(Grow n (Frame n (Grow (Succ n))))
+(Grow Zero)
+```
+
+This is the shape we want eventually, but today it needs a real delayed future
+edge. Without that edge, `link` can only build finite or already-cyclic futures
+without hiding an evaluator in the host.
 
 Acceptance tests:
 
@@ -424,22 +500,17 @@ branch for review.
 - Do not replace canonical `core.lisp` until the graph-native path can carry
   the current examples with comparable clarity.
 
-## Suggested next commit
+## Suggested next work
 
-Add tests for the old `observe/select` idempotence distinction expressed as a
-graph-native event boundary. The test should fail first unless the current graph
-already carries such a boundary.
+1. Add trace-corpus-inspired contracts for the current `link + step` path.
+2. Update the public description to explain the current split:
+   `link.js` is the branch engine, `compile.js` is a behavior oracle,
+   `alt/compilers/traces` is a focus-shape oracle, and `alt/observer` is a
+   machine/root/future oracle.
+3. Return to the delayed-future/event-boundary problem with the trace shapes
+   protected by tests.
 
-Example intent:
-
-```js
-const event = ... // graph-native observation event
-assert.equal(event[0], event)
-assert.equal(event[1], answer)
-assert.equal(view(event), answer)
-assert.equal(view(event), view(viewBoundaryAfterMoreTicks))
-```
-
-The exact helper names can change. The important point is to preserve the old
-"found event vs selected payload" distinction without putting logic back into
-`step`.
+The next implementation target is still the old `observe/select` idempotence
+distinction expressed as graph structure. The important point is to preserve the
+old "found event vs selected payload" distinction without putting logic back
+into `step`.
