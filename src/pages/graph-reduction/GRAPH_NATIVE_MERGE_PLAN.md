@@ -161,8 +161,10 @@ Current tests already cover:
 - `S a b c` reaches `((a c) (b c))`
 - partial calls remain visible until enough arguments arrive
 - copied body calls work
+- extra arguments remain after a completed call
+- completed answers in head position keep reducing in the graph-native linker
 - `B`, `C`, `W`, and `M`
-- `True`, `False`, `If`, `Not`, `Pair`, `First`, and `Second`
+- `True`, `False`, `If`, `Not`, `And`, `Or`, `Pair`, `First`, and `Second`
 - root self-reference is pair-pure
 - `core.graph.lisp` is image-safe
 - source-level observer state can be written
@@ -172,14 +174,18 @@ Current tests already cover:
 
 Next tests to port from `compile.test.js` before deleting `compile.js`:
 
-- extra arguments remain after call completion
-- boolean composition: `And`, `Or`
 - data constructors: `Nil`, `Cons`
 - eliminators: `Head`, `Last`, `Length`
 - arithmetic: `Add`, `Mul`
 - open data stays symbolic/residual
-- computed answer in head position is inert
 - forward-reference behavior, or the intentional replacement rule if it changes
+
+Intentional difference to review before deleting `compile.js`:
+
+- The old compiler treated a computed answer in head position as inert in at
+  least one `App (I I) a` case. The graph-native linker currently continues
+  through that shape to `a`. This may be preferable, but it should be an
+  explicit decision rather than an accidental incompatibility.
 
 Do not require identical path strings from `main`. Require semantic identity
 and pair-only graph shape.

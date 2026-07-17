@@ -17,14 +17,18 @@ const True = '(True x y x)'
 const False = '(False x y y)'
 const If = '(If p x y (p x y))'
 const Not = '(Not p (p False True))'
+const And = '(And p q (p q False))'
+const Or = '(Or p q (p True q))'
 const Pair = '(Pair x y f (f x y))'
 const First = '(First p (p K))'
 const Second = '(Second p (p False))'
+const App = '(App p q (p q))'
 const Zero = '(Zero f x x)'
 const Succ = '(Succ n f x (f (n f x)))'
 
 const Core = [
-  I, K, S, B, C, W, M, Y, True, False, If, Not, Pair, First, Second
+  I, K, S, B, C, W, M, Y, True, False, If, Not, And, Or,
+  Pair, First, Second, App
 ]
 
 const Library = '(Library use (use I K S))'
@@ -129,6 +133,21 @@ describe('link', () => {
     assertPairs(graph)
   })
 
+  test('keeps extra arguments after a completed call', () => {
+    const { graph, legend } = linked(program(Core, '(K a b c)'))
+    const result = steps(graph, 2)
+
+    assertApplication(result, named(legend, 'a'), named(legend, 'c'))
+    assertPairs(graph)
+  })
+
+  test('continues through answers that appear in head position', () => {
+    const { graph, legend } = linked(program(Core, '(App (I I) a)'))
+
+    assert.equal(steps(graph, 3), named(legend, 'a'))
+    assertPairs(graph)
+  })
+
   test('links the basic combinator library', () => {
     const cases = [
       ['(B f g x)', (result, legend) => {
@@ -164,6 +183,8 @@ describe('link', () => {
       ['(False a b)', 'b', 2],
       ['(Not True)', 'False', 3],
       ['(Not False)', 'True', 3],
+      ['(And True False)', 'False', 3],
+      ['(Or False True)', 'True', 3],
       ['(First (Pair a b))', 'a', 4],
       ['(Second (Pair a b))', 'b', 4]
     ]) {
