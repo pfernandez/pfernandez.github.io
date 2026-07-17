@@ -22,8 +22,12 @@ const main = () =>
 
 if (main()) {
   const { readFileSync } = await import('node:fs')
-  const file = process.argv[2] ?? new URL('./core.graph.lisp', import.meta.url)
-  const count = Number(process.argv[3] ?? 3)
+  const [first, second] = process.argv.slice(2)
+  const isCount = value => /^\d+$/.test(value)
+  const file = first && !isCount(first)
+    ? first
+    : new URL('./core.graph.lisp', import.meta.url)
+  const count = Number(isCount(first) ? first : (second ?? 3))
   const { graph, legend, error } = link(readFileSync(file, 'utf-8'))
   if (error) throw error
 
