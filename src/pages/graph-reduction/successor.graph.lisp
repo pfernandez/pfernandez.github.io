@@ -1,29 +1,16 @@
-; A source-level successor orbit.
+; A source-level successor stream.
 ;
 ; Run:
 ;
 ;   env GRAPH_SCHEME=plain node cli.js successor.graph.lisp 18
 ;
-; This is a finite dynamic loop: the visible state advances from Zero to
-; Succ Zero to Succ (Succ Zero), then returns to the first frame. The unbounded
-; Grow form below documents the next target, but it needs a real delayed future
-; boundary before link can build it. The executable TODO in graph/link.test.js
-; asks only for the first Grow step: what creates the next relation when the
-; recursive call changes arguments?
+; Each time the suspended Grow future is stepped into, the linker materializes
+; one more Frame. The stepper still moves to the right edge after that load.
 
 ((Zero f x x)
  (Succ n f x (f (n f x)))
  Slot
  (Frame view next ((Slot view) next))
+ (Grow n (Frame n (Grow (Succ n))))
 
- (Loop
-   (Frame Zero
-     (Frame (Succ Zero)
-       (Frame (Succ (Succ Zero)) Loop))))
-
- ; This is the shape we want eventually:
- ;
- ; (Grow n (Frame n (Grow (Succ n))))
- ; (Grow Zero)
-
- Loop)
+ (Grow Zero))

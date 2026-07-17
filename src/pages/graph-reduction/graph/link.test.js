@@ -290,39 +290,25 @@ describe('link', () => {
     assert.doesNotThrow(() => image(graph))
   })
 
-  test('links the source-level successor orbit fixture', () => {
+  test('links the source-level successor stream fixture', () => {
     const source = readFileSync(
       new URL('../successor.graph.lisp', import.meta.url),
       'utf-8')
     const { graph } = linked(source)
-    const zero = steps(graph, 1)
-    const one = steps(graph, 3)
-    const two = steps(graph, 5)
+    const seen = new Set()
+    let focus = graph
 
-    assert.notEqual(zero, one)
-    assert.notEqual(one, two)
-    assert.notEqual(two, zero)
-    assert.equal(steps(graph, 7), zero)
+    for (let i = 0; i < 18; i++) {
+      assert.equal(seen.has(focus), false)
+      seen.add(focus)
+      focus = step(focus)
+    }
+
     assertPairs(graph)
     assert.doesNotThrow(() => image(graph))
   })
 
-  test('reports recursive calls that need a delayed future', () => {
-    const result = link(program([
-      Zero,
-      Succ,
-      'Slot',
-      '(Frame view next ((Slot view) next))',
-      '(Grow n (Frame n (Grow (Succ n))))'
-    ], '(Grow Zero)'))
-
-    assert.match(result.error?.message,
-                 /Recursive Grow call changes arguments/)
-  })
-
-  test('links the first delayed Grow future', {
-    todo: 'needs graph-native allocation or an observer-carried next relation'
-  }, () => {
+  test('materializes changed recursive calls as delayed futures', () => {
     const { graph } = linked(program([
       Zero,
       Succ,
@@ -330,10 +316,16 @@ describe('link', () => {
       '(Frame view next ((Slot view) next))',
       '(Grow n (Frame n (Grow (Succ n))))'
     ], '(Grow Zero)'))
-    const zero = steps(graph, 1)
-    const one = steps(graph, 3)
+    const seen = new Set()
+    let focus = graph
 
-    assert.notEqual(zero, one)
+    for (let i = 0; i < 18; i++) {
+      assert.equal(seen.has(focus), false)
+      seen.add(focus)
+      focus = step(focus)
+    }
+
+    assert.equal(seen.size, 18)
     assertPairs(graph)
     assert.doesNotThrow(() => image(graph))
   })

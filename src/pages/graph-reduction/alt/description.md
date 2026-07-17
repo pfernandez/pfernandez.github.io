@@ -18,7 +18,7 @@ The active graph-native experiment is:
 
 - `graph/parse.js` reads source into plain syntax trees.
 - `graph/link.js` links lexical identities into a pair-only graph.
-- `graph/step.js` is deliberately boring: `step(pair) = pair[1]`.
+- `graph/step.js` loads a delayed future if the pair owns one, then steps right.
 - `graph/serialize.js` projects graph structure back into readable text, using
   the legend only for display.
 
@@ -60,21 +60,21 @@ compiler traces show this older shape clearly:
 ```
 
 The long-term goal is not to hide evaluation in the linker or the stepper. A
-future event should be present as graph structure. The unsolved problem is how
-to represent delayed futures, such as an unbounded successor stream, without
-putting evaluator logic back into host code.
+future event should be present as graph structure. The current JS path crosses
+the unbounded successor boundary with delayed edges: changed recursive calls
+stay visible until `step` reaches them, then one body copy is materialized.
 
 ## Runtime rule
 
-The branch deliberately constrains the runtime step:
+The branch keeps the runtime step small:
 
 ```js
-export const step = pair => pair[1]
+load delayed edge, then return pair[1]
 ```
 
-Any choice about what that edge means must already be encoded in the graph. This
-is why loops, stable events, machine roots, and carried history are source/graph
-problems rather than `step` problems.
+Ordinary pairs still step by right edge. Delayed recursive futures add the
+smallest allocation boundary: the future already knows the definition and
+arguments captured by `link`, and stepping it installs the next right edge.
 
 ## Geometry and orientation
 
@@ -83,11 +83,12 @@ could step left if the source, linker, loops, and shared identities were all
 built around that orientation.
 
 The useful invariant is not that the right edge is special. The useful invariant
-is that `step` follows an edge that already exists. Once the graph is linked,
-orientation is no longer arbitrary: it determines which identities are adjacent,
-which cycles close, and which future is reachable next.
+is that `step` follows the right edge after any delayed edge has been loaded.
+Once the graph is linked, orientation is no longer arbitrary: it determines
+which identities are adjacent, which cycles close, and which future is reachable
+next.
 
 That makes delayed futures a graph-geometry problem. A successor stream, for
-example, should not depend on a host reducer unrolling every future. The graph
-needs a local shape where the next successor becomes available by ordinary
-edge-following.
+example, should not depend on a host reducer unrolling every future up front.
+The graph needs a local suspended shape where the next successor becomes
+available when reached.

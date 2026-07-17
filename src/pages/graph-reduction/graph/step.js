@@ -1,5 +1,18 @@
-// One graph-native machine step: move to the right edge.
-// Any choice about what that edge means must already be present in the graph.
+const delayed = new WeakMap()
 
-export const step = pair =>
-  pair[1]
+export const delay = (pair, force) =>
+  delayed.set(pair, force)
+
+// One machine step: materialize a delayed edge if this pair owns one, then move
+// to the right edge. The ordinary case remains a plain right-edge read.
+
+export const step = pair => {
+  const force = delayed.get(pair)
+
+  if (force) {
+    delayed.delete(pair)
+    force()
+  }
+
+  return pair[1]
+}

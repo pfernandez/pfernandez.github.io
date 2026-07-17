@@ -1,4 +1,5 @@
 import { err, parse } from './parse.js'
+import { delay } from './step.js'
 
 export const link = source => {
   // The same stack holds visible names, definition metadata, and calls that
@@ -6,7 +7,8 @@ export const link = source => {
   // itself is made only of pairs.
   const stack = []
   // Active body copies let exact recursive calls tie back to an existing
-  // answer, while changed recursive arguments report the missing future edge.
+  // answer. Changed recursive arguments become delayed futures: visible pair
+  // nodes that materialize one body copy when `step` reaches them.
   const active = []
   const legend = []
 
@@ -83,6 +85,17 @@ export const link = source => {
     const argument = graph[1]
     call.arguments.push(argument)
     const arity = call.parameters.length
+    const copyBody = () => {
+      const replacements = call.parameters.map(
+        (parameter, i) => [parameter, call.arguments[i]])
+
+      active.push(call)
+      try {
+        call.answer[1] = walk(call.definition.node[1], replacements).graph
+      } finally {
+        active.pop()
+      }
+    }
 
     if (call.arguments.length < arity) {
       // A partial application stays visible until another argument follows.
@@ -98,17 +111,16 @@ export const link = source => {
         // A repeated active call shares the existing answer and ties recursion.
         call.answer[1] = prior.answer
       } else if (call.recursive) {
-        err(`Recursive ${call.definition.symbol} call changes arguments`)
+        // A changed recursive call is productive only when it becomes a future:
+        // it stays visible now, and allocates its body when stepped into.
+        call.answer[1] = graph
+        delay(graph, () => {
+          copyBody()
+          graph[1] = call.answer[1]
+        })
       } else {
         // A complete call copies the body with parameter identities replaced.
-        const replacements = call.parameters.map(
-          (parameter, i) => [parameter, call.arguments[i]])
-        active.push(call)
-        try {
-          call.answer[1] = walk(call.definition.node[1], replacements).graph
-        } finally {
-          active.pop()
-        }
+        copyBody()
       }
     } else {
       // Extra arguments apply to the completed answer.
