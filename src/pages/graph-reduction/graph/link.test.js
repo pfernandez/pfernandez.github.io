@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { image } from '../wasm/image.js'
-import { link, step } from './index.js'
+import { depth, event, link, step, tick } from './index.js'
 
 const I = '(I x x)'
 const K = '(K x y x)'
@@ -290,25 +290,26 @@ describe('link', () => {
     assert.doesNotThrow(() => image(graph))
   })
 
-  test('links the source-level successor stream fixture', () => {
+  test('links the source-level successor orbit fixture', () => {
     const source = readFileSync(
       new URL('../successor.graph.lisp', import.meta.url),
       'utf-8')
     const { graph } = linked(source)
-    const seen = new Set()
+    const foci = []
     let focus = graph
 
     for (let i = 0; i < 18; i++) {
-      assert.equal(seen.has(focus), false)
-      seen.add(focus)
+      foci.push(focus)
       focus = step(focus)
     }
 
+    assert.equal(new Set(foci).size > 1, true)
+    assert.equal(new Set(foci).size < foci.length, true)
     assertPairs(graph)
     assert.doesNotThrow(() => image(graph))
   })
 
-  test('materializes changed recursive calls as delayed futures', () => {
+  test('ties changed recursive calls into a finite orbit', () => {
     const { graph } = linked(program([
       Zero,
       Succ,
@@ -316,16 +317,23 @@ describe('link', () => {
       '(Frame view next ((Slot view) next))',
       '(Grow n (Frame n (Grow (Succ n))))'
     ], '(Grow Zero)'))
-    const seen = new Set()
+    const foci = []
     let focus = graph
 
     for (let i = 0; i < 18; i++) {
-      assert.equal(seen.has(focus), false)
-      seen.add(focus)
+      foci.push(focus)
       focus = step(focus)
     }
 
-    assert.equal(seen.size, 18)
+    assert.equal(new Set(foci).size > 1, true)
+    assert.equal(new Set(foci).size < foci.length, true)
+
+    const current = event(graph)
+    for (let i = 0; i < 18; i++) {
+      assert.equal(depth(current), i)
+      tick(current)
+    }
+    assert.equal(depth(current), 18)
     assertPairs(graph)
     assert.doesNotThrow(() => image(graph))
   })

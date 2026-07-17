@@ -1,11 +1,11 @@
-; A source-level successor stream.
+; A source-level successor orbit.
 ;
 ; Run:
 ;
-;   env GRAPH_SCHEME=plain node cli.js successor.graph.lisp 18
+;   env GRAPH_SCHEME=plain node cli.js --events successor.graph.lisp 18
 ;
-; Each time the suspended Grow future is stepped into, the linker materializes
-; one more Frame. The stepper still moves to the right edge after that load.
+; The linked graph is finite and step only moves to the right edge. The focus
+; repeats, while event history records how many times the orbit has been taken.
 
 ((Zero f x x)
  (Succ n f x (f (n f x)))

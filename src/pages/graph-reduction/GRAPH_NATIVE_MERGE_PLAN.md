@@ -27,15 +27,18 @@ Commits on top of `main`:
 - `2319baa Update graph-native plan`
 - `266eac5 Cover graph-native trace shapes`
 - `79331d1 Add delayed future contract`
+- `53d72cc Add event history stepping`
 
 New files:
 
 - `graph/link.js`: graph-native linker beside the existing `compile.js`
-- `graph/step.js`: load delayed futures, then step to the right edge
+- `graph/step.js`: pure right-edge step, `pair => pair[1]`
+- `graph/event.js`: optional event/history wrapper for observing repeated steps
 - `graph/link.test.js`: contract tests for pair-only linked graphs
 - `core.graph.lisp`: graph-native source, not yet canonical `core.lisp`
 - `loop.graph.lisp`: source-level loop fixture
-- `successor.graph.lisp`: delayed successor stream fixture
+- `successor.graph.lisp`: successor orbit fixture
+- `history.graph.lisp`: finite graph plus growing observation-history fixture
 - `GRAPH_NATIVE_MERGE_PLAN.md`: this plan
 
 Existing files intentionally left in place:
@@ -73,7 +76,7 @@ a drop-in replacement for `link + step`.
   `(() focus)` source form its tests expect. Mine it for ideas, not code.
 - `alt/observer/` is the best machine/root/IO theory lab. Its tests around
   closed machines, linked futures, next-only potential, and carried history are
-  directly relevant to the delayed-future problem.
+  directly relevant to the problem of making future/history structure explicit.
 
 The current conclusion:
 
@@ -101,21 +104,20 @@ These are the non-negotiable rules for the merge.
 
 3. `step` stays small.
 
-   The ordinary case is still the right-edge move:
+   The machine step is only the right-edge move:
 
    ```js
    return pair[1]
    ```
 
-   Changed recursive calls install a delayed edge. When `step` reaches that
-   pair, it materializes one body copy and then returns the right edge. Do not
-   move arity checks, symbol lookup, or general reduction logic into `step`.
+   Do not move arity checks, symbol lookup, body copying, future loading, or
+   general reduction logic into `step`.
 
    Stepping right is an orientation choice, not magic. A left-stepping machine
    could be built from a consistently mirrored graph. The invariant is that
-   `step` follows the pair's right edge after any delayed edge has been loaded.
-   Once source shape, loops, and shared identities are linked, that orientation
-   becomes a real constraint on which future edge is available next.
+   `step` follows the pair's right edge and does nothing else. Once source
+   shape, loops, and shared identities are linked, that orientation becomes a
+   real constraint on which future edge is available next.
 
 4. Do not lose the old observation boundary.
 
@@ -144,10 +146,11 @@ These are the non-negotiable rules for the merge.
 7. Treat the physical analogy as a constraint on structure, not as runtime
    decoration.
 
-   Cycles, slots, identity, symmetry, and delayed futures are useful only when
-   they force a smaller or more honest graph shape. The current JS delayed-edge
-   table is an allocation boundary; the long-term version should become memory
-   or graph-root structure rather than a hidden evaluator.
+   Cycles, slots, identity, symmetry, and future/history structure are useful
+   only when they force a smaller or more honest graph shape. A hidden JS
+   allocation table is not the target; if allocation is needed, the long-term
+   version should become memory or graph-root structure rather than a hidden
+   evaluator.
 
 ## Current concern
 
@@ -174,12 +177,11 @@ current branch:
 This is not only a presentation difference.
 
 The `main` trace is the internal left walk inside `observe`. The branch trace is
-repeated load-then-right stepping. But the branch also shows that `link` has
-already copied the S body and placed `((a c) (b c))` in the graph during
-linking.
+repeated right-edge stepping. But the branch also shows that `link` has already
+copied the S body and placed `((a c) (b c))` in the graph during linking.
 
 That means the new linker is still a bridge. It preserves more source shape and
-can materialize delayed recursive futures, but it still performs ordinary
+can tie recursive calls into finite orbits, but it still performs ordinary
 compile-time call completion. The final engine should push more of that
 causal/event boundary into graph structure rather than relying on eager
 host-side reduction.
@@ -204,7 +206,7 @@ Canonical files should eventually look like this:
 graph/
   parse.js       // text -> plain AST
   link.js        // AST/source -> pair-only graph + legend
-  step.js        // load delayed edge, then pair -> pair[1]
+  step.js        // pair -> pair[1]
   serialize.js   // human view; may use legend
   index.js
 
@@ -248,9 +250,8 @@ Current tests already cover:
 - a library can be carried through a source loop
 - `Y I` ties a cycle
 - `Zero` and `Succ` compose through stepping
-- `successor.graph.lisp` exposes an unbounded delayed successor stream
-- direct recursive calls with changed arguments materialize one future at a time
-  when stepped into
+- `successor.graph.lisp` exposes a finite successor orbit
+- direct recursive calls with changed arguments tie back into an active answer
 - trace-corpus-inspired focus staging for `(I a)`, `(K a b)`,
   `(S a b c)`, `(I (K a b))`, `(K (I a) b)`, `(K (S a b c) d)`,
   and `(S K K a)`
@@ -356,14 +357,11 @@ The successor fixture records the boundary of the current bridge:
 (Grow Zero)
 ```
 
-This now works by installing a delayed edge for changed recursive calls. The
-linked graph starts finite. When `step` reaches the suspended recursive call,
-the delayed edge materializes one body copy and leaves the next changed
-recursive call suspended.
-
-This is not a broad reducer: the delayed edge already knows the definition and
-arguments captured by `link`. Stepping that pair performs the smallest missing
-allocation, then continues by right edge.
+With pure `step`, changed recursive calls tie back into the active answer for
+that definition. The linked graph starts finite and remains finite. The
+successor fixture is therefore an orbit, not a host-materialized stream:
+repeated stepping revisits graph identities, while an event/history wrapper can
+record how many times the path has been taken.
 
 Acceptance tests:
 
@@ -373,7 +371,7 @@ Acceptance tests:
   `(b c)` and then `c`.
 - The graph still images to pairs only.
 - No string names are needed by `step`.
-- The delayed-edge table must be translated before wasm can claim equivalence.
+- JS and wasm can share the same step rule because there is no side table.
 
 ### Phase 3: reduce eager call completion in `link`
 
@@ -460,26 +458,24 @@ select(p)
 Target wasm behavior:
 
 ```text
-step(p) = loadDelayed(p), then mem[p]
+step(p) = mem[p]
 ```
 
 This likely goes with right-edge addressing:
 
 - pair address is its right word
-- `mem[p]` is the right edge / next step after any delayed edge is loaded
+- `mem[p]` is the right edge / next step
 - left edge is at `p - 4`
 - atoms may be single self-address words or padded/aligned cells; choose the
   simplest representation that keeps pair addresses distinguishable
-- delayed recursive futures need a wasm-side representation for "definition +
-  arguments + suspended pair", replacing the JS `WeakMap`
 
-Do this only after deciding whether delayed edges live in a side table, a memory
-region, or a graph-root allocator. Otherwise wasm will faithfully reproduce only
-the finite linked prefix.
+If allocation becomes necessary again, make it explicit in memory or graph-root
+state before asking wasm to implement it. Otherwise wasm should faithfully run
+the finite linked graph with the same pure step rule as JS.
 
 Acceptance:
 
-- JS `step` and wasm `step` agree after delayed futures materialize
+- JS `step` and wasm `step` agree
 - generated module is source-independent except for data and legend sections
 - canonical source images without raw symbols
 - legend remains a display/debug artifact only
@@ -536,15 +532,15 @@ branch for review.
 
 ## Suggested next work
 
-1. Decide whether the JS delayed-edge table is the final prototype shape for
-   now, or whether to immediately move it into explicit graph-root state.
+1. Decide which event/history structure should be canonical enough for the
+   dashboard to show.
 2. Port the remaining `compile.test.js` behavior only after that boundary is
    clear enough not to smuggle evaluator logic into `link` or `step`.
 3. Move the dashboard to `link + step` after the event boundary has a graph
    shape worth displaying.
-4. Translate delayed edges into wasm only after choosing the memory shape.
+4. Keep wasm aligned with the pure right-edge step.
 
 The next implementation target is still the old `observe/select` idempotence
 distinction expressed as graph structure. The important point is to preserve the
-old "found event vs selected payload" distinction without turning delayed-edge
-loading into a general evaluator.
+old "found event vs selected payload" distinction without turning `step` into a
+general evaluator.

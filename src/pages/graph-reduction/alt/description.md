@@ -18,7 +18,7 @@ The active graph-native experiment is:
 
 - `graph/parse.js` reads source into plain syntax trees.
 - `graph/link.js` links lexical identities into a pair-only graph.
-- `graph/step.js` loads a delayed future if the pair owns one, then steps right.
+- `graph/step.js` steps to the right edge: `pair => pair[1]`.
 - `graph/serialize.js` projects graph structure back into readable text, using
   the legend only for display.
 
@@ -60,21 +60,22 @@ compiler traces show this older shape clearly:
 ```
 
 The long-term goal is not to hide evaluation in the linker or the stepper. A
-future event should be present as graph structure. The current JS path crosses
-the unbounded successor boundary with delayed edges: changed recursive calls
-stay visible until `step` reaches them, then one body copy is materialized.
+future event should be present as graph structure. With pure `step`, changed
+recursive calls now tie back into the active linked answer. That gives a finite
+orbit; unbounded count belongs to the path/history of observation, not to
+host-side future materialization.
 
 ## Runtime rule
 
 The branch keeps the runtime step small:
 
 ```js
-load delayed edge, then return pair[1]
+return pair[1]
 ```
 
-Ordinary pairs still step by right edge. Delayed recursive futures add the
-smallest allocation boundary: the future already knows the definition and
-arguments captured by `link`, and stepping it installs the next right edge.
+All machine-visible motion is ordinary right-edge stepping. If a source-level
+loop needs to expose history, that history has to be carried by graph structure
+or by the event path that observes the graph.
 
 ## Geometry and orientation
 
@@ -83,12 +84,10 @@ could step left if the source, linker, loops, and shared identities were all
 built around that orientation.
 
 The useful invariant is not that the right edge is special. The useful invariant
-is that `step` follows the right edge after any delayed edge has been loaded.
-Once the graph is linked, orientation is no longer arbitrary: it determines
-which identities are adjacent, which cycles close, and which future is reachable
-next.
+is that `step` follows the right edge and does nothing else. Once the graph is
+linked, orientation is no longer arbitrary: it determines which identities are
+adjacent, which cycles close, and which future is reachable next.
 
-That makes delayed futures a graph-geometry problem. A successor stream, for
-example, should not depend on a host reducer unrolling every future up front.
-The graph needs a local suspended shape where the next successor becomes
-available when reached.
+That makes successor-like behavior a graph-geometry problem. A finite graph can
+contain a cyclic successor orbit; an unbounded count needs an unbounded
+observation history or a graph-native allocation story.

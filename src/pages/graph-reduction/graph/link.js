@@ -1,14 +1,11 @@
 import { err, parse } from './parse.js'
-import { delay } from './step.js'
 
 export const link = source => {
   // The same stack holds visible names, definition metadata, and calls that
   // are being copied. Names are only construction/display handles; the graph
   // itself is made only of pairs.
   const stack = []
-  // Active body copies let exact recursive calls tie back to an existing
-  // answer. Changed recursive arguments become delayed futures: visible pair
-  // nodes that materialize one body copy when `step` reaches them.
+  // Active body copies let recursive calls tie back to an existing answer.
   const active = []
   const legend = []
 
@@ -111,13 +108,10 @@ export const link = source => {
         // A repeated active call shares the existing answer and ties recursion.
         call.answer[1] = prior.answer
       } else if (call.recursive) {
-        // A changed recursive call is productive only when it becomes a future:
-        // it stays visible now, and allocates its body when stepped into.
-        call.answer[1] = graph
-        delay(graph, () => {
-          copyBody()
-          graph[1] = call.answer[1]
-        })
+        // A changed recursive call cannot allocate a fresh future during a pure
+        // step, so it closes over the active answer for this definition.
+        call.answer[1] = active.findLast(
+          prior => prior.definition === call.definition).answer
       } else {
         // A complete call copies the body with parameter identities replaced.
         copyBody()
