@@ -270,6 +270,36 @@ describe('link', () => {
     assert.doesNotThrow(() => image(graph))
   })
 
+  test('links the source-level successor orbit fixture', () => {
+    const source = readFileSync(
+      new URL('../successor.graph.lisp', import.meta.url),
+      'utf-8')
+    const { graph } = linked(source)
+    const zero = steps(graph, 1)
+    const one = steps(graph, 3)
+    const two = steps(graph, 5)
+
+    assert.notEqual(zero, one)
+    assert.notEqual(one, two)
+    assert.notEqual(two, zero)
+    assert.equal(steps(graph, 7), zero)
+    assertPairs(graph)
+    assert.doesNotThrow(() => image(graph))
+  })
+
+  test('reports recursive calls that need a delayed future', () => {
+    const result = link(program([
+      Zero,
+      Succ,
+      'Slot',
+      '(Frame view next ((Slot view) next))',
+      '(Grow n (Frame n (Grow (Succ n))))'
+    ], '(Grow Zero)'))
+
+    assert.match(result.error?.message,
+                 /Recursive Grow call changes arguments/)
+  })
+
   test('can write an observer state in source', () => {
     const { graph, legend } = linked(program([
       Observe,

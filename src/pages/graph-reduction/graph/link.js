@@ -5,6 +5,9 @@ export const link = source => {
   // are being copied. Names are only construction/display handles; the graph
   // itself is made only of pairs.
   const stack = []
+  // Active body copies let exact recursive calls tie back to an existing
+  // answer, while changed recursive arguments report the missing future edge.
+  const active = []
   const legend = []
 
   const named = symbol =>
@@ -37,7 +40,7 @@ export const link = source => {
       entry.answer?.[1] === node
       && entry.arguments.length < entry.parameters.length)
 
-  const startCall = (graph, entry, priorArguments = []) => {
+  const startCall = (graph, entry, priorArguments = [], direct = true) => {
     // A call owns an answer node. When enough arguments arrive, the answer's
     // right edge is wired to a body copy.
     const answer = []
@@ -48,7 +51,8 @@ export const link = source => {
       answer,
       definition: entry,
       parameters: entry.parameters,
-      arguments: [...priorArguments]
+      arguments: [...priorArguments],
+      recursive: direct && active.some(call => call.definition === entry)
     }
 
     let pair = answer
@@ -68,7 +72,11 @@ export const link = source => {
       left.reference
         ? startCall(graph, left.reference)
         : left.partial &&
-          startCall(graph, left.partial.definition, left.partial.arguments))
+          startCall(
+            graph,
+            left.partial.definition,
+            left.partial.arguments,
+            false))
 
     if (!call) return { graph }
 
@@ -86,15 +94,21 @@ export const link = source => {
         && entry.arguments?.length === arity
         && entry.arguments.every(
           (argument, i) => argument === call.arguments[i]))
-
       if (prior) {
         // A repeated active call shares the existing answer and ties recursion.
         call.answer[1] = prior.answer
+      } else if (call.recursive) {
+        err(`Recursive ${call.definition.symbol} call changes arguments`)
       } else {
         // A complete call copies the body with parameter identities replaced.
         const replacements = call.parameters.map(
           (parameter, i) => [parameter, call.arguments[i]])
-        call.answer[1] = walk(call.definition.node[1], replacements).graph
+        active.push(call)
+        try {
+          call.answer[1] = walk(call.definition.node[1], replacements).graph
+        } finally {
+          active.pop()
+        }
       }
     } else {
       // Extra arguments apply to the completed answer.
