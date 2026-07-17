@@ -93,6 +93,26 @@ const find = (root, predicate) => {
   }
 }
 
+const callShape = graph => {
+  const args = []
+  let answer = graph
+
+  while (answer[0] !== answer) {
+    args.unshift(answer[1])
+    answer = answer[0]
+  }
+
+  return { answer, args }
+}
+
+const assertFocus = (focus, args, answer) => {
+  const shape = callShape(focus[0])
+
+  assert.equal(focus[1], answer)
+  assert.equal(shape.answer[1], answer)
+  assert.deepEqual(shape.args, args)
+}
+
 describe('link', () => {
   test('links a bare atom', () => {
     const { graph, legend } = linked('a')
@@ -298,6 +318,85 @@ describe('link', () => {
 
     assert.match(result.error?.message,
                  /Recursive Grow call changes arguments/)
+  })
+
+  test('preserves trace-corpus focus shapes', () => {
+    const IKA = linked(program([I, K], '(I (K a b))'))
+    const IKAOuter = steps(IKA.graph, 1)
+    const IKAInner = steps(IKA.graph, 2)
+    assertFocus(IKAOuter, [IKAInner], IKAInner)
+    assertFocus(
+      IKAInner,
+      [named(IKA.legend, 'a'), named(IKA.legend, 'b')],
+      named(IKA.legend, 'a'))
+
+    const KIAB = linked(program([I, K], '(K (I a) b)'))
+    const KIABOuter = steps(KIAB.graph, 1)
+    const KIABInner = steps(KIAB.graph, 2)
+    assertFocus(
+      KIABOuter,
+      [KIABInner, named(KIAB.legend, 'b')],
+      KIABInner)
+    assertFocus(KIABInner, [named(KIAB.legend, 'a')], named(KIAB.legend, 'a'))
+
+    const KSABCD = linked(program([K, S], '(K (S a b c) d)'))
+    const KSABCDOuter = steps(KSABCD.graph, 1)
+    const KSABCDInner = steps(KSABCD.graph, 2)
+    const KSABCDAnswer = steps(KSABCD.graph, 3)
+    assertFocus(
+      KSABCDOuter,
+      [KSABCDInner, named(KSABCD.legend, 'd')],
+      KSABCDInner)
+    assertFocus(
+      KSABCDInner,
+      [
+        named(KSABCD.legend, 'a'),
+        named(KSABCD.legend, 'b'),
+        named(KSABCD.legend, 'c')
+      ],
+      KSABCDAnswer)
+    assertS({ result: KSABCDAnswer, legend: KSABCD.legend })
+  })
+
+  test('keeps simple trace-corpus calls staged before their answer', () => {
+    const ILinked = linked(program([I], '(I a)'))
+    const IFocus = steps(ILinked.graph, 1)
+    assertFocus(IFocus, [named(ILinked.legend, 'a')], named(ILinked.legend, 'a'))
+
+    const KLinked = linked(program([K], '(K a b)'))
+    const KFocus = steps(KLinked.graph, 1)
+    assertFocus(
+      KFocus,
+      [named(KLinked.legend, 'a'), named(KLinked.legend, 'b')],
+      named(KLinked.legend, 'a'))
+
+    const SLinked = linked(program([S], '(S a b c)'))
+    const SFocus = steps(SLinked.graph, 1)
+    const SAnswer = steps(SLinked.graph, 2)
+    assertFocus(
+      SFocus,
+      [
+        named(SLinked.legend, 'a'),
+        named(SLinked.legend, 'b'),
+        named(SLinked.legend, 'c')
+      ],
+      SAnswer)
+    assertS({ result: SAnswer, legend: SLinked.legend })
+  })
+
+  test('keeps composed trace-corpus calls staged before settling', () => {
+    const { graph, legend } = linked(program([I, K, S], '(S K K a)'))
+    const SFocus = steps(graph, 1)
+    const residual = steps(graph, 2)
+    const result = steps(graph, 3)
+    const shape = callShape(SFocus[0])
+
+    assert.equal(SFocus[1], residual)
+    assert.equal(shape.answer[1], residual)
+    assert.equal(shape.args[0], shape.args[1])
+    assert.equal(shape.args[2], named(legend, 'a'))
+    assert.equal(result, named(legend, 'a'))
+    assertPairs(graph)
   })
 
   test('can write an observer state in source', () => {

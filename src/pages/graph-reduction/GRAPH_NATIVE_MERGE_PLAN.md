@@ -223,20 +223,14 @@ Current tests already cover:
 - `successor.graph.lisp` exposes a finite dynamic successor orbit
 - direct recursive calls with changed arguments report the missing delayed
   future boundary instead of overflowing the host stack
+- trace-corpus-inspired focus staging for `(I a)`, `(K a b)`,
+  `(S a b c)`, `(I (K a b))`, `(K (I a) b)`, `(K (S a b c) d)`,
+  and `(S K K a)`
 
-Next tests to add from `alt/compilers/traces/`:
-
-- `(I a)`
-- `(K a b)`
-- `(S a b c)`
-- `(I (K a b))`
-- `(K (I a) b)`
-- `(K (S a b c) d)`
-- `(S K K a)`
-
-These should not assert exact serializer path strings. They should assert
-semantic identity, pair-only graph shape, and the important staging fact: the
-application focus remains visible before the answer is reached.
+The trace-inspired tests intentionally do not assert exact serializer path
+strings. They assert semantic identity, pair-only graph shape, and the important
+staging fact: the application focus remains visible before the answer is
+reached.
 
 Next tests to port from `compile.test.js` before deleting `compile.js`:
 
@@ -502,13 +496,11 @@ branch for review.
 
 ## Suggested next work
 
-1. Add trace-corpus-inspired contracts for the current `link + step` path.
-2. Update the public description to explain the current split:
-   `link.js` is the branch engine, `compile.js` is a behavior oracle,
-   `alt/compilers/traces` is a focus-shape oracle, and `alt/observer` is a
-   machine/root/future oracle.
-3. Return to the delayed-future/event-boundary problem with the trace shapes
+1. Return to the delayed-future/event-boundary problem with the trace shapes
    protected by tests.
+2. Port the remaining `compile.test.js` behavior that matters before deleting
+   `compile.js`.
+3. Move the dashboard to `link + step` only after the event boundary is clear.
 
 The next implementation target is still the old `observe/select` idempotence
 distinction expressed as graph structure. The important point is to preserve the
