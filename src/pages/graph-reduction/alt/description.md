@@ -75,3 +75,19 @@ export const step = pair => pair[1]
 Any choice about what that edge means must already be encoded in the graph. This
 is why loops, stable events, machine roots, and carried history are source/graph
 problems rather than `step` problems.
+
+## Geometry and orientation
+
+Right-stepping is a convention of the current graph shape. A mirrored machine
+could step left if the source, linker, loops, and shared identities were all
+built around that orientation.
+
+The useful invariant is not that the right edge is special. The useful invariant
+is that `step` follows an edge that already exists. Once the graph is linked,
+orientation is no longer arbitrary: it determines which identities are adjacent,
+which cycles close, and which future is reachable next.
+
+That makes delayed futures a graph-geometry problem. A successor stream, for
+example, should not depend on a host reducer unrolling every future. The graph
+needs a local shape where the next successor becomes available by ordinary
+edge-following.

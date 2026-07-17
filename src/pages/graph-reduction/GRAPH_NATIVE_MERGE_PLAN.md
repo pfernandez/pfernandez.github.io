@@ -24,6 +24,8 @@ Commits on top of `main`:
 - `3bdc3b1 Add graph-native loop fixture`
 - `e96887d Fix CLI trace count`
 - `30aa1f5 Add successor orbit fixture`
+- `2319baa Update graph-native plan`
+- `266eac5 Cover graph-native trace shapes`
 
 New files:
 
@@ -106,6 +108,12 @@ These are the non-negotiable rules for the merge.
 
    Do not move evaluator logic into `step`.
 
+   Stepping right is an orientation choice, not magic. A left-stepping machine
+   could be built from a consistently mirrored graph. The invariant is that
+   `step` follows an already-present edge. Once source shape, loops, and shared
+   identities are linked, that orientation becomes a real constraint on which
+   future edge is available next.
+
 4. Do not lose the old observation boundary.
 
    The old `observe/select` split encoded two different things:
@@ -129,6 +137,13 @@ These are the non-negotiable rules for the merge.
 6. Prefer small, plain code over clever compression.
 
    The code should stay readable enough to explain mechanically in comments.
+
+7. Treat the physical analogy as a constraint on structure, not as runtime
+   decoration.
+
+   Cycles, slots, identity, symmetry, and delayed futures are useful only when
+   they force a smaller or more honest graph shape. If a concept requires a
+   host-side branch in `step`, it has not yet become machine structure.
 
 ## Current concern
 
@@ -167,6 +182,13 @@ The trace corpus sharpens this concern: eager call completion is acceptable only
 as long as it preserves the visible application focus shape. It must not turn
 the linked graph into only the final answer, and it must not erase the path that
 shows where the answer came from.
+
+The left/right direction question belongs here too. Before construction, either
+orientation may be a valid gauge choice. After construction, the chosen fold
+direction and step edge determine which identities are adjacent, which cycles
+close, and which future can be reached without extra interpretation. So the
+question is not whether "right" is intrinsically special; it is whether the
+whole graph has made one direction mechanically sufficient.
 
 ## Desired end state
 
@@ -332,6 +354,13 @@ This is the shape we want eventually, but today it needs a real delayed future
 edge. Without that edge, `link` can only build finite or already-cyclic futures
 without hiding an evaluator in the host.
 
+This should be treated as a local propagation-law problem, not as a request for
+another reducer. `Grow n` should not require the host to unroll all successors
+up front. It should create or expose a graph shape where stepping into the next
+slot makes `Grow (Succ n)` the available future by ordinary edge-following.
+That may require a source-level observer/root, a different source shape, or a
+small linker rule, but it should not require a smarter `step`.
+
 Acceptance tests:
 
 - A repeated machine run can keep ticking without the dashboard deciding when to
@@ -489,6 +518,8 @@ branch for review.
   full graph pair-purity.
 - Repeated `step` is not the same thing as old `observe` tracing.
 - A stable payload and a stable observation event are different things.
+- Left vs right stepping is a gauge/orientation issue only before the graph is
+  built. After linking, changing direction means changing the whole graph shape.
 - Do not narrow the repo's default `npm test` to only graph-reduction tests
   unless that is an explicit separate decision.
 - Do not replace canonical `core.lisp` until the graph-native path can carry
@@ -496,11 +527,14 @@ branch for review.
 
 ## Suggested next work
 
-1. Return to the delayed-future/event-boundary problem with the trace shapes
-   protected by tests.
-2. Port the remaining `compile.test.js` behavior that matters before deleting
-   `compile.js`.
-3. Move the dashboard to `link + step` only after the event boundary is clear.
+1. Write one tiny failing contract for a delayed future or stable event boundary
+   rather than a broad reducer.
+2. Use that contract to decide whether the missing structure belongs in source,
+   `link`, or a source-level observer/root.
+3. Port the remaining `compile.test.js` behavior only after that boundary is
+   clear enough not to smuggle evaluator logic into `link` or `step`.
+4. Move the dashboard to `link + step` after the event boundary has a graph
+   shape worth displaying.
 
 The next implementation target is still the old `observe/select` idempotence
 distinction expressed as graph structure. The important point is to preserve the
