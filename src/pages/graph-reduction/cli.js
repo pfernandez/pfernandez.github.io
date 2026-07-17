@@ -1,7 +1,10 @@
 import {
+  depth,
+  event,
   link,
   serializeAnsi,
-  step
+  step,
+  tick
 } from './graph/index.js'
 
 let traceCount = 0
@@ -9,9 +12,9 @@ let traceCount = 0
 const traceScheme = () =>
   process.env.GRAPH_SCHEME || 'color'
 
-const trace = (form, legend) =>
+const trace = (form, legend, label = traceCount++) =>
   console.log(
-    traceCount++,
+    label,
     serializeAnsi(form, { legend, scheme: traceScheme() }),
     '\n')
 
@@ -22,7 +25,9 @@ const main = () =>
 
 if (main()) {
   const { readFileSync } = await import('node:fs')
-  const [first, second] = process.argv.slice(2)
+  const args = process.argv.slice(2)
+  const events = args.includes('--events')
+  const [first, second] = args.filter(arg => arg !== '--events')
   const isCount = value => /^\d+$/.test(value)
   const file = first && !isCount(first)
     ? first
@@ -31,9 +36,14 @@ if (main()) {
   const { graph, legend, error } = link(readFileSync(file, 'utf-8'))
   if (error) throw error
 
-  let focus = graph
+  let focus = events ? event(graph) : graph
   for (let i = 0; i < count; i++) {
-    trace(focus, legend)
-    focus = step(focus)
+    if (events) {
+      trace(focus[0], legend, `${traceCount++} h=${depth(focus)}`)
+      tick(focus)
+    } else {
+      trace(focus, legend)
+      focus = step(focus)
+    }
   }
 }
