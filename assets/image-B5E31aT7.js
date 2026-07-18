@@ -1,0 +1,1 @@
+const c=r=>{const e=new Map,s=t=>{if(!e.has(t)){if(!Array.isArray(t)||t.length!==2)throw new Error("Image cells must be pairs");e.set(t,e.size*8),t.forEach(s)}};s(r);const a=new Uint8Array(e.size*8),n=new DataView(a.buffer);for(const[t,i]of e)n.setUint32(i,e.get(t[0]),!0),n.setUint32(i+4,e.get(t[1]),!0);return{bytes:a,focus:e.get(r),addresses:e}};export{c as image};
