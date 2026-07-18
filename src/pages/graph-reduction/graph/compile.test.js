@@ -1,12 +1,36 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  compile,
+  compile as compileProgram,
   observe,
-  serialize
+  serialize as print
 } from './index.js'
 
-const step = node => observe(node)[1]
+const legends = new WeakMap()
+
+const remember = (node, legend, seen = new Set()) => {
+  if (!Array.isArray(node) || seen.has(node)) return
+  seen.add(node)
+  legends.set(node, legend)
+  remember(node[0], legend, seen)
+  remember(node[1], legend, seen)
+}
+
+const compile = source => {
+  const { graph, legend } = compileProgram(source)
+  remember(graph, legend)
+  return graph
+}
+
+const serialize = node =>
+  print(node, { legend: legends.get(node) ?? [] })
+
+const step = node => {
+  const next = observe(node)[1]
+  const legend = legends.get(node)
+  if (legend) remember(next, legend)
+  return next
+}
 
 const repeat = (form, fn, n) =>
   n === 0 ? form : repeat(fn(form), fn, n - 1)
@@ -332,7 +356,7 @@ describe('library forms', () => {
 
     const graph = compile(source(coreDefinitions, '(App (I I) a)'))
 
-    assert.equal(serialize(repeat(graph, step, 2)), '(($.0 $) $.0)')
+    assert.equal(serialize(repeat(graph, step, 2)), '(x x)')
   })
 
   test('forward references do not bind', () =>

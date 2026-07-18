@@ -198,8 +198,9 @@ if (main()) {
   if (path.endsWith('.wasm')) {
     bytes = new Uint8Array(readFileSync(path))
   } else {
-    const graphImage = image(compile(readFileSync(path, 'utf-8')))
-    bytes = emit({ ...graphImage, legend: imageLegend(graphImage) })
+    const { graph, legend } = compile(readFileSync(path, 'utf-8'))
+    const graphImage = image(graph)
+    bytes = emit({ ...graphImage, legend: imageLegend(graphImage, legend) })
     console.log(bytes.length, 'bytes\n')
   }
 

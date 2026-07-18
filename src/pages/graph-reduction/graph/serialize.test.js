@@ -13,12 +13,12 @@ const view = bytes =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 
-const imageView = graph => {
+const imageView = ({ graph, legend }) => {
   const graphImage = image(graph)
   return {
     view: view(graphImage.bytes),
     focus: graphImage.focus,
-    legend: imageLegend(graphImage)
+    legend: imageLegend(graphImage, legend)
   }
 }
 
@@ -67,20 +67,19 @@ describe('serialize', () => {
     const forms = ['(I a)', '(K a b)', '(K a b c)', '(S K K a)', '(f a a)']
 
     for (const form of forms) {
-      const graph = compile(`${definitions}\n${form}`)
-      const graphImage = imageView(graph)
+      const compiled = compile(`${definitions}\n${form}`)
+      const graphImage = imageView(compiled)
 
       assert.equal(
         serializeWasm(graphImage.view, graphImage.focus, {
           legend: graphImage.legend
         }),
-        serialize(graph))
+        serialize(compiled.graph, { legend: compiled.legend }))
     }
   })
 
   test('wasm uses the same presentation schemes', () => {
-    const graph = compile('(K ((x x) y))\n(K a b c)')
-    const graphImage = imageView(graph)
+    const graphImage = imageView(compile('(K ((x x) y))\n(K a b c)'))
     const text = serializeWasm(graphImage.view, graphImage.focus, {
       legend: graphImage.legend,
       format: 'ansi',

@@ -11,10 +11,10 @@ import {
 import lisp from './core.lisp?raw'
 
 const build = source => {
-  let graph = [], error
-  try { graph = compile(source) }
+  let graph = [], legend = [], error
+  try { ({ graph, legend } = compile(source)) }
   catch (e) { error = e }
-  return { graph, error }
+  return { graph, legend, error }
 }
 
 const infer = (
@@ -32,12 +32,12 @@ const dashboard = component(
     scheme: schemes.ink
   }) => {
 
-    const { graph, source, history, error, scheme } = state
+    const { graph, legend, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
     const view = () => dashboard(
       { ...state,
-        graph: observe(graph, g => console.log(serialize(g))),
+        graph: observe(graph, g => console.log(serialize(g, { legend }))),
         history: [...history, state] })
 
     const load = source => dashboard(
@@ -77,7 +77,7 @@ const dashboard = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : serialize(graph, { format: 'vdom', scheme })),
+                  : serialize(graph, { legend, format: 'vdom', scheme })),
 
           div({ class: 'description row' }, `Steps: ${time}`))
     )

@@ -1,4 +1,7 @@
-import { spellings } from './compile.js'
+export const log = x =>
+  (typeof x === 'string' ? console.log(x) : console.dir(x, { depth: null }),
+  console.log('\n'),
+  x)
 
 export const schemes = Object.freeze({
   ink: 'ink',
@@ -13,7 +16,7 @@ const legendName = (node, legend = []) =>
   legend.find?.(entry => entry.node === node)?.symbol
 
 const graphName = (node, legend) =>
-  legendName(node, legend) ?? spellings.get(node)
+  legendName(node, legend)
 
 // Atoms print as their spelling; repeated cells print as the path where the
 // cell first appeared, so sharing and cycles stay visible in plain text.
@@ -23,7 +26,7 @@ const printable = (node, path = '$', pathsByNode = new Map(), legend = []) => {
   const name = graphName(node, legend)
   if (pathsByNode.has(node))
     return name !== undefined ? String(name) : pathsByNode.get(node)
-  if (name !== undefined && node[0] === node && node[1] === node)
+  if (name !== undefined && node[0] === node)
     return String(name)
 
   pathsByNode.set(node, path)
@@ -119,7 +122,7 @@ const parts = (node, legend, seen, identities) => {
     return name !== undefined
       ? [{ text: String(name) }]
       : [{ text: '()', identity: identityFor(node, identities) }]
-  if (name !== undefined && node[0] === node && node[1] === node)
+  if (name !== undefined && node[0] === node)
     return [{ text: String(name) }]
 
   const identity = identityFor(node, identities)
@@ -134,8 +137,6 @@ const parts = (node, legend, seen, identities) => {
   ]
 }
 
-// Parts keep graph identity separate from presentation. Repeated cells print
-// as () with the same identity as their first occurrence.
 const serializeParts = (node, { legend = [] } = {}) =>
   parts(node, legend, new Set(), new Map())
 
@@ -222,12 +223,12 @@ export const serialize = (
     ? printable(node, '$', new Map(), legend)
     : render(serializeParts(node, { legend }), { format, scheme })
 
-export const imageLegend = ({ addresses }) => {
+export const imageLegend = ({ addresses }, entries = []) => {
   const legend = new Map()
 
-  for (const [node, addr] of addresses)
-    if (Array.isArray(node) && node[0] === node && node[1] === node)
-      legend.set(addr, serialize(node))
+  for (const { node, symbol } of entries)
+    if (addresses.has(node))
+      legend.set(addresses.get(node), String(symbol))
 
   return legend
 }
@@ -241,8 +242,11 @@ const wasmText = (
   pathsByAddr = new Map()
 ) => {
   const printAddr = (addr, path) => {
-    if (legend.has(addr)) return String(legend.get(addr))
-    if (pathsByAddr.has(addr)) return pathsByAddr.get(addr)
+    const name = legend.get(addr)
+    if (pathsByAddr.has(addr))
+      return name !== undefined ? String(name) : pathsByAddr.get(addr)
+    if (name !== undefined && view.getUint32(addr, true) === addr)
+      return String(name)
 
     pathsByAddr.set(addr, path)
     const left = printAddr(view.getUint32(addr, true), `${path}.0`)
@@ -260,10 +264,15 @@ const wasmParts = (view, root, legend) => {
   const identities = new Map()
 
   const printAddr = addr => {
-    if (legend.has(addr)) return [{ text: String(legend.get(addr)) }]
+    const name = legend.get(addr)
 
     const identity = identityFor(addr, identities)
-    if (seen.has(addr)) return [{ text: '()', identity }]
+    if (seen.has(addr))
+      return name !== undefined
+        ? [{ text: String(name) }]
+        : [{ text: '()', identity }]
+    if (name !== undefined && view.getUint32(addr, true) === addr)
+      return [{ text: String(name) }]
 
     seen.add(addr)
     const left = printAddr(view.getUint32(addr, true))

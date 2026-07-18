@@ -22,20 +22,20 @@ const lookup = (name, scopes) => {
   }
 }
 
-// One cell per spelling, so atoms compare by identity; spellings is the
-// reverse map, used for printing.
-const atoms = new Map()
-export const spellings = new Map()
+const remember = (scope, node, symbol) => {
+  scope.legend.push({ node, symbol })
+  return node
+}
 
-const intern = spelling => {
-  if (!atoms.has(spelling)) {
+// One cell per spelling in a compiled program, so atoms compare by identity.
+const intern = (spelling, scope) => {
+  if (!scope.atoms.has(spelling)) {
     const cell = []
     cell[0] = cell
     cell[1] = cell
-    atoms.set(spelling, cell)
-    spellings.set(cell, spelling)
+    scope.atoms.set(spelling, remember(scope, cell, spelling))
   }
-  return atoms.get(spelling)
+  return scope.atoms.get(spelling)
 }
 
 // Left-nested application: applyArgs(f, [a, b]) is ((f a) b).
@@ -44,13 +44,13 @@ const applyArgs = (head, args) =>
 
 // A symbol means its binding if it has one, otherwise an atom; a list is
 // its head applied to each item in turn.
-const buildGraph = (form, scopes) =>
+const buildGraph = (form, scopes, scope) =>
   !Array.isArray(form)
-    ? isSymbol(form) && lookup(form, scopes) || intern(form)
+    ? isSymbol(form) && lookup(form, scopes) || intern(form, scope)
     : form.length
-      ? applyArgs(buildGraph(form[0], scopes),
-                  form.slice(1).map(item => buildGraph(item, scopes)))
-      : intern('()')
+      ? applyArgs(buildGraph(form[0], scopes, scope),
+                  form.slice(1).map(item => buildGraph(item, scopes, scope)))
+      : intern('()', scope)
 
 // A top-level (name form) where name is unbound introduces a definition.
 const isDefinitionForm = (form, scope) =>
@@ -72,16 +72,16 @@ const define = ([name, form], scope) => {
   const parameterNames = parameters(form, scope)
   if (!parameterNames) err('Definitions need a body and at least one slot')
 
-  const definition = []
+  const definition = remember(scope, [], name)
   const parameterBindings = parameterNames.map(name => {
-    const slot = []
+    const slot = remember(scope, [], name)
     slot[0] = slot
     slot[1] = definition
     return [name, slot]
   })
 
   scope.names.push([name, definition])
-  definition.push(...buildGraph(form, [parameterBindings, scope.names]))
+  definition.push(...buildGraph(form, [parameterBindings, scope.names], scope))
 }
 
 // Observation stops where the function side is the cell itself: atoms,
@@ -174,7 +174,7 @@ const reduceGraph = (node, activeCalls = []) => {
 
 // Definitions extend the scope; the last remaining form is the focus.
 export const compile = source => {
-  const scope = { names: [] }
+  const scope = { atoms: new Map(), legend: [], names: [] }
   let focus
 
   patience = 1e6
@@ -182,8 +182,8 @@ export const compile = source => {
   for (const form of parse(source))
     focus = isDefinitionForm(form, scope)
       ? void define(form, scope)
-      : reduceGraph(buildGraph(form, [scope.names]))
+      : reduceGraph(buildGraph(form, [scope.names], scope))
 
   if (focus === undefined) err('Missing focus')
-  return focus
+  return { graph: focus, legend: scope.legend }
 }

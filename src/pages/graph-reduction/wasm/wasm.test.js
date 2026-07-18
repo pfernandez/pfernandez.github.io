@@ -16,7 +16,22 @@ import {
   selectAddress
 } from './wasm.js'
 
-const step = node => observe(node)[1]
+const legends = new WeakMap()
+
+const remember = (node, legend, seen = new Set()) => {
+  if (!Array.isArray(node) || seen.has(node)) return
+  seen.add(node)
+  legends.set(node, legend)
+  remember(node[0], legend, seen)
+  remember(node[1], legend, seen)
+}
+
+const step = node => {
+  const next = observe(node)[1]
+  const legend = legends.get(node)
+  if (legend) remember(next, legend)
+  return next
+}
 
 const repeat = (form, fn, n) =>
   n === 0 ? form : repeat(fn(form), fn, n - 1)
@@ -52,14 +67,21 @@ const forms = [
   '(Pair a b f)', '(First p)', '(Second p)',
   '(let x y)', '(Loop Yield seed)']
 
-const program = form => compile(`${definitions}\n${form}`)
+const program = form => {
+  const { graph, legend } = compile(`${definitions}\n${form}`)
+  remember(graph, legend)
+  return graph
+}
+
+const print = node =>
+  serialize(node, { legend: legends.get(node) ?? [] })
 
 const view = bytes =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
 const loadMachine = async graph => {
   const graphImage = image(graph)
-  const authoredLegend = imageLegend(graphImage)
+  const authoredLegend = imageLegend(graphImage, legends.get(graph))
   const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
 
@@ -77,30 +99,34 @@ describe('the image is the graph', () => {
       const graph = program(form)
       const graphImage = image(graph)
       const { bytes, focus: root } = graphImage
-      const legend = imageLegend(graphImage)
+      const legend = imageLegend(graphImage, legends.get(graph))
       const v = view(bytes)
       const found = observeAddress(v, root)
 
       assert.equal(
         serializeWasm(v, found, { legend }),
-        serialize(observe(graph)))
+        print(observe(graph)))
       assert.equal(
         serializeWasm(v, selectAddress(v, found), { legend }),
-        serialize(step(graph)))
+        print(step(graph)))
     }
   })
 
   test('atoms are their own address, twice', () => {
-    const graphImage = image(program('(K a b)'))
+    const graph = program('(K a b)')
+    const graphImage = image(graph)
     const { bytes } = graphImage
-    const legend = imageLegend(graphImage)
+    const legend = imageLegend(graphImage, legends.get(graph))
     const v = view(bytes)
 
-    assert.ok(legend.size >= 2)
+    let atoms = 0
     for (const addr of legend.keys()) {
+      if (v.getUint32(addr, true) !== addr) continue
+      atoms += 1
       assert.equal(v.getUint32(addr, true), addr)
       assert.equal(v.getUint32(addr + 4, true), addr)
     }
+    assert.ok(atoms >= 2)
   })
 })
 
@@ -115,7 +141,7 @@ describe('the machine runs graph bytes', () => {
       assert.equal(machine.exports.focus.value, machine.focus)
       assert.equal(
         serializeWasm(machine.memory, payload, { legend: machine.legend }),
-        serialize(step(graph)))
+        print(step(graph)))
     }
   })
 
@@ -137,7 +163,7 @@ describe('the machine runs graph bytes', () => {
         machine.memory,
         repeat(machine.focus, stepped, 2),
         { legend: machine.legend }),
-      serialize(repeat(graph, step, 2)))
+      print(repeat(graph, step, 2)))
   })
 
   test('structural recursion replays to the same atom', async () => {
@@ -148,7 +174,7 @@ describe('the machine runs graph bytes', () => {
 
     assert.equal(
       machine.legend.get(result),
-      serialize(repeat(graph, step, 6)))
+      print(repeat(graph, step, 6)))
     assert.equal(machine.legend.get(result), 'b')
   })
 
@@ -172,7 +198,10 @@ describe('the machine runs graph bytes', () => {
   test('every program is the same machine', () => {
     const emitGraph = graph => {
       const graphImage = image(graph)
-      return emit({ ...graphImage, legend: imageLegend(graphImage) })
+      return emit({
+        ...graphImage,
+        legend: imageLegend(graphImage, legends.get(graph))
+      })
     }
     const a = sections(emitGraph(program('(I a)')))
     const b = sections(emitGraph(program('(Loop Yield seed)')))
