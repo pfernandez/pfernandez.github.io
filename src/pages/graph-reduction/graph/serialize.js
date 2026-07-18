@@ -1,20 +1,36 @@
 import { spellings } from './compile.js'
 
+export const schemes = Object.freeze({
+  ink: 'ink',
+  pastel: 'pastel',
+  color: 'color',
+  plain: 'plain'
+})
+
+export const schemeNames = Object.values(schemes)
+
+const legendName = (node, legend = []) =>
+  legend.find?.(entry => entry.node === node)?.symbol
+
+const graphName = (node, legend) =>
+  legendName(node, legend) ?? spellings.get(node)
+
 // Atoms print as their spelling; repeated cells print as the path where the
 // cell first appeared, so sharing and cycles stay visible in plain text.
-const printable = (node, path = '$', pathsByNode = new Map()) => {
+const printable = (node, path = '$', pathsByNode = new Map(), legend = []) => {
   if (!Array.isArray(node)) return String(node)
-  if (spellings.has(node)) return String(spellings.get(node))
-  if (pathsByNode.has(node)) return pathsByNode.get(node)
+
+  const name = graphName(node, legend)
+  if (pathsByNode.has(node))
+    return name !== undefined ? String(name) : pathsByNode.get(node)
+  if (name !== undefined && node[0] === node && node[1] === node)
+    return String(name)
 
   pathsByNode.set(node, path)
-  const left = printable(node[0], `${path}.0`, pathsByNode)
-  const right = printable(node[1], `${path}.1`, pathsByNode)
+  const left = printable(node[0], `${path}.0`, pathsByNode, legend)
+  const right = printable(node[1], `${path}.1`, pathsByNode, legend)
   return `(${left} ${right})`
 }
-
-export const serialize = form =>
-  printable(form)
 
 const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
@@ -73,19 +89,19 @@ const colorScheme = color => ({
 const opacity = (index, count) =>
   count < 2 ? 1 : 0.2 + index / (count - 1) * 0.8
 
-export const identitySchemes = {
-  color: colorScheme(identityColor),
-  ink: {
+const identitySchemes = {
+  [schemes.color]: colorScheme(identityColor),
+  [schemes.ink]: {
     ansi: (index, count) =>
       `38;5;${232 + Math.round(opacity(index, count) * 23)}`,
     style: (index, count) => ({ opacity: opacity(index, count) })
   },
-  pastel: colorScheme(pastelGradient),
-  plain: {}
+  [schemes.pastel]: colorScheme(pastelGradient),
+  [schemes.plain]: {}
 }
 
 const scheme = name =>
-  identitySchemes[name] || identitySchemes.color
+  identitySchemes[name] || identitySchemes[schemes.color]
 
 const identityFor = (node, identities) => {
   if (!identities.has(node))
@@ -95,42 +111,53 @@ const identityFor = (node, identities) => {
 
 // Parts keep graph identity separate from presentation. Repeated cells print
 // as () with the same identity as their first occurrence.
-export const serializeParts = (
-  node,
-  seen = new Set(),
-  identities = new Map()
-) => {
+const parts = (node, legend, seen, identities) => {
   if (!Array.isArray(node)) return [{ text: String(node) }]
-  if (spellings.has(node)) return [{ text: String(spellings.get(node)) }]
+
+  const name = graphName(node, legend)
+  if (seen.has(node))
+    return name !== undefined
+      ? [{ text: String(name) }]
+      : [{ text: '()', identity: identityFor(node, identities) }]
+  if (name !== undefined && node[0] === node && node[1] === node)
+    return [{ text: String(name) }]
 
   const identity = identityFor(node, identities)
-  if (seen.has(node)) return [{ text: '()', identity }]
 
   seen.add(node)
   return [
     { text: '(', identity },
-    ...serializeParts(node[0], seen, identities),
+    ...parts(node[0], legend, seen, identities),
     { text: ' ' },
-    ...serializeParts(node[1], seen, identities),
+    ...parts(node[1], legend, seen, identities),
     { text: ')', identity }
   ]
 }
 
-export const identityCount = parts =>
+// Parts keep graph identity separate from presentation. Repeated cells print
+// as () with the same identity as their first occurrence.
+const serializeParts = (node, { legend = [] } = {}) =>
+  parts(node, legend, new Set(), new Map())
+
+const identityCount = parts =>
   parts.reduce(
     (count, part) =>
       part.identity === undefined ? count : Math.max(count, part.identity + 1),
     0)
 
-export const identityStyle = (identity, name = 'color', count = identity + 1) => {
+const identityStyle = (
+  identity,
+  name = schemes.color,
+  count = identity + 1
+) => {
   const style = scheme(name).style
   return style ? style(identity, count) : {}
 }
 
-export const partsToText = parts =>
+const partsToText = parts =>
   parts.map(part => part.text).join('')
 
-export const partsToAnsi = (parts, name = 'color') => {
+const partsToAnsi = (parts, name = schemes.color) => {
   const ansi = scheme(name).ansi
   if (!ansi) return partsToText(parts)
 
@@ -138,8 +165,8 @@ export const partsToAnsi = (parts, name = 'color') => {
   return parts.map(part =>
     part.identity === undefined
       ? part.text
-      : `\x1b[${ansi(part.identity, count)}m${part.text}${RESET}`)
-    .join('')
+      : `\x1b[${ansi(part.identity, count)}m${part.text}${RESET}`
+  ).join('')
 }
 
 const styleText = style =>
@@ -147,7 +174,7 @@ const styleText = style =>
     .concat(Object.entries(style).map(([name, value]) => `${name}: ${value}`))
     .join('; ')
 
-export const partsToConsole = (parts, name = 'color') => {
+const partsToConsole = (parts, name = schemes.color) => {
   const selected = scheme(name)
   if (!selected.style) return [partsToText(parts)]
 
@@ -167,13 +194,33 @@ export const partsToConsole = (parts, name = 'color') => {
   return [text, ...styles]
 }
 
-export const serializeAnsi = (node, name = 'color') =>
-  partsToAnsi(serializeParts(node), name)
+const partsToVdom = (parts, name = schemes.color) => {
+  const count = identityCount(parts)
+  return ['pre', { class: 'output' }, ...parts.map(part =>
+    part.identity === undefined
+      ? part.text
+      : ['span',
+         { class: 'identity',
+           style: identityStyle(part.identity, name, count) },
+         part.text])]
+}
 
-export const serializeConsole = (node, name = 'color') =>
-  partsToConsole(serializeParts(node), name)
+const render = (parts, { format = 'text', scheme = schemes.color } = {}) => {
+  if (format === 'ansi') return partsToAnsi(parts, scheme)
+  if (format === 'console') return partsToConsole(parts, scheme)
+  if (format === 'vdom') return partsToVdom(parts, scheme)
+  return partsToText(parts)
+}
 
-export const serializeColor = serializeAnsi
+// Text repeats print as paths so sharing and cycles stay visible without color.
+// Presentation formats print repeated cells as () and keep identity separate.
+export const serialize = (
+  node,
+  { legend = [], format = 'text', scheme = schemes.color } = {}
+) =>
+  format === 'text'
+    ? printable(node, '$', new Map(), legend)
+    : render(serializeParts(node, { legend }), { format, scheme })
 
 export const imageLegend = ({ addresses }) => {
   const legend = new Map()
@@ -185,8 +232,9 @@ export const imageLegend = ({ addresses }) => {
   return legend
 }
 
-// Same presentation as serialize, reading cells from a DataView of u32 addresses.
-export const serializeImage = (
+// Same text presentation as serialize, reading cells from a DataView of u32
+// addresses.
+const wasmText = (
   view,
   root,
   legend,
@@ -205,8 +253,9 @@ export const serializeImage = (
   return printAddr(root, '$')
 }
 
-// Same presentation as serializeParts, reading cells from a DataView.
-export const serializeImageParts = (view, root, legend) => {
+// Same identity-marked presentation as serialize, reading cells from a
+// DataView.
+const wasmParts = (view, root, legend) => {
   const seen = new Set()
   const identities = new Map()
 
@@ -231,7 +280,11 @@ export const serializeImageParts = (view, root, legend) => {
   return printAddr(root)
 }
 
-export const serializeImageAnsi = (view, root, legend, scheme = 'color') =>
-  partsToAnsi(serializeImageParts(view, root, legend), scheme)
-
-export const serializeImageColor = serializeImageAnsi
+export const serializeWasm = (
+  view,
+  root,
+  { legend = new Map(), format = 'text', scheme = schemes.color } = {}
+) =>
+  format === 'text'
+    ? wasmText(view, root, legend)
+    : render(wasmParts(view, root, legend), { format, scheme })

@@ -95,7 +95,8 @@ const isDefinition = node =>
   Array.isArray(node) && !isStable(node)
     && isStable(node[1]) && node[1][1] === node
 
-// Complete cells need no reduction: stable cells are finished, definitions wait.
+// Complete cells need no reduction: stable cells are finished, definitions
+// wait.
 const isComplete = node =>
   isStable(node) || isDefinition(node)
 
@@ -139,7 +140,7 @@ const findActiveCall = (head, args, activeCalls) =>
 let patience = 0
 
 // A completed call returns its focus: the call's shape with the answer at
-// its head, so observation runs to the answer and select reads the result.
+// its head, so observation runs to the answer and the right side is the result.
 // Arguments beyond the slots stay applied to the body.
 const reduceGraph = (node, activeCalls = []) => {
   if (isComplete(node)) return node

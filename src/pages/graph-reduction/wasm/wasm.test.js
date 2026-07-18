@@ -2,12 +2,11 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
-  imageLegend,
   observe,
-  select,
   serialize,
-  serializeImage
+  serializeWasm
 } from '../graph/index.js'
+import { imageLegend } from '../graph/serialize.js'
 import { image } from './image.js'
 import {
   emit,
@@ -17,7 +16,7 @@ import {
   selectAddress
 } from './wasm.js'
 
-const step = node => select(observe(node))
+const step = node => observe(node)[1]
 
 const repeat = (form, fn, n) =>
   n === 0 ? form : repeat(fn(form), fn, n - 1)
@@ -55,7 +54,8 @@ const forms = [
 
 const program = form => compile(`${definitions}\n${form}`)
 
-const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+const view = bytes =>
+  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
 const loadMachine = async graph => {
   const graphImage = image(graph)
@@ -81,9 +81,11 @@ describe('the image is the graph', () => {
       const v = view(bytes)
       const found = observeAddress(v, root)
 
-      assert.equal(serializeImage(v, found, legend), serialize(observe(graph)))
       assert.equal(
-        serializeImage(v, selectAddress(v, found), legend),
+        serializeWasm(v, found, { legend }),
+        serialize(observe(graph)))
+      assert.equal(
+        serializeWasm(v, selectAddress(v, found), { legend }),
         serialize(step(graph)))
     }
   })
@@ -112,7 +114,7 @@ describe('the machine runs graph bytes', () => {
 
       assert.equal(machine.exports.focus.value, machine.focus)
       assert.equal(
-        serializeImage(machine.memory, payload, machine.legend),
+        serializeWasm(machine.memory, payload, { legend: machine.legend }),
         serialize(step(graph)))
     }
   })
@@ -131,10 +133,10 @@ describe('the machine runs graph bytes', () => {
     const stepped = p => machine.exports.select(machine.exports.observe(p))
 
     assert.equal(
-      serializeImage(
+      serializeWasm(
         machine.memory,
         repeat(machine.focus, stepped, 2),
-        machine.legend),
+        { legend: machine.legend }),
       serialize(repeat(graph, step, 2)))
   })
 

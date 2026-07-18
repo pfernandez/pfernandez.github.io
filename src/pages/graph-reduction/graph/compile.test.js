@@ -3,11 +3,10 @@ import { describe, test } from 'node:test'
 import {
   compile,
   observe,
-  select,
   serialize
 } from './index.js'
 
-const step = node => select(observe(node))
+const step = node => observe(node)[1]
 
 const repeat = (form, fn, n) =>
   n === 0 ? form : repeat(fn(form), fn, n - 1)
@@ -94,7 +93,7 @@ describe('true-shape compiler contracts', () => {
     assert.equal(y[0], y)
     assert.equal(y[1], K)
     assert.notEqual(x, y)
-    assert.equal(select(observe(K)), K)
+    assert.equal(observe(K)[1], K)
   })
 
   test('atoms are interned self-loops', () => {
@@ -113,7 +112,7 @@ describe('true-shape compiler contracts', () => {
     assert.equal(found[0], found)
     assert.equal(observe(found), found)
     assert.equal(observe(observe(found)), found)
-    assert.equal(serialize(select(found)), 'a')
+    assert.equal(serialize(found[1]), 'a')
   })
 
   test('bound heads are applications instead of new definitions', () =>
@@ -253,10 +252,16 @@ describe('library forms', () => {
     const Succ = serialize(compile(source(coreDefinitions, 'Succ')))
 
     assert.equal(
-      serialize(repeat(compile(source(coreDefinitions, '(Cons a Nil)')), step, 1)),
+      serialize(repeat(
+        compile(source(coreDefinitions, '(Cons a Nil)')),
+        step,
+        1)),
       Cons)
     assert.equal(
-      serialize(repeat(compile(source(coreDefinitions, '(Succ Zero)')), step, 1)),
+      serialize(repeat(
+        compile(source(coreDefinitions, '(Succ Zero)')),
+        step,
+        1)),
       Succ)
   })
 
@@ -315,7 +320,10 @@ describe('library forms', () => {
 
     assertReduction(coreDefinitions, '(Repeat a no K)', 'a', 3)
     assert.equal(
-      serialize(repeat(compile(source(coreDefinitions, '(Repeat a)')), step, 2)),
+      serialize(repeat(
+        compile(source(coreDefinitions, '(Repeat a)')),
+        step,
+        2)),
       Cons)
   })
 

@@ -1,22 +1,14 @@
 import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
-         span, textarea } from '@pfern/elements'
-import { compile, identityCount, identitySchemes, identityStyle, observe,
-         serialize, serializeParts } from './graph/index.js'
+         textarea } from '@pfern/elements'
+import {
+  compile,
+  observe,
+  schemeNames,
+  schemes,
+  serialize
+} from './graph/index.js'
 import lisp from './core.lisp?raw'
-
-const schemeNames = ['ink', 'pastel', 'color', 'plain']
-
-const graphOutput = (graph, scheme) => {
-  const parts = serializeParts(graph)
-  return pre({ class: 'output' }, ...parts.map(part =>
-    part.identity === undefined
-      ? part.text
-      : span(
-        { class: 'identity',
-          style: identityStyle(part.identity, scheme, identityCount(parts)) },
-        part.text)))
-}
 
 const build = source => {
   let graph = [], error
@@ -33,7 +25,12 @@ const infer = (
     stable = graph === history[0] }) => ({ time, previous, stable })
 
 const dashboard = component(
-  (state = { ...build(lisp), source: lisp, history: [], scheme: 'ink' }) => {
+  (state = {
+    ...build(lisp),
+    source: lisp,
+    history: [],
+    scheme: schemes.ink
+  }) => {
 
     const { graph, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
@@ -64,7 +61,6 @@ const dashboard = component(
           label({ class: 'row' }, 'Color scheme',
                 menu({ value: scheme, onchange: chooseScheme },
                      ...schemeNames
-                       .filter(name => identitySchemes[name])
                        .map(name => option({ value: name }, name))))),
 
       div({ class: 'panel scene' },
@@ -81,7 +77,7 @@ const dashboard = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : graphOutput(graph, scheme)),
+                  : serialize(graph, { format: 'vdom', scheme })),
 
           div({ class: 'description row' }, `Steps: ${time}`))
     )

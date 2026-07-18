@@ -1,7 +1,8 @@
 // Every module uses the same observe/select machine; each graph differs only
 // in bytes, focus, and legend.
 
-import { compile, imageLegend, serializeImageColor } from '../graph/index.js'
+import { compile, serializeWasm } from '../graph/index.js'
+import { imageLegend } from '../graph/serialize.js'
 import { image } from './image.js'
 
 // LEB128 integers: unsigned for sizes and counts, signed for constants.
@@ -169,7 +170,7 @@ export const run = async bytes => {
   const trace = addr =>
     console.log(
       traceCount++,
-      serializeImageColor(view, addr, legend, scheme),
+      serializeWasm(view, addr, { legend, format: 'ansi', scheme }),
       '\n')
 
   const foundByImage = observeAddress(view, focus.value, trace)
@@ -188,7 +189,8 @@ const main = () =>
 
 if (main()) {
   const { readFileSync } = await import('node:fs')
-  const source = decodeURIComponent(new URL('../core.lisp', import.meta.url).pathname)
+  const source = decodeURIComponent(
+    new URL('../core.lisp', import.meta.url).pathname)
   const path = process.argv[2]
     ?? source
 

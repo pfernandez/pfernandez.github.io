@@ -2,20 +2,16 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   compile,
-  imageLegend,
-  partsToConsole,
-  partsToText,
+  schemes,
   serialize,
-  serializeAnsi,
-  serializeConsole,
-  serializeImage,
-  serializeImageAnsi,
-  serializeImageParts,
-  serializeParts
+  serializeWasm
 } from './index.js'
+import { imageLegend } from './serialize.js'
 import { image } from '../wasm/image.js'
 
-const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+const view = bytes =>
+  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 
 const imageView = graph => {
   const graphImage = image(graph)
@@ -27,7 +23,7 @@ const imageView = graph => {
 }
 
 describe('serialize', () => {
-  test('names repeated paths and cycles', () => {
+  test('text names repeated paths and cycles', () => {
     const root = []
     const shared = ['a', 'b']
 
@@ -37,27 +33,37 @@ describe('serialize', () => {
     assert.equal(serialize(root), '($ ((a b) $.1.0))')
   })
 
-  test('parts mark repeated cells with identity', () => {
+  test('presentation formats mark repeated identity', () => {
     const root = []
     const shared = ['a', 'b']
 
     root[0] = root
     root[1] = [shared, shared]
 
-    const parts = serializeParts(root)
-    const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
+    assert.match(serialize(root, { format: 'ansi' }), /\x1b\[38;5;/)
+    assert.equal(
+      stripAnsi(serialize(root, { format: 'ansi', scheme: schemes.ink })),
+      '(() ((a b) ()))')
+    assert.match(
+      serialize(root, { format: 'ansi', scheme: schemes.pastel }),
+      /\x1b\[38;2;255;95;175m/)
+    assert.equal(
+      serialize(root, { format: 'ansi', scheme: schemes.plain }),
+      '(() ((a b) ()))')
+    assert.match(serialize(root, { format: 'console' })[0], /%c/)
+    const vdom = serialize(root, { format: 'vdom', scheme: schemes.plain })
 
-    assert.equal(partsToText(parts), '(() ((a b) ()))')
-    assert.match(serializeAnsi(root), /\x1b\[38;5;/)
-    assert.equal(stripAnsi(serializeAnsi(root, 'ink')), '(() ((a b) ()))')
-    assert.match(serializeAnsi(root, 'pastel'), /\x1b\[38;2;255;95;175m/)
-    assert.equal(serializeAnsi(root, 'plain'), '(() ((a b) ()))')
-    assert.match(partsToConsole(parts, 'color')[0], /%c/)
-    assert.match(serializeConsole(root, 'ink')[0], /%c/)
+    assert.equal(vdom[0], 'pre')
+    assert.deepEqual(vdom[1], { class: 'output' })
+    assert.equal(vdom.flat(Infinity).filter(x => x === '()').length, 2)
   })
 
-  test('images serialize identically to graphs', () => {
-    const definitions = '(I (x x))\n(K ((x x) y))\n(S (((((x z) (y z)) x) y) z))'
+  test('wasm serializes identically to graphs', () => {
+    const definitions = [
+      '(I (x x))',
+      '(K ((x x) y))',
+      '(S (((((x z) (y z)) x) y) z))'
+    ].join('\n')
     const forms = ['(I a)', '(K a b)', '(K a b c)', '(S K K a)', '(f a a)']
 
     for (const form of forms) {
@@ -65,27 +71,28 @@ describe('serialize', () => {
       const graphImage = imageView(graph)
 
       assert.equal(
-        serializeImage(graphImage.view, graphImage.focus, graphImage.legend),
+        serializeWasm(graphImage.view, graphImage.focus, {
+          legend: graphImage.legend
+        }),
         serialize(graph))
     }
   })
 
-  test('image parts use the same presentation schemes', () => {
+  test('wasm uses the same presentation schemes', () => {
     const graph = compile('(K ((x x) y))\n(K a b c)')
     const graphImage = imageView(graph)
-    const parts = serializeImageParts(
-      graphImage.view,
-      graphImage.focus,
-      graphImage.legend)
-    const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
+    const text = serializeWasm(graphImage.view, graphImage.focus, {
+      legend: graphImage.legend,
+      format: 'ansi',
+      scheme: schemes.plain
+    })
 
-    assert.equal(partsToText(parts), partsToText(serializeParts(graph)))
     assert.equal(
-      stripAnsi(serializeImageAnsi(
-        graphImage.view,
-        graphImage.focus,
-        graphImage.legend,
-        'ink')),
-      partsToText(parts))
+      stripAnsi(serializeWasm(graphImage.view, graphImage.focus, {
+        legend: graphImage.legend,
+        format: 'ansi',
+        scheme: schemes.ink
+      })),
+      text)
   })
 })

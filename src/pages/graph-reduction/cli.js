@@ -1,17 +1,8 @@
-import {
-  compile,
-  observe,
-  select,
-  serializeAnsi
-} from './graph/index.js'
+import { compile, observe, serialize } from './graph/index.js'
 
 let traceCount = 0
-
-const traceScheme = () =>
-  process.env.GRAPH_SCHEME || 'color'
-
 const trace = form =>
-  console.log(traceCount++, serializeAnsi(form, traceScheme()), '\n')
+  console.log(traceCount++, serialize(form, { format: 'ansi' }), '\n')
 
 const main = () =>
   typeof process !== 'undefined'
@@ -21,6 +12,5 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const found = observe(compile(readFileSync(file, 'utf-8')), trace)
-  trace(select(found))
+  observe(compile(readFileSync(file, 'utf-8')), trace)
 }

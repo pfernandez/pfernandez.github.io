@@ -1,18 +1,8 @@
 export { compile } from './compile.js'
-export { observe, select } from './observe.js'
+export { observe } from './observe.js'
 export {
-  identityCount,
-  identitySchemes,
-  identityStyle,
-  imageLegend,
-  partsToConsole,
-  partsToText,
+  schemeNames,
+  schemes,
   serialize,
-  serializeAnsi,
-  serializeConsole,
-  serializeImage,
-  serializeImageAnsi,
-  serializeImageColor,
-  serializeImageParts,
-  serializeParts
+  serializeWasm
 } from './serialize.js'
