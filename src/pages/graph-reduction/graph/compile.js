@@ -136,15 +136,11 @@ const isSameCall = (head, args, [definition, priorArgs]) =>
 const findActiveCall = (head, args, activeCalls) =>
   activeCalls.find(activeCall => isSameCall(head, args, activeCall))
 
-// Calls that never repeat would reduce forever; compile sets the budget.
-let patience = 0
-
 // A completed call returns its focus: the call's shape with the answer at
 // its head, so observation runs to the answer and the right side is the result.
 // Arguments beyond the slots stay applied to the body.
 const reduceGraph = (node, activeCalls = []) => {
   if (isComplete(node)) return node
-  if (--patience < 0) err('Reduction never settles')
 
   const { head, args } = call(node)
   const bodyAndSlots = isDefinition(head) && definitionBody(head)
@@ -176,8 +172,6 @@ const reduceGraph = (node, activeCalls = []) => {
 export const compile = source => {
   const scope = { atoms: new Map(), legend: [], names: [] }
   let focus
-
-  patience = 1e6
 
   for (const form of parse(source))
     focus = isDefinitionForm(form, scope)

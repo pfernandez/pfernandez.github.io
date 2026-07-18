@@ -12,18 +12,15 @@ export const schemes = Object.freeze({
 
 export const schemeNames = Object.values(schemes)
 
-const legendName = (node, legend = []) =>
-  legend.find?.(entry => entry.node === node)?.symbol
-
-const graphName = (node, legend) =>
-  legendName(node, legend)
+const legendName = (node, legend) =>
+  legend.find(entry => entry.node === node)?.symbol
 
 // Atoms print as their spelling; repeated cells print as the path where the
 // cell first appeared, so sharing and cycles stay visible in plain text.
 const printable = (node, path = '$', pathsByNode = new Map(), legend = []) => {
   if (!Array.isArray(node)) return String(node)
 
-  const name = graphName(node, legend)
+  const name = legendName(node, legend)
   if (pathsByNode.has(node))
     return name !== undefined ? String(name) : pathsByNode.get(node)
   if (name !== undefined && node[0] === node)
@@ -117,7 +114,7 @@ const identityFor = (node, identities) => {
 const parts = (node, legend, seen, identities) => {
   if (!Array.isArray(node)) return [{ text: String(node) }]
 
-  const name = graphName(node, legend)
+  const name = legendName(node, legend)
   if (seen.has(node))
     return name !== undefined
       ? [{ text: String(name) }]

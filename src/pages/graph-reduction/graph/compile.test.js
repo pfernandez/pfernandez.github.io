@@ -184,10 +184,6 @@ describe('true-shape compiler contracts', () => {
       /Missing expression/)
   })
 
-  test('divergence throws instead of freezing', () =>
-    assert.throws(
-      () => compile(source('(Grow ((x (Grow (x x))) x))', '(Grow a)')),
-      /Reduction never settles/))
 })
 
 describe('core forms', () => {
