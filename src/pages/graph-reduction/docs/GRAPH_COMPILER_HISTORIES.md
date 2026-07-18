@@ -13,6 +13,13 @@ how much belongs in the compiler,
 and how little can the observer/machine know?
 ```
 
+Related docs:
+
+- `BASIS_TO_GRAPH_REDUCTION.md` connects this history to the older `~/basis`
+  research program.
+- `GRAPH_COMPILER_RECOMMENDATIONS.md` turns this history into a current plan.
+- `ALLOCATION_FREE_GROWTH.md` focuses on the runtime-growth constraint.
+
 ## Current branch map
 
 `main`

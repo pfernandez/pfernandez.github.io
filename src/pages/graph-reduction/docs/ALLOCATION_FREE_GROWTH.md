@@ -3,6 +3,13 @@
 This note captures the mechanism found while reviewing the project history for
 a CLI loop that shows internal growth without runtime allocation.
 
+Related docs:
+
+- `BASIS_TO_GRAPH_REDUCTION.md` gives the lens/substrate framing for this
+  runtime-growth problem.
+- `GRAPH_COMPILER_RECOMMENDATIONS.md` places this as a follow-on concern after
+  the graph-native event boundary.
+
 The useful ingredient is not in the later `delayed futures` implementation,
 because that path uses a JavaScript `WeakMap` and materializes fresh graph
 structure when the future is stepped into. That is valuable research, but it is
@@ -161,4 +168,3 @@ view: show the accumulated prior-event chain
 
 This does not solve graph-native unbounded allocation. It gives us a clean,
 visible, mechanically honest stepping stone.
-

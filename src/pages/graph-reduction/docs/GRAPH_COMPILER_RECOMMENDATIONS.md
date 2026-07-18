@@ -4,6 +4,13 @@ These recommendations are deliberately separate from
 `GRAPH_COMPILER_HISTORIES.md`. The history document is the map; this is my
 judgment after walking it.
 
+Related docs:
+
+- `BASIS_TO_GRAPH_REDUCTION.md` explains why the event-boundary plan is also a
+  lens/substrate problem.
+- `ALLOCATION_FREE_GROWTH.md` records the constraint on finite graph-native
+  growth.
+
 ## Short version
 
 Keep `main` as the canonical working system.
@@ -20,7 +27,9 @@ represent the observe/select event boundary as graph structure
 ```
 
 If that works, the graph-native `step` path becomes much more credible. If it
-does not, `main` remains the honest machine.
+does not, `main` remains the honest machine. The same experiment is also the
+smallest way to test whether the observer/lens from `~/basis` can become
+ordinary graph structure instead of host-side interpretation.
 
 ## Best current compiler
 
