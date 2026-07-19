@@ -182,11 +182,22 @@ and run as a lens:
 node cli.js --lens record.lisp 6
 ```
 
+There is also a no-transposition view:
+
+```sh
+node cli.js --spine core.lisp 6
+```
+
+This follows the compiled graph's existing left spine. That path is exactly
+the sequence `observe` visits. Non-stable states output themselves; the stable
+answer outputs its right side.
+
 ## Next implementation target
 
-Use `--record` and `(form ())` as comparison harnesses while looking for a
-more graph-native version of the same shape:
+Use `--spine`, `--record`, and `(form ())` as comparison harnesses while
+looking for the graph-native version of the same shape:
 
+- the spine view proves the compiled graph already carries a replay path;
 - the current harness records host-visible `observe` frames;
 - the source shape avoids a magic word, but still records at build time;
 - the target is a graph whose own next edge already carries those events;

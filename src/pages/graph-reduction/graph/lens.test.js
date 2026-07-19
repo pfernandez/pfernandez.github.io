@@ -9,6 +9,8 @@ import {
   output,
   previous,
   record,
+  spineOutput,
+  spineStep,
   step
 } from './lens.js'
 
@@ -171,6 +173,29 @@ describe('graph-native lens', () => {
     assert.equal(serialize(graph, { legend }),
                  '(E0 (E1 (E2 (E3 (E4 End)))))')
     assert.equal(serialize(output(finalEvent), { legend }), '((a c) (b c))')
+    assert.doesNotThrow(() => image(graph))
+  })
+
+  test('ordinary left spine already replays the observation path', () => {
+    const { graph, legend } = compile(`
+      (S (((((x z) (y z)) x) y) z))
+      (S a b c)
+    `)
+    const frames = []
+    const answer = observe(graph, frame => frames.push(frame))
+    let state = graph
+
+    for (const [i, frame] of frames.entries()) {
+      assert.equal(state, frame)
+      if (i < frames.length - 1)
+        assert.equal(spineOutput(state), frame)
+      state = spineStep(state)
+    }
+
+    assert.equal(state, answer)
+    assert.equal(spineStep(state), answer)
+    assert.equal(spineOutput(state), answer[1])
+    assert.equal(serialize(spineOutput(state), { legend }), '((a c) (b c))')
     assert.doesNotThrow(() => image(graph))
   })
 })
