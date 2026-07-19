@@ -8,6 +8,7 @@ import {
   historyDepth,
   output,
   previous,
+  record,
   step
 } from './lens.js'
 
@@ -127,5 +128,36 @@ describe('graph-native lens', () => {
     assert.equal(previous(secondEvent), firstEvent)
     assert.equal(serialize(step(step(graph)), { legend }), '(End End)')
     assert.doesNotThrow(() => image(graph))
+  })
+
+  test('recorded observations replay without runtime allocation', () => {
+    const source = `
+      (S (((((x z) (y z)) x) y) z))
+      (S a b c)
+    `
+    const compiled = compile(source)
+    const outputs = []
+    const answer = observe(compiled.graph, frame => outputs.push(frame))
+    const lens = record([...outputs, answer[1]], {
+      legend: compiled.legend
+    })
+    const built = lens.allocations
+    const firstEvent = observe(lens.graph)
+    const secondEvent = observe(step(lens.graph))
+    const finalEvent = observe(step(step(step(step(lens.graph)))))
+
+    assert.equal(serialize(lens.graph, { legend: lens.legend }),
+                 '(E0 (E1 (E2 (E3 (E4 End)))))')
+    assert.equal(output(firstEvent), compiled.graph)
+    assert.equal(previous(secondEvent), firstEvent)
+    assert.equal(serialize(output(finalEvent), { legend: lens.legend }),
+                 '((a c) (b c))')
+
+    let state = lens.graph
+    for (let i = 0; i < 12; i += 1)
+      state = step(state)
+
+    assert.equal(lens.allocations, built)
+    assert.doesNotThrow(() => image(lens.graph))
   })
 })

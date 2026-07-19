@@ -1,5 +1,5 @@
 import { compile, log, observe, serialize } from './graph/index.js'
-import { output, step } from './graph/lens.js'
+import { output, record as recordLens, step } from './graph/lens.js'
 
 const main = () =>
   typeof process !== 'undefined'
@@ -9,10 +9,22 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const lens = process.argv[2] === '--lens'
+  const record = process.argv[2] === '--record'
   const file = lens
     ? process.argv[3] ?? new URL('./lens.lisp', import.meta.url)
-    : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  const compiled = compile(readFileSync(file, 'utf-8'))
+    : record
+      ? process.argv[3] ?? new URL('./core.lisp', import.meta.url)
+      : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
+  let compiled = compile(readFileSync(file, 'utf-8'))
+
+  if (record) {
+    const outputs = []
+    const answer = observe(compiled.graph, frame => outputs.push(frame))
+
+    compiled = recordLens([...outputs, answer[1]], {
+      legend: compiled.legend
+    })
+  }
 
   log(compiled)
 
@@ -22,7 +34,7 @@ if (main()) {
     serialize(form, { legend: compiled.legend, format: 'ansi' }),
     '\n')
 
-  if (lens) {
+  if (lens || record) {
     let state = compiled.graph
     const count = Number(process.argv[4] ?? 4)
 

@@ -137,19 +137,47 @@ This demonstrates allocation-free runtime growth up to the prelinked history
 length, followed by periodicity. That periodicity is not a failure; it is the
 honest consequence of finite conserved material.
 
-## Best next implementation target
+## Current branch result
 
-Add a small CLI fixture or mode that builds a prelinked history graph and
-prints:
+The `graph-native-lens` branch now has two concrete demos.
 
-- tick number;
-- visible history depth;
-- serialized current event or output;
-- initial pair count;
-- runtime pair count.
+The source fixture is hand-authored:
 
-Keep the runtime step boring. The point of the demo is that the motion is
-already in the graph.
+```sh
+node cli.js --lens lens.lisp 3
+```
+
+It shows the intended lens shape directly:
+
+```text
+state = (event next)
+event = (event (previous output))
+step(state) = state[1]
+```
+
+The recorded fixture is closer to the current compiler:
+
+```sh
+node cli.js --record core.lisp 6
+```
+
+It compiles the program normally, records the actual passive `observe` frames,
+wraps those existing frames in a prelinked lens, and then replays the lens by
+following right edges. The replay does not allocate; the extra event/state
+pairs are build-time structure, just like the compiled consequence graph.
+
+This is still finite replay, not unbounded growth. Its value is that the
+dynamic CLI view is now derived from the compiler's real causal record instead
+of from a manually authored answer.
+
+## Next implementation target
+
+Use `--record` as the comparison harness while looking for a source-native
+version of the same shape:
+
+- the current harness records host-visible `observe` frames;
+- the target is a graph/source form whose own next edge carries those events;
+- `step` should stay boring, because the motion should already be in the graph.
 
 Do not use the `WeakMap` delayed-future path for this particular demo. That
 path demonstrates on-demand materialization, not allocation-free replay.
