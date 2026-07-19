@@ -169,16 +169,12 @@ describe('true-shape compiler contracts', () => {
     assert.equal(serialize(step(graph)), 'let')
   })
 
-  test('multi-slot definitions are written as nested applications', () =>
-    assert.throws(
-      () => compile('(K (x x y))'),
-      /Definitions need a body and at least one slot/))
+  test('slotless bindings name raw values', () => {
+    assert.equal(serialize(compile(source('(A (x))', 'A'))), 'x')
+    assert.equal(serialize(compile(source('(K (x x y))', 'K'))), '((x x) y)')
+  })
 
-  test('compile rejects malformed definitions', () => {
-    assert.throws(
-      () => compile('(I (x))'),
-      /Definitions need a body and at least one slot/)
-
+  test('compile rejects empty source', () => {
     assert.throws(
       () => compile(''),
       /Missing expression/)

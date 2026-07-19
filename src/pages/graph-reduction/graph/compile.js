@@ -52,8 +52,8 @@ const buildGraph = (form, scopes, scope) =>
                   form.slice(1).map(item => buildGraph(item, scopes, scope)))
       : intern('()', scope)
 
-// A top-level (name form) where name is unbound introduces a definition.
-const isDefinitionForm = (form, scope) =>
+// A top-level (name form) where name is unbound introduces a binding.
+const isBindingForm = (form, scope) =>
   Array.isArray(form) && form.length === 2
     && isSymbol(form[0]) && !binding(form[0], scope.names)
 
@@ -83,6 +83,29 @@ const define = ([name, form], scope) => {
   scope.names.push([name, definition])
   definition.push(...buildGraph(form, [parameterBindings, scope.names], scope))
 }
+
+const replace = (node, from, to, seen = new Set()) => {
+  if (node === from) return to
+  if (!Array.isArray(node) || seen.has(node)) return node
+
+  seen.add(node)
+  node.forEach((item, i) => { node[i] = replace(item, from, to, seen) })
+  return node
+}
+
+// A binding without slots names raw graph structure. References to the name
+// inside its own form become references to the completed value.
+const bindValue = ([name, form], scope) => {
+  const placeholder = []
+  const entry = [name, placeholder]
+
+  scope.names.push(entry)
+  const graph = buildGraph(form, [scope.names], scope)
+  entry[1] = remember(scope, replace(graph, placeholder, graph), name)
+}
+
+const bindForm = (form, scope) =>
+  parameters(form[1], scope) ? define(form, scope) : bindValue(form, scope)
 
 // Observation stops where the function side is the cell itself: atoms,
 // slots, and answers are all stable.
@@ -174,8 +197,8 @@ export const compile = source => {
   let focus
 
   for (const form of parse(source))
-    focus = isDefinitionForm(form, scope)
-      ? void define(form, scope)
+    focus = isBindingForm(form, scope)
+      ? void bindForm(form, scope)
       : reduceGraph(buildGraph(form, [scope.names], scope))
 
   if (focus === undefined) err('Missing focus')

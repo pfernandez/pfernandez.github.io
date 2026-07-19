@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { image } from '../wasm/image.js'
-import { observe } from './index.js'
+import { compile, observe, serialize } from './index.js'
 
 describe('graph-native lens', () => {
   // A lens state is `[event, next]`. Runtime stepping follows the right edge.
@@ -88,5 +88,32 @@ describe('graph-native lens', () => {
 
     assert.equal(graph.allocations(), built)
     assert.doesNotThrow(() => image(first))
+  })
+
+  test('source can name lens states and stable events', () => {
+    const source = `
+      (End (End End))
+      (E0 (E0 (Root Out0)))
+      (E1 (E1 (E0 Out1)))
+      (E2 (E2 (E1 Out2)))
+      (S2 (E2 End))
+      (S1 (E1 S2))
+      (S0 (E0 S1))
+      S0
+    `
+    const { graph, legend } = compile(source)
+    const firstEvent = observe(graph)
+    const secondEvent = observe(step(graph))
+    const thirdEvent = observe(step(step(graph)))
+
+    assert.equal(serialize(graph, { legend }), '(E0 (E1 (E2 (End End))))')
+    assert.equal(output(firstEvent), output(firstEvent)[0])
+    assert.equal(serialize(output(firstEvent), { legend }), 'Out0')
+    assert.equal(serialize(output(secondEvent), { legend }), 'Out1')
+    assert.equal(serialize(output(thirdEvent), { legend }), 'Out2')
+    assert.equal(previous(secondEvent), firstEvent)
+    assert.equal(previous(thirdEvent), secondEvent)
+    assert.equal(serialize(step(step(step(graph))), { legend }), '(End End)')
+    assert.doesNotThrow(() => image(graph))
   })
 })
