@@ -161,10 +161,10 @@ describe('graph-native lens', () => {
     assert.doesNotThrow(() => image(lens.graph))
   })
 
-  test('source can request a recorded observation lens', () => {
+  test('source can request a recorded observation lens by shape', () => {
     const { graph, legend } = compile(`
       (S (((((x z) (y z)) x) y) z))
-      (Record (S a b c))
+      ((S a b c) ())
     `)
     const finalEvent = observe(step(step(step(step(graph)))))
 

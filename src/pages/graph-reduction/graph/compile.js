@@ -59,11 +59,12 @@ const isBindingForm = (form, scope) =>
   Array.isArray(form) && form.length === 2
     && isSymbol(form[0]) && !binding(form[0], scope.names)
 
-// A top-level `(Record form)` writes the passive observation path of `form`
-// into ordinary lens structure. It is build-time syntax; observe stays passive.
-const isRecordForm = (form, scope) =>
+// A top-level `(form ())` writes the passive observation path of `form` into
+// ordinary lens structure. It is build-time syntax by shape, not by name.
+const isReplayShape = form =>
   Array.isArray(form) && form.length === 2
-    && form[0] === 'Record' && !binding(form[0], scope.names)
+    && Array.isArray(form[0])
+    && Array.isArray(form[1]) && form[1].length === 0
 
 // Walk the form's left edge collecting parameter names, innermost first -
 // the order arguments are supplied; null if there are none.
@@ -117,8 +118,8 @@ const bindForm = (form, scope) =>
 
 // Build and reduce the requested form, collect the frames observe would visit,
 // then make those frames replayable as right-edge lens states.
-const recordForm = (form, scope) => {
-  const graph = reduceGraph(buildGraph(form[1], [scope.names], scope))
+const replayShape = (form, scope) => {
+  const graph = reduceGraph(buildGraph(form[0], [scope.names], scope))
   const outputs = []
   const answer = observe(graph, frame => outputs.push(frame))
   const recorded = record([...outputs, answer[1]], { legend: scope.legend })
@@ -128,7 +129,7 @@ const recordForm = (form, scope) => {
 }
 
 const focusForm = (form, scope) => {
-  if (isRecordForm(form, scope)) return recordForm(form, scope)
+  if (isReplayShape(form)) return replayShape(form, scope)
   if (isBindingForm(form, scope)) return void bindForm(form, scope)
   return reduceGraph(buildGraph(form, [scope.names], scope))
 }

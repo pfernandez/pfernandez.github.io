@@ -4,9 +4,10 @@
 ;
 ;   node cli.js --lens record.lisp 6
 ;
-; Record is build-time syntax: it compiles the expression, records the passive
-; observation path, and writes that path as ordinary lens structure.
+; A top-level `(form ())` is build-time syntax by shape: it compiles `form`,
+; records the passive observation path, and writes that path as ordinary lens
+; structure.
 
 (S (((((x z) (y z)) x) y) z))
 
-(Record (S a b c))
+((S a b c) ())
