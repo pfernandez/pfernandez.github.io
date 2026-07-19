@@ -14,6 +14,12 @@ import {
   step
 } from './lens.js'
 
+const select = node =>
+  observe(node)[1]
+
+const repeat = (form, fn, n) =>
+  n === 0 ? form : repeat(fn(form), fn, n - 1)
+
 describe('graph-native lens', () => {
   // A lens state is `[event, next]`. Runtime stepping follows the right edge.
   // Passive observation of the state exposes the stable event on the left.
@@ -184,5 +190,38 @@ describe('graph-native lens', () => {
     assert.equal(spineOutput(state), answer[1])
     assert.equal(serialize(spineOutput(state), { legend }), '((a c) (b c))')
     assert.doesNotThrow(() => image(graph))
+  })
+
+  test('source projections can drive encoded observer state', () => {
+    const observer = focus => `
+      (K ((x x) y))
+      (False ((y x) y))
+      (Pair ((((f x y) x) y) f))
+      (First ((p K) p))
+      (Second ((p False) p))
+      (Tick (((Pair (Second focus) (Pair (First focus) history)) focus)
+        history))
+      (End (End End))
+      (Frame2 (Pair Out2 End))
+      (Frame1 (Pair Out1 Frame2))
+      (Frame0 (Pair Out0 Frame1))
+      ${focus}
+    `
+    const run = (focus, count = 4) => {
+      const { graph, legend } = compile(observer(focus))
+      return serialize(repeat(graph, select, count), { legend })
+    }
+
+    assert.equal(run('(First Frame0)', 3), 'Out0')
+    assert.equal(run('(Second Frame0)', 3), '((Pair Out1) ((Pair Out2) End))')
+    assert.equal(run('(First Frame1)', 3), 'Out1')
+    assert.equal(run('(Second Frame1)', 3), '((Pair Out2) End)')
+  })
+
+  test('observer fixture demonstrates source-level selection', () => {
+    const source = readFileSync(new URL('../observer.lisp', import.meta.url))
+    const { graph, legend } = compile(source.toString())
+
+    assert.equal(serialize(repeat(graph, select, 3), { legend }), 'Out0')
   })
 })

@@ -200,6 +200,33 @@ while looking for the graph-native version of the same shape:
 Do not use the `WeakMap` delayed-future path for this particular demo. That
 path demonstrates on-demand materialization, not allocation-free replay.
 
+## Source observer experiment
+
+`observer.lisp` asks whether the observer policy can be written in source. The
+current answer is: partially, but not yet all the way down.
+
+Source-level `First` and `Second` can project encoded `Pair` values:
+
+```lisp
+(First Frame0)   ; Out0
+(Second Frame0)  ; Frame1
+```
+
+That lets source express the shape of a carried observer transition:
+
+```lisp
+(Tick (((Pair (Second focus) (Pair (First focus) history)) focus) history))
+```
+
+This says: move to the next encoded focus, and carry the current output in
+history. The policy is authored in source, but it only sees values encoded as
+source-level pairs. It does not inspect arbitrary substrate cells.
+
+That distinction matters. `spineStep(state) = state[0]` and WASM
+`step(p) = mem[p]` read raw graph geometry. `First` and `Second` are ordinary
+Lisp functions over encoded pair values. Bridging those two levels without
+compiler magic is now the next real question.
+
 ## Relationship to the current compiler
 
 The current `main` compiler already writes a causal record and the WASM machine
