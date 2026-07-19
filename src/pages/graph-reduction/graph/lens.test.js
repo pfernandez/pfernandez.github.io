@@ -244,4 +244,25 @@ describe('graph-native lens', () => {
 
     assert.equal(serialize(repeat(graph, select, 3), { legend }), 'Out0')
   })
+
+  test('root fixture carries dictionary and state to a question', () => {
+    const source = readFileSync(new URL('../root.lisp', import.meta.url))
+    const { graph, legend } = compile(source.toString())
+
+    assert.equal(serialize(repeat(graph, select, 3), { legend }), 'seed')
+  })
+
+  test('root can carry its own identity as question data', () => {
+    const { graph, legend } = compile(`
+      (K ((x x) y))
+      (S (((((x z) (y z)) x) y) z))
+      (Root ((((((question (Root)) K) S) state) state) question))
+      (AskRoot (((((k root done) root) k) s) state))
+      (Root seed AskRoot)
+    `)
+
+    assert.equal(
+      serialize(repeat(graph, select, 3), { legend }),
+      '((((((question Root) K) S) state) state) question)')
+  })
 })

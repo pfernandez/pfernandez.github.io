@@ -242,6 +242,34 @@ through computed answers can make `(App (I I) a)` continue toward `a`, but the
 same rule changes Scott arithmetic and rewrites authored lens structure. It is
 not a small observer bridge; it changes the compiler's evaluation physics.
 
+## Root as observer
+
+`root.lisp` takes the more promising source-only path: make the graph root the
+observer/world, and let questions complete it.
+
+```lisp
+(Root ((((((question (Root)) K) S) state) state) question))
+```
+
+This gives `Root` two slots: `state` and `question`. When a question arrives,
+the root passes it:
+
+```text
+Root K S state
+```
+
+The question is a continuation. It chooses what to expose from the carried
+root identity, dictionary, and state:
+
+```lisp
+(AskState (((((k state done) root) k) s) state))
+(Root seed AskState) ; seed
+```
+
+This is not raw cell projection. It is more interesting: the root carries the
+definitions, and the question decides how to use them. The library is inside
+the observer boundary instead of the observer being outside the library.
+
 ## Relationship to the current compiler
 
 The current `main` compiler already writes a causal record and the WASM machine
