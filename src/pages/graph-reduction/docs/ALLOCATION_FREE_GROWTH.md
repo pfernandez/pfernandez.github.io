@@ -67,6 +67,102 @@ The first option is the best immediate CLI demonstration because it preserves
 the current "program already happened" model: the compiler writes a causal
 record, and the runtime only reads it.
 
+## Cyclic successor result
+
+The current Lisp can express an infinite successor view as a finite cycle:
+
+```lisp
+(Zero ((z z) s))
+(Succ ((((s m) m) z) s))
+(Forever (Succ Forever))
+Forever
+```
+
+The compiled graph has only finite structure:
+
+```text
+(Succ Forever)
+Forever -> (Succ Forever)
+```
+
+So a depth-limited reader can unfold it as:
+
+```text
+Zero-depth view: 0
+One layer:       Succ ...
+Eight layers:   Succ (Succ ... eight times ...)
+```
+
+That is real unboundedness as a tree projection of a cyclic graph. It is not
+the same as local accumulation. The machine state repeats; the increasing
+count lives in the reader's chosen unfolding depth.
+
+A direct recursive accumulator shows the complementary boundary:
+
+```lisp
+(World stream history)
+  -> (World stream (Succ history))
+```
+
+With the current compiler, each recursive call has a different `history`
+argument. The active-call knot does not apply, so compile-time reduction tries
+to materialize the endlessly growing successor chain. That is allocation moved
+into compilation, not allocation-free runtime growth.
+
+## Bounded ledger result
+
+`counter.lisp` demonstrates the middle path: supply finite material as source
+data and author the allocation policy in Lisp.
+
+The material is a Scott list of bits, least-significant bit first:
+
+```lisp
+Nil                         ; 0
+(Cons True Nil)             ; 1
+(Cons False (Cons True Nil)) ; 2
+```
+
+The incrementer is generic over the list shape:
+
+```lisp
+(Inc bits done)
+```
+
+It does not name bit positions or prewrite a transition table. `Inc` consumes
+the supplied list and sends the incremented result to `done` on the same open
+frontier. When a carry is needed, the continuation itself carries the pending
+work:
+
+```lisp
+(Carry done)
+```
+
+The test exercises:
+
+```text
+Nil        -> 1
+False      -> 1
+True       -> 01
+False True -> 11
+True True  -> 001
+```
+
+These strings are low-bit-first. The last line is binary `3 -> 4`.
+
+This is not unbounded growth. The register grows only when the source has
+supplied a tail to recurse through, or when the nil case appends the final
+carry bit. But it is the first useful form of graph-authored allocation:
+
+```text
+material = encoded list cells
+policy   = Inc / IncStep / Carry
+runtime  = observe/select through the compiled consequence graph
+```
+
+The key lesson is that "allocate" need not begin as host mutation. It can first
+mean: supply material in the root/source world, then author the policy that
+actualizes a new view of that material.
+
 ## Minimal mechanism
 
 In the passive-machine tests, a state can carry an output event:

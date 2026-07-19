@@ -279,4 +279,87 @@ describe('graph-native lens', () => {
 
     assert.equal(serialize(repeat(graph, select, 3), { legend }), 'seed')
   })
+
+  test('a finite cycle can unfold as an unbounded successor view', () => {
+    const { graph, legend } = compile(`
+      (Zero ((z z) s))
+      (Succ ((((s m) m) z) s))
+      (Forever (Succ Forever))
+      Forever
+    `)
+    const Succ = graph[0]
+    const Forever = graph[1]
+    const depth = (node, limit) =>
+      limit === 0 ? 0
+        : node === Forever
+          ? depth(node[1], limit)
+        : node[0] === Succ
+          ? 1 + depth(node[1], limit - 1)
+          : 0
+
+    assert.equal(serialize(graph, { legend }), '(Succ Forever)')
+    assert.equal(graph[1][1], graph)
+    assert.equal(depth(graph, 0), 0)
+    assert.equal(depth(graph, 1), 1)
+    assert.equal(depth(graph, 8), 8)
+  })
+
+  test('source can increment a supplied bit ledger without naming bits', () => {
+    const source = `
+      (I (x x))
+      (True ((x x) y))
+      (False ((y x) y))
+      (Nil ((n n) c))
+      (Cons (((((c h t) h) t) n) c))
+      (Carry (((done (Cons False tail)) done) tail))
+      (IncStep
+        ((((h
+            (t (done (Cons False (Cons True Nil)))
+               (IncStep (Carry done)))
+            (done (Cons True t)))
+           done)
+          h)
+         t))
+      (Inc (((bits (done (Cons True Nil)) (IncStep done)) bits) done))
+    `
+    const run = focus => {
+      const { graph, legend } = compile(`${source}\n${focus}`)
+      const named = symbol =>
+        legend.find(entry => entry.symbol === symbol).node
+      const symbols = {
+        Cons: named('Cons'),
+        False: named('False'),
+        Nil: named('Nil'),
+        True: named('True')
+      }
+      const isCons = node =>
+        Array.isArray(node) && Array.isArray(node[0])
+          && node[0][0] === symbols.Cons
+      const settle = node => {
+        for (let i = 0; i < 64; i += 1) {
+          if (node === symbols.Nil || isCons(node)) return node
+          node = select(node)
+        }
+
+        throw new Error('bit list did not settle')
+      }
+      const bits = node => {
+        const list = settle(node)
+        if (list === symbols.Nil) return ''
+
+        const bit = list[0][1] === symbols.True ? '1'
+          : list[0][1] === symbols.False ? '0'
+            : '?'
+        return bit + bits(list[1])
+      }
+
+      return bits(graph)
+    }
+
+    assert.equal(run('(Inc Nil I)'), '1')
+    assert.equal(run('(Inc (Cons False Nil) I)'), '1')
+    assert.equal(run('(Inc (Cons True Nil) I)'), '01')
+    assert.equal(run('(Inc (Cons False (Cons True Nil)) I)'), '11')
+    assert.equal(run('(Inc (Cons True (Cons True Nil)) I)'), '001')
+  })
 })
