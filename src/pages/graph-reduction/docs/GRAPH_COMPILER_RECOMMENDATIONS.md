@@ -12,6 +12,8 @@ Related docs:
   growth.
 - `CATALAN_HAMILTONIAN_PLAN.md` gives the handoff from the Lisp machine to the
   Catalan-space simulator.
+- `MACHINE_BOUNDARIES.md` defines `read`, `evolve`, `lens`, `root/world`,
+  `agent`, and the memory-bank boundary for future allocation work.
 
 ## Short version
 
