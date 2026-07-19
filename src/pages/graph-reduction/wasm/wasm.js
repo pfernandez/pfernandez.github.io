@@ -1,5 +1,5 @@
-// Every module uses the same observe/select machine; each graph differs only
-// in bytes, focus, and legend.
+// Every module uses the same observe/select/step machine; each graph differs
+// only in bytes, focus, and legend.
 
 import { compile, serializeWasm } from '../graph/index.js'
 import { imageLegend } from '../graph/serialize.js'
@@ -53,6 +53,13 @@ export const emit = ({ bytes, focus, legend = new Map() }) => {
     0x0b
   ]
 
+  // step(p): return mem[p], the function side
+  const step = [
+    0x00,                              // no locals
+    0x20, 0x00, 0x28, 0x02, 0x00,      // load mem[p]
+    0x0b
+  ]
+
   const entries = [...legend].flatMap(([addr, spelling]) =>
     [...uleb(addr), ...name(String(spelling))])
 
@@ -60,8 +67,8 @@ export const emit = ({ bytes, focus, legend = new Map() }) => {
     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,    // \0asm, version 1
     // type: one signature, i32 -> i32
     ...section(1, [0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f]),
-    // function: two functions of that signature
-    ...section(3, [0x02, 0x00, 0x00]),
+    // function: three functions of that signature
+    ...section(3, [0x03, 0x00, 0x00, 0x00]),
     // memory: enough 64K pages to hold the graph bytes
     ...section(5, [0x01, 0x00,
                    ...uleb(Math.max(1, Math.ceil(bytes.length / 65536)))]),
@@ -69,17 +76,19 @@ export const emit = ({ bytes, focus, legend = new Map() }) => {
     ...section(6, [0x01, 0x7f, 0x00, 0x41, ...sleb(focus), 0x0b]),
     // exports
     ...section(7, [
-      0x04,
+      0x05,
       ...name('memory'), 0x02, 0x00,
       ...name('focus'), 0x03, 0x00,
       ...name('observe'), 0x00, 0x00,
-      ...name('select'), 0x00, 0x01
+      ...name('select'), 0x00, 0x01,
+      ...name('step'), 0x00, 0x02
     ]),
-    // code: the two bodies
+    // code: the three bodies
     ...section(10, [
-      0x02,
+      0x03,
       ...uleb(observe.length), ...observe,
-      ...uleb(select.length), ...select
+      ...uleb(select.length), ...select,
+      ...uleb(step.length), ...step
     ]),
     // data: the graph bytes, at address 0
     ...section(11, [0x01, 0x00, 0x41,
@@ -153,6 +162,9 @@ export const observeAddress = (view, pair, trace) => (
 
 export const selectAddress = (view, found) =>
   view.getUint32(found + 4, true)
+
+export const stepAddress = (view, pair) =>
+  view.getUint32(pair, true)
 
 // Replay observation in JS over exported memory, run wasm observe, and insist
 // they agree before selecting.

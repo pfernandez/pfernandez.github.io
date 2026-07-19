@@ -13,7 +13,8 @@ import {
   observeAddress,
   readLegend,
   sections,
-  selectAddress
+  selectAddress,
+  stepAddress
 } from './wasm.js'
 
 const legends = new WeakMap()
@@ -107,6 +108,9 @@ describe('the image is the graph', () => {
         serializeWasm(v, found, { legend }),
         print(observe(graph)))
       assert.equal(
+        serializeWasm(v, stepAddress(v, root), { legend }),
+        print(graph[0]))
+      assert.equal(
         serializeWasm(v, selectAddress(v, found), { legend }),
         print(step(graph)))
     }
@@ -151,6 +155,24 @@ describe('the machine runs graph bytes', () => {
 
     assert.equal(machine.exports.observe(found), found)
     assert.equal(machine.exports.observe(machine.exports.observe(found)), found)
+  })
+
+  test('left-edge step replays the observation path', async () => {
+    const machine = await loadMachine(program('(S K K a)'))
+    const frames = []
+    const found = observeAddress(
+      machine.memory,
+      machine.focus,
+      frame => frames.push(frame))
+    let state = machine.focus
+
+    for (const frame of frames) {
+      assert.equal(state, frame)
+      state = machine.exports.step(state)
+    }
+
+    assert.equal(state, found)
+    assert.equal(machine.exports.step(found), found)
   })
 
   test('composed reductions step through answers', async () => {

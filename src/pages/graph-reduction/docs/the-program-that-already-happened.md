@@ -10,7 +10,10 @@ while (mem[p] != p)
 return p
 ```
 
-Follow a pointer until it points at itself; report where you stopped. There is one more function, for afterward — `mem[p + 4]` — and there is no third. Compiled to WebAssembly, the two of them total thirty-nine bytes, and those bytes never change: not for a larger program, not for a recursive one, not for an infinite one.
+Follow a pointer until it points at itself; report where you stopped. Two tiny
+reads sit beside it: `mem[p + 4]` reads the payload, and `mem[p]` takes one
+left-edge step. Compiled to WebAssembly, those code bytes never change: not for
+a larger program, not for a recursive one, not for an infinite one.
 
 This machine cannot add. It cannot branch, allocate, call, or run forever. It can only walk left until the road ends, then read what is lying there. And yet the files it runs contain identity and composition, booleans, pairs, arithmetic, lists, recursion, and infinite structures — all of which it evaluates correctly, in the sense that walking and reading produce exactly the answers the program means.
 
@@ -77,7 +80,7 @@ Now watch a clock assemble itself. `(S K K a)` is the identity function built th
 
 ## Every program is the same machine
 
-When the graph becomes a file, the metaphysics becomes measurable. The compiler emits a complete WebAssembly module by hand — no toolchain, just bytes. The exact module size depends on the record and legend being shipped, but the machine code stays fixed: the observe loop and the select load. The focus is exported as an address, and the legend of names rides along in a custom section the machine cannot read.
+When the graph becomes a file, the metaphysics becomes measurable. The compiler emits a complete WebAssembly module by hand — no toolchain, just bytes. The exact module size depends on the record and legend being shipped, but the machine code stays fixed: the observe loop, the select load, and the left-edge step load. The focus is exported as an address, and the legend of names rides along in a custom section the machine cannot read.
 
 The test suite asserts, on every run, the sentence the whole design walks toward: *every program is the same machine.* Type, function, memory, global, export, and code sections — byte-for-byte identical between the identity function and an infinite loop. Programs differ only in their data segment. Programs *are* data segments. A compiled file is a causal record with a reader stapled to its forehead, and the reader is so small and so fixed that shipping a program is, almost entirely, shipping its past.
 
@@ -89,7 +92,7 @@ The native idiom turns out to be Scott encoding — and the original core, charm
 
 This dissolves, almost by accident, the problem that should have killed recursion. The stitcher is strict — it reduces arguments before bodies — so a naive conditional would expand both branches and the recursive one forever. But a Scott branch is a partial application, and a partial's body never stitches. A branch not taken is a question never asked. Laziness, in this system, is not an evaluation strategy. It is an arity.
 
-Given that discipline, the library genuinely computes. Addition and multiplication on numerals, lengths and last-elements of lists — all settled at compile time, all replayed by the thirty-nine bytes. Recursion descends literal substructure, so on closed data it terminates; on open data — a variable where a number should be — it simply stops, leaving a residual graph: the program, specialized as far as its known inputs allow. The compiler is a partial evaluator without trying, and residuals are themselves shippable records. An infinite list is two cells of curvature, courtesy of the knot, consumed by keeping producer and consumer on one spine.
+Given that discipline, the library genuinely computes. Addition and multiplication on numerals, lengths and last-elements of lists — all settled at compile time, all replayed by the same fixed machine bytes. Recursion descends literal substructure, so on closed data it terminates; on open data — a variable where a number should be — it simply stops, leaving a residual graph: the program, specialized as far as its known inputs allow. The compiler is a partial evaluator without trying, and residuals are themselves shippable records. An infinite list is two cells of curvature, courtesy of the knot, consumed by keeping producer and consumer on one spine.
 
 The price is a totality discipline. Recursion must hide behind constructors. Mutual recursion must be fused into single self-referential step functions, since a name used before its definition stays an atom forever. You cannot even name a plain value without giving it a slot. These feel like fitting prices for a place where everything happens before time starts. This library does not run. It happened.
 
