@@ -170,13 +170,26 @@ This is still finite replay, not unbounded growth. Its value is that the
 dynamic CLI view is now derived from the compiler's real causal record instead
 of from a manually authored answer.
 
+The same request can now be written in source:
+
+```lisp
+(Record (S a b c))
+```
+
+and run as a lens:
+
+```sh
+node cli.js --lens record.lisp 6
+```
+
 ## Next implementation target
 
-Use `--record` as the comparison harness while looking for a source-native
-version of the same shape:
+Use `--record` and `(Record ...)` as comparison harnesses while looking for a
+graph-native version of the same shape:
 
 - the current harness records host-visible `observe` frames;
-- the target is a graph/source form whose own next edge carries those events;
+- the source form moves the request into Lisp, but still records at build time;
+- the target is a graph form whose own next edge carries those events;
 - `step` should stay boring, because the motion should already be in the graph.
 
 Do not use the `WeakMap` delayed-future path for this particular demo. That

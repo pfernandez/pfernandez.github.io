@@ -160,4 +160,17 @@ describe('graph-native lens', () => {
     assert.equal(lens.allocations, built)
     assert.doesNotThrow(() => image(lens.graph))
   })
+
+  test('source can request a recorded observation lens', () => {
+    const { graph, legend } = compile(`
+      (S (((((x z) (y z)) x) y) z))
+      (Record (S a b c))
+    `)
+    const finalEvent = observe(step(step(step(step(graph)))))
+
+    assert.equal(serialize(graph, { legend }),
+                 '(E0 (E1 (E2 (E3 (E4 End)))))')
+    assert.equal(serialize(output(finalEvent), { legend }), '((a c) (b c))')
+    assert.doesNotThrow(() => image(graph))
+  })
 })
