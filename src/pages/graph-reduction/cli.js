@@ -10,7 +10,7 @@ if (main()) {
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
   const compiled = compile(readFileSync(file, 'utf-8'))
 
-  log(compiled.graph)
+  log(compiled)
 
   let traceCount = 0
   const trace = form => console.log(

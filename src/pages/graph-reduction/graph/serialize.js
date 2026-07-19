@@ -1,5 +1,7 @@
 export const log = x =>
-  (typeof x === 'string' ? console.log(x) : console.dir(x, { depth: null }),
+  (typeof x === 'string'
+    ? console.log(x)
+    : console.dir(x, { maxArrayLength: null, depth: Infinity }),
   console.log('\n'),
   x)
 
