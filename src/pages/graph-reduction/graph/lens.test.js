@@ -218,6 +218,26 @@ describe('graph-native lens', () => {
     assert.equal(run('(Second Frame1)', 3), '((Pair Out2) End)')
   })
 
+  test('source projections do not inspect raw substrate cells', () => {
+    const source = focus => `
+      (K ((x x) y))
+      (False ((y x) y))
+      (Pair ((((f x y) x) y) f))
+      (First ((p K) p))
+      (Second ((p False) p))
+      ${focus}
+    `
+    const run = (focus, count = 3) => {
+      const { graph, legend } = compile(source(focus))
+      return serialize(repeat(graph, select, count), { legend })
+    }
+
+    assert.equal(run('(First (Pair a b))'), 'a')
+    assert.equal(run('(Second (Pair a b))'), 'b')
+    assert.equal(run('(First (a b))'), 'a')
+    assert.equal(run('(Second (a b))'), 'a')
+  })
+
   test('observer fixture demonstrates source-level selection', () => {
     const source = readFileSync(new URL('../observer.lisp', import.meta.url))
     const { graph, legend } = compile(source.toString())

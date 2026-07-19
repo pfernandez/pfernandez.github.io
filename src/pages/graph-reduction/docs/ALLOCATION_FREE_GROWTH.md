@@ -227,6 +227,21 @@ That distinction matters. `spineStep(state) = state[0]` and WASM
 Lisp functions over encoded pair values. Bridging those two levels without
 compiler magic is now the next real question.
 
+Two probes clarify the boundary:
+
+- Applying `First` or `Second` to an encoded `(Pair a b)` returns `a` or `b`.
+- Applying either one to a raw source application `(a b)` returns `a`.
+
+The second case does not inspect the raw cell. It applies the raw cell as a
+function, extends its left spine, and observation reaches the same leftmost
+head.
+
+A temporary transparent-head compiler patch also showed why the older
+"computed answer in head position is inert" rule is load-bearing. Looking
+through computed answers can make `(App (I I) a)` continue toward `a`, but the
+same rule changes Scott arithmetic and rewrites authored lens structure. It is
+not a small observer bridge; it changes the compiler's evaluation physics.
+
 ## Relationship to the current compiler
 
 The current `main` compiler already writes a causal record and the WASM machine
