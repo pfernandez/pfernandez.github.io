@@ -22,6 +22,8 @@ Related docs:
 - `GRAPH_COMPILER_HISTORIES.md` records the branch and commit archaeology.
 - `GRAPH_COMPILER_RECOMMENDATIONS.md` gives the current engineering plan.
 - `ALLOCATION_FREE_GROWTH.md` isolates the runtime-growth constraint.
+- `CATALAN_HAMILTONIAN_PLAN.md` connects the Lisp machine to the future
+  Catalan frontier and shift-operator simulator.
 
 ## What Basis was doing
 

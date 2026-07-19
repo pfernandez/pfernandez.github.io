@@ -10,6 +10,8 @@ Related docs:
   lens/substrate problem.
 - `ALLOCATION_FREE_GROWTH.md` records the constraint on finite graph-native
   growth.
+- `CATALAN_HAMILTONIAN_PLAN.md` gives the handoff from the Lisp machine to the
+  Catalan-space simulator.
 
 ## Short version
 
