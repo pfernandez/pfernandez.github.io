@@ -170,18 +170,6 @@ This is still finite replay, not unbounded growth. Its value is that the
 dynamic CLI view is now derived from the compiler's real causal record instead
 of from a manually authored answer.
 
-The same request can now be written by source shape:
-
-```lisp
-((S a b c) ())
-```
-
-and run as a lens:
-
-```sh
-node cli.js --lens record.lisp 6
-```
-
 There is also a no-transposition view:
 
 ```sh
@@ -194,13 +182,12 @@ answer outputs its right side.
 
 ## Next implementation target
 
-Use `--spine`, `--record`, and `(form ())` as comparison harnesses while
-looking for the graph-native version of the same shape:
+Use `--spine` as the primary harness and `--record` as the comparison harness
+while looking for the graph-native version of the same shape:
 
 - the spine view proves the compiled graph already carries a replay path;
-- the current harness records host-visible `observe` frames;
-- the source shape avoids a magic word, but still records at build time;
-- the target is a graph whose own next edge already carries those events;
+- the record harness transposes host-visible `observe` frames;
+- the target is to make the existing spine the machine's motion;
 - `step` should stay boring, because the motion should already be in the graph.
 
 Do not use the `WeakMap` delayed-future path for this particular demo. That

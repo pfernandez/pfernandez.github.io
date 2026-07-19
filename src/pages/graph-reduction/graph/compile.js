@@ -1,6 +1,4 @@
 import { err, parse } from './parse.js'
-import { record } from './lens.js'
-import { observe } from './observe.js'
 
 // Every node is a cell: a two-element array. cell[0] is the function side
 // and cell[1] is the argument side, so the application (f x) is the cell
@@ -59,13 +57,6 @@ const isBindingForm = (form, scope) =>
   Array.isArray(form) && form.length === 2
     && isSymbol(form[0]) && !binding(form[0], scope.names)
 
-// A top-level `(form ())` writes the passive observation path of `form` into
-// ordinary lens structure. It is build-time syntax by shape, not by name.
-const isReplayShape = form =>
-  Array.isArray(form) && form.length === 2
-    && Array.isArray(form[0])
-    && Array.isArray(form[1]) && form[1].length === 0
-
 // Walk the form's left edge collecting parameter names, innermost first -
 // the order arguments are supplied; null if there are none.
 const parameters = (form, scope, names = []) =>
@@ -116,20 +107,7 @@ const bindValue = ([name, form], scope) => {
 const bindForm = (form, scope) =>
   parameters(form[1], scope) ? define(form, scope) : bindValue(form, scope)
 
-// Build and reduce the requested form, collect the frames observe would visit,
-// then make those frames replayable as right-edge lens states.
-const replayShape = (form, scope) => {
-  const graph = reduceGraph(buildGraph(form[0], [scope.names], scope))
-  const outputs = []
-  const answer = observe(graph, frame => outputs.push(frame))
-  const recorded = record([...outputs, answer[1]], { legend: scope.legend })
-
-  scope.legend = recorded.legend
-  return recorded.graph
-}
-
 const focusForm = (form, scope) => {
-  if (isReplayShape(form)) return replayShape(form, scope)
   if (isBindingForm(form, scope)) return void bindForm(form, scope)
   return reduceGraph(buildGraph(form, [scope.names], scope))
 }
