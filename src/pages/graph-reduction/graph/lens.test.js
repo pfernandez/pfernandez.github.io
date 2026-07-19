@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { image } from '../wasm/image.js'
 import { compile, observe, serialize } from './index.js'
+import {
+  event,
+  historyDepth,
+  output,
+  previous,
+  step
+} from './lens.js'
 
 describe('graph-native lens', () => {
   // A lens state is `[event, next]`. Runtime stepping follows the right edge.
@@ -40,18 +48,6 @@ describe('graph-native lens', () => {
     }
   }
 
-  const step = state =>
-    state[1]
-
-  const previous = event =>
-    event[1][0]
-
-  const output = event =>
-    event[1][1]
-
-  const historyDepth = (event, root) =>
-    event === root ? 0 : 1 + historyDepth(previous(event), root)
-
   test('right-edge stepping can carry stable events on the left', () => {
     const graph = withCounter()
     const root = graph.atom()
@@ -72,6 +68,7 @@ describe('graph-native lens', () => {
     const built = graph.allocations()
 
     assert.equal(observe(first), firstEvent)
+    assert.equal(event(first), firstEvent)
     assert.equal(observe(step(first)), secondEvent)
     assert.equal(observe(step(step(first))), thirdEvent)
     assert.equal(step(step(step(first))), first)
@@ -106,7 +103,8 @@ describe('graph-native lens', () => {
     const secondEvent = observe(step(graph))
     const thirdEvent = observe(step(step(graph)))
 
-    assert.equal(serialize(graph, { legend }), '(E0 (E1 (E2 (End End))))')
+    assert.equal(serialize(graph, { legend }), '(E0 (E1 (E2 End)))')
+    assert.equal(event(graph), firstEvent)
     assert.equal(output(firstEvent), output(firstEvent)[0])
     assert.equal(serialize(output(firstEvent), { legend }), 'Out0')
     assert.equal(serialize(output(secondEvent), { legend }), 'Out1')
@@ -114,6 +112,20 @@ describe('graph-native lens', () => {
     assert.equal(previous(secondEvent), firstEvent)
     assert.equal(previous(thirdEvent), secondEvent)
     assert.equal(serialize(step(step(step(graph))), { legend }), '(End End)')
+    assert.doesNotThrow(() => image(graph))
+  })
+
+  test('lens fixture carries program-shaped outputs', () => {
+    const source = readFileSync(new URL('../lens.lisp', import.meta.url))
+    const { graph, legend } = compile(source.toString())
+    const firstEvent = observe(graph)
+    const secondEvent = observe(step(graph))
+
+    assert.equal(serialize(graph, { legend }), '(E0 (E1 End))')
+    assert.equal(serialize(output(firstEvent), { legend }), '(((S a) b) c)')
+    assert.equal(serialize(output(secondEvent), { legend }), '((a c) (b c))')
+    assert.equal(previous(secondEvent), firstEvent)
+    assert.equal(serialize(step(step(graph)), { legend }), '(End End)')
     assert.doesNotThrow(() => image(graph))
   })
 })

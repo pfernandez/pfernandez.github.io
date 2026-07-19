@@ -17,12 +17,17 @@ export const schemeNames = Object.values(schemes)
 const legendName = (node, legend) =>
   legend.find(entry => entry.node === node)?.symbol
 
+const namedReference = (name, seen) =>
+  name !== undefined && seen.size > 0
+
 // Atoms print as their spelling; repeated cells print as the path where the
-// cell first appeared, so sharing and cycles stay visible in plain text.
+// cell first appeared, so sharing and cycles stay visible in plain text. A
+// named root still opens; a named node inside another form prints as its name.
 const printable = (node, path = '$', pathsByNode = new Map(), legend = []) => {
   if (!Array.isArray(node)) return String(node)
 
   const name = legendName(node, legend)
+  if (namedReference(name, pathsByNode)) return String(name)
   if (pathsByNode.has(node))
     return name !== undefined ? String(name) : pathsByNode.get(node)
   if (name !== undefined && node[0] === node)
@@ -117,6 +122,7 @@ const parts = (node, legend, seen, identities) => {
   if (!Array.isArray(node)) return [{ text: String(node) }]
 
   const name = legendName(node, legend)
+  if (namedReference(name, seen)) return [{ text: String(name) }]
   if (seen.has(node))
     return name !== undefined
       ? [{ text: String(name) }]
@@ -242,6 +248,7 @@ const wasmText = (
 ) => {
   const printAddr = (addr, path) => {
     const name = legend.get(addr)
+    if (namedReference(name, pathsByAddr)) return String(name)
     if (pathsByAddr.has(addr))
       return name !== undefined ? String(name) : pathsByAddr.get(addr)
     if (name !== undefined && view.getUint32(addr, true) === addr)
@@ -264,15 +271,16 @@ const wasmParts = (view, root, legend) => {
 
   const printAddr = addr => {
     const name = legend.get(addr)
+    if (namedReference(name, seen)) return [{ text: String(name) }]
 
-    const identity = identityFor(addr, identities)
     if (seen.has(addr))
       return name !== undefined
         ? [{ text: String(name) }]
-        : [{ text: '()', identity }]
+        : [{ text: '()', identity: identityFor(addr, identities) }]
     if (name !== undefined && view.getUint32(addr, true) === addr)
       return [{ text: String(name) }]
 
+    const identity = identityFor(addr, identities)
     seen.add(addr)
     const left = printAddr(view.getUint32(addr, true))
     const right = printAddr(view.getUint32(addr + 4, true))
