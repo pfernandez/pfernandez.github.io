@@ -278,6 +278,36 @@ This is not raw cell projection. It is more interesting: the root carries the
 definitions, and the question decides how to use them. The library is inside
 the observer boundary instead of the observer being outside the library.
 
+## Recursion is already the context carrier
+
+The correction after the root experiment is that an internal observer should
+not need to inspect raw substrate cells. That would be a privileged external
+view, not an observer inside the graph. Source-level observers should see
+source-level values: whatever their world has encoded and made available.
+
+Ordinary Lisp recursion already passes context:
+
+```lisp
+(Loop (((step state (Loop step)) step) state))
+(Yield (((continue state) state) continue))
+```
+
+`Loop` calls `step` with the current `state` and the continuation
+`(Loop step)`. `Yield` has the right raw shape to keep that continuation alive,
+which is why `(Loop Yield seed)` is a finite period-two orbit.
+
+The next observer shape should therefore not be "teach `First` and `Second` to
+read arbitrary cells." It should be:
+
+```text
+root/dictionary/state/question as ordinary Lisp values
+recursive step passes the next context explicitly
+observable frames are encoded as source-level data when needed
+```
+
+If a future observer must see `(answer, continuation)`, that pair should be
+authored as an observable value, not assumed from raw application geometry.
+
 ## Relationship to the current compiler
 
 The current `main` compiler already writes a causal record and the WASM machine
