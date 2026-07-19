@@ -14,7 +14,7 @@ export const historyDepth = (event, root) =>
   event === root ? 0 : 1 + historyDepth(previous(event), root)
 
 export const spineStep = state =>
-  state[0] === state ? state : state[0]
+  state[0]
 
 export const spineOutput = state =>
   state[0] === state ? state[1] : state

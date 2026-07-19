@@ -178,7 +178,14 @@ node cli.js --spine core.lisp 6
 
 This follows the compiled graph's existing left spine. That path is exactly
 the sequence `observe` visits. Non-stable states output themselves; the stable
-answer outputs its right side.
+answer outputs its right side. The motion rule itself has no condition:
+
+```js
+spineStep(state) = state[0]
+```
+
+When the state is already stable, its left edge points to itself, so the same
+rule naturally stops there.
 
 ## Next implementation target
 
