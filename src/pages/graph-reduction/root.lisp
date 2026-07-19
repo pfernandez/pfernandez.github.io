@@ -24,9 +24,13 @@
 ; AskRoot uses the carried K to choose the root identity.
 (AskRoot (((((k root done) root) k) s) state))
 
+; AskS uses the carried S from the root dictionary.
+(AskS (((((s a b c) root) k) s) state))
+
 ; Try these at the bottom:
 ;
 ;   (Root seed AskState) ; seed
 ;   (Root seed AskRoot)  ; Root
+;   (Root seed AskS)     ; ((a c) (b c))
 
-(Root seed AskState)
+(Root seed AskS)

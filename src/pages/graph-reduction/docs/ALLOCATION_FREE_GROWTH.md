@@ -266,6 +266,14 @@ root identity, dictionary, and state:
 (Root seed AskState) ; seed
 ```
 
+The same root can answer a more meaningful question by using the `S` carried
+in its dictionary:
+
+```lisp
+(AskS (((((s a b c) root) k) s) state))
+(Root seed AskS) ; ((a c) (b c))
+```
+
 This is not raw cell projection. It is more interesting: the root carries the
 definitions, and the question decides how to use them. The library is inside
 the observer boundary instead of the observer being outside the library.

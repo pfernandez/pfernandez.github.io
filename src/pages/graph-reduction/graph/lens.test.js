@@ -249,7 +249,9 @@ describe('graph-native lens', () => {
     const source = readFileSync(new URL('../root.lisp', import.meta.url))
     const { graph, legend } = compile(source.toString())
 
-    assert.equal(serialize(repeat(graph, select, 3), { legend }), 'seed')
+    assert.equal(
+      serialize(repeat(graph, select, 3), { legend }),
+      '((a c) (b c))')
   })
 
   test('root can carry its own identity as question data', () => {
@@ -264,5 +266,17 @@ describe('graph-native lens', () => {
     assert.equal(
       serialize(repeat(graph, select, 3), { legend }),
       '((((((question Root) K) S) state) state) question)')
+  })
+
+  test('root question can select carried state', () => {
+    const { graph, legend } = compile(`
+      (K ((x x) y))
+      (S (((((x z) (y z)) x) y) z))
+      (Root ((((((question (Root)) K) S) state) state) question))
+      (AskState (((((k state done) root) k) s) state))
+      (Root seed AskState)
+    `)
+
+    assert.equal(serialize(repeat(graph, select, 3), { legend }), 'seed')
   })
 })
