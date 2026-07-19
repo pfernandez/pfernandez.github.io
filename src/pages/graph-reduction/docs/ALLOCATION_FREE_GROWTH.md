@@ -186,6 +186,20 @@ That will demonstrate source-authored post-compiled state change. It may still
 use a finite prelinked cycle; runtime allocation/freeing is a separate later
 milestone.
 
+`live-root.lisp` now demonstrates that milestone:
+
+```text
+Root -> B00
+step -> B01
+step -> B10
+step -> B11
+step -> B00
+```
+
+The source authors the whole register cycle. Compilation preserves the cycle,
+and runtime stepping follows existing right edges. The host does not supply
+the next count.
+
 ## Minimal mechanism
 
 In the passive-machine tests, a state can carry an output event:

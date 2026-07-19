@@ -167,17 +167,24 @@ const findActiveCall = (head, args, activeCalls) =>
 // A completed call returns its focus: the call's shape with the answer at
 // its head, so observation runs to the answer and the right side is the result.
 // Arguments beyond the slots stay applied to the body.
-const reduceGraph = (node, activeCalls = []) => {
-  if (isComplete(node)) return node
+const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
+  if (isComplete(node) || seen.has(node)) return node
+  seen.add(node)
 
   const { head, args } = call(node)
   const bodyAndSlots = isDefinition(head) && definitionBody(head)
 
-  if (!bodyAndSlots || args.length < bodyAndSlots[1].length)
-    return node.map(item => reduceGraph(item, activeCalls))
+  // Inert applications may still be source-authored cyclic structure. Reduce
+  // their children in place so the cycle remains the authored cycle.
+  if (!bodyAndSlots || args.length < bodyAndSlots[1].length) {
+    node.forEach((item, i) => {
+      node[i] = reduceGraph(item, activeCalls, seen)
+    })
+    return node
+  }
 
   const [body, slots] = bodyAndSlots
-  const reducedArgs = args.map(arg => reduceGraph(arg, activeCalls))
+  const reducedArgs = args.map(arg => reduceGraph(arg, activeCalls, seen))
   const activeCall = findActiveCall(head, reducedArgs, activeCalls)
   if (activeCall) return activeCall[2]
 
@@ -191,7 +198,8 @@ const reduceGraph = (node, activeCalls = []) => {
   answer[0] = answer
   answer[1] = reduceGraph(
     bodyWithArgs,
-    [[head, reducedArgs, focus], ...activeCalls])
+    [[head, reducedArgs, focus], ...activeCalls],
+    new Set())
 
   return focus
 }

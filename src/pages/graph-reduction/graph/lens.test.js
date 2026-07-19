@@ -112,7 +112,7 @@ describe('graph-native lens', () => {
     const secondEvent = observe(step(graph))
     const thirdEvent = observe(step(step(graph)))
 
-    assert.equal(serialize(graph, { legend }), '(E0 (E1 (E2 End)))')
+    assert.equal(serialize(graph, { legend }), '(E0 S1)')
     assert.equal(event(graph), firstEvent)
     assert.equal(output(firstEvent), output(firstEvent)[0])
     assert.equal(serialize(output(firstEvent), { legend }), 'Out0')
@@ -130,7 +130,7 @@ describe('graph-native lens', () => {
     const firstEvent = observe(graph)
     const secondEvent = observe(step(graph))
 
-    assert.equal(serialize(graph, { legend }), '(E0 (E1 End))')
+    assert.equal(serialize(graph, { legend }), '(E0 S1)')
     assert.equal(serialize(output(firstEvent), { legend }), '(((S a) b) c)')
     assert.equal(serialize(output(secondEvent), { legend }), '((a c) (b c))')
     assert.equal(previous(secondEvent), firstEvent)
@@ -213,7 +213,7 @@ describe('graph-native lens', () => {
     }
 
     assert.equal(run('(First Frame0)', 3), 'Out0')
-    assert.equal(run('(Second Frame0)', 3), '((Pair Out1) ((Pair Out2) End))')
+    assert.equal(run('(Second Frame0)', 3), '((Pair Out1) Frame2)')
     assert.equal(run('(First Frame1)', 3), 'Out1')
     assert.equal(run('(Second Frame1)', 3), '((Pair Out2) End)')
   })
@@ -278,6 +278,38 @@ describe('graph-native lens', () => {
     `)
 
     assert.equal(serialize(repeat(graph, select, 3), { legend }), 'seed')
+  })
+
+  test('live root fixture steps a 2-bit register loop', () => {
+    const source = readFileSync(new URL('../live-root.lisp', import.meta.url))
+    const { graph, legend } = compile(source.toString())
+    const values = []
+    let state = graph
+
+    assert.equal(serialize(output(observe(state)), { legend }), 'B00')
+    assert.equal(serialize(output(observe(state)), { legend }), 'B00')
+
+    for (let i = 0; i < 8; i += 1) {
+      values.push(serialize(output(observe(state)), { legend }))
+      state = step(state)
+    }
+
+    assert.deepEqual(values, [
+      'B00',
+      'B01',
+      'B10',
+      'B11',
+      'B00',
+      'B01',
+      'B10',
+      'B11'
+    ])
+    assert.equal(state, graph)
+    assert.equal(serialize(output(observe(graph))[1], { legend }),
+                 '(False False)')
+    assert.equal(serialize(output(observe(step(step(graph))))[1], { legend }),
+                 '(False True)')
+    assert.doesNotThrow(() => image(graph))
   })
 
   test('a finite cycle can unfold as an unbounded successor view', () => {

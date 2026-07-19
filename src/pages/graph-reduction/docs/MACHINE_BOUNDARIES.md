@@ -160,6 +160,22 @@ This is distinct from `counter.lisp`. `counter.lisp` proves generic compiled
 increment over supplied bit material. It does not yet prove a post-compiled
 loop that increments the same root repeatedly.
 
+Current result:
+
+```sh
+node cli.js --lens live-root.lisp 8
+```
+
+`live-root.lisp` compiles one self-referential root and repeated right-edge
+steps expose:
+
+```text
+B00 -> B01 -> B10 -> B11 -> B00 -> ...
+```
+
+The register values are stable source values. Their names are the readable
+outputs; their right edges carry the two bits.
+
 ### 2. Runtime allocation/freeing
 
 Goal:
