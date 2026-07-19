@@ -100,8 +100,8 @@ count lives in the reader's chosen unfolding depth.
 A direct recursive accumulator shows the complementary boundary:
 
 ```lisp
-(World stream history)
-  -> (World stream (Succ history))
+(Root stream history)
+  -> (Root stream (Succ history))
 ```
 
 With the current compiler, each recursive call has a different `history`
@@ -160,8 +160,31 @@ runtime  = observe/select through the compiled consequence graph
 ```
 
 The key lesson is that "allocate" need not begin as host mutation. It can first
-mean: supply material in the root/source world, then author the policy that
+mean: supply material in the root/source, then author the policy that
 actualizes a new view of that material.
+
+This result should not be confused with the next live-loop milestone.
+`counter.lisp` proves generic compiled increment:
+
+```text
+compile (Inc bits done) -> linked consequence graph
+read result             -> incremented bit list
+```
+
+The next milestone must compile once and then repeatedly step the same root:
+
+```text
+compile Root(register step ...)
+step/read -> 00
+step/read -> 01
+step/read -> 10
+step/read -> 11
+step/read -> 00
+```
+
+That will demonstrate source-authored post-compiled state change. It may still
+use a finite prelinked cycle; runtime allocation/freeing is a separate later
+milestone.
 
 ## Minimal mechanism
 
@@ -341,7 +364,7 @@ not a small observer bridge; it changes the compiler's evaluation physics.
 ## Root as observer
 
 `root.lisp` takes the more promising source-only path: make the graph root the
-observer/world, and let questions complete it.
+observer boundary, and let questions complete it.
 
 ```lisp
 (Root ((((((question (Root)) K) S) state) state) question))
@@ -379,7 +402,7 @@ the observer boundary instead of the observer being outside the library.
 The correction after the root experiment is that an internal observer should
 not need to inspect raw substrate cells. That would be a privileged external
 view, not an observer inside the graph. Source-level observers should see
-source-level values: whatever their world has encoded and made available.
+source-level values: whatever their root has encoded and made available.
 
 Ordinary Lisp recursion already passes context:
 

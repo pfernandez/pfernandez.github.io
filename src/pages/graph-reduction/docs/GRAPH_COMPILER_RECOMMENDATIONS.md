@@ -12,8 +12,8 @@ Related docs:
   growth.
 - `CATALAN_HAMILTONIAN_PLAN.md` gives the handoff from the Lisp machine to the
   Catalan-space simulator.
-- `MACHINE_BOUNDARIES.md` defines `read`, `evolve`, `lens`, `root/world`,
-  `agent`, and the memory-bank boundary for future allocation work.
+- `MACHINE_BOUNDARIES.md` defines `read`, `step`, `lens`, `root`, `agent`,
+  and the memory-bank boundary for future allocation work.
 
 ## Short version
 
@@ -27,13 +27,13 @@ uses host-side delayed-edge state for changed recursive futures.
 The best next move is not another broad rewrite. It is one narrow experiment:
 
 ```text
-represent the observe/select event boundary as graph structure
+compile a source-authored root that visibly steps a 2-bit register
 ```
 
-If that works, the graph-native `step` path becomes much more credible. If it
-does not, `main` remains the honest machine. The same experiment is also the
-smallest way to test whether the observer/lens from `~/basis` can become
-ordinary graph structure instead of host-side interpretation.
+If that works, the graph-native `step` path becomes much more credible because
+state change has moved into the compiled root instead of the dashboard. The
+older event-boundary question remains important, but the immediate benchmark
+is clearer: compile once, then step/read `00 -> 01 -> 10 -> 11 -> 00`.
 
 ## Best current compiler
 
@@ -155,14 +155,14 @@ Create a narrow branch from `main`, not from the heavier research branches.
 Possible name:
 
 ```text
-graph-event-boundary
+live-root-register
 ```
 
 Goal:
 
 ```text
-Can the old observe/select boundary be represented in pair structure
-without making observe smarter?
+Can a source-authored root carry a 2-bit register and advance it after
+compilation without host-side counting?
 ```
 
 Start with tests only, then the smallest code needed.
@@ -172,21 +172,23 @@ Acceptance criteria:
 - the graph handed to the machine is still pair-only;
 - names remain legend-only;
 - current `main` behavior remains the oracle;
-- `S a b c` still reaches `((a c) (b c))`;
-- repeated observation/stepping does not accidentally consume the payload;
+- the root is compiled once and then stepped repeatedly;
+- CLI/test output shows `00 -> 01 -> 10 -> 11 -> 00`;
+- the host does not choose the next state or feed in a counter;
+- repeated reading does not accidentally consume the payload;
 - a visible event can expose its payload while preserving a next/history edge;
 - no arity, symbol, or definition logic moves into `observe`/`step`;
 - WASM implications are written down before changing WASM.
 
 ## A possible sequence of work
 
-1. Add tests that name the missing boundary.
+1. Add tests that name the live loop.
 
    Do not start by changing compiler structure. First write tests that express:
 
-   - a stable event can be observed repeatedly;
-   - the event's payload can be viewed;
-   - stepping the machine does not erase the event/payload distinction;
+   - one compiled root can be stepped repeatedly;
+   - each step exposes the next 2-bit value;
+   - repeated reading does not itself advance the state;
    - the same shape can be serialized and imaged.
 
 2. Try the boundary in source before adding host machinery.

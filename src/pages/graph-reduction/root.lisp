@@ -4,7 +4,7 @@
 ;
 ;   node cli.js root.lisp
 ;
-; `Root` is written as the outer observer/world. It carries its own identity,
+; `Root` is written as the outer observer boundary. It carries its own identity,
 ; a tiny dictionary, and state. A question completes the root by receiving:
 ;
 ;   Root K S state

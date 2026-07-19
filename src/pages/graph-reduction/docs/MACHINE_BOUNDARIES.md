@@ -15,17 +15,17 @@ cycle        repeated local structure
 event        local interaction or actualization
 state        constraint carried across events
 lens         projection from structure to a readable frame
-root/world   graph-local boundary carrying state and policy
+root         graph-local boundary carrying state and policy
 agent        stateful loop with policy, memory, and I/O
 read         privileged external inspection
-evolve       substrate transition / pair potential
+step         substrate transition / pair potential
 ```
 
 An electron-like structure may be a small stable cycle. A mind-like structure
 is closer to an agent or OS. Calling both "observers" hides the scale and the
 mechanism.
 
-## External read vs internal evolution
+## External read vs internal step
 
 The dashboard, CLI, serializer, and test helpers are privileged readers. They
 can inspect JavaScript identity, print cycles, count depth, color structure,
@@ -40,7 +40,7 @@ So the rule is:
 read:
   non-creative, external, for visibility
 
-evolve:
+step:
   graph-local, may actualize structure when pair potential and material permit
 ```
 
@@ -49,7 +49,7 @@ a stable event. It should not grow into a hidden evaluator just to support a
 theory.
 
 But this does not mean the system can never create. It means creation belongs
-to explicit substrate evolution, not privileged readout.
+to explicit substrate stepping, not privileged readout.
 
 ## Creation and annihilation
 
@@ -89,7 +89,7 @@ debug records
 These are measurement records. They are appropriate when they do not affect
 what the graph can do next.
 
-If history constrains future evolution, it must be graph state:
+If history constrains future stepping, it must be graph state:
 
 ```text
 If it only helps us see, host history is fine.
@@ -120,18 +120,79 @@ runtime/readout only exposes the result
 
 That pattern should guide dynamic allocation later. The future runtime may
 mutate or allocate inside a memory arena, but the arena and policy should be
-explicit parts of the root/world, not invisible powers of the dashboard.
+explicit parts of the root, not invisible powers of the dashboard.
+
+## Two target demonstrations
+
+There are two separate things to show. Keeping them separate prevents us from
+calling a compiled consequence graph a live machine too early.
+
+### 1. Live source-authored 2-bit loop
+
+Goal:
+
+```text
+After compilation, repeated `step` calls advance a source-authored root through
+a 2-bit register sequence.
+```
+
+Acceptance criteria:
+
+- one source program is compiled once;
+- the source carries the register, step policy, and visible answer channel;
+- the CLI and tests repeatedly step the same compiled graph/root;
+- visible output changes as:
+
+  ```text
+  00 -> 01 -> 10 -> 11 -> 00 -> ...
+  ```
+
+- the host does not feed in a counter or choose the next state;
+- the host may only call `step` and use passive readout/serialization;
+- no runtime allocation is required for this milestone.
+
+This may be implemented as a finite source-authored transition cycle. That is
+acceptable. The point is not unbounded growth yet; the point is a live
+post-compiled loop whose state change is carried by the graph/root rather than
+by the dashboard.
+
+This is distinct from `counter.lisp`. `counter.lisp` proves generic compiled
+increment over supplied bit material. It does not yet prove a post-compiled
+loop that increments the same root repeatedly.
+
+### 2. Runtime allocation/freeing
+
+Goal:
+
+```text
+`step` can bind and release memory during runtime by consuming graph-local
+potential, not by hiding allocation in the dashboard/readout.
+```
+
+Open design question:
+
+```text
+Should the source name an explicit free bank/arena, or should the heap itself
+act as the arena and expose usable addresses by adjacency?
+```
+
+This milestone is allowed to mutate or allocate in JS/WASM, but only as an
+explicit substrate simulation. The root/source state must still decide what is
+actualized. Host memory supplies the vacuum potential; host readout must not
+choose the event.
+
+Acceptance criteria:
+
+- `read`/`observe` remains passive;
+- `step` is the only runtime operation that may actualize memory;
+- allocation consumes available material or address potential;
+- freeing/annihilation closes an obligation and returns material to an explicit
+  reusable or recorded state;
+- dashboard history remains non-causal unless reintroduced into the graph.
 
 ## Next implementation scaffold
 
-The next branch should answer one question:
-
-```text
-Can root/world carry material, policy, and a question clearly enough that
-dynamic allocation becomes an authored graph operation rather than a host trick?
-```
-
-Recommended steps:
+Recommended steps for the next branch:
 
 1. Keep current `observe` as passive readout.
 
@@ -139,28 +200,33 @@ Recommended steps:
 
 2. Rename concepts in docs and comments before renaming code.
 
-   Treat `observe` mentally as `read`. Treat `step`/`evolve` as the substrate
+   Treat `observe` mentally as `read`. Treat `step` as the substrate
    transition under investigation.
 
-3. Add a small root/world fixture with explicit banks:
+3. Build the live 2-bit root loop first.
+
+   This is the benchmark that proves the source can carry state through a
+   post-compiled loop.
+
+4. Then add a small root fixture with explicit banks:
 
    ```text
-   World(active free history policy question)
+   Root(active free history policy question)
    ```
 
-4. First model allocation without mutation.
+5. First model allocation without mutation.
 
    Use source-supplied material and continuations, as in `counter.lisp`.
    This keeps the current compiler honest.
 
-5. Then model allocation with mutation in JS/WASM.
+6. Then model allocation with mutation in JS/WASM.
 
-   Only after the source shape is clear, add a small `evolve` kernel that
+   Only after the source shape is clear, add a small `step` kernel that
    consumes cells from an explicit free bank. This is the Von Neumann
    simulation compromise: host memory exists, but graph state decides how it
    is actualized.
 
-6. Keep dashboard history separate.
+7. Keep dashboard history separate.
 
    Dashboard traces can remain host-side as long as they are only visibility.
    If the machine reads or depends on the record, move that record into the

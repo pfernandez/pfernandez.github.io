@@ -120,7 +120,7 @@ Current facts:
 - `counter.lisp` shows that source can provide material and author an
   allocation policy without naming each bit.
 - `MACHINE_BOUNDARIES.md` separates privileged readout from graph-local
-  evolution, and names where creation/annihilation should live.
+  stepping, and names where creation/annihilation should live.
 
 The current machine still mostly precomputes consequences. That is acceptable
 for now. It gives us a precise way to write and inspect causal structure before
@@ -141,7 +141,8 @@ Keep this narrow:
 
 The useful remaining Lisp fixtures are:
 
-- root/world carrying dictionary and state;
+- root carrying dictionary and state;
+- a live source-authored 2-bit root loop;
 - continuation-style observer questions;
 - source-authored ledgers/material;
 - clear examples of finite cycles, residuals, and closed reductions.
@@ -218,7 +219,7 @@ simulator studies the surrounding space of possible continuations.
 - Do not confuse finite cyclic unfolding with local accumulated history.
 - Keep speculative interpretations separate from measured lattice structure.
 - Keep privileged dashboard history separate from graph state unless that
-  history constrains future evolution.
+  history constrains future stepping.
 
 The near-term goal is to finish the Lisp machine just enough that it can author
 and inspect causal records cleanly. Then move to the Catalan frontier, where
