@@ -371,7 +371,7 @@ head.
 
 A temporary transparent-head compiler patch also showed why the older
 "computed answer in head position is inert" rule is load-bearing. Looking
-through computed answers can make `(App (I I) a)` continue toward `a`, but the
+through computed answers can make `((I I) a)` continue toward `a`, but the
 same rule changes Scott arithmetic and rewrites authored lens structure. It is
 not a small observer bridge; it changes the compiler's evaluation physics.
 

@@ -50,10 +50,6 @@
 
 (Repeat ((Cons x (Repeat x)) x))
 
-; Application: a function can be computed, then used as a function.
-
-(App (((p q) p) q))
-
 ; Closed data settles:
 ; (Head (Cons a (Cons b Nil)))
 ; (Length (Cons a (Cons b Nil)))

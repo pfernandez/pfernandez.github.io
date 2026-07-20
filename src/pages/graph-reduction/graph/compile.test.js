@@ -87,8 +87,7 @@ const coreDefinitions = [
   '(Add (((m n (AddStep n)) m) n))',
   '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
   '(Mul (((m Zero (MulStep n)) m) n))',
-  '(Repeat ((Cons x (Repeat x)) x))',
-  '(App (((p q) p) q))'
+  '(Repeat ((Cons x (Repeat x)) x))'
 ]
 
 describe('true-shape compiler contracts', () => {
@@ -343,13 +342,11 @@ describe('library forms', () => {
       Cons)
   })
 
-  test('a computed answer in head position remains callable', () => {
-    assertReduction(coreDefinitions, '(App I a)', 'a', 2)
-    assertReduction(coreDefinitions, '(App (I I) a)', 'a', 2)
+  test('computed functions remain callable', () => {
     assertReduction(coreDefinitions, '((I I) a)', 'a', 2)
-    assertReduction(coreDefinitions, '(App (K I x) a)', 'a', 2)
-    assertReduction(coreDefinitions, '(App (I (K a)) b)', 'a', 2)
-    assertReduction(coreDefinitions, '(App (I (S K K)) a)', 'a', 3)
+    assertReduction(coreDefinitions, '((K I x) a)', 'a', 2)
+    assertReduction(coreDefinitions, '((I (K a)) b)', 'a', 2)
+    assertReduction(coreDefinitions, '((I (S K K)) a)', 'a', 3)
     assertReduction(coreDefinitions, '((If True I K) a b)', 'a', 4)
     assertReduction(coreDefinitions, '((If False K I) a b)', 'a', 4)
     assertReduction(coreDefinitions, '((First (Pair I K)) a)', 'a', 4)
