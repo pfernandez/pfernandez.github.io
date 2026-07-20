@@ -54,6 +54,20 @@ const assertLoop = graph => {
   assert.equal(repeat(graph, step, 5), yielded)
 }
 
+const count = (node, cap = 64) => {
+  const Succ = serialize(compile(source(coreDefinitions, 'Succ')))
+  const Zero = serialize(compile(source(coreDefinitions, 'Zero')))
+
+  while (cap--) {
+    if (Array.isArray(node) && serialize(node[0]) === Succ)
+      return 1 + count(node[1])
+    if (serialize(node) === Zero) return 0
+    node = step(node)
+  }
+
+  throw new Error('not a numeral')
+}
+
 const coreDefinitions = [
   '(I (x x))',
   '(K ((x x) y))',
@@ -83,6 +97,11 @@ const coreDefinitions = [
   '(Last ((l no LastGo) l))',
   '(LenStep (((Succ (t Zero LenStep)) h) t))',
   '(Length ((l Zero LenStep) l))',
+  '(FoldStep (((((f h (Fold f z t)) f) z) h) t))',
+  '(Fold ((((l z (FoldStep f z)) f) z) l))',
+  '(LenFold (((Succ t) h) t))',
+  '(MapStep ((((((c (f h) (Map f t n c)) f) n) c) h) t))',
+  '(Map (((((l n (MapStep f n c)) f) l) n) c))',
   '(AddStep (((Succ (m2 n (AddStep n))) n) m2))',
   '(Add (((m n (AddStep n)) m) n))',
   '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
@@ -295,20 +314,6 @@ describe('library forms', () => {
       6))
 
   test('arithmetic computes through Scott numerals', () => {
-    const count = (node, cap = 64) => {
-      const Succ = serialize(compile(source(coreDefinitions, 'Succ')))
-      const Zero = serialize(compile(source(coreDefinitions, 'Zero')))
-
-      while (cap--) {
-        if (Array.isArray(node) && serialize(node[0]) === Succ)
-          return 1 + count(node[1])
-        if (serialize(node) === Zero) return 0
-        node = step(node)
-      }
-
-      throw new Error('not a numeral')
-    }
-
     assert.equal(count(compile(source(
       coreDefinitions,
       '(Add (Succ Zero) (Succ Zero))'))), 2)
@@ -321,6 +326,31 @@ describe('library forms', () => {
     assert.equal(count(compile(source(
       coreDefinitions,
       '(Length (Cons a (Cons b Nil)))'))), 2)
+  })
+
+  test('Fold abstracts structural recursion over lists', () =>
+    assert.equal(
+      serialize(repeat(compile(source(
+        coreDefinitions,
+        '(Fold LenFold Zero (Cons a (Cons b Nil)))')), step, 4)),
+      '(Succ (((Fold LenFold) Zero) ((Cons b) Nil)))'))
+
+  test('Map transforms elements before handing them to a consumer', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Map I (Cons a (Cons b Nil)) no K)',
+      'a',
+      5)
+    assertReduction(
+      coreDefinitions,
+      '(Map (K z) (Cons a (Cons b Nil)) no K)',
+      'z',
+      5)
+    assert.equal(
+      serialize(repeat(compile(source(
+        coreDefinitions,
+        '(Map I (Cons a (Cons b Nil)) Zero LenFold)')), step, 4)),
+      '(Succ ((((Map I) ((Cons b) Nil)) Zero) LenFold))')
   })
 
   test('open data leaves a symbolic residual', () => {
@@ -344,6 +374,7 @@ describe('library forms', () => {
 
   test('computed functions remain callable', () => {
     assertReduction(coreDefinitions, '((I I) a)', 'a', 2)
+    assertReduction(coreDefinitions, '((I K) a b)', 'a', 2)
     assertReduction(coreDefinitions, '((K I x) a)', 'a', 2)
     assertReduction(coreDefinitions, '((I (K a)) b)', 'a', 2)
     assertReduction(coreDefinitions, '((I (S K K)) a)', 'a', 3)

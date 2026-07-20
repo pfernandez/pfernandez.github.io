@@ -139,12 +139,25 @@ const isAnswer = node =>
   isStable(node) && !isAtom(node) && !isSlot(node)
 
 // A completed answer on the left spine can be used as the head of a later
-// call. Half-built recursive answers have length 1, so they stay closed.
-const answerOf = node =>
-  !Array.isArray(node) || isDefinition(node) ? null
-    : isAnswer(node) ? node
-    : isStable(node) ? null
-    : answerOf(node[0])
+// call. Reopen only the answer cell, not the enclosing application, so any
+// arguments already applied to that answer stay on the spine.
+const reopenAnswer = node => {
+  const seen = new Set()
+  let parent = node
+
+  while (!isComplete(parent) && !seen.has(parent)) {
+    seen.add(parent)
+
+    if (isAnswer(parent[0]) && isComplete(parent[0][1])) {
+      parent[0] = parent[0][1]
+      return true
+    }
+
+    parent = parent[0]
+  }
+
+  return false
+}
 
 // Read a left-nested application as a call: ((K a) b) is head K, args [a, b].
 const call = (node, args = []) => {
@@ -204,9 +217,7 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
     && definitionBody(application.head)
 
   if (!bodyAndSlots || application.args.length < bodyAndSlots[1].length) {
-    const headAnswer = answerOf(node[0])
-    if (headAnswer && isComplete(headAnswer[1])) {
-      node[0] = headAnswer[1]
+    if (reopenAnswer(node)) {
       seen.delete(node)
       return reduceGraph(node, activeCalls, seen)
     }

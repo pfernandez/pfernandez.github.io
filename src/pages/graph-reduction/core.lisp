@@ -40,6 +40,15 @@
 (Last ((l no LastGo) l))
 (LenStep (((Succ (t Zero LenStep)) h) t))
 (Length ((l Zero LenStep) l))
+(FoldStep (((((f h (Fold f z t)) f) z) h) t))
+(Fold ((((l z (FoldStep f z)) f) z) l))
+(LenFold (((Succ t) h) t))
+
+; Map takes the result cases explicitly. This computes through the list now;
+; making (Map f l) itself a reusable list value is a sharper linker problem.
+
+(MapStep ((((((c (f h) (Map f t n c)) f) n) c) h) t))
+(Map (((((l n (MapStep f n c)) f) l) n) c))
 (AddStep (((Succ (m2 n (AddStep n))) n) m2))
 (Add (((m n (AddStep n)) m) n))
 (MulStep (((Add n (m2 Zero (MulStep n))) n) m2))
@@ -53,6 +62,8 @@
 ; Closed data settles:
 ; (Head (Cons a (Cons b Nil)))
 ; (Length (Cons a (Cons b Nil)))
+; (Fold LenFold Zero (Cons a (Cons b Nil)))
+; (Map I (Cons a (Cons b Nil)) no K)
 ; (Add (Succ Zero) (Succ Zero))
 ; (Mul (Succ (Succ Zero)) (Succ (Succ Zero)))
 ; (Repeat a no K)
