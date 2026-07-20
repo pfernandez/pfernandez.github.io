@@ -122,3 +122,51 @@ The next breakthrough would be one of these:
 
 Until then, `link-kernel.lisp` should be read as the first source-authored
 kernel clock, not as a full graph-native OS allocator.
+
+## Follow-up: computed constructor state
+
+The next experiment tried to replace the named kernel states with computed
+partial constructor values:
+
+```lisp
+(State mode active free case (case mode active free))
+(Cons cell rest nil cons (cons cell rest))
+(Loop Next (State Allocating Nil (Cons Cell0 (Cons Cell1 Nil))))
+```
+
+Two smaller variants were also checked, including a one-field state:
+
+```lisp
+(State bit case (case bit))
+(Loop Next (State B0))
+```
+
+The important finding is that canonicalizing partial calls is not enough.
+Right-edge stepping exposes arguments before the selected branch has finished.
+When one of those arguments is a computed partial constructor, stepping enters
+the constructor's data face and stays in a small cycle:
+
+```text
+State/context -> Cons -> State/context -> ...
+```
+
+So the missing structure is more precise than "canonical constructor values":
+
+```text
+computed constructor state needs a live argument occurrence
+```
+
+That likely means an occurrence of a value on the right side of an application
+must carry a future/obligation edge back to the enclosing computation, without
+mutating the shared definition or atom itself. This is close to the earlier
+intuition that incoming arguments on the right may need to name their enclosing
+pairs, but it must be occurrence-local rather than global.
+
+The failed quick fixes were:
+
+1. Reuse incomplete calls by definition plus supplied argument identity.
+2. Pass around the stable answer identity for partial calls.
+3. Retarget computed partial identities toward the enclosing answer.
+
+Those changes either did not produce recurring root frames or produced only a
+local cycle. They were not kept.
