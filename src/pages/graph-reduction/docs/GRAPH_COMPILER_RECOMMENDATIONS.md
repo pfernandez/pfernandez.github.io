@@ -14,6 +14,8 @@ Related docs:
   Catalan-space simulator.
 - `MACHINE_BOUNDARIES.md` defines `read`, `step`, `lens`, `root`, `agent`,
   and the memory-bank boundary for future allocation work.
+- `LINK_FRONTIER_KERNEL.md` records the first pair-local kernel-clock result
+  and the remaining boundary around computed constructor state.
 
 ## Short version
 

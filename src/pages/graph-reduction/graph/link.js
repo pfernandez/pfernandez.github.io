@@ -108,7 +108,7 @@ export const link = source => {
     return call
   }
 
-  const walk = (tree, replacements, defining = false) => {
+  const walk = (tree, replacements, defining = false, copies = new Map()) => {
     if (!Array.isArray(tree)) {
       const entry = named(tree) ?? identify(tree)
       const { node } = entry
@@ -154,16 +154,19 @@ export const link = source => {
         || reference || partial)
       return { graph: node, reference, partial }
 
+    if (copies.has(node)) return { graph: copies.get(node) }
+
     const graph = []
+    copies.set(node, graph)
 
     // Already-linked self references become the current pair.
     const left = tree[0] === tree
       ? { graph }
-      : walk(tree[0], replacements, defining)
+      : walk(tree[0], replacements, defining, copies)
 
     const right = tree[1] === tree
       ? { graph }
-      : walk(tree[1], replacements, defining)
+      : walk(tree[1], replacements, defining, copies)
 
     return finish(graph, left, right)
   }

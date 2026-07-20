@@ -176,6 +176,21 @@ B00 -> B01 -> B10 -> B11 -> B00 -> ...
 The register values are stable source values. Their names are the readable
 outputs; their right edges carry the two bits.
 
+The pair-local `link` path now has a related kernel-clock result:
+
+```sh
+node cli.js --link link-kernel.lisp 48
+```
+
+This steps one carried kernel state through allocation/freeing phases:
+
+```text
+K0 -> K1 -> K2 -> K3 -> K4 -> K5 -> K0
+```
+
+`LINK_FRONTIER_KERNEL.md` records why this is a finite canonical-state kernel,
+not yet a general allocator.
+
 ### 2. Runtime allocation/freeing
 
 Goal:
