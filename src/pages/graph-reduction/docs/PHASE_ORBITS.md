@@ -69,6 +69,28 @@ with a different raw tick spacing than the kernel clock. So the phase language
 can already distinguish two systems that both look like simple cycles at the
 macro level.
 
+`link-coupled.lisp` adds a first coupled-process fixture:
+
+```sh
+node cli.js --phase link-coupled.lisp 100
+```
+
+It authors two local clocks:
+
+```text
+A toggles every tick.
+B toggles only when A was A1.
+```
+
+The projected combined orbit is:
+
+```text
+P00 -> P10 -> P01 -> P11 -> P00
+```
+
+This is still a finite canonical phase machine, but the transition is factored
+through local phase rules rather than written as one flat successor table.
+
 ## Why this matters
 
 The computed-constructor experiment failed when it tried to make a partial

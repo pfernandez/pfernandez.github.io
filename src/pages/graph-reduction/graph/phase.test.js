@@ -61,4 +61,31 @@ describe('phase orbits', () => {
     assert.equal(result.period, 4)
     assert.deepEqual(result.gaps.slice(0, 4), [6, 6, 6, 6])
   })
+
+  test('projects coupled local clocks as one orbit', () => {
+    const source = readFileSync(
+      new URL('../link-coupled.lisp', import.meta.url),
+      'utf8')
+    const { graph, legend } = linked(source)
+    const result = orbit(graph, {
+      count: 100,
+      label: nameOf.bind(null, legend),
+      phase: loopPhase(legend)
+    })
+
+    assert.deepEqual(result.phases.slice(0, 5), [
+      'P00',
+      'P10',
+      'P01',
+      'P11',
+      'P00'
+    ])
+    assert.equal(result.period, 4)
+    assert.deepEqual(result.transitions.slice(0, 4), [
+      ['P00', 'P10'],
+      ['P10', 'P01'],
+      ['P01', 'P11'],
+      ['P11', 'P00']
+    ])
+  })
 })

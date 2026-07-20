@@ -325,9 +325,9 @@ describe('graph-native lens', () => {
       limit === 0 ? 0
         : node === Forever
           ? depth(node[1], limit)
-        : node[0] === Succ
-          ? 1 + depth(node[1], limit - 1)
-          : 0
+          : node[0] === Succ
+            ? 1 + depth(node[1], limit - 1)
+            : 0
 
     assert.equal(serialize(graph, { legend }), '(Succ Forever)')
     assert.equal(graph[1][1], graph)
