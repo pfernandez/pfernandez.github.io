@@ -16,6 +16,7 @@ Related docs:
   and the memory-bank boundary for future allocation work.
 - `LINK_FRONTIER_KERNEL.md` records the first pair-local kernel-clock result
   and the remaining boundary around computed constructor state.
+- `PHASE_ORBITS.md` introduces projected phase/orbit readout for live streams.
 
 ## Short version
 

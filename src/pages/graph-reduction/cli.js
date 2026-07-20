@@ -1,4 +1,13 @@
-import { compile, link, log, observe, serialize } from './graph/index.js'
+import {
+  compile,
+  link,
+  log,
+  loopPhase,
+  nameOf,
+  observe,
+  orbit,
+  serialize
+} from './graph/index.js'
 import {
   output,
   record as recordLens,
@@ -16,16 +25,19 @@ if (main()) {
   const { readFileSync } = await import('node:fs')
   const lens = process.argv[2] === '--lens'
   const linked = process.argv[2] === '--link'
+  const phase = process.argv[2] === '--phase'
   const record = process.argv[2] === '--record'
   const spine = process.argv[2] === '--spine'
   const file = lens
     ? process.argv[3] ?? new URL('./lens.lisp', import.meta.url)
     : linked
       ? process.argv[3] ?? new URL('./link-counter.lisp', import.meta.url)
-    : record || spine
-      ? process.argv[3] ?? new URL('./core.lisp', import.meta.url)
-      : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  let compiled = linked
+      : phase
+        ? process.argv[3] ?? new URL('./link-kernel.lisp', import.meta.url)
+        : record || spine
+          ? process.argv[3] ?? new URL('./core.lisp', import.meta.url)
+          : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
+  let compiled = linked || phase
     ? link(readFileSync(file, 'utf-8'))
     : compile(readFileSync(file, 'utf-8'))
 
@@ -40,7 +52,7 @@ if (main()) {
     })
   }
 
-  if (!linked) log(compiled)
+  if (!linked && !phase) log(compiled)
 
   let traceCount = 0
   const trace = form => console.log(
@@ -48,7 +60,17 @@ if (main()) {
     serialize(form, { legend: compiled.legend, format: 'ansi' }),
     '\n')
 
-  if (linked) {
+  if (phase) {
+    const count = Number(process.argv[4] ?? 80)
+    const result = orbit(compiled.graph, {
+      count,
+      label: nameOf.bind(null, compiled.legend),
+      phase: loopPhase(compiled.legend)
+    })
+
+    console.log('phases', result.phases.join(' '))
+    console.log('period', result.period ?? '?')
+  } else if (linked) {
     let state = compiled.graph
     const count = Number(process.argv[4] ?? 32)
     const nameOf = node =>
