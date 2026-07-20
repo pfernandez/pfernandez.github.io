@@ -115,7 +115,7 @@ const focusForm = (form, scope) => {
 // Observation stops where the function side is the cell itself: atoms,
 // slots, and answers are all stable.
 const isStable = node =>
-  Array.isArray(node) && node[0] === node
+  Array.isArray(node) && node.length === 2 && node[0] === node
 
 // The outermost cell built by define: its argument side is a slot pointing
 // back at it.
@@ -128,10 +128,38 @@ const isDefinition = node =>
 const isComplete = node =>
   isStable(node) || isDefinition(node)
 
+const isAtom = node =>
+  isStable(node) && node[1] === node
+
+const isSlot = node =>
+  isStable(node) && isDefinition(node[1])
+    && definitionBody(node[1])[1].includes(node)
+
+const isAnswer = node =>
+  isStable(node) && !isAtom(node) && !isSlot(node)
+
+// A completed answer on the left spine can be used as the head of a later
+// call. Half-built recursive answers have length 1, so they stay closed.
+const answerOf = node =>
+  !Array.isArray(node) || isDefinition(node) ? null
+    : isAnswer(node) ? node
+    : isStable(node) ? null
+    : answerOf(node[0])
+
 // Read a left-nested application as a call: ((K a) b) is head K, args [a, b].
-const call = (node, args = []) =>
-  isComplete(node) ? { head: node, args }
-    : call(node[0], [node[1], ...args])
+const call = (node, args = []) => {
+  const seen = new Set()
+  const nextArgs = [...args]
+  let head = node
+
+  while (!isComplete(head) && !seen.has(head)) {
+    seen.add(head)
+    nextArgs.unshift(head[1])
+    head = head[0]
+  }
+
+  return { head, args: nextArgs }
+}
 
 // Strip parameter applications to reach the body; slots return in the order
 // arguments are supplied. A repeated slot belongs to the body, as in M.
@@ -171,12 +199,20 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
   if (isComplete(node) || seen.has(node)) return node
   seen.add(node)
 
-  const { head, args } = call(node)
-  const bodyAndSlots = isDefinition(head) && definitionBody(head)
+  const application = call(node)
+  const bodyAndSlots = isDefinition(application.head)
+    && definitionBody(application.head)
 
-  // Inert applications may still be source-authored cyclic structure. Reduce
-  // their children in place so the cycle remains the authored cycle.
-  if (!bodyAndSlots || args.length < bodyAndSlots[1].length) {
+  if (!bodyAndSlots || application.args.length < bodyAndSlots[1].length) {
+    const headAnswer = answerOf(node[0])
+    if (headAnswer && isComplete(headAnswer[1])) {
+      node[0] = headAnswer[1]
+      seen.delete(node)
+      return reduceGraph(node, activeCalls, seen)
+    }
+
+    // Inert applications may still be source-authored cyclic structure. Reduce
+    // their children in place so the cycle remains the authored cycle.
     node.forEach((item, i) => {
       node[i] = reduceGraph(item, activeCalls, seen)
     })
@@ -184,8 +220,12 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
   }
 
   const [body, slots] = bodyAndSlots
-  const reducedArgs = args.map(arg => reduceGraph(arg, activeCalls, seen))
-  const activeCall = findActiveCall(head, reducedArgs, activeCalls)
+  const reducedArgs =
+    application.args.map(arg => reduceGraph(arg, activeCalls, seen))
+  const activeCall = findActiveCall(
+    application.head,
+    reducedArgs,
+    activeCalls)
   if (activeCall) return activeCall[2]
 
   const answer = []
@@ -198,7 +238,7 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
   answer[0] = answer
   answer[1] = reduceGraph(
     bodyWithArgs,
-    [[head, reducedArgs, focus], ...activeCalls],
+    [[application.head, reducedArgs, focus], ...activeCalls],
     new Set())
 
   return focus

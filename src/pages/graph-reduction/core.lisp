@@ -50,8 +50,7 @@
 
 (Repeat ((Cons x (Repeat x)) x))
 
-; Application of a literal function. A computed answer in head
-; position is inert: reduction never looks through answers.
+; Application: a function can be computed, then used as a function.
 
 (App (((p q) p) q))
 

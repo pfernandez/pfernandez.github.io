@@ -343,12 +343,10 @@ describe('library forms', () => {
       Cons)
   })
 
-  test('a computed answer in head position is inert', () => {
+  test('a computed answer in head position remains callable', () => {
     assertReduction(coreDefinitions, '(App I a)', 'a', 2)
-
-    const graph = compile(source(coreDefinitions, '(App (I I) a)'))
-
-    assert.equal(serialize(repeat(graph, step, 2)), '(x x)')
+    assertReduction(coreDefinitions, '(App (I I) a)', 'a', 2)
+    assertReduction(coreDefinitions, '((I I) a)', 'a', 2)
   })
 
   test('forward references do not bind', () =>
