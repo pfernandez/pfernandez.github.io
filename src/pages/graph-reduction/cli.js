@@ -70,6 +70,10 @@ if (main()) {
 
     console.log('phases', result.phases.join(' '))
     console.log('period', result.period ?? '?')
+    console.log('gaps', result.gaps.join(' '))
+    console.log(
+      'transitions',
+      result.transitions.map(([from, to]) => `${from}->${to}`).join(' '))
   } else if (linked) {
     let state = compiled.graph
     const count = Number(process.argv[4] ?? 32)

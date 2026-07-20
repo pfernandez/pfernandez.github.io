@@ -18,6 +18,8 @@ phase       a distinguishable position in a live stream
 projection  a readout from graph structure to a phase
 orbit       the projected phase sequence produced by repeated steps
 period      the length of a recurring projected orbit
+gap         raw substrate steps between projected phases
+transition  a projected phase-to-phase edge
 ```
 
 This is deliberately external, like a bra applied to a ket. The graph still
@@ -44,10 +46,28 @@ Expected shape:
 ```text
 phases K0 K1 K2 K3 K4 K5 K0 ...
 period 6
+gaps 4 4 4 4 4 ...
+transitions K0->K1 K1->K2 ...
 ```
 
 The value is not one static frame. The value is the recurring signature seen
 by the projection.
+
+`link-counter.lisp` gives a second rhythm:
+
+```sh
+node cli.js --phase link-counter.lisp 40
+```
+
+It projects the four register phases:
+
+```text
+B00 -> B01 -> B10 -> B11 -> B00
+```
+
+with a different raw tick spacing than the kernel clock. So the phase language
+can already distinguish two systems that both look like simple cycles at the
+macro level.
 
 ## Why this matters
 

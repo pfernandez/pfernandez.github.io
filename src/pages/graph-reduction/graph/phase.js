@@ -25,39 +25,58 @@ export const loopPhase = (
   return frame.args[index]
 }
 
-export const project = (root, {
+export const sample = (root, {
   count = 64,
   distinct = true,
   label,
   phase,
   shift = step
 }) => {
-  const phases = []
+  const samples = []
   let state = root
 
   for (let i = 0; i < count; i += 1) {
     const value = phase(state, i)
     const next = value && label ? label(value) : value
+    const prior = samples.at(-1)?.phase
 
-    if (next !== undefined && (!distinct || next !== phases.at(-1)))
-      phases.push(next)
+    if (next !== undefined && (!distinct || next !== prior))
+      samples.push({ at: i, phase: next })
 
     state = shift(state)
   }
 
-  return phases
+  return samples
 }
 
+export const project = (root, options) =>
+  sample(root, options).map(({ phase }) => phase)
+
 export const period = phases => {
-  for (let length = 1; length <= phases.length / 2; length += 1) {
-    const periodic = phases.every(
-      (phase, i) => i < length || phase === phases[i % length])
+  for (let length = 1; length < phases.length; length += 1) {
+    const returned = phases[length] === phases[0]
+    const periodic = returned && phases.every(
+      (phase, i) => phase === phases[i % length])
 
     if (periodic) return length
   }
 }
 
+export const gaps = samples =>
+  samples.slice(1).map(({ at }, i) => at - samples[i].at)
+
+export const transitions = phases =>
+  phases.slice(1).map((phase, i) => [phases[i], phase])
+
 export const orbit = (root, options) => {
-  const phases = project(root, options)
-  return { phases, period: period(phases) }
+  const samples = sample(root, options)
+  const phases = samples.map(({ phase }) => phase)
+
+  return {
+    gaps: gaps(samples),
+    period: period(phases),
+    phases,
+    samples,
+    transitions: transitions(phases)
+  }
 }
