@@ -88,4 +88,29 @@ describe('phase orbits', () => {
       ['P11', 'P00']
     ])
   })
+
+  test('projects a three-gear odometer orbit', () => {
+    const source = readFileSync(
+      new URL('../link-odometer.lisp', import.meta.url),
+      'utf8')
+    const { graph, legend } = linked(source)
+    const result = orbit(graph, {
+      count: 240,
+      label: nameOf.bind(null, legend),
+      phase: loopPhase(legend)
+    })
+
+    assert.deepEqual(result.phases.slice(0, 9), [
+      'P000',
+      'P100',
+      'P010',
+      'P110',
+      'P001',
+      'P101',
+      'P011',
+      'P111',
+      'P000'
+    ])
+    assert.equal(result.period, 8)
+  })
 })

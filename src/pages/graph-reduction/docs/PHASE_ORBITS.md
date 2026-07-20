@@ -91,6 +91,21 @@ P00 -> P10 -> P01 -> P11 -> P00
 This is still a finite canonical phase machine, but the transition is factored
 through local phase rules rather than written as one flat successor table.
 
+`link-odometer.lisp` extends this to three coupled gears:
+
+```sh
+node cli.js --phase link-odometer.lisp 240
+```
+
+The projected orbit is:
+
+```text
+P000 -> P100 -> P010 -> P110 -> P001 -> P101 -> P011 -> P111 -> P000
+```
+
+This is the first live phase fixture that looks like register hardware: a fast
+gear drives a slower gear, which drives a slower gear.
+
 ## Why this matters
 
 The computed-constructor experiment failed when it tried to make a partial
