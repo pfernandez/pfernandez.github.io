@@ -1,4 +1,4 @@
-import { compile, log, observe, serialize } from './graph/index.js'
+import { compile, link, log, observe, serialize } from './graph/index.js'
 import {
   output,
   record as recordLens,
@@ -15,14 +15,21 @@ const main = () =>
 if (main()) {
   const { readFileSync } = await import('node:fs')
   const lens = process.argv[2] === '--lens'
+  const linked = process.argv[2] === '--link'
   const record = process.argv[2] === '--record'
   const spine = process.argv[2] === '--spine'
   const file = lens
     ? process.argv[3] ?? new URL('./lens.lisp', import.meta.url)
+    : linked
+      ? process.argv[3] ?? new URL('./link-counter.lisp', import.meta.url)
     : record || spine
       ? process.argv[3] ?? new URL('./core.lisp', import.meta.url)
       : process.argv[2] ?? new URL('./core.lisp', import.meta.url)
-  let compiled = compile(readFileSync(file, 'utf-8'))
+  let compiled = linked
+    ? link(readFileSync(file, 'utf-8'))
+    : compile(readFileSync(file, 'utf-8'))
+
+  if (compiled.error) throw compiled.error
 
   if (record) {
     const outputs = []
@@ -33,7 +40,7 @@ if (main()) {
     })
   }
 
-  log(compiled)
+  if (!linked) log(compiled)
 
   let traceCount = 0
   const trace = form => console.log(
@@ -41,7 +48,23 @@ if (main()) {
     serialize(form, { legend: compiled.legend, format: 'ansi' }),
     '\n')
 
-  if (spine) {
+  if (linked) {
+    let state = compiled.graph
+    const count = Number(process.argv[4] ?? 32)
+    const nameOf = node =>
+      compiled.legend.find(entry => entry.node === node)?.symbol
+
+    for (let i = 0; i < count; i += 1) {
+      const loop = nameOf(state[0]?.[0]?.[0]) === 'Loop'
+      const register = loop && nameOf(state[0][1])
+      const preview = serialize(state, { legend: compiled.legend })
+
+      console.log('state', i, register || '')
+      console.log(`${preview.slice(0, 160)}${preview.length > 160 ? '…' : ''}`)
+      console.log('\n')
+      state = step(state)
+    }
+  } else if (spine) {
     let state = compiled.graph
     const count = Number(process.argv[4] ?? 6)
 
