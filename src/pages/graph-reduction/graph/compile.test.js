@@ -347,6 +347,13 @@ describe('library forms', () => {
     assertReduction(coreDefinitions, '(App I a)', 'a', 2)
     assertReduction(coreDefinitions, '(App (I I) a)', 'a', 2)
     assertReduction(coreDefinitions, '((I I) a)', 'a', 2)
+    assertReduction(coreDefinitions, '(App (K I x) a)', 'a', 2)
+    assertReduction(coreDefinitions, '(App (I (K a)) b)', 'a', 2)
+    assertReduction(coreDefinitions, '(App (I (S K K)) a)', 'a', 3)
+    assertReduction(coreDefinitions, '((If True I K) a b)', 'a', 4)
+    assertReduction(coreDefinitions, '((If False K I) a b)', 'a', 4)
+    assertReduction(coreDefinitions, '((First (Pair I K)) a)', 'a', 4)
+    assertReduction(coreDefinitions, '((Second (Pair I K)) a b)', 'a', 4)
   })
 
   test('forward references do not bind', () =>

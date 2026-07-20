@@ -112,6 +112,8 @@ const focusForm = (form, scope) => {
   return reduceGraph(buildGraph(form, [scope.names], scope))
 }
 
+const answers = new WeakSet()
+
 // Observation stops where the function side is the cell itself: atoms,
 // slots, and answers are all stable.
 const isStable = node =>
@@ -128,15 +130,8 @@ const isDefinition = node =>
 const isComplete = node =>
   isStable(node) || isDefinition(node)
 
-const isAtom = node =>
-  isStable(node) && node[1] === node
-
-const isSlot = node =>
-  isStable(node) && isDefinition(node[1])
-    && definitionBody(node[1])[1].includes(node)
-
 const isAnswer = node =>
-  isStable(node) && !isAtom(node) && !isSlot(node)
+  Array.isArray(node) && node.length === 2 && answers.has(node)
 
 // A completed answer on the left spine can be used as the head of a later
 // call. Half-built recursive answers have length 1, so they stay closed.
@@ -167,6 +162,34 @@ const definitionBody = (definition, node = definition, slots = []) =>
   isStable(node[1]) && node[1][1] === definition && !slots.includes(node[1])
     ? definitionBody(definition, node[0], [node[1], ...slots])
     : [node, slots]
+
+// If an answer appears where a function should be, its payload may itself be
+// the function for the current argument.
+const reducibleCall = (head, args = []) => {
+  const application = call(head, args)
+  const bodyAndSlots = isDefinition(application.head)
+    && definitionBody(application.head)
+
+  return bodyAndSlots && application.args.length >= bodyAndSlots[1].length
+}
+
+const callableAnswer = (node, arg) => {
+  const answer = answerOf(node)
+
+  return answer && (
+    isComplete(answer[1])
+      || reducibleCall(answer[1], [arg])
+  ) && answer
+}
+
+const reopenHead = node => {
+  const answer = callableAnswer(node[0], node[1])
+
+  if (!answer) return false
+
+  node[0] = answer[1]
+  return true
+}
 
 // Copy with each slot replaced by its argument; complete cells stay shared, and
 // copies keep sharing and cycles intact in the copy.
@@ -204,18 +227,15 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
     && definitionBody(application.head)
 
   if (!bodyAndSlots || application.args.length < bodyAndSlots[1].length) {
-    const headAnswer = answerOf(node[0])
-    if (headAnswer && isComplete(headAnswer[1])) {
-      node[0] = headAnswer[1]
+    if (reopenHead(node)) {
       seen.delete(node)
       return reduceGraph(node, activeCalls, seen)
     }
 
     // Inert applications may still be source-authored cyclic structure. Reduce
     // their children in place so the cycle remains the authored cycle.
-    node.forEach((item, i) => {
-      node[i] = reduceGraph(item, activeCalls, seen)
-    })
+    node[0] = reduceGraph(node[0], activeCalls, seen)
+    node[1] = reduceGraph(node[1], activeCalls, seen)
     return node
   }
 
@@ -236,6 +256,7 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
     substitutions)
 
   answer[0] = answer
+  answers.add(answer)
   answer[1] = reduceGraph(
     bodyWithArgs,
     [[application.head, reducedArgs, focus], ...activeCalls],
