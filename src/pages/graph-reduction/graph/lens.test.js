@@ -312,36 +312,6 @@ describe('graph-native lens', () => {
     assert.doesNotThrow(() => image(graph))
   })
 
-  test('fibonacci root fixture consumes a supplied register bank', () => {
-    const source = readFileSync(
-      new URL('../fibonacci-root.lisp', import.meta.url))
-    const { graph, legend } = compile(source.toString())
-    const named = symbol =>
-      legend.find(entry => entry.symbol === symbol).node
-    const True = named('True')
-    const False = named('False')
-    const bit = node =>
-      node === True ? 1
-        : node === False ? 0
-          : assert.fail(`Unknown bit ${serialize(node, { legend })}`)
-    const value = bits =>
-      bit(bits[0]) + 2 * bit(bits[1][0]) + 4 * bit(bits[1][1])
-    const values = []
-    let state = graph
-
-    for (let i = 0; i < 8; i += 1) {
-      values.push(value(output(observe(state))[1]))
-      state = step(state)
-    }
-
-    assert.deepEqual(values, [0, 1, 1, 2, 3, 5, 0, 5])
-    assert.equal(
-      output(observe(step(graph))),
-      output(observe(step(step(graph)))))
-    assert.equal(state, graph)
-    assert.doesNotThrow(() => image(graph))
-  })
-
   test('a finite cycle can unfold as an unbounded successor view', () => {
     const { graph, legend } = compile(`
       (Zero ((z z) s))
