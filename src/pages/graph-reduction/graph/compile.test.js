@@ -390,14 +390,30 @@ describe('library forms', () => {
       '(Head (Filter (K False) (Cons a (Cons b Nil))))',
       'no',
       13)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Filter (K True) (Cons a (Cons b Nil))))'))),
+      2)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Filter (K False) (Cons a (Cons b Nil))))'))),
+      0)
   })
 
-  test('Reverse exposes the last item first', () =>
+  test('Reverse exposes the last item first', () => {
     assertReduction(
       coreDefinitions,
       '(Head (Reverse (Cons a (Cons b Nil))))',
       'b',
-      12))
+      12)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Reverse (Cons a (Cons b Nil))))'))),
+      2)
+  })
 
   test('open data leaves a symbolic residual', () => {
     const graph = compile(source(coreDefinitions, '(Add m (Succ Zero))'))

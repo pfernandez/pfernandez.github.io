@@ -142,16 +142,23 @@ const isSlot = node =>
 const isAnswer = node =>
   isStable(node) && !isAtom(node) && !isSlot(node)
 
-const answerHead = (node, answers) => {
+const answerCall = (node, answers) => {
   const seen = new Set()
+  const args = []
   let head = node
 
   while (!isComplete(head) && !seen.has(head)) {
     seen.add(head)
+    args.unshift(head[1])
     head = head[0]
   }
 
-  return answers.has(head) && isAnswer(head) ? head : null
+  if (!isAnswer(head) || !answers.has(head)) return null
+
+  return {
+    args: args.slice(answers.get(head)),
+    head
+  }
 }
 
 const isReadyCall = (head, args = []) => {
@@ -162,33 +169,14 @@ const isReadyCall = (head, args = []) => {
   return bodyAndSlots && application.args.length >= bodyAndSlots[1].length
 }
 
-// A completed answer on the left spine can be used as the head of a later
-// call. Reopen only the answer cell, not the enclosing application, so any
-// arguments already applied to that answer stay on the spine.
+// A completed answer can be used as the head of a later call. Its own focus
+// carries the old arguments that produced it; those are history. Only arguments
+// applied after that focus are new demand on the payload.
 const reopenAnswer = (node, answers) => {
-  const seen = new Set()
-  const args = []
-  let parent = node
+  const answered = answerCall(node, answers)
+  if (!answered || !isReadyCall(answered.head[1], answered.args)) return null
 
-  while (!isComplete(parent) && !seen.has(parent)) {
-    seen.add(parent)
-
-    const answer = answerHead(parent[0], answers)
-    if (answer && isReadyCall(answer[1], [parent[1], ...args])) {
-      parent[0] = answer[1]
-      return true
-    }
-
-    if (isAnswer(parent[0]) && isComplete(parent[0][1])) {
-      parent[0] = parent[0][1]
-      return true
-    }
-
-    args.unshift(parent[1])
-    parent = parent[0]
-  }
-
-  return false
+  return applyArgs(answered.head[1], answered.args)
 }
 
 // Read a left-nested application as a call: ((K a) b) is head K, args [a, b].
@@ -244,7 +232,7 @@ const reduceGraph = (
   node,
   activeCalls = [],
   seen = new Set(),
-  answers = new WeakSet()
+  answers = new WeakMap()
 ) => {
   if (isComplete(node) || seen.has(node)) return node
   seen.add(node)
@@ -254,10 +242,8 @@ const reduceGraph = (
     && definitionBody(application.head)
 
   if (!bodyAndSlots || application.args.length < bodyAndSlots[1].length) {
-    if (reopenAnswer(node, answers)) {
-      seen.delete(node)
-      return reduceGraph(node, activeCalls, seen, answers)
-    }
+    const reopened = reopenAnswer(node, answers)
+    if (reopened) return reduceGraph(reopened, activeCalls, seen, answers)
 
     // Inert applications may still be source-authored cyclic structure. Reduce
     // their children in place so the cycle remains the authored cycle.
@@ -289,7 +275,7 @@ const reduceGraph = (
     [[application.head, reducedArgs, focus], ...activeCalls],
     new Set(),
     answers)
-  answers.add(answer)
+  answers.set(answer, reducedArgs.length)
 
   return focus
 }
@@ -298,7 +284,7 @@ const reduceGraph = (
 export const compile = source => {
   const forms = parse(source)
   const scope = {
-    answers: new WeakSet(),
+    answers: new WeakMap(),
     atoms: new Map(),
     legend: [],
     names: []
