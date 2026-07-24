@@ -102,6 +102,8 @@ const coreDefinitions = [
   '(LenFold (((Succ t) h) t))',
   '(MapStep (((((c (f h) (Map f t)) f) c) h) t))',
   '(Map (((((l n (MapStep f c)) f) l) n) c))',
+  '(AppendStep (((((c h (Append t ys)) ys) c) h) t))',
+  '(Append (((((xs (ys n c) (AppendStep ys c)) xs) ys) n) c))',
   '(AddStep (((Succ (m2 n (AddStep n))) n) m2))',
   '(Add (((m n (AddStep n)) m) n))',
   '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
@@ -351,6 +353,24 @@ describe('library forms', () => {
         coreDefinitions,
         '(Length (Map I (Cons a (Cons b Nil))))')), step, 5)),
       '(Succ ((((Map I) ((Cons b) Nil)) Zero) LenStep))')
+  })
+
+  test('Append joins lists for later consumers', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Head (Append (Cons a Nil) (Cons b Nil)))',
+      'a',
+      6)
+    assertReduction(
+      coreDefinitions,
+      '(Head (Append Nil (Cons b Nil)))',
+      'b',
+      6)
+    assert.equal(
+      serialize(repeat(compile(source(
+        coreDefinitions,
+        '(Length (Append (Cons a Nil) (Cons b Nil)))')), step, 5)),
+      '(Succ ((((Append Nil) ((Cons b) Nil)) Zero) LenStep))')
   })
 
   test('open data leaves a symbolic residual', () => {

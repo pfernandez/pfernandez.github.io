@@ -46,6 +46,8 @@
 
 (MapStep (((((c (f h) (Map f t)) f) c) h) t))
 (Map (((((l n (MapStep f c)) f) l) n) c))
+(AppendStep (((((c h (Append t ys)) ys) c) h) t))
+(Append (((((xs (ys n c) (AppendStep ys c)) xs) ys) n) c))
 (AddStep (((Succ (m2 n (AddStep n))) n) m2))
 (Add (((m n (AddStep n)) m) n))
 (MulStep (((Add n (m2 Zero (MulStep n))) n) m2))
@@ -61,6 +63,7 @@
 ; (Length (Cons a (Cons b Nil)))
 ; (Fold LenFold Zero (Cons a (Cons b Nil)))
 ; (Head (Map I (Cons a (Cons b Nil))))
+; (Head (Append (Cons a Nil) (Cons b Nil)))
 ; (Add (Succ Zero) (Succ Zero))
 ; (Mul (Succ (Succ Zero)) (Succ (Succ Zero)))
 ; (Repeat a no K)
