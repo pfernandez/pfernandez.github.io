@@ -404,6 +404,9 @@ describe('library forms', () => {
     assertReduction(coreDefinitions, '((Second (Pair I K)) a b)', 'a', 4)
   })
 
+  test('computed data remains consumable', () =>
+    assertReduction(coreDefinitions, '(Head (K (Cons a Nil) x))', 'a', 3))
+
   test('forward references do not bind', () =>
     assert.equal(
       serialize(repeat(

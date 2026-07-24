@@ -109,7 +109,8 @@ const bindForm = (form, scope) =>
 
 const focusForm = (form, scope) => {
   if (isBindingForm(form, scope)) return void bindForm(form, scope)
-  return reduceGraph(buildGraph(form, [scope.names], scope))
+  return reduceGraph(buildGraph(form, [scope.names], scope),
+                     [], new Set(), scope.answers)
 }
 
 // Observation stops where the function side is the cell itself: atoms,
@@ -138,21 +139,49 @@ const isSlot = node =>
 const isAnswer = node =>
   isStable(node) && !isAtom(node) && !isSlot(node)
 
+const answerHead = (node, answers) => {
+  const seen = new Set()
+  let head = node
+
+  while (!isComplete(head) && !seen.has(head)) {
+    seen.add(head)
+    head = head[0]
+  }
+
+  return answers.has(head) && isAnswer(head) ? head : null
+}
+
+const isReadyCall = (head, args = []) => {
+  const application = call(applyArgs(head, args))
+  const bodyAndSlots = isDefinition(application.head)
+    && definitionBody(application.head)
+
+  return bodyAndSlots && application.args.length >= bodyAndSlots[1].length
+}
+
 // A completed answer on the left spine can be used as the head of a later
 // call. Reopen only the answer cell, not the enclosing application, so any
 // arguments already applied to that answer stay on the spine.
-const reopenAnswer = node => {
+const reopenAnswer = (node, answers) => {
   const seen = new Set()
+  const args = []
   let parent = node
 
   while (!isComplete(parent) && !seen.has(parent)) {
     seen.add(parent)
+
+    const answer = answerHead(parent[0], answers)
+    if (answer && isReadyCall(answer[1], [parent[1], ...args])) {
+      parent[0] = answer[1]
+      return true
+    }
 
     if (isAnswer(parent[0]) && isComplete(parent[0][1])) {
       parent[0] = parent[0][1]
       return true
     }
 
+    args.unshift(parent[1])
     parent = parent[0]
   }
 
@@ -208,7 +237,12 @@ const findActiveCall = (head, args, activeCalls) =>
 // A completed call returns its focus: the call's shape with the answer at
 // its head, so observation runs to the answer and the right side is the result.
 // Arguments beyond the slots stay applied to the body.
-const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
+const reduceGraph = (
+  node,
+  activeCalls = [],
+  seen = new Set(),
+  answers = new WeakSet()
+) => {
   if (isComplete(node) || seen.has(node)) return node
   seen.add(node)
 
@@ -217,22 +251,22 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
     && definitionBody(application.head)
 
   if (!bodyAndSlots || application.args.length < bodyAndSlots[1].length) {
-    if (reopenAnswer(node)) {
+    if (reopenAnswer(node, answers)) {
       seen.delete(node)
-      return reduceGraph(node, activeCalls, seen)
+      return reduceGraph(node, activeCalls, seen, answers)
     }
 
     // Inert applications may still be source-authored cyclic structure. Reduce
     // their children in place so the cycle remains the authored cycle.
     node.forEach((item, i) => {
-      node[i] = reduceGraph(item, activeCalls, seen)
+      node[i] = reduceGraph(item, activeCalls, seen, answers)
     })
     return node
   }
 
   const [body, slots] = bodyAndSlots
   const reducedArgs =
-    application.args.map(arg => reduceGraph(arg, activeCalls, seen))
+    application.args.map(arg => reduceGraph(arg, activeCalls, seen, answers))
   const activeCall = findActiveCall(
     application.head,
     reducedArgs,
@@ -250,14 +284,21 @@ const reduceGraph = (node, activeCalls = [], seen = new Set()) => {
   answer[1] = reduceGraph(
     bodyWithArgs,
     [[application.head, reducedArgs, focus], ...activeCalls],
-    new Set())
+    new Set(),
+    answers)
+  answers.add(answer)
 
   return focus
 }
 
 // Definitions extend the scope; the last remaining form is the focus.
 export const compile = source => {
-  const scope = { atoms: new Map(), legend: [], names: [] }
+  const scope = {
+    answers: new WeakSet(),
+    atoms: new Map(),
+    legend: [],
+    names: []
+  }
   let focus
 
   for (const form of parse(source))
