@@ -107,6 +107,10 @@ const coreDefinitions = [
   `(FilterStep
     ((((((p h (c h (Filter p t)) (Filter p t n c)) p) n) c) h) t))`,
   '(Filter (((((l n (FilterStep p n c)) p) l) n) c))',
+  '(Partition (((Pair (Filter p l) (Filter (B Not p) l)) p) l))',
+  '(TakeCons ((((Cons h (Take m t)) m) h) t))',
+  '(TakeStep (((l Nil (TakeCons m)) l) m))',
+  '(Take (((n Nil (TakeStep l)) n) l))',
   '(RevStep ((((((Rev t (Cons h acc) n c) acc) n) c) h) t))',
   '(Rev (((((l (acc n c) (RevStep acc n c)) l) acc) n) c))',
   '(Reverse ((((Rev l Nil n c) l) n) c))',
@@ -400,6 +404,52 @@ describe('library forms', () => {
         coreDefinitions,
         '(Length (Filter (K False) (Cons a (Cons b Nil))))'))),
       0)
+  })
+
+  test('Partition splits a list by predicate', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Head (First (Partition (K True) (Cons a (Cons b Nil)))))',
+      'a',
+      6)
+    assertReduction(
+      coreDefinitions,
+      '(Head (Second (Partition (K False) (Cons a (Cons b Nil)))))',
+      'a',
+      8)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (First (Partition (K True) (Cons a (Cons b Nil)))))'))),
+      2)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Second (Partition (K True) (Cons a (Cons b Nil)))))'))),
+      0)
+  })
+
+  test('Take consumes a finite prefix of a list or stream', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Head (Take (Succ (Succ Zero)) (Repeat a)))',
+      'a',
+      3)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Take Zero (Cons a (Cons b Nil))))'))),
+      0)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Take (Succ (Succ Zero)) (Cons a (Cons b Nil))))'))),
+      2)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Take (Succ (Succ Zero)) (Repeat a)))'))),
+      2)
   })
 
   test('Reverse exposes the last item first', () => {
