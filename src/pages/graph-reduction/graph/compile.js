@@ -161,20 +161,12 @@ const answerCall = (node, answers) => {
   }
 }
 
-const isReadyCall = (head, args = []) => {
-  const application = call(applyArgs(head, args))
-  const bodyAndSlots = isDefinition(application.head)
-    && definitionBody(application.head)
-
-  return bodyAndSlots && application.args.length >= bodyAndSlots[1].length
-}
-
 // A completed answer can be used as the head of a later call. Its own focus
 // carries the old arguments that produced it; those are history. Only arguments
 // applied after that focus are new demand on the payload.
 const reopenAnswer = (node, answers) => {
   const answered = answerCall(node, answers)
-  if (!answered || !isReadyCall(answered.head[1], answered.args)) return null
+  if (!answered) return null
 
   return applyArgs(answered.head[1], answered.args)
 }

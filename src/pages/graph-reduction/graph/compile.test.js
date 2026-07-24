@@ -449,6 +449,19 @@ describe('library forms', () => {
   test('computed data remains consumable', () =>
     assertReduction(coreDefinitions, '(Head (K (Cons a Nil) x))', 'a', 3))
 
+  test('computed branch data remains consumable', () => {
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (If True (Cons a Nil) Nil))'))),
+      1)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (If False (Cons a Nil) Nil))'))),
+      0)
+  })
+
   test('later top-level definitions bind earlier bodies', () =>
     assert.equal(
       serialize(repeat(
