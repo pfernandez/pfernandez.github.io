@@ -100,8 +100,8 @@ const coreDefinitions = [
   '(FoldStep (((((f h (Fold f z t)) f) z) h) t))',
   '(Fold ((((l z (FoldStep f z)) f) z) l))',
   '(LenFold (((Succ t) h) t))',
-  '(MapStep ((((((c (f h) (Map f t n c)) f) n) c) h) t))',
-  '(Map (((((l n (MapStep f n c)) f) l) n) c))',
+  '(MapStep (((((c (f h) (Map f t)) f) c) h) t))',
+  '(Map (((((l n (MapStep f c)) f) l) n) c))',
   '(AddStep (((Succ (m2 n (AddStep n))) n) m2))',
   '(Add (((m n (AddStep n)) m) n))',
   '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
@@ -335,22 +335,22 @@ describe('library forms', () => {
         '(Fold LenFold Zero (Cons a (Cons b Nil)))')), step, 4)),
       '(Succ (((Fold LenFold) Zero) ((Cons b) Nil)))'))
 
-  test('Map transforms elements before handing them to a consumer', () => {
+  test('Map transforms a list for later consumers', () => {
     assertReduction(
       coreDefinitions,
-      '(Map I (Cons a (Cons b Nil)) no K)',
+      '(Head (Map I (Cons a (Cons b Nil))))',
       'a',
-      5)
+      6)
     assertReduction(
       coreDefinitions,
-      '(Map (K z) (Cons a (Cons b Nil)) no K)',
+      '(Head (Map (K z) (Cons a (Cons b Nil))))',
       'z',
-      5)
+      6)
     assert.equal(
       serialize(repeat(compile(source(
         coreDefinitions,
-        '(Map I (Cons a (Cons b Nil)) Zero LenFold)')), step, 4)),
-      '(Succ ((((Map I) ((Cons b) Nil)) Zero) LenFold))')
+        '(Length (Map I (Cons a (Cons b Nil))))')), step, 5)),
+      '(Succ ((((Map I) ((Cons b) Nil)) Zero) LenStep))')
   })
 
   test('open data leaves a symbolic residual', () => {
