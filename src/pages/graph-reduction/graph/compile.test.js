@@ -104,6 +104,12 @@ const coreDefinitions = [
   '(Map (((((l n (MapStep f c)) f) l) n) c))',
   '(AppendStep (((((c h (Append t ys)) ys) c) h) t))',
   '(Append (((((xs (ys n c) (AppendStep ys c)) xs) ys) n) c))',
+  `(FilterStep
+    ((((((p h (c h (Filter p t)) (Filter p t n c)) p) n) c) h) t))`,
+  '(Filter (((((l n (FilterStep p n c)) p) l) n) c))',
+  '(RevStep ((((((Rev t (Cons h acc) n c) acc) n) c) h) t))',
+  '(Rev (((((l (acc n c) (RevStep acc n c)) l) acc) n) c))',
+  '(Reverse ((((Rev l Nil n c) l) n) c))',
   '(AddStep (((Succ (m2 n (AddStep n))) n) m2))',
   '(Add (((m n (AddStep n)) m) n))',
   '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
@@ -372,6 +378,26 @@ describe('library forms', () => {
         '(Length (Append (Cons a Nil) (Cons b Nil)))'))),
       2)
   })
+
+  test('Filter keeps or skips list heads', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Head (Filter (K True) (Cons a (Cons b Nil))))',
+      'a',
+      7)
+    assertReduction(
+      coreDefinitions,
+      '(Head (Filter (K False) (Cons a (Cons b Nil))))',
+      'no',
+      13)
+  })
+
+  test('Reverse exposes the last item first', () =>
+    assertReduction(
+      coreDefinitions,
+      '(Head (Reverse (Cons a (Cons b Nil))))',
+      'b',
+      12))
 
   test('open data leaves a symbolic residual', () => {
     const graph = compile(source(coreDefinitions, '(Add m (Succ Zero))'))
