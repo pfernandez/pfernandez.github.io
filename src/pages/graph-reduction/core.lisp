@@ -32,8 +32,8 @@
 (Cons (((((c h t) h) t) n) c))    ;           cons h t -> c h t
 
 ; Eliminators recurse on literal substructure, so they settle on
-; closed data and stay symbolic on open data. Self-reference keeps
-; a helper and its caller in the same active call.
+; closed data and stay symbolic on open data. Helpers may refer to
+; their parent names before the parent is written below.
 
 (Head ((l no K) l))
 (LastGo (((t h LastGo) h) t))
@@ -43,6 +43,9 @@
 (FoldStep (((((f h (Fold f z t)) f) z) h) t))
 (Fold ((((l z (FoldStep f z)) f) z) l))
 (LenFold (((Succ t) h) t))
+
+; List transformers return new Scott lists. A later consumer can demand
+; the computed list's cases, so these compose with Head and Length.
 
 (MapStep (((((c (f h) (Map f t)) f) c) h) t))
 (Map (((((l n (MapStep f c)) f) l) n) c))
@@ -73,6 +76,8 @@
 ; (Head (Filter (K True) (Cons a (Cons b Nil))))
 ; (Head (Filter (K False) (Cons a (Cons b Nil))))
 ; (Head (Reverse (Cons a (Cons b Nil))))
+; (Length (Filter (K True) (Cons a (Cons b Nil))))
+; (Length (Reverse (Cons a (Cons b Nil))))
 ; (Add (Succ Zero) (Succ Zero))
 ; (Mul (Succ (Succ Zero)) (Succ (Succ Zero)))
 ; (Repeat a no K)

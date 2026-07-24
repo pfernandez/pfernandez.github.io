@@ -1,8 +1,8 @@
 import { err, parse } from './parse.js'
 
-// Every node is a cell: a two-element array. cell[0] is the function side
-// and cell[1] is the argument side, so the application (f x) is the cell
-// [f, x]. There are no tags; every role is recognized by shape:
+// Every node is a cell: a two-element array. cell[0] is the function side,
+// cell[1] is the argument side, and application (f x) is the cell [f, x].
+// There are no tags; every role is recognized by shape:
 //   atom        both sides point at the cell itself
 //   slot        a parameter: itself on the left, its definition on the right
 //   answer      itself on the left, a result on the right
@@ -11,7 +11,7 @@ import { err, parse } from './parse.js'
 const isSymbol = form =>
   typeof form === 'string'
 
-// A scope is a list of [name, cell] pairs; first match wins.
+// A scope is a list of [name, cell] pairs. Earlier scopes shadow later ones.
 const binding = (name, bindings) =>
   bindings.find(([bindingName]) => bindingName === name)
 
@@ -42,8 +42,8 @@ const intern = (spelling, scope) => {
 const applyArgs = (head, args) =>
   args.reduce((node, arg) => [node, arg], head)
 
-// A symbol means its binding if it has one, otherwise an atom; a list is
-// its head applied to each item in turn.
+// A symbol means its binding if it has one, otherwise an atom. A list is its
+// head applied to each following item in turn.
 const buildGraph = (form, scopes, scope) =>
   !Array.isArray(form)
     ? isSymbol(form) && lookup(form, scopes) || intern(form, scope)
@@ -56,17 +56,19 @@ const buildGraph = (form, scopes, scope) =>
 const isBindingForm = form =>
   Array.isArray(form) && form.length === 2 && isSymbol(form[0])
 
-// Walk the form's left edge collecting parameter names, innermost first -
-// the order arguments are supplied; null if there are none.
+// Walk the form's left edge collecting parameter names, innermost first. That
+// is the order arguments arrive in a left-nested call. Return null if the form
+// has no slots.
 const parameters = (form, scope, names = []) =>
   Array.isArray(form) && form.length === 2 && isSymbol(form[1])
       && !binding(form[1], scope.names) && !names.includes(form[1])
     ? parameters(form[0], scope, [form[1], ...names])
     : names.length ? names : null
 
-// The definition is built from the form; each parameter becomes a slot pointing
-// back at it. The name binds before the form builds, so self-reference is a
-// cycle, not an expansion.
+// Build a definition from its authored form. Each parameter becomes a slot:
+// a stable cell whose payload points back to the definition. The definition
+// name is already bound, so self-reference becomes a cycle instead of an
+// expansion.
 const define = (
   [name, form],
   scope,
@@ -97,8 +99,8 @@ const replace = (node, from, to, seen = new Set()) => {
   return node
 }
 
-// A binding without slots names raw graph structure. References to the name
-// inside its own form become references to the completed value.
+// A binding without slots names raw graph structure. If it refers to itself,
+// the placeholder is replaced with the finished graph after construction.
 const bindValue = ([name, form], scope) => {
   const entry = binding(name, scope.names) ?? [name, []]
   const placeholder = entry[1]
@@ -111,10 +113,9 @@ const bindValue = ([name, form], scope) => {
 const bindForm = (form, scope, parameterNames = parameters(form[1], scope)) =>
   parameterNames ? define(form, scope, parameterNames) : bindValue(form, scope)
 
-const focusForm = (form, scope) => {
-  return reduceGraph(buildGraph(form, [scope.names], scope),
-                     [], new Set(), scope.answers)
-}
+const focusForm = (form, scope) =>
+  reduceGraph(buildGraph(form, [scope.names], scope),
+              [], new Set(), scope.answers)
 
 // Observation stops where the function side is the cell itself: atoms,
 // slots, and answers are all stable.
@@ -142,6 +143,9 @@ const isSlot = node =>
 const isAnswer = node =>
   isStable(node) && !isAtom(node) && !isSlot(node)
 
+// Compiler-created answers are recorded by arity. Their left spine contains
+// the arguments that produced the answer; any later arguments are new demand
+// on the answer payload.
 const answerCall = (node, answers) => {
   const seen = new Set()
   const args = []
@@ -161,9 +165,8 @@ const answerCall = (node, answers) => {
   }
 }
 
-// A completed answer can be used as the head of a later call. Its own focus
-// carries the old arguments that produced it; those are history. Only arguments
-// applied after that focus are new demand on the payload.
+// Reopening an answer drops its historical arguments and keeps the future
+// arguments applied to its payload.
 const reopenAnswer = (node, answers) => {
   const answered = answerCall(node, answers)
   if (!answered) return null
@@ -193,8 +196,8 @@ const definitionBody = (definition, node = definition, slots = []) =>
     ? definitionBody(definition, node[0], [node[1], ...slots])
     : [node, slots]
 
-// Copy with each slot replaced by its argument; complete cells stay shared, and
-// copies keep sharing and cycles intact in the copy.
+// Copy with each slot replaced by its argument. Complete cells stay shared;
+// copied cells keep sharing and cycles intact within the copy.
 const substitute = (node, substitutions, copies = new Map()) => {
   const match = substitutions.find(([from]) => node === from)
   if (match) return match[1]
@@ -217,9 +220,9 @@ const isSameCall = (head, args, [definition, priorArgs]) =>
 const findActiveCall = (head, args, activeCalls) =>
   activeCalls.find(activeCall => isSameCall(head, args, activeCall))
 
-// A completed call returns its focus: the call's shape with the answer at
-// its head, so observation runs to the answer and the right side is the result.
-// Arguments beyond the slots stay applied to the body.
+// Reduce one call into a history focus: the same argument spine, with a fresh
+// answer at its head. Observation walks to that answer; reading right gets the
+// result. Extra arguments are applied to the body before it is reduced.
 const reduceGraph = (
   node,
   activeCalls = [],
@@ -282,8 +285,9 @@ export const compile = source => {
     names: []
   }
 
-  // Classify definitions before predeclaring them. This preserves the old
-  // slot rules for each body, while still giving bodies access to later names.
+  // First classify each top-level form using only names already seen. Then
+  // predeclare definition cells so helper bodies can refer to later helpers
+  // without changing how their own parameter slots are detected.
   const plannedScope = { names: [] }
   const plans = forms.slice(0, -1).map(form => {
     if (!isBindingForm(form) || binding(form[0], plannedScope.names))
