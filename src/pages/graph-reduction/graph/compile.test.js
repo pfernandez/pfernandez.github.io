@@ -111,9 +111,19 @@ const coreDefinitions = [
   '(TakeCons ((((Cons h (Take m t)) m) h) t))',
   '(TakeStep (((l Nil (TakeCons m)) l) m))',
   '(Take (((n Nil (TakeStep l)) n) l))',
+  '(DropCons ((((Drop m t) m) h) t))',
+  '(DropStep (((l Nil (DropCons m)) l) m))',
+  '(Drop (((n l (DropStep l)) n) l))',
+  '(NthCons (((((Nth m t no) m) no) h) t))',
+  '(NthStep ((((l no (NthCons m no)) l) no) m))',
+  '(Nth ((((n (Head l no) (NthStep l no)) n) l) no))',
   '(RevStep ((((((Rev t (Cons h acc) n c) acc) n) c) h) t))',
   '(Rev (((((l (acc n c) (RevStep acc n c)) l) acc) n) c))',
   '(Reverse ((((Rev l Nil n c) l) n) c))',
+  '(None ((none none) some))',
+  '(Some ((((some x) x) none) some))',
+  '(FindStep ((((p h (Some h) (Find p t)) p) h) t))',
+  '(Find (((l None (FindStep p)) p) l))',
   '(AddStep (((Succ (m2 n (AddStep n))) n) m2))',
   '(Add (((m n (AddStep n)) m) n))',
   '(MulStep (((Add n (m2 Zero (MulStep n))) n) m2))',
@@ -452,6 +462,49 @@ describe('library forms', () => {
       2)
   })
 
+  test('Drop moves through finite lists and streams', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Head (Drop (Succ Zero) (Cons a (Cons b Nil))))',
+      'b',
+      3)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Drop Zero (Cons a (Cons b Nil))))'))),
+      2)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        '(Length (Drop (Succ Zero) (Cons a (Cons b Nil))))'))),
+      1)
+    assert.equal(
+      count(compile(source(
+        coreDefinitions,
+        `(Length (Take
+           (Succ (Succ Zero))
+           (Drop (Succ Zero) (Repeat a))))`))),
+      2)
+  })
+
+  test('Nth moves a cursor to one item', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Nth Zero (Cons a (Cons b Nil)) no)',
+      'a',
+      3)
+    assertReduction(
+      coreDefinitions,
+      '(Nth (Succ Zero) (Cons a (Cons b Nil)) no)',
+      'b',
+      8)
+    assertReduction(
+      coreDefinitions,
+      '(Nth (Succ (Succ Zero)) (Cons a (Cons b Nil)) no)',
+      'no',
+      13)
+  })
+
   test('Reverse exposes the last item first', () => {
     assertReduction(
       coreDefinitions,
@@ -463,6 +516,24 @@ describe('library forms', () => {
         coreDefinitions,
         '(Length (Reverse (Cons a (Cons b Nil))))'))),
       2)
+  })
+
+  test('Maybe represents present and missing results', () => {
+    assertReduction(coreDefinitions, '(Some a no I)', 'a', 2)
+    assertReduction(coreDefinitions, '(None no I)', 'no')
+  })
+
+  test('Find returns a Maybe result', () => {
+    assertReduction(
+      coreDefinitions,
+      '(Find (K True) (Cons a (Cons b Nil)) no I)',
+      'a',
+      7)
+    assertReduction(
+      coreDefinitions,
+      '(Find (K False) (Cons a (Cons b Nil)) no I)',
+      'no',
+      6)
   })
 
   test('open data leaves a symbolic residual', () => {
