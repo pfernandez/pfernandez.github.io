@@ -102,20 +102,17 @@ const replace = (node, from, to, seen = new Set()) => {
 // A binding without slots names raw graph structure. If it refers to itself,
 // the placeholder is replaced with the finished graph after construction.
 const bindValue = ([name, form], scope) => {
-  const entry = binding(name, scope.names) ?? [name, []]
+  const found = binding(name, scope.names)
+  const entry = found ?? [name, []]
   const placeholder = entry[1]
 
-  if (!binding(name, scope.names)) scope.names.push(entry)
+  if (!found) scope.names.push(entry)
   const graph = buildGraph(form, [scope.names], scope)
   entry[1] = remember(scope, replace(graph, placeholder, graph), name)
 }
 
 const bindForm = (form, scope, parameterNames = parameters(form[1], scope)) =>
   parameterNames ? define(form, scope, parameterNames) : bindValue(form, scope)
-
-const focusForm = (form, scope) =>
-  reduceGraph(buildGraph(form, [scope.names], scope),
-              [], new Set(), scope.answers)
 
 // Observation stops where the function side is the cell itself: atoms,
 // slots, and answers are all stable.
@@ -133,20 +130,8 @@ const isDefinition = node =>
 const isComplete = node =>
   isStable(node) || isDefinition(node)
 
-const isAtom = node =>
-  isStable(node) && node[1] === node
-
-const isSlot = node =>
-  isStable(node) && isDefinition(node[1])
-    && definitionBody(node[1])[1].includes(node)
-
-const isAnswer = node =>
-  isStable(node) && !isAtom(node) && !isSlot(node)
-
-// Compiler-created answers are recorded by arity. Their left spine contains
-// the arguments that produced the answer; any later arguments are new demand
-// on the answer payload.
-const answerCall = (node, answers) => {
+// Read a left-nested application as a call: ((K a) b) is head K, args [a, b].
+const spine = node => {
   const seen = new Set()
   const args = []
   let head = node
@@ -157,7 +142,15 @@ const answerCall = (node, answers) => {
     head = head[0]
   }
 
-  if (!isAnswer(head) || !answers.has(head)) return null
+  return { head, args }
+}
+
+// Compiler-created answers are recorded by arity. Their left spine contains
+// the arguments that produced the answer; any later arguments are new demand
+// on the answer payload.
+const answerCall = (node, answers) => {
+  const { head, args } = spine(node)
+  if (!answers.has(head)) return null
 
   return {
     args: args.slice(answers.get(head)),
@@ -172,21 +165,6 @@ const reopenAnswer = (node, answers) => {
   if (!answered) return null
 
   return applyArgs(answered.head[1], answered.args)
-}
-
-// Read a left-nested application as a call: ((K a) b) is head K, args [a, b].
-const call = (node, args = []) => {
-  const seen = new Set()
-  const nextArgs = [...args]
-  let head = node
-
-  while (!isComplete(head) && !seen.has(head)) {
-    seen.add(head)
-    nextArgs.unshift(head[1])
-    head = head[0]
-  }
-
-  return { head, args: nextArgs }
 }
 
 // Strip parameter applications to reach the body; slots return in the order
@@ -210,15 +188,13 @@ const substitute = (node, substitutions, copies = new Map()) => {
   return copy
 }
 
-// An in-progress call of the same definition with identical arguments;
-// each active call is [definition, args, focus].
-const isSameCall = (head, args, [definition, priorArgs]) =>
-  definition === head
-      && priorArgs.length === args.length
-      && priorArgs.every((arg, i) => arg === args[i])
-
+// An in-progress call of the same definition with identical arguments.
+// Each active call is [definition, args, focus].
 const findActiveCall = (head, args, activeCalls) =>
-  activeCalls.find(activeCall => isSameCall(head, args, activeCall))
+  activeCalls.find(([definition, priorArgs]) =>
+    definition === head
+      && priorArgs.length === args.length
+      && priorArgs.every((arg, i) => arg === args[i]))
 
 // Reduce one call into a history focus: the same argument spine, with a fresh
 // answer at its head. Observation walks to that answer; reading right gets the
@@ -227,12 +203,12 @@ const reduceGraph = (
   node,
   activeCalls = [],
   seen = new Set(),
-  answers = new WeakMap()
+  answers
 ) => {
   if (isComplete(node) || seen.has(node)) return node
   seen.add(node)
 
-  const application = call(node)
+  const application = spine(node)
   const bodyAndSlots = isDefinition(application.head)
     && definitionBody(application.head)
 
@@ -279,11 +255,14 @@ const reduceGraph = (
 export const compile = source => {
   const forms = parse(source)
   const scope = {
-    answers: new WeakMap(),
     atoms: new Map(),
     legend: [],
     names: []
   }
+  const answers = new WeakMap()
+  const reduceForm = form =>
+    reduceGraph(buildGraph(form, [scope.names], scope),
+                [], new Set(), answers)
 
   // First classify each top-level form using only names already seen. Then
   // predeclare definition cells so helper bodies can refer to later helpers
@@ -306,7 +285,7 @@ export const compile = source => {
   forms.forEach((form, i) => {
     if (i < forms.length - 1 && isBindingForm(form))
       bindForm(form, scope, plans[i]?.parameterNames)
-    else focus = focusForm(form, scope)
+    else focus = reduceForm(form)
   })
 
   if (focus === undefined) err('Missing focus')
