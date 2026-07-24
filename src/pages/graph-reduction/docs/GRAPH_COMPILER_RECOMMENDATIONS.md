@@ -10,13 +10,6 @@ Related docs:
   lens/substrate problem.
 - `ALLOCATION_FREE_GROWTH.md` records the constraint on finite graph-native
   growth.
-- `CATALAN_HAMILTONIAN_PLAN.md` gives the handoff from the Lisp machine to the
-  Catalan-space simulator.
-- `MACHINE_BOUNDARIES.md` defines `read`, `step`, `lens`, `root`, `agent`,
-  and the memory-bank boundary for future allocation work.
-- `LINK_FRONTIER_KERNEL.md` records the first pair-local kernel-clock result
-  and the remaining boundary around computed constructor state.
-- `PHASE_ORBITS.md` introduces projected phase/orbit readout for live streams.
 
 ## Short version
 
