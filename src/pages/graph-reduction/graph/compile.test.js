@@ -332,10 +332,10 @@ describe('library forms', () => {
 
   test('Fold abstracts structural recursion over lists', () =>
     assert.equal(
-      serialize(repeat(compile(source(
+      count(compile(source(
         coreDefinitions,
-        '(Fold LenFold Zero (Cons a (Cons b Nil)))')), step, 4)),
-      '(Succ (((Fold LenFold) Zero) ((Cons b) Nil)))'))
+        '(Fold LenFold Zero (Cons a (Cons b Nil)))'))),
+      2))
 
   test('Map transforms a list for later consumers', () => {
     assertReduction(
@@ -349,10 +349,10 @@ describe('library forms', () => {
       'z',
       6)
     assert.equal(
-      serialize(repeat(compile(source(
+      count(compile(source(
         coreDefinitions,
-        '(Length (Map I (Cons a (Cons b Nil))))')), step, 5)),
-      '(Succ ((((Map I) ((Cons b) Nil)) Zero) LenStep))')
+        '(Length (Map I (Cons a (Cons b Nil))))'))),
+      2)
   })
 
   test('Append joins lists for later consumers', () => {
@@ -367,10 +367,10 @@ describe('library forms', () => {
       'b',
       6)
     assert.equal(
-      serialize(repeat(compile(source(
+      count(compile(source(
         coreDefinitions,
-        '(Length (Append (Cons a Nil) (Cons b Nil)))')), step, 5)),
-      '(Succ ((((Append Nil) ((Cons b) Nil)) Zero) LenStep))')
+        '(Length (Append (Cons a Nil) (Cons b Nil)))'))),
+      2)
   })
 
   test('open data leaves a symbolic residual', () => {
@@ -407,11 +407,11 @@ describe('library forms', () => {
   test('computed data remains consumable', () =>
     assertReduction(coreDefinitions, '(Head (K (Cons a Nil) x))', 'a', 3))
 
-  test('forward references do not bind', () =>
+  test('later top-level definitions bind earlier bodies', () =>
     assert.equal(
       serialize(repeat(
         compile('(A ((B x) x))\n(B (y y))\n(A k)'),
         step,
         2)),
-      'B'))
+      'k'))
 })

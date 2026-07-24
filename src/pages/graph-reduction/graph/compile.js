@@ -52,10 +52,9 @@ const buildGraph = (form, scopes, scope) =>
                   form.slice(1).map(item => buildGraph(item, scopes, scope)))
       : intern('()', scope)
 
-// A top-level (name form) where name is unbound introduces a binding.
-const isBindingForm = (form, scope) =>
-  Array.isArray(form) && form.length === 2
-    && isSymbol(form[0]) && !binding(form[0], scope.names)
+// A top-level (name form) before the focus introduces a binding.
+const isBindingForm = form =>
+  Array.isArray(form) && form.length === 2 && isSymbol(form[0])
 
 // Walk the form's left edge collecting parameter names, innermost first -
 // the order arguments are supplied; null if there are none.
@@ -68,11 +67,15 @@ const parameters = (form, scope, names = []) =>
 // The definition is built from the form; each parameter becomes a slot pointing
 // back at it. The name binds before the form builds, so self-reference is a
 // cycle, not an expansion.
-const define = ([name, form], scope) => {
-  const parameterNames = parameters(form, scope)
+const define = (
+  [name, form],
+  scope,
+  parameterNames = parameters(form, scope)
+) => {
   if (!parameterNames) err('Definitions need a body and at least one slot')
 
-  const definition = remember(scope, [], name)
+  const entry = binding(name, scope.names)
+  const definition = remember(scope, entry?.[1] ?? [], name)
   const parameterBindings = parameterNames.map(name => {
     const slot = remember(scope, [], name)
     slot[0] = slot
@@ -80,7 +83,8 @@ const define = ([name, form], scope) => {
     return [name, slot]
   })
 
-  scope.names.push([name, definition])
+  if (entry) entry[1] = definition
+  else scope.names.push([name, definition])
   definition.push(...buildGraph(form, [parameterBindings, scope.names], scope))
 }
 
@@ -96,19 +100,18 @@ const replace = (node, from, to, seen = new Set()) => {
 // A binding without slots names raw graph structure. References to the name
 // inside its own form become references to the completed value.
 const bindValue = ([name, form], scope) => {
-  const placeholder = []
-  const entry = [name, placeholder]
+  const entry = binding(name, scope.names) ?? [name, []]
+  const placeholder = entry[1]
 
-  scope.names.push(entry)
+  if (!binding(name, scope.names)) scope.names.push(entry)
   const graph = buildGraph(form, [scope.names], scope)
   entry[1] = remember(scope, replace(graph, placeholder, graph), name)
 }
 
-const bindForm = (form, scope) =>
-  parameters(form[1], scope) ? define(form, scope) : bindValue(form, scope)
+const bindForm = (form, scope, parameterNames = parameters(form[1], scope)) =>
+  parameterNames ? define(form, scope, parameterNames) : bindValue(form, scope)
 
 const focusForm = (form, scope) => {
-  if (isBindingForm(form, scope)) return void bindForm(form, scope)
   return reduceGraph(buildGraph(form, [scope.names], scope),
                      [], new Set(), scope.answers)
 }
@@ -293,16 +296,36 @@ const reduceGraph = (
 
 // Definitions extend the scope; the last remaining form is the focus.
 export const compile = source => {
+  const forms = parse(source)
   const scope = {
     answers: new WeakSet(),
     atoms: new Map(),
     legend: [],
     names: []
   }
+
+  // Classify definitions before predeclaring them. This preserves the old
+  // slot rules for each body, while still giving bodies access to later names.
+  const plannedScope = { names: [] }
+  const plans = forms.slice(0, -1).map(form => {
+    if (!isBindingForm(form) || binding(form[0], plannedScope.names))
+      return null
+
+    const parameterNames = parameters(form[1], plannedScope)
+    plannedScope.names.push([form[0], []])
+    return { form, parameterNames }
+  })
   let focus
 
-  for (const form of parse(source))
-    focus = focusForm(form, scope)
+  for (const plan of plans)
+    if (plan?.parameterNames)
+      scope.names.push([plan.form[0], []])
+
+  forms.forEach((form, i) => {
+    if (i < forms.length - 1 && isBindingForm(form))
+      bindForm(form, scope, plans[i]?.parameterNames)
+    else focus = focusForm(form, scope)
+  })
 
   if (focus === undefined) err('Missing focus')
   return { graph: focus, legend: scope.legend }
