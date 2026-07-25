@@ -1,9 +1,9 @@
 import { parse } from './parse.js'
 
 export const link = source => {
-  // A list folds left. If its first entry is a new symbol, that symbol names
-  // the fold of the remaining entries. Later new symbols become atoms.
-  // The same stack holds identities, their names, and calls under construction.
+  // A pair whose left side is a new signature names a definition.
+  // Other lists fold left. Later new symbols become atoms.
+  // The same stack holds identities, names, and calls under construction.
   const stack = []
 
   // The graph contains only arrays. Names stay here for lookup and display.
@@ -26,8 +26,22 @@ export const link = source => {
     return bind(node, symbol)
   }
 
-  const parametersOf = node =>
-    node[0] === node ? [node] : [...parametersOf(node[0]), node[1]]
+  const signatureOf = tree => {
+    const signature = []
+
+    while (Array.isArray(tree) && tree.length === 2) {
+      signature.unshift(tree[1])
+      tree = tree[0]
+    }
+
+    signature.unshift(tree)
+    return signature.length > 1
+      && signature.every(symbol => !Array.isArray(symbol))
+      && signature
+  }
+
+  const applyArgs = args =>
+    args.slice(1).reduce((left, right) => [left, right], args[0])
 
   const definitionFor = node =>
     stack.find(entry => entry.node === node && entry.parameters)
@@ -108,7 +122,7 @@ export const link = source => {
     return call
   }
 
-  const walk = (tree, replacements, defining = false) => {
+  const walk = (tree, replacements, defining = false, root = false) => {
     if (!Array.isArray(tree)) {
       const entry = named(tree) ?? identify(tree)
       const { node } = entry
@@ -118,29 +132,36 @@ export const link = source => {
     if (!replacements) {
       if (tree.length === 1) return walk(tree[0], undefined, defining)
 
+      const signature = !root && tree.length === 2 && signatureOf(tree[0])
+      if (signature && !named(signature[0])) {
+        const graph = tree
+        const scopeStart = stack.length
+        const entry = bind(graph, signature[0])
+        const parameters =
+          signature.slice(1).map(symbol => identify(symbol).node)
+        const body = walk(tree[1], undefined, true)
+
+        graph[0] = applyArgs(parameters)
+        graph[1] = body.graph
+        graph.length = 2
+        entry.node = entry.label.node = graph
+        entry.parameters = parameters
+
+        stack.length = scopeStart
+        stack.push(graph, entry)
+        return { graph }
+      }
+
       const length = tree.length
       const graph = tree
-      const scopeStart = stack.length
-      const entry =
-        !Array.isArray(tree[0]) && !named(tree[0]) && bind(graph, tree[0])
-
       let result
+
       tree.forEach((node, i) => {
-        if (entry && i === 0) return
-        const buildingName = Boolean(entry) && length > 2
-        const child = walk(node, undefined, defining || buildingName)
+        const child = walk(node, undefined, defining)
         result = result
           ? finish(i === length - 1 ? tree : [], result, child)
           : child
       })
-
-      if (entry) {
-        // Local parameter names leave scope; the named form remains.
-        stack.length = scopeStart
-        entry.label.node = entry.node = result.graph
-        if (length > 2) entry.parameters = parametersOf(result.graph[0])
-        stack.push(result.graph, entry)
-      }
 
       return result
     }
@@ -171,7 +192,8 @@ export const link = source => {
   }
 
   try {
-    return { graph: walk(parse(source)).graph, legend }
+    const tree = typeof source === 'string' ? parse(source) : source
+    return { graph: walk(tree, undefined, false, true).graph, legend }
   } catch (error) {
     return { graph: [], legend: [], error }
   }

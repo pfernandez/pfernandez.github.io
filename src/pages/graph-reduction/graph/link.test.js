@@ -2,12 +2,12 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { link, step } from './index.js'
 
-const I = '(I x x)'
-const K = '(K x y x)'
-const S = '(S x y z ((x z) (y z)))'
-const Y = '(Y f (f (Y f)))'
-const Zero = '(Zero f x x)'
-const Succ = '(Succ n f x (f (n f x)))'
+const I = '((I x) x)'
+const K = '(((K x) y) x)'
+const S = '((((S x) y) z) ((x z) (y z)))'
+const Y = '((Y f) (f (Y f)))'
+const Zero = '(((Zero f) x) x)'
+const Succ = '((((Succ n) f) x) (f ((n f) x)))'
 
 const program = (definitions, expression) =>
   `(${definitions.join('\n')} ${expression})`
@@ -54,7 +54,7 @@ describe('link', () => {
 
   test('wires the combinator graph by identity', () => {
     const { graph, legend } =
-      linked(program([I, K, S], '(S a b c)'))
+      linked(program([I, K, S], '(((S a) b) c)'))
     const linkedI = named(legend, 'I')
     const linkedK = named(legend, 'K')
     const linkedS = named(legend, 'S')
@@ -75,9 +75,9 @@ describe('link', () => {
     for (const [expression, stable] of [
       ['(I a)', false],
       ['(K a)', true],
-      ['(K a b)', false],
-      ['(S a b)', true],
-      ['(S a b c)', false]
+      ['((K a) b)', false],
+      ['((S a) b)', true],
+      ['(((S a) b) c)', false]
     ]) {
       const { graph } = linked(program([I, K, S], expression))
       const focus = step(graph)
@@ -86,18 +86,9 @@ describe('link', () => {
   })
 
   test('answers calls created by copies', () => {
-    const { graph, legend } = linked(program([I, K, S], '(S K K a)'))
+    const { graph, legend } = linked(program([I, K, S], '(((S K) K) a)'))
 
     assert.equal(steps(graph, 3), named(legend, 'a'))
-  })
-
-  test('lets a binary name point directly at a live future', () => {
-    const { graph, legend } = linked(program([I, S], '(Root (S a b c))'))
-    const future = step(graph)
-    const result = step(future)
-
-    assert.equal(future, named(legend, 'Root'))
-    assert.equal(result[0][1], result[1][1])
   })
 
   test('ties recursive calls into an unbounded step cycle', () => {
@@ -122,7 +113,7 @@ describe('link', () => {
         numeral = `(Succ ${numeral})`
 
       const { graph } =
-        linked(program([I, Zero, Succ], `(${numeral} I a)`))
+        linked(program([I, Zero, Succ], `((${numeral} I) a)`))
 
       let result = graph
       let steps = 0

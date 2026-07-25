@@ -33,12 +33,12 @@ const assertS = ({ result, legend }) => {
   assert.equal(result[1][1], named('c'))
 }
 
-test('folds forms before linking names', () => {
+test('links pair-expanded definitions', () => {
   const linked = resultOf(`
-  ((I x x)
-   (K x y x)
-   (S x y z ((x z) (y z)))
-   (S a b c))
+  (((I x) x)
+   (((K x) y) x)
+   ((((S x) y) z) ((x z) (y z)))
+   (((S a) b) c))
   `)
 
   assert.deepEqual(

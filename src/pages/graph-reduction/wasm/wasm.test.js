@@ -12,7 +12,7 @@ import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const source = arg =>
-  `((I x x) (I ${arg}))`
+  `(((I x) x) (I ${arg}))`
 
 const program = arg =>
   link(source(arg))
