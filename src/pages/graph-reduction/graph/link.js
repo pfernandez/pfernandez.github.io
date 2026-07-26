@@ -12,46 +12,43 @@ const _link = (
 ) => {
   if (isSymbol(focus) || isAtom(focus)) return focus
 
-  const [first, next] = isSymbol(focus) ? [] : focus
   const { index, boundary, stack, parent } = context
   let branch = stack
   let unwrap = false
 
-  if (isSymbol(first)) {
-    const ref = stack.find(entry => entry?.[0] === first)?.[1]
+  focus.forEach((child, i) => {
+    if (isSymbol(child)) {
+      const ref = branch.find(entry => entry?.[0] === child)?.[1]
 
-    if (!ref) {
-      // New symbol = New stack entry = New scope = Zero point boundary
-      const start = stack.findLastIndex(entry => entry?.length > 2) + 1
-      const locals = stack.splice(start)
-      branch = [first, boundary, ...locals]
-      stack.push(branch)
-      unwrap = true
-    } else {
-      // Preexisting symbol: Replace it with the ref
-      focus[0] = ref
-    }
-  }
+      if (ref) {
+        focus[i] = ref
+      } else if (i === 0) {
+        // New leftmost symbol = new scope naming the current boundary.
+        branch = [child, boundary]
+        stack.push(branch)
+        unwrap = true
+      } else {
+        const atom = []
+        atom[0] = atom[1] = atom
+        focus[i] = atom
+        branch.push([child, atom])
+      }
 
-  if (isSymbol(next)) {
-    const ref = branch.find(entry => entry?.[0] === next)?.[1]
-    if (ref) {
-      focus[1] = ref
-    } else {
-      const atom = []
-      atom[0] = atom[1] = atom
-      focus[1] = atom
-      branch.push([next, atom])
+      return
     }
-  }
+
+    const length = stack.length
+
+    _link(child, { index: i, boundary, stack: branch, parent: focus })
+
+    if (i === 0 && stack.length > length)
+      branch = stack.at(-1)
+  })
 
   if (unwrap && parent)
     parent[index] = focus[1]
 
-  log({ focus, first, next, context })
-
-  focus.forEach((child, i) =>
-    _link(child, { index: i, boundary, stack: branch, parent: focus }))
+  log({ focus, index, boundary, stack, parent })
 
   return focus
 }
@@ -60,7 +57,7 @@ export const link = source => {
   try {
     const tree = parse(source)
     const graph = _link(tree)
-    console.log()
+    log({ graph })
     return { graph, legend: [] }
   } catch (error) {
     return { graph: [], legend: [], error }

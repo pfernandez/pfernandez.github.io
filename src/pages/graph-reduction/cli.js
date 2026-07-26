@@ -10,11 +10,9 @@ if (main()) {
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
   const source = readFileSync(file, 'utf-8')
 
-  const { graph, legend, error } = link(source)
+  const { graph, legend, stack, error } = link(source)
 
   if (error) throw error
-
-  // log({ file, source, graph, legend })
 
   // trace(graph, { label: 'graph\n', legend })
   // const focus = step(graph)
