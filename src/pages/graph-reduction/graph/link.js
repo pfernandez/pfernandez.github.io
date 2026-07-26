@@ -8,47 +8,51 @@ const isAtom = node => node[0] === node && node[1] === node
 
 const _link = (
   focus,
-  context = { index: 0, boundary: focus, stack: [], parent: null }
+  context = { boundary: focus, index: 0, parent: null, stack: [] }
 ) => {
   if (isSymbol(focus) || isAtom(focus)) return focus
 
+  const [first, next] = focus
   const { index, boundary, stack, parent } = context
+
   let branch = stack
-  let unwrap = false
 
-  focus.forEach((child, i) => {
-    if (isSymbol(child)) {
-      const ref = branch.find(entry => entry?.[0] === child)?.[1]
+  if (isSymbol(first)) {
+    const ref = stack.find(entry => entry?.[0] === first)?.[1]
 
-      if (ref) {
-        focus[i] = ref
-      } else if (i === 0) {
-        // New leftmost symbol = new scope naming the current boundary.
-        branch = [child, boundary]
-        stack.push(branch)
-        unwrap = true
-      } else {
-        const atom = []
-        atom[0] = atom[1] = atom
-        focus[i] = atom
-        branch.push([child, atom])
-      }
-
-      return
+    if (ref) {
+      focus[0] = ref
+    } else {
+      // New leftmost symbol = new scope naming the current boundary.
+      const start = stack.findLastIndex(entry => entry?.length > 2) + 1
+      const locals = stack.splice(start)
+      branch = [first, boundary, ...locals]
+      stack.push(branch)
     }
+  }
 
-    const length = stack.length
+  if (isSymbol(next)) {
+    const ref = branch.find(entry => entry?.[0] === next)?.[1]
 
-    _link(child, { index: i, boundary, stack: branch, parent: focus })
+    if (ref) {
+      focus[1] = ref
+    } else {
+      const atom = []
+      focus[1] = atom[0] = atom[1] = atom
+      branch.push([next, atom])
+    }
+  }
 
-    if (i === 0 && stack.length > length)
-      branch = stack.at(-1)
-  })
-
-  if (unwrap && parent)
+  if (parent && branch !== stack)
     parent[index] = focus[1]
 
-  log({ focus, index, boundary, stack, parent })
+  // Keep
+  log({ focus, first, next, index, boundary, stack, parent })
+
+  // To preserve local reasoning, do not traverse except for here. Keep all
+  // logic above, not in the forEach.
+  focus.forEach((child, i) =>
+    _link(child, { boundary, index: i, parent: focus, stack: branch }))
 
   return focus
 }
