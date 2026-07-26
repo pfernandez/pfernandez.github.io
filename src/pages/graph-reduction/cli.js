@@ -11,15 +11,16 @@ if (main()) {
   const source = readFileSync(file, 'utf-8')
 
   const { graph, legend, error } = link(source)
+
   if (error) throw error
 
-  log({ file, source, graph, legend })
+  // log({ file, source, graph, legend })
 
-  trace(graph, { label: 'graph\n', legend })
-  const focus = step(graph)
-  trace(focus, { label: 'step', legend })
-  const result = step(focus)
-  trace(result, { label: 'result', legend })
+  // trace(graph, { label: 'graph\n', legend })
+  // const focus = step(graph)
+  // trace(focus, { label: 'step', legend })
+  // const result = step(focus)
+  // trace(result, { label: 'result', legend })
 
   // `step` is only a right-edge projection. The graph must carry any observer
   // state, history, and next event needed to make that projection meaningful.

@@ -1,200 +1,126 @@
+Error.stackTraceLimit = 1
+
 import { parse } from './parse.js'
+import { log } from './serialize.js'
+
+const isSymbol = node => !Array.isArray(node)
+
+const _link = (focus, context = { index: 0, boundary: focus, stack: [] }) => {
+  const [first, next] = isSymbol(focus) ? [] : focus
+  const { index, boundary, stack } = context
+  let branch = stack
+  let zero = boundary
+
+  if (isSymbol(first)) {
+    const ref = stack.find(entry => entry?.[0] === first)?.[1]
+
+    if(!ref) {
+      // New symbol = New stack entry = New scope = Zero point boundary
+      focus[index] = next  // Unwrap def
+      branch = [first, boundary]
+      stack.push(branch)
+    } else {
+      // Preexisting symbol: Replace it with the ref
+      focus[index] = ref
+    }
+  }
+
+  if (isSymbol(next)) {
+    const atom = []
+    atom[0] = atom [1] = atom
+    branch.push([next, atom])
+  }
+  log({ focus, first, next, context })
+
+  focus.forEach((child, i) =>
+    _link(child, { index: i, boundary: zero, stack: branch }))
+
+  return focus
+}
 
 export const link = source => {
-  // A pair whose left side is a new signature names a definition.
-  // Other lists fold left. Later new symbols become atoms.
-  // The same stack holds identities, names, and calls under construction.
-  const stack = []
-
-  // The graph contains only arrays. Names stay here for lookup and display.
-  const legend = []
-
-  const named = symbol =>
-    stack.findLast(entry => entry.symbol === symbol)
-
-  const bind = (node, symbol) => {
-    const entry = { node, symbol, label: { node, symbol } }
-    stack.push(node, entry)
-    legend.push(entry.label)
-    return entry
-  }
-
-  // A later new name becomes a graph-native atom.
-  const identify = symbol => {
-    const node = []
-    node[0] = node[1] = node
-    return bind(node, symbol)
-  }
-
-  const signatureOf = tree => {
-    const signature = []
-
-    while (Array.isArray(tree) && tree.length === 2) {
-      signature.unshift(tree[1])
-      tree = tree[0]
-    }
-
-    signature.unshift(tree)
-    return signature.length > 1
-      && signature.every(symbol => !Array.isArray(symbol))
-      && signature
-  }
-
-  const applyArgs = args =>
-    args.slice(1).reduce((left, right) => [left, right], args[0])
-
-  const definitionFor = node =>
-    stack.find(entry => entry.node === node && entry.parameters)
-
-  const partialFor = node =>
-    stack.find(entry =>
-      entry.answer?.[1] === node
-      && entry.arguments.length < entry.parameters.length)
-
-  const finish = (graph, left, right) => {
-    graph[0] = left.graph
-    graph[1] = right.graph
-    graph.length = 2
-
-    const call = left.call ?? (left.reference
-      ? startCall(graph, left.reference)
-      : left.partial
-        && startCall(graph, left.partial.definition, left.partial.arguments))
-
-    if (call) {
-      const argument = graph[1]
-      call.arguments.push(argument)
-      const arity = call.parameters.length
-
-      if (call.arguments.length < arity) {
-        // An incomplete call remains visible until another argument follows.
-        call.answer[1] = graph
-      } else if (call.arguments.length === arity) {
-        const prior = stack.find(entry =>
-          entry !== call
-          && entry.definition === call.definition
-          && entry.arguments?.length === arity
-          && entry.arguments.every(
-            (argument, i) => argument === call.arguments[i]))
-
-        if (prior) {
-          // A repeated active call shares its existing answer, tying recursion.
-          call.answer[1] = prior.answer
-        } else {
-          // A new complete call copies its body with argument identities.
-          const replacements = call.parameters.map(
-            (parameter, i) => [parameter, call.arguments[i]])
-          call.answer[1] = walk(call.definition.node[1], replacements).graph
-        }
-      } else {
-        // Arguments after a complete call apply to its answer.
-        call.answer[1] = walk([call.answer[1], argument], []).graph
-      }
-
-      let pair = call.answer
-      for (const argument of call.arguments) pair = [pair, argument]
-
-      graph[0] = pair
-      graph[1] = call.answer[1]
-    }
-
-    return { graph, call }
-  }
-
-  const startCall = (graph, entry, priorArguments = []) => {
-    // The call rewrites this pair as a redex on the left and its next state
-    // on the right, so a machine step can stay a plain right-edge projection.
-    const answer = []
-    answer[0] = answer
-    legend.push({ node: answer, symbol: entry.symbol })
-
-    const call =
-      { answer,
-        definition: entry,
-        parameters: entry.parameters,
-        arguments: [...priorArguments] }
-
-    let pair = answer
-    for (const argument of call.arguments) pair = [pair, argument]
-
-    graph[0] = pair
-    stack.push(call)
-    return call
-  }
-
-  const walk = (tree, replacements, defining = false, root = false) => {
-    if (!Array.isArray(tree)) {
-      const entry = named(tree) ?? identify(tree)
-      const { node } = entry
-      return { graph: node, reference: !defining && definitionFor(node) }
-    }
-
-    if (!replacements) {
-      if (tree.length === 1) return walk(tree[0], undefined, defining)
-
-      const signature = !root && tree.length === 2 && signatureOf(tree[0])
-      if (signature && !named(signature[0])) {
-        const graph = tree
-        const scopeStart = stack.length
-        const entry = bind(graph, signature[0])
-        const parameters =
-          signature.slice(1).map(symbol => identify(symbol).node)
-        const body = walk(tree[1], undefined, true)
-
-        graph[0] = applyArgs(parameters)
-        graph[1] = body.graph
-        graph.length = 2
-        entry.node = entry.label.node = graph
-        entry.parameters = parameters
-
-        stack.length = scopeStart
-        stack.push(graph, entry)
-        return { graph }
-      }
-
-      const length = tree.length
-      const graph = tree
-      let result
-
-      tree.forEach((node, i) => {
-        const child = walk(node, undefined, defining)
-        result = result
-          ? finish(i === length - 1 ? tree : [], result, child)
-          : child
-      })
-
-      return result
-    }
-
-    // Body copies replace parameter identities but share existing identities.
-    const replacement = replacements.find(([from]) => tree === from)
-    const node = replacement?.[1] ?? tree
-    const reference = definitionFor(node)
-    const partial = partialFor(node)
-
-    if (replacement
-        || node[0] === node && node[1] === node
-        || reference || partial)
-      return { graph: node, reference, partial }
-
-    const graph = []
-
-    // Already-linked self references become the current pair.
-    const left = tree[0] === tree
-      ? { graph }
-      : walk(tree[0], replacements, defining)
-
-    const right = tree[1] === tree
-      ? { graph }
-      : walk(tree[1], replacements, defining)
-
-    return finish(graph, left, right)
-  }
-
   try {
-    const tree = typeof source === 'string' ? parse(source) : source
-    return { graph: walk(tree, undefined, false, true).graph, legend }
+    const tree = parse(source)
+    const graph = _link(tree)
+    console.log()
+    log({ graph })
+    console.log()
+    return { graph, legend: [] }
   } catch (error) {
     return { graph: [], legend: [], error }
   }
 }
+
+
+/**
+[
+  [ 'K', [ [ <ref *1> [ [Circular *1], [Circular *1] ], <ref *2> [ [Circular *2], [Circular *2] ] ],
+           <ref *1> [ [Circular *1], [Circular *1] ] ]
+    [ 'x', <ref *1> [ [Circular *1], [Circular *1] ] ],
+    [ 'y', <ref *2> [ [Circular *2], [Circular *2] ] ]
+  ],
+]
+
+The overall shape of what I'd envisioned: A Dyck lattice we recurse through,
+with the height as the stack depth and the zero point the current scope
+boundary. The zero point of this Dyck stack moves along with the
+lefmost-outermost recursion through the tree as we replace symbols with
+identities; like to like, free variables remain atoms, and anything above the
+scope is unreachable for the current branch. The first element is its own
+enclosing pair, and thus remains in the parent scope of the spine.  The result
+is like a crystal lattice of wirrors, or wormholes, arranged such that whatever
+pairs with the crystal will undergo a deterministic transformation.
+
+I wanted to know whether it was possible to use cycles within the structure to
+project a Turing-complete language into an internal observer carried along in a
+loop fixed to the graph; something like a chain and sprocket. It turns out,
+almost, but we concluded that without growth the best you can do is cycle. I
+still wonder whether a cycle would do the job, though. I mean, my laptop doesn't
+get bigger the more that I use it. Maybe that's what a block universe is.
+Regardless, the lattice can expand and/or make new associations (linkages)
+immutably through structural sharing, and garbage collection is simply
+unreachability.
+
+My version also used `forEach` to walk through children to further emphasize
+pair-locality, and because I suspect we don't actually need to curry everything
+into pairs; that sequence is what matters. (Pairs are what you see when you look
+at any point, and what `link` loops over.) With `forEach`, you're either looking
+at the head or you're not, but have no concept of left vs. right.
+
+I backtracked because I was getting discouraged with the progress on that
+branch, and `main` had a more complete Lisp and was arguably more readable. What
+we've shown here is invaluable, and you were aboslutely right to not want to
+throw away the one with the essay by Fable 5 about the program that already
+existed. It's very compelling. But the code is not elegant. Elegance matters
+here because we must learn from the lattice itself to get the whole system to be
+what it is, an unfolding revalation.
+
+I don't think we need to include the "all parentheses" contract between the
+syntax and linking layers that I added in
+07c6beadeab364f99e42fbde5c6db7d9f319fddc, and we should discuss what the actual
+source syntax should be. I'm considering a sort of purified Scheme that omits
+`define` and maybe `let`. Scott encodings might be necessary in the core but
+they're not very friendly. I actually wonder whether we can stop referencing the
+work of others in this area and just grow by wrapping. All these extra arguments
+feel imposed.
+
+Along the same lines, in the other branch we did away with a definition wrapper:
+The stack tracks `I: [x, x]`, not `I: [[I x] x]`, simplifying the lattice. The
+serializer can pull the original back out of the legend. I also want to remove
+all the added self-references from the compiler entirely and make it dumb. The
+source Lisp should fully express the graph. () means self.
+
+For the observer, I'm not sure we want to go as far as to make it a pure stepper
+as we did in the final commit on that branch,
+6c10fe7f9e3d7bb58a1d71bf503192cef5cac65e.  Maybe. We should definitely review
+the other changes up to that point so that we don't miss any improvements,
+though. One possibility is that we jump over to that branch, revert to b5bac38
+and cherry-pick anything we like from later commits. Then we'd need to decide
+about our current branch and main.
+
+We could merge our current branch into main first, but I'd want a clean
+separation between the syntax and graph layers, with only a single export from
+syntax.js so we can write something similar to the `graph = link(tree)` concept.
+Or we could pull the best parts of 'Simplfy compiler' into it and reoncile the
+tests. Or the other way around.
+*/

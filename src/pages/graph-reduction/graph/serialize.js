@@ -1,5 +1,7 @@
-export const log = x =>
-  (typeof x === 'string' ? console.log(x) : console.dir(x, { depth: null }), x)
+export const log = (x, label) =>
+  (label && console.log(label),
+  console.dir(x, { colors: true, depth: null }),
+  x)
 
 export const schemes = Object.freeze(
   { ink: 'ink', pastel: 'pastel', color: 'color', plain: 'plain' })
