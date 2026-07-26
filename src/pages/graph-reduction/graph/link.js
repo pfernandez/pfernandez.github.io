@@ -3,37 +3,55 @@ Error.stackTraceLimit = 1
 import { parse } from './parse.js'
 import { log } from './serialize.js'
 
-const isSymbol = node => !Array.isArray(node)
+const isSymbol = node => typeof node === 'string'
+const isAtom = node => node[0] === node && node[1] === node
 
-const _link = (focus, context = { index: 0, boundary: focus, stack: [] }) => {
+const _link = (
+  focus,
+  context = { index: 0, boundary: focus, stack: [], parent: null }
+) => {
+  if (isSymbol(focus) || isAtom(focus)) return focus
+
   const [first, next] = isSymbol(focus) ? [] : focus
-  const { index, boundary, stack } = context
+  const { index, boundary, stack, parent } = context
   let branch = stack
-  let zero = boundary
+  let unwrap = false
 
   if (isSymbol(first)) {
     const ref = stack.find(entry => entry?.[0] === first)?.[1]
 
-    if(!ref) {
+    if (!ref) {
       // New symbol = New stack entry = New scope = Zero point boundary
-      focus[index] = next  // Unwrap def
-      branch = [first, boundary]
+      const start = stack.findLastIndex(entry => entry?.length > 2) + 1
+      const locals = stack.splice(start)
+      branch = [first, boundary, ...locals]
       stack.push(branch)
+      unwrap = true
     } else {
       // Preexisting symbol: Replace it with the ref
-      focus[index] = ref
+      focus[0] = ref
     }
   }
 
   if (isSymbol(next)) {
-    const atom = []
-    atom[0] = atom [1] = atom
-    branch.push([next, atom])
+    const ref = branch.find(entry => entry?.[0] === next)?.[1]
+    if (ref) {
+      focus[1] = ref
+    } else {
+      const atom = []
+      atom[0] = atom[1] = atom
+      focus[1] = atom
+      branch.push([next, atom])
+    }
   }
+
+  if (unwrap && parent)
+    parent[index] = focus[1]
+
   log({ focus, first, next, context })
 
   focus.forEach((child, i) =>
-    _link(child, { index: i, boundary: zero, stack: branch }))
+    _link(child, { index: i, boundary, stack: branch, parent: focus }))
 
   return focus
 }
@@ -42,8 +60,6 @@ export const link = source => {
   try {
     const tree = parse(source)
     const graph = _link(tree)
-    console.log()
-    log({ graph })
     console.log()
     return { graph, legend: [] }
   } catch (error) {
