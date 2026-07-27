@@ -4,58 +4,35 @@ import { parse } from './parse.js'
 import { log } from './serialize.js'
 
 const isSymbol = node => typeof node === 'string'
-const isAtom = node => node[0] === node && node[1] === node
 
 const _link = (
   focus,
-  context = { boundary: focus, index: 0, parent: null, stack: [] }
+  context = { index: 0, parent: null, branch: focus, stack: [] }
 ) => {
-  if (isSymbol(focus) || isAtom(focus)) return focus
+  const { index, branch, stack, parent } = context
+  let scope = branch
 
-  const [first, next] = focus
-  const { index, boundary, stack, parent } = context
-
-  let branch = stack
-
-  if (isSymbol(first)) {
-    const ref = stack.find(entry => entry?.[0] === first)?.[1]
+  if (isSymbol(focus)) {
+    const ref = stack.find(entry => entry?.[0] === focus)?.[1]
 
     if (ref) {
-      focus[0] = ref
-    } else {
-      // New leftmost symbol = new scope naming the current boundary.
-      const start = stack.findLastIndex(entry => entry?.length > 2) + 1
-      const locals = stack.splice(start)
-      branch = [first, boundary, ...locals]
-      stack.push(branch)
-    }
-  }
-
-  if (isSymbol(next)) {
-    const ref = branch.find(entry => entry?.[0] === next)?.[1]
-
-    if (ref) {
-      focus[1] = ref
+      parent[index] = ref
+    } else if (index === 0) {
+      scope = parent
+      stack.push(scope)
     } else {
       const atom = []
-      focus[1] = atom[0] = atom[1] = atom
-      branch.push([next, atom])
+      parent[index] = atom[0] = atom[1] = atom
+      scope.push([focus, atom])
     }
   }
 
-  if (parent && branch !== stack)
-    parent[index] = focus[1]
+  // log({ focus, index, scope, stack, parent })
+  log({ focus, parent, stack })
 
-  log({ focus, first, next, index, boundary, stack, parent }) // Keep
-
-  // To preserve local reasoning, do not traverse except for here. Keep all
-  // logic above, not in the forEach.
-  focus.forEach((child, i) =>
+  Array.isArray(focus) && focus.forEach((child, i) =>
     _link(child, {
-      boundary: i === 0 ? child : boundary,
-      index: i,
-      parent: focus,
-      stack: branch
+      index: i, parent: focus, branch: i === 0 ? child : scope, stack
     }))
 
   return focus
