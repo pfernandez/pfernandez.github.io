@@ -46,13 +46,17 @@ const _link = (
   if (parent && branch !== stack)
     parent[index] = focus[1]
 
-  // Keep
-  log({ focus, first, next, index, boundary, stack, parent })
+  log({ focus, first, next, index, boundary, stack, parent }) // Keep
 
   // To preserve local reasoning, do not traverse except for here. Keep all
   // logic above, not in the forEach.
   focus.forEach((child, i) =>
-    _link(child, { boundary, index: i, parent: focus, stack: branch }))
+    _link(child, {
+      boundary: i === 0 ? child : boundary,
+      index: i,
+      parent: focus,
+      stack: branch
+    }))
 
   return focus
 }
@@ -71,7 +75,8 @@ export const link = source => {
 
 /**
 [
-  [ 'K', [ [ <ref *1> [ [Circular *1], [Circular *1] ], <ref *2> [ [Circular *2], [Circular *2] ] ],
+  [ 'K', [ [ <ref *1> [ [Circular *1], [Circular *1] ],
+             <ref *2> [ [Circular *2], [Circular *2] ] ],
            <ref *1> [ [Circular *1], [Circular *1] ] ]
     [ 'x', <ref *1> [ [Circular *1], [Circular *1] ] ],
     [ 'y', <ref *2> [ [Circular *2], [Circular *2] ] ]
