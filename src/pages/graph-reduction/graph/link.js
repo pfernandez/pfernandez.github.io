@@ -5,35 +5,31 @@ import { log } from './serialize.js'
 
 const isSymbol = node => typeof node === 'string'
 
-const _link = (
-  focus,
-  context = { index: 0, parent: null, branch: focus, stack: [] }
-) => {
-  const { index, branch, stack, parent } = context
-  let scope = branch
+const _link = (focus, context = { i: 0, parent: null, stack: [] }) => {
+  const { i, parent, stack } = context
 
   if (isSymbol(focus)) {
-    const ref = stack.find(entry => entry?.[0] === focus)?.[1]
+    const ref = stack.find(entry => entry?.[0][0] === focus)?.[1]
 
     if (ref) {
-      parent[index] = ref
-    } else if (index === 0) {
-      scope = parent
-      stack.push(scope)
+      parent[i] = ref
     } else {
-      const atom = []
-      parent[index] = atom[0] = atom[1] = atom
-      scope.push([focus, atom])
+      let atom = []
+      atom[0] = parent[i] = atom
+      const entry = [focus, atom]
+
+      if (i === 0) {
+        stack.push([entry])
+      } else {
+        stack[stack.length - 1].push(entry)
+      }
     }
   }
 
-  // log({ focus, index, scope, stack, parent })
   log({ focus, parent, stack })
 
   Array.isArray(focus) && focus.forEach((child, i) =>
-    _link(child, {
-      index: i, parent: focus, branch: i === 0 ? child : scope, stack
-    }))
+    _link(child, { i: i, parent: focus, stack }))
 
   return focus
 }

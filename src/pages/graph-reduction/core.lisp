@@ -17,4 +17,5 @@
 ;  ; (((Succ Zero) I) a)
  ; )
 
-(K (x y) x)
+(((I x) x)
+ ((K x y) x))
