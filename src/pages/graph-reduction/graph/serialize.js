@@ -1,9 +1,9 @@
-export const log = (x, label) =>
-  (label && console.log(label),
-  typeof x === 'string'
-    ? console.log(x)
-    : console.dir(x, { colors: true, depth: null }),
-  x)
+export const log = (x, label) => {
+  if (label) console.log(label)
+  if (typeof x === 'string') console.log(x)
+  else console.dir(x, { colors: true, depth: null })
+  return x
+}
 
 export const schemes = Object.freeze(
   { ink: 'ink', pastel: 'pastel', color: 'color', plain: 'plain' })
@@ -14,11 +14,10 @@ const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
 const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
+const DEFAULT_WIDTH = 40
 
-const nameOf = (legend, node) => {
-  const entry = legend.find(entry => entry.node === node)
-  return entry && entry.symbol
-}
+const nameOf = (legend, node) =>
+  legend.find(entry => entry.node === node)?.symbol
 
 const xtermChannel = step => step === 0 ? 0 : 55 + step * 40
 
@@ -93,71 +92,108 @@ const textToken = text => ({ text })
 
 const identityToken = (text, identity) => ({ text, identity })
 
-const graphTokens = (
+const tokenDocument = token => ({ token, width: token.text.length })
+
+const graphDocument = (
   node,
   legend,
-  { path = '$', seen = new Map(), repeat = 'identity' } = {}
+  repeat = 'identity',
+  path = '$',
+  seen = new Map()
 ) => {
-  if (!Array.isArray(node)) return [textToken(String(node))]
+  if (!Array.isArray(node)) return tokenDocument(textToken(String(node)))
 
   const name = nameOf(legend, node)
-  if (name !== undefined) return [textToken(String(name))]
+  if (name !== undefined) return tokenDocument(textToken(String(name)))
 
   if (seen.has(node))
-    return repeat === 'path'
-      ? [textToken(seen.get(node))]
-      : [identityToken('()', jsIdentity(node))]
+    return tokenDocument(repeat === 'path'
+      ? textToken(seen.get(node))
+      : identityToken('()', jsIdentity(node)))
 
   seen.set(node, path)
-  const next = { path, seen, repeat }
+  const children = node.map((child, index) =>
+    graphDocument(child, legend, repeat, `${path}.${index}`, seen))
 
-  const nodeToken = text =>
-    repeat === 'path' ? textToken(text) : identityToken(text, jsIdentity(node))
-
-  return [
-    nodeToken('('),
-    ...node.flatMap((child, index) => [
-      ...(index ? [textToken(' ')] : []),
-      ...graphTokens(child, legend, {
-        ...next,
-        path: `${path}.${index}`
-      })
-    ]),
-    nodeToken(')')
-  ]
+  return {
+    children,
+    identity: repeat === 'path' ? undefined : jsIdentity(node),
+    width: 2 + Math.max(0, children.length - 1)
+      + children.reduce((width, child) => width + child.width, 0)
+  }
 }
 
-const wasmText = (view, root, legend, path = '$', seen = new Map()) => {
-  if (legend.has(root)) return String(legend.get(root))
-  if (seen.has(root)) return seen.get(root)
+const documentToken = (document, text) =>
+  document.identity === undefined
+    ? textToken(text)
+    : identityToken(text, document.identity)
 
-  seen.set(root, path)
-  const left = wasmText(
-    view, view.getUint32(root, true), legend, `${path}.0`, seen)
-  const right = wasmText(
-    view, view.getUint32(root + 4, true), legend, `${path}.1`, seen)
-  return `(${left} ${right})`
+const flatTokens = document => {
+  if (document.token) return [document.token]
+
+  const tokens = [documentToken(document, '(')]
+  document.children.forEach((child, index) => {
+    if (index) tokens.push(textToken(' '))
+    tokens.push(...flatTokens(child))
+  })
+  tokens.push(documentToken(document, ')'))
+  return tokens
 }
+
+const layoutTokens = (document, width, column = 0) => {
+  if (document.token || column + document.width <= width)
+    return { tokens: flatTokens(document), column: column + document.width }
+
+  const indent = column + 1
+  const tokens = [documentToken(document, '(')]
+  let end = indent
+
+  document.children.forEach((child, index) => {
+    if (index) {
+      tokens.push(textToken(`\n${' '.repeat(indent)}`))
+      end = indent
+    }
+
+    const layout = layoutTokens(child, width, end)
+    tokens.push(...layout.tokens)
+    end = layout.column
+  })
+
+  tokens.push(documentToken(document, ')'))
+  return { tokens, column: end + 1 }
+}
+
+const graphTokens = (node, legend, { width, repeat } = {}) =>
+  layoutTokens(graphDocument(node, legend, repeat), width).tokens
 
 const wasmTokens = (
   view,
   root,
   legend,
-  seen = new Set(),
-  identities = new Map()
+  { repeat = 'identity', path = '$', seen = new Map(),
+    identities = new Map() } = {}
 ) => {
   if (legend.has(root)) return [textToken(String(legend.get(root)))]
 
   const identity = wasmIdentity(root, identities)
-  if (seen.has(root)) return [identityToken('()', identity)]
+  if (seen.has(root))
+    return [repeat === 'path'
+      ? textToken(seen.get(root))
+      : identityToken('()', identity)]
 
-  seen.add(root)
+  seen.set(root, path)
+  const next = { repeat, seen, identities }
   return [
     identityToken('(', identity),
-    ...wasmTokens(view, view.getUint32(root, true), legend, seen, identities),
+    ...wasmTokens(view, view.getUint32(root, true), legend, {
+      ...next,
+      path: `${path}.0`
+    }),
     textToken(' '),
-    ...wasmTokens(
-      view, view.getUint32(root + 4, true), legend, seen, identities),
+    ...wasmTokens(view, view.getUint32(root + 4, true), legend, {
+      ...next,
+      path: `${path}.1`
+    }),
     identityToken(')', identity)
   ]
 }
@@ -224,23 +260,27 @@ const writeTrace = (output, options) => {
   const prefix =
     [count === false || count === undefined ? undefined : count,
      label].filter(part => part !== undefined).join(' ')
+  const separator = prefix && !prefix.endsWith('\n') ? ' ' : ''
 
   if (count !== false && count !== undefined) options.count = count + 1
 
-  return log(`${prefix ? `${prefix} ` : ''}${output}\n`)
+  return log(`${prefix}${separator}${output}\n`)
 }
 
 export const serialize = (
   graph,
-  { legend = [], format = 'text', scheme = schemes.color } = {}
-) =>
-  format === 'text'
-    ? tokensToText(graphTokens(graph, legend, { repeat: 'path' }))
-    : renderTokens(graphTokens(graph, legend), { format, scheme })
+  { legend = [], format = 'text', scheme = schemes.color,
+    width = DEFAULT_WIDTH } = {}
+) => renderTokens(graphTokens(graph, legend, {
+  width,
+  repeat: format === 'text' ? 'path' : 'identity'
+}), { format, scheme })
 
 export const trace = (graph, options = {}) => {
-  const { legend, format = 'ansi', scheme = schemes.color } = options
-  const output = serialize(graph, { legend: legend ?? [], format, scheme })
+  const { legend, format = 'ansi', scheme = schemes.color,
+          width = DEFAULT_WIDTH } = options
+  const output = serialize(
+    graph, { legend: legend ?? [], format, scheme, width })
 
   return writeTrace(output, options)
 }
@@ -259,10 +299,9 @@ export const serializeWasm = (
   view,
   root,
   { legend = new Map(), format = 'text', scheme = schemes.color } = {}
-) =>
-  format === 'text'
-    ? wasmText(view, root, legend)
-    : renderTokens(wasmTokens(view, root, legend), { format, scheme })
+) => renderTokens(wasmTokens(view, root, legend, {
+  repeat: format === 'text' ? 'path' : 'identity'
+}), { format, scheme })
 
 export const traceWasm = (view, root, options = {}) => {
   const { legend, format = 'ansi', scheme = schemes.color } = options

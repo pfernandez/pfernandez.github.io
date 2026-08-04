@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   addressLegend,
-  link,
   schemeNames,
   schemes,
   serialize,
@@ -14,9 +13,15 @@ import { image } from '../wasm/image.js'
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
-const I = '((I x) x)'
 
-const linkedAtom = () => link(`((${I}) (I a))`)
+const linkedAtom = () => {
+  const atom = []
+  atom[0] = atom[1] = atom
+  return {
+    graph: [atom, atom],
+    legend: [{ node: atom, symbol: 'a' }]
+  }
+}
 
 const imageView = ({ graph, legend }) => {
   const graphImage = image(graph)
@@ -71,11 +76,15 @@ describe('serialize', () => {
     const expected = '(x (y x) ())'
 
     assert.equal(serialize(graph, { legend }), expected)
+    assert.equal(
+      serialize(graph, { legend, width: 10 }),
+      '(x\n (y x)\n ())')
     assert.equal(stripAnsi(serialize(graph, {
       legend,
       format: 'ansi',
-      scheme: schemes.plain
-    })), expected)
+      scheme: schemes.plain,
+      width: 10
+    })), '(x\n (y x)\n ())')
     assert.match(serialize(graph, {
       legend,
       format: 'ansi'
@@ -130,11 +139,13 @@ describe('serialize', () => {
       trace(['a', 'b'], { scheme: schemes.plain })
       trace(['a', 'b'], countOptions)
       trace(['c', 'd'], countOptions)
+      trace(['a', 'b', 'c'], { scheme: schemes.plain, width: 5 })
       wasmTrace = traceWasm(graphImage.view, graphImage.focus, {
         legend: graphImage.legend,
         label: 'wasm',
         scheme: schemes.plain
       })
+      trace(['a', 'b'], { label: 'graph\n', scheme: schemes.plain })
     } finally {
       console.log = write
     }
@@ -144,14 +155,16 @@ describe('serialize', () => {
     assert.equal(output[1], '(a b)\n')
     assert.equal(output[2], '0 count (a b)\n')
     assert.equal(output[3], '1 count (c d)\n')
+    assert.equal(output[4], '(a\n b\n c)\n')
     assert.equal(
-      output[4],
+      output[5],
       `wasm ${serializeWasm(graphImage.view, graphImage.focus, {
         legend: graphImage.legend,
         format: 'ansi',
         scheme: schemes.plain
       })}\n`)
-    assert.equal(wasmTrace, output[4])
+    assert.equal(wasmTrace, output[5])
+    assert.equal(output[6], 'graph\n(a b)\n')
   })
 
   test('wasm serializes identically to graphs', () => {
