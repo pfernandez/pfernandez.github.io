@@ -2,28 +2,24 @@ Error.stackTraceLimit = 1
 import { parse } from './parse.js'
 import { log } from './serialize.js'
 
-const find = (symbol, stack, depth) =>
-  depth >= 0 && stack[depth].find(entry => entry[0] === symbol)?.[1]
-
 const fold = (tree, stack) =>
   Array.isArray(tree) && tree.forEach((node, i) => {
     if (typeof node === 'string') {
-      const depth = stack.length - 1
-      const ref = find(node, stack, depth)
+      const frame = stack[stack.length - 1]
+      const ref = frame?.find(([symbol]) => symbol === node)?.[1]
 
       if (ref) {
         tree[i] = ref
-        stack[depth].push([node, ref])
       } else {
         const atom = []
-        tree[i] = atom
+        tree[i] = atom[0] = atom
         const entry = [node, atom]
         if (i === 0) stack.push([entry])
-        else stack[depth].push(entry)
+        else frame.push(entry)
       }
     }
 
-    // log({ node, tree, stack })
+    log({ node, tree, stack })
 
     fold(node, stack)
   })
@@ -33,11 +29,9 @@ export const link = source => {
     const tree = parse(source)
     const stack = []
     fold(tree, stack)
-    log(tree)
     return { graph: tree,
-             legend: stack.flat().reduce((list, [symbol, node]) =>
-               list.some(x => x.node === node)
-                 ? list : [...list, { node, symbol }], []) }
+             legend: stack.flat().map(
+               ([symbol, node]) => ({ node, symbol })) }
   } catch (error) {
     return { graph: [], legend: [], error }
   }
