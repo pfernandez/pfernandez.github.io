@@ -15,10 +15,6 @@ import { image } from '../wasm/image.js'
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 const I = '((I x) x)'
-const K = '(((K x) y) x)'
-const S = '((((S x) y) z) ((x z) (y z)))'
-const withCore = expression =>
-  `(${[I, K, S].join('\n')} ${expression})`
 
 const linkedAtom = () => link(`((${I}) (I a))`)
 
@@ -64,34 +60,23 @@ describe('serialize', () => {
     assert.match(serialize(root, { format: 'console' })[0], /%c/)
   })
 
-  test('expand shows named definition structure once', () => {
-    const linked = link(withCore('(((S a) b) c)'))
-    const { legend } = linked
-    const expanded = [
-      '((((x x)',
-      '    ((x y) x))',
-      '   (((x y) z) ((x z) (y z))))',
-      '  ((((S a) b) c) ((a c) (b c))))'
-    ].join('\n')
-    const presented = expanded
+  test('replaces references with symbols in arbitrary sequences', () => {
+    const x = []
+    const y = []
+    const graph = [x, [y, x], []]
+    const legend = [
+      { node: x, symbol: 'x' },
+      { node: y, symbol: 'y' }
+    ]
+    const expected = '(x (y x) ())'
 
-    assert.equal(serialize(linked.graph, {
+    assert.equal(serialize(graph, { legend }), expected)
+    assert.equal(stripAnsi(serialize(graph, {
       legend,
-      expand: false
-    }), [
-      '(((I K) S) ((((S a) b) c) ((a c) (b c))))'
-    ].join(''))
-    assert.equal(
-      serialize(linked.graph, { legend }),
-      expanded)
-    assert.equal(
-      stripAnsi(serialize(linked.graph, {
-        legend,
-        format: 'ansi',
-        scheme: schemes.plain
-      })),
-      presented)
-    assert.match(serialize(linked.graph, {
+      format: 'ansi',
+      scheme: schemes.plain
+    })), expected)
+    assert.match(serialize(graph, {
       legend,
       format: 'ansi'
     }), /\x1b\[38;5;/)
@@ -173,8 +158,7 @@ describe('serialize', () => {
     const linked = linkedAtom()
     const graphImage = imageView(linked)
     const text = serialize(linked.graph, {
-      legend: linked.legend,
-      expand: false
+      legend: linked.legend
     })
 
     assert.equal(
@@ -196,7 +180,6 @@ describe('serialize', () => {
       })),
       serialize(linked.graph, {
         legend: linked.legend,
-        expand: false,
         format: 'ansi',
         scheme: schemes.plain
       }))

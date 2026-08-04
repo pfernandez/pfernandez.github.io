@@ -1,6 +1,8 @@
 export const log = (x, label) =>
   (label && console.log(label),
-  console.dir(x, { colors: true, depth: null }),
+  typeof x === 'string'
+    ? console.log(x)
+    : console.dir(x, { colors: true, depth: null }),
   x)
 
 export const schemes = Object.freeze(
@@ -17,24 +19,6 @@ const nameOf = (legend, node) => {
   const entry = legend.find(entry => entry.node === node)
   return entry && entry.symbol
 }
-
-const isFixed = node =>
-  Array.isArray(node) && node[0] === node
-
-const isDefinition = (legend, node) =>
-  nameOf(legend, node) !== undefined && !isFixed(node)
-
-const isDefinitionSequence = (legend, node, seen = new Set()) => {
-  if (isDefinition(legend, node)) return true
-  if (!Array.isArray(node) || isFixed(node)) return false
-  if (seen.has(node)) return true
-
-  seen.add(node)
-  return isDefinitionSequence(legend, node[0], seen)
-    && isDefinitionSequence(legend, node[1], seen)
-}
-
-const indentOf = path => path.split('.').length + 1
 
 const xtermChannel = step => step === 0 ? 0 : 55 + step * 40
 
@@ -112,14 +96,12 @@ const identityToken = (text, identity) => ({ text, identity })
 const graphTokens = (
   node,
   legend,
-  { expand = false, path = '$', seen = new Map(), inName = false,
-    inDefinitions = false, repeat = 'identity' } = {}
+  { path = '$', seen = new Map(), repeat = 'identity' } = {}
 ) => {
   if (!Array.isArray(node)) return [textToken(String(node))]
 
   const name = nameOf(legend, node)
-  if (name !== undefined && (!expand || isFixed(node) || seen.has(node)))
-    return [textToken(String(name))]
+  if (name !== undefined) return [textToken(String(name))]
 
   if (seen.has(node))
     return repeat === 'path'
@@ -127,34 +109,21 @@ const graphTokens = (
       : [identityToken('()', jsIdentity(node))]
 
   seen.set(node, path)
-  const next = { expand, path, seen, inName: inName || name !== undefined,
-                 inDefinitions, repeat }
+  const next = { path, seen, repeat }
 
-  const startsDefinitions = expand && !inName && name === undefined && (
-    inDefinitions
-      || path === '$' && isDefinitionSequence(legend, node[0])
-      || isDefinitionSequence(legend, node[0])
-        && isDefinitionSequence(legend, node[1]))
-
-  const separator = startsDefinitions ? `\n${' '.repeat(indentOf(path))}` : ' '
-
-  const pairToken = text =>
+  const nodeToken = text =>
     repeat === 'path' ? textToken(text) : identityToken(text, jsIdentity(node))
 
   return [
-    pairToken('('),
-    ...graphTokens(node[0], legend, {
-      ...next,
-      path: `${path}.0`,
-      inDefinitions: startsDefinitions && isDefinitionSequence(legend, node[0])
-    }),
-    textToken(separator),
-    ...graphTokens(node[1], legend, {
-      ...next,
-      path: `${path}.1`,
-      inDefinitions: startsDefinitions && isDefinitionSequence(legend, node[1])
-    }),
-    pairToken(')')
+    nodeToken('('),
+    ...node.flatMap((child, index) => [
+      ...(index ? [textToken(' ')] : []),
+      ...graphTokens(child, legend, {
+        ...next,
+        path: `${path}.${index}`
+      })
+    ]),
+    nodeToken(')')
   ]
 }
 
@@ -263,17 +232,15 @@ const writeTrace = (output, options) => {
 
 export const serialize = (
   graph,
-  { legend = [], format = 'text', scheme = schemes.color, expand = true } = {}
+  { legend = [], format = 'text', scheme = schemes.color } = {}
 ) =>
   format === 'text'
-    ? tokensToText(graphTokens(graph, legend, { expand, repeat: 'path' }))
-    : renderTokens(graphTokens(graph, legend, { expand }), { format, scheme })
+    ? tokensToText(graphTokens(graph, legend, { repeat: 'path' }))
+    : renderTokens(graphTokens(graph, legend), { format, scheme })
 
 export const trace = (graph, options = {}) => {
-  const { legend, format = 'ansi', scheme = schemes.color, expand = true }
-    = options
-  const output = serialize(
-    graph, { legend: legend ?? [], format, scheme, expand })
+  const { legend, format = 'ansi', scheme = schemes.color } = options
+  const output = serialize(graph, { legend: legend ?? [], format, scheme })
 
   return writeTrace(output, options)
 }

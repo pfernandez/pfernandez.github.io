@@ -46,8 +46,7 @@ describe('the image is the graph', () => {
     assert.equal(
       serializeWasm(memory, found, { legend }),
       serialize(step(linked.graph[1]), {
-        legend: linked.legend,
-        expand: false
+        legend: linked.legend
       }))
   })
 
@@ -80,8 +79,7 @@ describe('the machine runs graph bytes', () => {
     assert.equal(
       serializeWasm(machine.memory, result, { legend: machine.legend }),
       serialize(step(linked.graph[1]), {
-        legend: linked.legend,
-        expand: false
+        legend: linked.legend
       }))
   })
 

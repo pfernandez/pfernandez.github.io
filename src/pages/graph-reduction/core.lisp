@@ -17,6 +17,8 @@
 ;  ; (((Succ Zero) I) a)
  ; )
 
-(((I x) x)
- ((K x y) x)
- ((S x y z) ((x z) (y z))))
+((((I x) x)
+  ((K x y) x)
+  ((S x y z) ((x z) (y z)))
+  ((Y f) (f (Y f))))
+ (S a b c))
