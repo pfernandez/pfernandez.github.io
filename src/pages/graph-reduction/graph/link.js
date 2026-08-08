@@ -37,7 +37,7 @@ const fold = (tree, stack = []) => {
         graph[i] = Object.freeze(atom)
       }
     } else {
-      const branch = fold(node, stack)
+      const branch = fold(node, i === 1 && graph[0] === graph ? [] : stack)
       graph[i] = branch
 
       if (i === 1 && isSymbol(tree[0]))
