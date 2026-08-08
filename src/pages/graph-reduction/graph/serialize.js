@@ -16,9 +16,6 @@ const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
 const DEFAULT_WIDTH = 40
 
-const nameOf = (legend, node) =>
-  legend.find(entry => entry.node === node)?.symbol
-
 const xtermChannel = step => step === 0 ? 0 : 55 + step * 40
 
 const xtermColor = color => {
@@ -96,24 +93,25 @@ const tokenDocument = token => ({ token, width: token.text.length })
 
 const graphDocument = (
   node,
-  legend,
   repeat = 'identity',
   path = '$',
   seen = new Map()
 ) => {
   if (!Array.isArray(node)) return tokenDocument(textToken(String(node)))
 
-  const name = nameOf(legend, node)
-  if (name !== undefined) return tokenDocument(textToken(String(name)))
-
   if (seen.has(node))
-    return tokenDocument(repeat === 'path'
-      ? textToken(seen.get(node))
-      : identityToken('()', jsIdentity(node)))
+    return tokenDocument(node.symbol === undefined
+      ? repeat === 'path'
+        ? textToken(seen.get(node))
+        : identityToken('()', jsIdentity(node))
+      : identityToken(String(node.symbol), jsIdentity(node)))
+
+  if (node.symbol !== undefined && node[0] === node && node[1] === node)
+    return tokenDocument(identityToken(String(node.symbol), jsIdentity(node)))
 
   seen.set(node, path)
   const children = node.map((child, index) =>
-    graphDocument(child, legend, repeat, `${path}.${index}`, seen))
+    graphDocument(child, repeat, `${path}.${index}`, seen))
 
   return {
     children,
@@ -163,8 +161,8 @@ const layoutTokens = (document, width, column = 0) => {
   return { tokens, column: end + 1 }
 }
 
-const graphTokens = (node, legend, { width, repeat } = {}) =>
-  layoutTokens(graphDocument(node, legend, repeat), width).tokens
+const graphTokens = (node, { width, repeat } = {}) =>
+  layoutTokens(graphDocument(node, repeat), width).tokens
 
 const wasmTokens = (
   view,
@@ -173,24 +171,30 @@ const wasmTokens = (
   { repeat = 'identity', path = '$', seen = new Map(),
     identities = new Map() } = {}
 ) => {
-  if (legend.has(root)) return [textToken(String(legend.get(root)))]
-
+  const symbol = legend.get(root)
   const identity = wasmIdentity(root, identities)
   if (seen.has(root))
-    return [repeat === 'path'
-      ? textToken(seen.get(root))
-      : identityToken('()', identity)]
+    return [symbol === undefined
+      ? repeat === 'path'
+        ? textToken(seen.get(root))
+        : identityToken('()', identity)
+      : identityToken(String(symbol), identity)]
+
+  const left = view.getUint32(root, true)
+  const right = view.getUint32(root + 4, true)
+  if (symbol !== undefined && left === root && right === root)
+    return [identityToken(String(symbol), identity)]
 
   seen.set(root, path)
   const next = { repeat, seen, identities }
   return [
     identityToken('(', identity),
-    ...wasmTokens(view, view.getUint32(root, true), legend, {
+    ...wasmTokens(view, left, legend, {
       ...next,
       path: `${path}.0`
     }),
     textToken(' '),
-    ...wasmTokens(view, view.getUint32(root + 4, true), legend, {
+    ...wasmTokens(view, right, legend, {
       ...next,
       path: `${path}.1`
     }),
@@ -269,28 +273,25 @@ const writeTrace = (output, options) => {
 
 export const serialize = (
   graph,
-  { legend = [], format = 'text', scheme = schemes.color,
-    width = DEFAULT_WIDTH } = {}
-) => renderTokens(graphTokens(graph, legend, {
+  { format = 'text', scheme = schemes.color, width = DEFAULT_WIDTH } = {}
+) => renderTokens(graphTokens(graph, {
   width,
   repeat: format === 'text' ? 'path' : 'identity'
 }), { format, scheme })
 
 export const trace = (graph, options = {}) => {
-  const { legend, format = 'ansi', scheme = schemes.color,
+  const { format = 'ansi', scheme = schemes.color,
           width = DEFAULT_WIDTH } = options
-  const output = serialize(
-    graph, { legend: legend ?? [], format, scheme, width })
+  const output = serialize(graph, { format, scheme, width })
 
   return writeTrace(output, options)
 }
 
-export const addressLegend = ({ addresses }, legend = []) => {
+export const addressLegend = ({ addresses }) => {
   const byAddress = new Map()
 
-  for (const { node, symbol } of legend)
-    if (addresses.has(node))
-      byAddress.set(addresses.get(node), symbol)
+  for (const [node, address] of addresses)
+    if (node.symbol !== undefined) byAddress.set(address, node.symbol)
 
   return byAddress
 }

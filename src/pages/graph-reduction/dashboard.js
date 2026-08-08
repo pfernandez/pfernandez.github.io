@@ -16,7 +16,7 @@ const infer = (
 
 const dashboard = component(
   (state = initialState) => {
-    const { graph, legend, source, history, error, scheme } = state
+    const { graph, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
     const view = () =>
@@ -54,7 +54,7 @@ const dashboard = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : serialize(graph, { legend, format: 'vdom', scheme })),
+                  : serialize(graph, { format: 'vdom', scheme })),
 
           div({ class: 'description row' }, `Steps: ${time}`)))
   })

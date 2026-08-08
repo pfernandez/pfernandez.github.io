@@ -18,8 +18,18 @@ const linked = source => {
   return result
 }
 
-const named = (legend, symbol) =>
-  legend.find(entry => entry.symbol === symbol).node
+const named = (graph, symbol) => {
+  const pending = [graph]
+  const seen = new Set()
+
+  while (pending.length) {
+    const node = pending.shift()
+    if (!Array.isArray(node) || seen.has(node)) continue
+    seen.add(node)
+    if (node.symbol === symbol) return node
+    pending.push(...node)
+  }
+}
 
 const steps = (graph, count) => {
   let result = graph
@@ -28,36 +38,20 @@ const steps = (graph, count) => {
   return result
 }
 
-const assertPairs = root => {
-  const pending = [root]
-  const seen = new Set()
-
-  while (pending.length) {
-    const pair = pending.pop()
-    if (seen.has(pair)) continue
-    seen.add(pair)
-    assert.equal(Array.isArray(pair), true)
-    assert.equal(pair.length, 2)
-    pending.push(pair[0], pair[1])
-  }
-}
-
 describe('link', () => {
   test('links a bare atom', () => {
-    const { graph, legend } = linked('a')
+    const { graph } = linked('a')
 
     assert.equal(graph[0], graph)
     assert.equal(step(graph), graph)
-    assert.equal(graph, named(legend, 'a'))
-    assertPairs(graph)
+    assert.equal(graph, named(graph, 'a'))
   })
 
   test('wires the combinator graph by identity', () => {
-    const { graph, legend } =
-      linked(program([I, K, S], '(((S a) b) c)'))
-    const linkedI = named(legend, 'I')
-    const linkedK = named(legend, 'K')
-    const linkedS = named(legend, 'S')
+    const { graph } = linked(program([I, K, S], '(((S a) b) c)'))
+    const linkedI = named(graph, 'I')
+    const linkedK = named(graph, 'K')
+    const linkedS = named(graph, 'S')
 
     assert.equal(linkedI[0], linkedI[1])
     assert.equal(linkedK[0][0], linkedK[1])
@@ -68,7 +62,6 @@ describe('link', () => {
 
     const result = steps(graph, 2)
     assert.equal(result[0][1], result[1][1])
-    assertPairs(graph)
   })
 
   test('copies complete calls and preserves partial calls', () => {
@@ -86,9 +79,9 @@ describe('link', () => {
   })
 
   test('answers calls created by copies', () => {
-    const { graph, legend } = linked(program([I, K, S], '(((S K) K) a)'))
+    const { graph } = linked(program([I, K, S], '(((S K) K) a)'))
 
-    assert.equal(steps(graph, 3), named(legend, 'a'))
+    assert.equal(steps(graph, 3), named(graph, 'a'))
   })
 
   test('ties recursive calls into an unbounded step cycle', () => {

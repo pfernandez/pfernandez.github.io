@@ -22,7 +22,7 @@ const view = bytes =>
 
 const loadMachine = async linked => {
   const graphImage = image(linked.graph, linked.graph[1])
-  const authoredLegend = addressLegend(graphImage, linked.legend)
+  const authoredLegend = addressLegend(graphImage)
   const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
 
@@ -39,22 +39,20 @@ describe('the image is the graph', () => {
     const linked = program('a')
     const graphImage = image(linked.graph, linked.graph[1])
     const { bytes, focus } = graphImage
-    const legend = addressLegend(graphImage, linked.legend)
+    const legend = addressLegend(graphImage)
     const memory = view(bytes)
     const found = stepAddress(memory, focus)
 
     assert.equal(
       serializeWasm(memory, found, { legend }),
-      serialize(step(linked.graph[1]), {
-        legend: linked.legend
-      }))
+      serialize(step(linked.graph[1])))
   })
 
   test('source identities retain their links', () => {
     const linked = program('a')
     const graphImage = image(linked.graph, linked.graph[1])
     const { bytes } = graphImage
-    const legend = addressLegend(graphImage, linked.legend)
+    const legend = addressLegend(graphImage)
     const memory = view(bytes)
     const address = name =>
       [...legend].find(([, entry]) => entry === name)[0]
@@ -78,9 +76,7 @@ describe('the machine runs graph bytes', () => {
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
       serializeWasm(machine.memory, result, { legend: machine.legend }),
-      serialize(step(linked.graph[1]), {
-        legend: linked.legend
-      }))
+      serialize(step(linked.graph[1])))
   })
 
   test('partials are idempotent inside the machine', async () => {
@@ -105,7 +101,7 @@ describe('the machine runs graph bytes', () => {
       const graphImage = image(linked.graph, linked.graph[1])
       return emit({
         ...graphImage,
-        legend: addressLegend(graphImage, linked.legend)
+        legend: addressLegend(graphImage)
       })
     }
     const a = sections(emitGraph(program('a')))

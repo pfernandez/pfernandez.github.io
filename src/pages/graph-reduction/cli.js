@@ -10,18 +10,17 @@ if (main()) {
   const file = process.argv[2] ?? new URL('./core.lisp', import.meta.url)
   const source = readFileSync(file, 'utf-8')
 
-  const { graph, legend, error } = link(source)
+  const { graph, error } = link(source)
 
   if (error) throw error
 
-  log({ graph, legend })
-
-  let focus = log(step(graph))
-  trace(graph, { label: 'graph\n', legend })
-  focus = step(graph)
-  trace(focus, { label: 'focus', legend })
-  focus = step(focus)
-  trace(focus, { label: 'focus', legend })
+  trace(graph, { label: 'graph\n' })
+  // let focus = step(graph)
+  // trace(focus, { label: 'focus' })
+  // focus = step(graph)
+  // trace(focus, { label: 'focus' })
+  // focus = step(focus)
+  // trace(focus, { label: 'focus' })
 
   // `step` is only a right-edge projection. The graph must carry any observer
   // state, history, and next event needed to make that projection meaningful.

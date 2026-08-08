@@ -2,69 +2,45 @@ Error.stackTraceLimit = 1
 import { parse } from './parse.js'
 import { log } from './serialize.js'
 
-const fold = (tree, stack) =>
-  Array.isArray(tree) && tree.forEach((node, i) => {
-    if (typeof node === 'string') {
-      const frame = stack[stack.length - 1]
-      const ref = frame?.find(([symbol]) => symbol === node)?.[1]
+const find = (symbol, stack, i = stack.length - 1) =>
+  i >= 0 && (stack[i].find(node => node?.symbol === symbol)
+    ?? find(symbol, stack, i - 1))
 
-      if (ref) {
+const fold = (tree, stack = []) => {
+  if (!Array.isArray(tree)) return
+  stack = [...stack, tree]
+
+  tree.forEach((node, i) => {
+    if (typeof node === 'string') {
+      const ref = find(node, stack)
+
+      if (i === 0) {
+        tree[i] = ref || tree
+        tree['symbol'] = node
+      } else if (ref) {
         tree[i] = ref
       } else {
         const atom = []
-        tree[i] = atom[0] = atom
-        const entry = [node, atom]
-        if (i === 0) stack.push([entry])
-        else frame.push(entry)
+        tree[i] = atom[0] = atom[1] = atom
+        atom['symbol'] = node
       }
+    } else {
+      fold(node, stack)
+      if (i === 1 && tree['symbol']) stack = [...stack, node]
     }
-
-    log({ node, tree, stack })
-
-    fold(node, stack)
   })
+
+  log({ tree, stack })
+}
 
 export const link = source => {
   try {
     const tree = parse(source)
-    const stack = []
-    fold(tree, stack)
-    return { graph: tree,
-             legend: stack.flat().map(
-               ([symbol, node]) => ({ node, symbol })) }
+    fold(tree)
+    return { graph: tree }
   } catch (error) {
-    return { graph: [], legend: [], error }
+    return { graph: [], error }
   }
 }
 
 // Can we count cycles without allocation, i.e. with a binary counter?
-
-// (((I x) x)
-//  ((K x y) x)
-//  ((S x y z) ((x z) (y z))))
-// [
-//   [
-//     [ <ref *1> [ [Circular *1] ], <ref *2> [ [Circular *2] ] ],
-//     <ref *2> [ [Circular *2] ]
-//   ],
-//   [
-//     [
-//       <ref *3> [ [Circular *3] ],
-//       <ref *4> [ [Circular *4] ],
-//       <ref *5> [ [Circular *5] ]
-//     ],
-//     <ref *4> [ [Circular *4] ]
-//   ],
-//   [
-//     [
-//       <ref *6> [ [Circular *6] ],
-//       <ref *7> [ [Circular *7] ],
-//       <ref *8> [ [Circular *8] ],
-//       <ref *9> [ [Circular *9] ]
-//     ],
-//     [
-//       [ <ref *7> [ [Circular *7] ], <ref *9> [ [Circular *9] ] ],
-//       [ <ref *8> [ [Circular *8] ], <ref *9> [ [Circular *9] ] ]
-//     ]
-//   ]
-// ]

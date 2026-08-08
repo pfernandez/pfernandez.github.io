@@ -2,30 +2,32 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { link, step } from './index.js'
 
-const assertPairs = root => {
+const namedNodes = root => {
   const pending = [root]
   const seen = new Set()
+  const named = []
 
   while (pending.length) {
-    const pair = pending.pop()
-    if (seen.has(pair)) continue
-    seen.add(pair)
-    assert.equal(Array.isArray(pair), true)
-    assert.equal(pair.length, 2)
-    pending.push(pair[0], pair[1])
+    const node = pending.shift()
+    if (!Array.isArray(node) || seen.has(node)) continue
+    seen.add(node)
+    if (node.symbol !== undefined) named.push(node)
+    pending.push(...node)
   }
+
+  return named
 }
 
 const resultOf = source => {
-  const { graph, legend, error } = link(source)
+  const { graph, error } = link(source)
   if (error) throw error
-  assertPairs(graph)
-  return { result: step(step(graph)), legend }
+  return { graph, result: step(step(graph)) }
 }
 
-const assertS = ({ result, legend }) => {
+const assertS = ({ graph, result }) => {
+  const namedNodesInGraph = namedNodes(graph)
   const named = symbol =>
-    legend.findLast(entry => entry.symbol === symbol).node
+    namedNodesInGraph.findLast(node => node.symbol === symbol)
 
   assert.equal(result[0][0], named('a'))
   assert.equal(result[0][1], named('c'))
@@ -42,7 +44,7 @@ test('links pair-expanded definitions', () => {
   `)
 
   assert.deepEqual(
-    linked.legend.map(entry => entry.symbol).sort(),
+    namedNodes(linked.graph).map(node => node.symbol).sort(),
     ['I', 'K', 'S', 'S', 'a', 'b', 'c', 'x', 'x', 'x', 'y', 'y', 'z']
       .sort())
   assertS(linked)

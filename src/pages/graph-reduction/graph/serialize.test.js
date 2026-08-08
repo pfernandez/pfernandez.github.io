@@ -17,19 +17,17 @@ const stripAnsi = value => value.replace(/\x1b\[[0-9;]*m/g, '')
 const linkedAtom = () => {
   const atom = []
   atom[0] = atom[1] = atom
-  return {
-    graph: [atom, atom],
-    legend: [{ node: atom, symbol: 'a' }]
-  }
+  atom.symbol = 'a'
+  return { graph: [atom, atom] }
 }
 
-const imageView = ({ graph, legend }) => {
+const imageView = ({ graph }) => {
   const graphImage = image(graph)
   const graphView = view(graphImage.bytes)
   return {
     view: graphView,
     focus: graphImage.focus,
-    legend: addressLegend(graphImage, legend)
+    legend: addressLegend(graphImage)
   }
 }
 
@@ -68,25 +66,23 @@ describe('serialize', () => {
   test('replaces references with symbols in arbitrary sequences', () => {
     const x = []
     const y = []
+    x[0] = x[1] = x
+    y[0] = y[1] = y
+    x.symbol = 'x'
+    y.symbol = 'y'
     const graph = [x, [y, x], []]
-    const legend = [
-      { node: x, symbol: 'x' },
-      { node: y, symbol: 'y' }
-    ]
     const expected = '(x (y x) ())'
 
-    assert.equal(serialize(graph, { legend }), expected)
+    assert.equal(serialize(graph), expected)
     assert.equal(
-      serialize(graph, { legend, width: 10 }),
+      serialize(graph, { width: 10 }),
       '(x\n (y x)\n ())')
     assert.equal(stripAnsi(serialize(graph, {
-      legend,
       format: 'ansi',
       scheme: schemes.plain,
       width: 10
     })), '(x\n (y x)\n ())')
     assert.match(serialize(graph, {
-      legend,
       format: 'ansi'
     }), /\x1b\[38;5;/)
   })
@@ -123,6 +119,22 @@ describe('serialize', () => {
     const second = serialize(root, { format: 'vdom', scheme: schemes.ink })
 
     assert.deepEqual(second, first)
+  })
+
+  test('symbols use the color of their identity', () => {
+    const transition = []
+    const atom = []
+    transition[0] = transition
+    transition[1] = atom[0] = atom[1] = atom
+    transition.symbol = 'T'
+    atom.symbol = 'a'
+
+    const output = serialize(transition, {
+      format: 'vdom',
+      scheme: schemes.color
+    })
+
+    assert.deepEqual(output[2][1].style, output[3][1].style)
   })
 
   test('trace writes an optional label and uses presentation defaults', () => {
@@ -170,9 +182,7 @@ describe('serialize', () => {
   test('wasm serializes identically to graphs', () => {
     const linked = linkedAtom()
     const graphImage = imageView(linked)
-    const text = serialize(linked.graph, {
-      legend: linked.legend
-    })
+    const text = serialize(linked.graph)
 
     assert.equal(
       serializeWasm(graphImage.view, graphImage.focus, {
@@ -192,7 +202,6 @@ describe('serialize', () => {
         scheme: schemes.ink
       })),
       serialize(linked.graph, {
-        legend: linked.legend,
         format: 'ansi',
         scheme: schemes.plain
       }))

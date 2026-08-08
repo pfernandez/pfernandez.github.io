@@ -175,7 +175,7 @@ if (main()) {
     const graphImage = image(linked.graph, linked.graph[1])
     bytes = emit({
       ...graphImage,
-      legend: addressLegend(graphImage, linked.legend)
+      legend: addressLegend(graphImage)
     })
     const out = path === source
       ? decodeURIComponent(new URL('./core.wasm', import.meta.url).pathname)
