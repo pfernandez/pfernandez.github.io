@@ -8,36 +8,41 @@ const find = (symbol, stack, i = stack.length - 1) =>
 
 const fold = (tree, stack = []) => {
   if (!Array.isArray(tree)) return
-  stack = [...stack, tree]
+  const graph = []
+  stack = [...stack, graph]
 
   tree.forEach((node, i) => {
     if (typeof node === 'string') {
       const ref = find(node, stack)
 
       if (i === 0) {
-        tree[i] = ref || tree
-        tree['symbol'] = node
+        graph[i] = ref || graph
+        graph['symbol'] = node
       } else if (ref) {
-        tree[i] = ref
+        graph[i] = ref
       } else {
         const atom = []
-        tree[i] = atom[0] = atom[1] = atom
+        graph[i] = atom[0] = atom[1] = atom
         atom['symbol'] = node
+        Object.freeze(atom)
       }
     } else {
-      fold(node, stack)
-      if (i === 1 && tree['symbol']) stack = [...stack, node]
+      const branch = fold(node, stack)
+      graph[i] = branch
+
+      if (i === 1 && graph['symbol'])
+        stack = [...stack, branch]
     }
   })
 
-  log({ tree, stack })
+  log({ graph, stack })
+  return Object.freeze(graph)
 }
 
 export const link = source => {
   try {
     const tree = parse(source)
-    fold(tree)
-    return { graph: tree }
+    return { graph: fold(tree) }
   } catch (error) {
     return { graph: [], error }
   }
