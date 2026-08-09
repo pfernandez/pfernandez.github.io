@@ -12,7 +12,7 @@ import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
 const source = arg =>
-  `(((I x) x) (I ${arg}))`
+  `((P x) (P ${arg}))`
 
 const program = arg =>
   link(source(arg))
@@ -58,12 +58,12 @@ describe('the image is the graph', () => {
       [...legend].find(([, entry]) => entry === name)[0]
     const a = address('a')
     const x = address('x')
-    const I = address('I')
+    const P = address('P')
 
     assert.equal(memory.getUint32(a, true), a)
     assert.equal(memory.getUint32(a + 4, true), a)
-    assert.equal(memory.getUint32(I, true), x)
-    assert.equal(memory.getUint32(I + 4, true), x)
+    assert.equal(memory.getUint32(P, true), P)
+    assert.equal(memory.getUint32(P + 4, true), x)
   })
 })
 
@@ -92,7 +92,7 @@ describe('the machine runs graph bytes', () => {
 
     assert.deepEqual(
       [...machine.authoredLegend.values()],
-      ['I', 'x', 'a', 'I'])
+      ['P', 'x', 'a'])
     assert.deepEqual([...machine.legend], [...machine.authoredLegend])
   })
 

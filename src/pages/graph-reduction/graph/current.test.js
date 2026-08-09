@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { link } from './index.js'
+import { link, step } from './index.js'
 
 const source = readFileSync(new URL('../core.lisp', import.meta.url), 'utf8')
 
@@ -16,7 +16,7 @@ test('links the current combinator identities', () => {
   const K = find(graph, 'K')
   const S = find(graph, 'S')
   const Y = find(graph, 'Y')
-  const call = graph.at(-1)
+  const application = graph.at(-1)
 
   const ix = find(I, 'x')
   assert.equal(I[0], I)
@@ -40,10 +40,10 @@ test('links the current combinator identities', () => {
   assert.equal(S[2][0].length, 2)
   assert.equal(S[2][1].length, 2)
 
-  const [args, result] = call
-  assert.equal(call.length, 2)
-  assert.equal(call.includes(S), false)
-  assert.equal(call['symbol'], undefined)
+  const [args, result] = application
+  assert.equal(application.length, 2)
+  assert.equal(application.includes(S), false)
+  assert.equal(application['symbol'], undefined)
   assert.notEqual(result, S[2])
   assert.equal(result[0][0], args[0])
   assert.equal(result[0][1], args[2])
@@ -51,6 +51,7 @@ test('links the current combinator identities', () => {
   assert.equal(result[1][1], args[2])
   assert.equal(result[0].length, 2)
   assert.equal(result[1].length, 2)
+  assert.equal(step(application), result)
 
   const yf = find(Y, 'f')
   assert.equal(Y[0], Y)
@@ -95,9 +96,9 @@ test('preserves an authored result', () => {
   const { graph, error } = link('((I x x) (I a b))')
   if (error) throw error
 
-  const [I, call] = graph
+  const [I, expression] = graph
   assert.equal(graph.length, 2)
-  assert.equal(call[0], I)
-  assert.equal(call[1]['symbol'], 'a')
-  assert.equal(call[2]['symbol'], 'b')
+  assert.equal(expression[0], I)
+  assert.equal(expression[1]['symbol'], 'a')
+  assert.equal(expression[2]['symbol'], 'b')
 })

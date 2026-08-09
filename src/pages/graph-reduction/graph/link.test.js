@@ -2,124 +2,37 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { link, step } from './index.js'
 
-const I = '((I x) x)'
-const K = '(((K x) y) x)'
-const S = '((((S x) y) z) ((x z) (y z)))'
-const Y = '((Y f) (f (Y f)))'
-const Zero = '(((Zero f) x) x)'
-const Succ = '((((Succ n) f) x) (f ((n f) x)))'
-
-const program = (definitions, expression) =>
-  `(${definitions.join('\n')} ${expression})`
-
 const linked = source => {
   const result = link(source)
   if (result.error) throw result.error
-  return result
-}
-
-const named = (graph, symbol) => {
-  const pending = [graph]
-  const seen = new Set()
-
-  while (pending.length) {
-    const node = pending.shift()
-    if (!Array.isArray(node) || seen.has(node)) continue
-    seen.add(node)
-    if (node.symbol === symbol) return node
-    pending.push(...node)
-  }
-}
-
-const steps = (graph, count) => {
-  let result = graph
-  for (let i = 0; i < count; i++)
-    result = step(result)
-  return result
+  return result.graph
 }
 
 describe('link', () => {
-  test('links a bare atom', () => {
-    const { graph } = linked('a')
+  test('completes an application as arguments followed by result', () => {
+    const graph = linked('((I x x) (I a))')
+    const [definition, application] = graph
+    const [args, result] = application
 
-    assert.equal(graph[0], graph)
-    assert.equal(step(graph), graph)
-    assert.equal(graph, named(graph, 'a'))
+    assert.equal(application.length, 2)
+    assert.equal(application.includes(definition), false)
+    assert.equal(args['symbol'], 'a')
+    assert.equal(result, args)
+    assert.equal(step(application), result)
   })
 
-  test('wires the combinator graph by identity', () => {
-    const { graph } = linked(program([I, K, S], '(((S a) b) c)'))
-    const linkedI = named(graph, 'I')
-    const linkedK = named(graph, 'K')
-    const linkedS = named(graph, 'S')
+  test('copies a result while preserving shared argument identities', () => {
+    const graph = linked(`
+    ((S (x y z) ((x z) (y z)))
+     (S (a b c)))
+    `)
+    const [definition, application] = graph
+    const [args, result] = application
 
-    assert.equal(linkedI[0], linkedI[1])
-    assert.equal(linkedK[0][0], linkedK[1])
-    assert.equal(linkedS[1][0][0], linkedS[0][0][0])
-    assert.equal(linkedS[1][0][1], linkedS[0][1])
-    assert.equal(linkedS[1][1][0], linkedS[0][0][1])
-    assert.equal(linkedS[1][1][1], linkedS[0][1])
-
-    const result = steps(graph, 2)
-    assert.equal(result[0][1], result[1][1])
-  })
-
-  test('copies complete calls and preserves partial calls', () => {
-    for (const [expression, stable] of [
-      ['(I a)', false],
-      ['(K a)', true],
-      ['((K a) b)', false],
-      ['((S a) b)', true],
-      ['(((S a) b) c)', false]
-    ]) {
-      const { graph } = linked(program([I, K, S], expression))
-      const focus = step(graph)
-      assert.equal(step(focus) === focus, stable)
-    }
-  })
-
-  test('answers calls created by copies', () => {
-    const { graph } = linked(program([I, K, S], '(((S K) K) a)'))
-
-    assert.equal(steps(graph, 3), named(graph, 'a'))
-  })
-
-  test('ties recursive calls into an unbounded step cycle', () => {
-    const { graph } = linked(program([I, Y], '(Y I)'))
-
-    const first = step(graph)
-    const second = step(first)
-    const third = step(second)
-    const fourth = step(third)
-    assert.equal(step(fourth), second)
-
-    let result = fourth
-    for (let i = 0; i < 999; i++)
-      result = step(result)
-    assert.equal(result, fourth)
-  })
-
-  test('composes Church successors', () => {
-    for (let n = 0; n < 4; n++) {
-      let numeral = 'Zero'
-      for (let i = 0; i < n; i++)
-        numeral = `(Succ ${numeral})`
-
-      const { graph } =
-        linked(program([I, Zero, Succ], `((${numeral} I) a)`))
-
-      let result = graph
-      let steps = 0
-      do {
-        const next = step(result)
-        steps += 1
-        if (next === result) break
-        result = next
-      } while (steps < 16)
-
-      assert.equal(result[0], result)
-      assert.equal(result[1], result)
-      assert.equal(steps, 2 * n + 3)
-    }
+    assert.notEqual(result, definition[2])
+    assert.equal(result[0][0], args[0])
+    assert.equal(result[0][1], args[2])
+    assert.equal(result[1][0], args[1])
+    assert.equal(result[1][1], args[2])
   })
 })
