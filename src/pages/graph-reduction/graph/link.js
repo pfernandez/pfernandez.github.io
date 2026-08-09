@@ -18,21 +18,38 @@ const fix = (graph, symbol, ...rest) => {
 
 const isSymbol = node => typeof node === 'string'
 
-const bind = (parameters, arguments_) => new Map(
-  parameters[1] === parameters
-    ? [[parameters, arguments_]]
-    : parameters.map((parameter, i) => [parameter, arguments_[i]]))
+const isCall = tree => tree.length === 2 && isSymbol(tree[0])
 
-const copy = (node, refs) => {
-  if (refs.has(node)) return refs.get(node)
-  if (node[0] === node) return node
-  const graph = []
-  refs.set(node, graph)
-  node.forEach(child => graph.push(copy(child, refs)))
-  return Object.freeze(graph)
+const apply = (graph, stack) => {
+  const library = stack
+    .filter(scope => scope !== graph && scope[0] !== scope)
+
+  const definition = graph[0]
+  const defined = library.some(scope => scope.includes(definition))
+
+  if (!defined || !definition[2]) return
+
+  const parameters = definition[1]
+  const args = graph[1]
+  const refs = parameters[1] === parameters
+    ? [[parameters, args]]
+    : parameters.map((parameter, i) => [parameter, args[i]])
+
+  const copy = node => {
+    const ref = refs.find(([source]) => source === node)
+    if (ref) return ref[1]
+    if (node[0] === node) return node
+
+    const branch = []
+    refs.push([node, branch])
+    node.forEach(child => branch.push(copy(child)))
+    return Object.freeze(branch)
+  }
+
+  graph.push(copy(definition[2]))
 }
 
-const fold = (tree, stack = [], definitions = new WeakSet()) => {
+const fold = (tree, stack = []) => {
   if (!Array.isArray(tree)) return
   const graph = []
   stack = [...stack, graph]
@@ -52,22 +69,15 @@ const fold = (tree, stack = [], definitions = new WeakSet()) => {
       }
     } else {
       const signature = i === 1 && graph[0] === graph
-      const branch = fold(node, signature ? [] : stack, definitions)
+      const branch = fold(node, signature ? [] : stack)
       graph[i] = branch
-
-      if (!signature && branch[0] === branch)
-        definitions.add(branch)
 
       if (i === 1 && isSymbol(tree[0]))
         stack = [...stack, branch]
     }
   })
 
-  const definition = graph[0]
-  if (tree.length === 2 && isSymbol(tree[0]) &&
-      definitions.has(definition) && definition[2])
-    graph.push(copy(definition[2], bind(definition[1], graph[1])))
-
+  if (isCall(tree)) apply(graph, stack)
   log({ graph, stack })
   return Object.freeze(graph)
 }

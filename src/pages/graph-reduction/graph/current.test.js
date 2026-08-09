@@ -40,14 +40,14 @@ test('links the current combinator identities', () => {
   assert.equal(S[2][0].length, 2)
   assert.equal(S[2][1].length, 2)
 
-  const [, arguments_, result] = call
+  const [, args, result] = call
   assert.equal(call[0], S)
   assert.equal(call['symbol'], undefined)
   assert.notEqual(result, S[2])
-  assert.equal(result[0][0], arguments_[0])
-  assert.equal(result[0][1], arguments_[2])
-  assert.equal(result[1][0], arguments_[1])
-  assert.equal(result[1][1], arguments_[2])
+  assert.equal(result[0][0], args[0])
+  assert.equal(result[0][1], args[2])
+  assert.equal(result[1][0], args[1])
+  assert.equal(result[1][1], args[2])
   assert.equal(result[0].length, 2)
   assert.equal(result[1].length, 2)
 
