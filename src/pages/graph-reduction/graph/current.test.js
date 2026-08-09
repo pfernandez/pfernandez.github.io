@@ -27,6 +27,7 @@ test('links the current combinator identities', () => {
   assert.equal(K[0], K)
   assert.equal(K[2][0], I)
   assert.equal(K[2][1], ky)
+  assert.equal(K[2][2], ky)
 
   const sx = find(S[1], 'x')
   const sy = find(S[1], 'y')
@@ -36,24 +37,31 @@ test('links the current combinator identities', () => {
   assert.equal(S[2][0][1], sz)
   assert.equal(S[2][1][0], sy)
   assert.equal(S[2][1][1], sz)
+  assert.equal(S[2][0].length, 2)
+  assert.equal(S[2][1].length, 2)
 
   const [, arguments_, result] = call
   assert.equal(call[0], S)
   assert.equal(call['symbol'], undefined)
+  assert.notEqual(result, S[2])
   assert.equal(result[0][0], arguments_[0])
   assert.equal(result[0][1], arguments_[2])
   assert.equal(result[1][0], arguments_[1])
   assert.equal(result[1][1], arguments_[2])
+  assert.equal(result[0].length, 2)
+  assert.equal(result[1].length, 2)
 
   const yf = find(Y, 'f')
   assert.equal(Y[0], Y)
   assert.equal(Y[2][0], yf)
   assert.equal(Y[2][1][0], Y)
   assert.equal(Y[2][1][1], yf)
+  assert.equal(Y[2][1].length, 2)
 
   assert.equal(Object.isFrozen(graph), true)
   assert.equal(Object.isFrozen(S), true)
   assert.equal(Object.isFrozen(sx), true)
+  assert.equal(Object.isFrozen(result), true)
 })
 
 test('shadows an outer parameter in a nested definition', () => {
@@ -69,4 +77,15 @@ test('shadows an outer parameter in a nested definition', () => {
   assert.notEqual(inner, outer)
   assert.equal(G[2], inner)
   assert.equal(sequence[1], outer)
+})
+
+test('preserves an authored result', () => {
+  const { graph, error } = link('((I x x) (I a b))')
+  if (error) throw error
+
+  const [I, call] = graph
+  assert.equal(graph.length, 2)
+  assert.equal(call[0], I)
+  assert.equal(call[1]['symbol'], 'a')
+  assert.equal(call[2]['symbol'], 'b')
 })

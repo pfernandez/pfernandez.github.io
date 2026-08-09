@@ -18,7 +18,21 @@ const fix = (graph, symbol, ...rest) => {
 
 const isSymbol = node => typeof node === 'string'
 
-const fold = (tree, stack = []) => {
+const bind = (parameters, arguments_) => new Map(
+  parameters[1] === parameters
+    ? [[parameters, arguments_]]
+    : parameters.map((parameter, i) => [parameter, arguments_[i]]))
+
+const copy = (node, refs) => {
+  if (refs.has(node)) return refs.get(node)
+  if (node[0] === node) return node
+  const graph = []
+  refs.set(node, graph)
+  node.forEach(child => graph.push(copy(child, refs)))
+  return Object.freeze(graph)
+}
+
+const fold = (tree, stack = [], definitions = new WeakSet()) => {
   if (!Array.isArray(tree)) return
   const graph = []
   stack = [...stack, graph]
@@ -37,13 +51,22 @@ const fold = (tree, stack = []) => {
         graph[i] = Object.freeze(atom)
       }
     } else {
-      const branch = fold(node, i === 1 && graph[0] === graph ? [] : stack)
+      const signature = i === 1 && graph[0] === graph
+      const branch = fold(node, signature ? [] : stack, definitions)
       graph[i] = branch
+
+      if (!signature && branch[0] === branch)
+        definitions.add(branch)
 
       if (i === 1 && isSymbol(tree[0]))
         stack = [...stack, branch]
     }
   })
+
+  const definition = graph[0]
+  if (tree.length === 2 && isSymbol(tree[0]) &&
+      definitions.has(definition) && definition[2])
+    graph.push(copy(definition[2], bind(definition[1], graph[1])))
 
   log({ graph, stack })
   return Object.freeze(graph)

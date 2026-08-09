@@ -4,5 +4,4 @@
  (S (x y z) ((x z) (y z)))
  (F (x) ((G (x) x) x))
  (Y f (f (Y f)))
- (S (a b c) ((a c) (b c))))  ; ((a c) (b c)) should have been inserted via
-                             ; copying of the definition, same as in K
+ (S (a b c)))
