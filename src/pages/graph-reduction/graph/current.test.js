@@ -25,9 +25,9 @@ test('links the current combinator identities', () => {
 
   const ky = find(K[1], 'y')
   assert.equal(K[0], K)
-  assert.equal(K[2][0], I)
+  assert.equal(K[2][0], ky)
   assert.equal(K[2][1], ky)
-  assert.equal(K[2][2], ky)
+  assert.equal(K[2].length, 2)
 
   const sx = find(S[1], 'x')
   const sy = find(S[1], 'y')
@@ -40,8 +40,9 @@ test('links the current combinator identities', () => {
   assert.equal(S[2][0].length, 2)
   assert.equal(S[2][1].length, 2)
 
-  const [, args, result] = call
-  assert.equal(call[0], S)
+  const [args, result] = call
+  assert.equal(call.length, 2)
+  assert.equal(call.includes(S), false)
   assert.equal(call['symbol'], undefined)
   assert.notEqual(result, S[2])
   assert.equal(result[0][0], args[0])

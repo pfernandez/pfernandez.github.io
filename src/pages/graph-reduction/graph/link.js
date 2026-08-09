@@ -8,17 +8,17 @@ const find = (symbol, stack, i = stack.length - 1) =>
 
 const fix = (graph, symbol, ...rest) => {
   graph[0] = graph
+  graph['symbol'] = symbol
 
   if (rest.length) graph.push(...rest)
   else graph[1] = graph
 
-  graph['symbol'] = symbol
   return graph
 }
 
 const isSymbol = node => typeof node === 'string'
 
-const isCall = tree => tree.length === 2 && isSymbol(tree[0])
+const isCall = node => node.length === 2 && isSymbol(node[0])
 
 const apply = (graph, stack) => {
   const library = stack
@@ -46,21 +46,22 @@ const apply = (graph, stack) => {
     return Object.freeze(branch)
   }
 
-  graph.push(copy(definition[2]))
+  graph[0] = args
+  graph[1] = copy(definition[2])
 }
 
-const fold = (tree, stack = []) => {
-  if (!Array.isArray(tree)) return
+const fold = (expression, stack = []) => {
+  if (!Array.isArray(expression)) return
   const graph = []
   stack = [...stack, graph]
 
-  tree.forEach((node, i) => {
+  expression.forEach((node, i) => {
     if (isSymbol(node)) {
       const ref = find(node, stack)
 
       if (i === 0) {
         if (ref) graph[i] = ref
-        else fix(graph, node, ...tree.slice(1))
+        else fix(graph, node, ...expression.slice(1))
       } else if (ref) {
         graph[i] = ref
       } else {
@@ -72,12 +73,12 @@ const fold = (tree, stack = []) => {
       const branch = fold(node, signature ? [] : stack)
       graph[i] = branch
 
-      if (i === 1 && isSymbol(tree[0]))
+      if (i === 1 && isSymbol(expression[0]))
         stack = [...stack, branch]
     }
   })
 
-  if (isCall(tree)) apply(graph, stack)
+  if (isCall(expression)) apply(graph, stack)
   log({ graph, stack })
   return Object.freeze(graph)
 }
