@@ -79,6 +79,17 @@ test('shadows an outer parameter in a nested definition', () => {
   assert.equal(sequence[1], outer)
 })
 
+test('captures an outer parameter in a nested definition', () => {
+  const { graph, error } = link('((F (x) (G (y) x)))')
+  if (error) throw error
+
+  const F = graph[0]
+  const G = F[2]
+
+  assert.notEqual(G[1], F[1])
+  assert.equal(G[2], F[1])
+})
+
 test('preserves an authored result', () => {
   const { graph, error } = link('((I x x) (I a b))')
   if (error) throw error
