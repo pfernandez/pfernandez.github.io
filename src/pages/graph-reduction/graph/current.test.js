@@ -9,14 +9,16 @@ const find = (scope, symbol) =>
   scope.find(node => node['symbol'] === symbol)
 
 test('links the current combinator identities', () => {
-  const { graph, error } = link(source)
+  const { graph, focus, error } = link(source)
   if (error) throw error
 
   const I = find(graph, 'I')
   const K = find(graph, 'K')
   const S = find(graph, 'S')
   const Y = find(graph, 'Y')
-  const application = graph.at(-1)
+  const application = focus
+
+  assert.equal(focus, graph.at(-1))
 
   const ix = find(I, 'x')
   assert.equal(I[0], I)

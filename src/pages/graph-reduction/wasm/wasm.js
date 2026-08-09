@@ -172,7 +172,7 @@ if (main()) {
   } else {
     const linked = link(readFileSync(path, 'utf-8'))
     if (linked.error) throw linked.error
-    const graphImage = image(linked.graph, linked.graph[1])
+    const graphImage = image(linked.graph, linked.focus)
     bytes = emit({
       ...graphImage,
       legend: addressLegend(graphImage)

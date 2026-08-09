@@ -8,19 +8,20 @@ const initialState =
   { ...link(lisp), source: lisp, history: [], scheme: schemes.ink }
 
 const infer = (
-  { graph,
+  { focus,
+    error,
     history,
     time = history.length,
     previous = history[time - 1],
-    stable = step(graph) === graph }) => ({ time, previous, stable })
+    stable = error || step(focus) === focus }) => ({ time, previous, stable })
 
 const dashboard = component(
   (state = initialState) => {
-    const { graph, source, history, error, scheme } = state
+    const { focus, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
 
     const view = () =>
-      dashboard({ ...state, graph: step(graph), history: [...history, state] })
+      dashboard({ ...state, focus: step(focus), history: [...history, state] })
     const load = source =>
       dashboard({ ...state, ...link(source), source, history: [] })
     const chooseScheme = scheme => dashboard({ ...state, scheme })
@@ -54,7 +55,7 @@ const dashboard = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : serialize(graph, { format: 'vdom', scheme })),
+                  : serialize(focus, { format: 'vdom', scheme })),
 
           div({ class: 'description row' }, `Steps: ${time}`)))
   })

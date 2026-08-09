@@ -17,18 +17,24 @@ const isSymbol = node => typeof node === 'string'
 
 const isApplication = node => node.length === 2 && isSymbol(node[0])
 
-const instantiate = (graph, scopes) => {
+const instantiate = (graph, scopes, mapping = []) => {
   const definition = graph[0]
   const established = scopes.some(scope =>
-    scope !== graph && scope[0] !== scope && scope.includes(definition))
+    scope[0] !== scope && scope.includes(definition))
 
   if (!established || !definition[2]) return
 
   const parameters = definition[1]
   const args = graph[1]
-  const mapping = parameters[1] === parameters
+  const bindings = parameters[1] === parameters
     ? [[parameters, args]]
-    : parameters.map((parameter, i) => [parameter, args[i]])
+    : parameters.length === args.length && args[1] !== args
+      ? parameters.map((parameter, i) => [parameter, args[i]])
+      : undefined
+
+  if (!bindings) return
+
+  mapping = [...bindings, ...mapping]
 
   const copy = node => {
     const ref = mapping.find(([source]) => source === node)
@@ -38,6 +44,7 @@ const instantiate = (graph, scopes) => {
     const branch = []
     mapping.push([node, branch])
     node.forEach(child => branch.push(copy(child)))
+    instantiate(branch, scopes, mapping)
     return Object.freeze(branch)
   }
 
@@ -48,7 +55,8 @@ const instantiate = (graph, scopes) => {
 const fold = (expression, scopes = []) => {
   if (!Array.isArray(expression)) return
   const graph = []
-  scopes = [...scopes, graph]
+  const enclosing = scopes
+  scopes = [...enclosing, graph]
 
   expression.forEach((node, i) => {
     const parameter = i === 1 && graph[0] === graph
@@ -74,7 +82,8 @@ const fold = (expression, scopes = []) => {
     }
   })
 
-  if (isApplication(expression)) instantiate(graph, scopes)
+  if (isApplication(expression))
+    instantiate(graph, enclosing)
 
   // log({ graph, scopes })
   return Object.freeze(graph)
@@ -83,9 +92,11 @@ const fold = (expression, scopes = []) => {
 export const link = source => {
   try {
     const tree = parse(source)
-    return { graph: fold(tree) }
+    const graph = fold(tree)
+    return { graph, focus: graph.at(-1) }
   } catch (error) {
-    return { graph: [], error }
+    const graph = []
+    return { graph, focus: graph, error }
   }
 }
 

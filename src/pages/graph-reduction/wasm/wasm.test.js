@@ -21,7 +21,7 @@ const view = bytes =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
 
 const loadMachine = async linked => {
-  const graphImage = image(linked.graph, linked.graph[1])
+  const graphImage = image(linked.graph, linked.focus)
   const authoredLegend = addressLegend(graphImage)
   const bytes = emit({ ...graphImage, legend: authoredLegend })
   const { instance } = await WebAssembly.instantiate(bytes)
@@ -37,7 +37,7 @@ const loadMachine = async linked => {
 describe('the image is the graph', () => {
   test('image step agrees with the graph engine', () => {
     const linked = program('a')
-    const graphImage = image(linked.graph, linked.graph[1])
+    const graphImage = image(linked.graph, linked.focus)
     const { bytes, focus } = graphImage
     const legend = addressLegend(graphImage)
     const memory = view(bytes)
@@ -45,12 +45,12 @@ describe('the image is the graph', () => {
 
     assert.equal(
       serializeWasm(memory, found, { legend }),
-      serialize(step(linked.graph[1])))
+      serialize(step(linked.focus)))
   })
 
   test('source identities retain their links', () => {
     const linked = program('a')
-    const graphImage = image(linked.graph, linked.graph[1])
+    const graphImage = image(linked.graph, linked.focus)
     const { bytes } = graphImage
     const legend = addressLegend(graphImage)
     const memory = view(bytes)
@@ -76,7 +76,7 @@ describe('the machine runs graph bytes', () => {
     assert.equal(machine.exports.focus.value, machine.focus)
     assert.equal(
       serializeWasm(machine.memory, result, { legend: machine.legend }),
-      serialize(step(linked.graph[1])))
+      serialize(step(linked.focus)))
   })
 
   test('partials are idempotent inside the machine', async () => {
@@ -98,7 +98,7 @@ describe('the machine runs graph bytes', () => {
 
   test('every program is the same machine', () => {
     const emitGraph = linked => {
-      const graphImage = image(linked.graph, linked.graph[1])
+      const graphImage = image(linked.graph, linked.focus)
       return emit({
         ...graphImage,
         legend: addressLegend(graphImage)
