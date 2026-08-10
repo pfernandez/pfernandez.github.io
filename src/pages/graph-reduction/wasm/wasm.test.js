@@ -79,7 +79,7 @@ describe('the machine runs graph bytes', () => {
       serialize(step(linked.focus)))
   })
 
-  test('partials are idempotent inside the machine', async () => {
+  test('results are idempotent inside the machine', async () => {
     const machine = await loadMachine(program('a'))
     const found = machine.exports.step(machine.focus)
 

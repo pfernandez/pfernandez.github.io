@@ -1,99 +1,145 @@
 Error.stackTraceLimit = 1
+import { decompose } from './decompose.js'
 import { parse } from './parse.js'
 import { log } from './serialize.js'
 
-const resolve = (symbol, scopes, i = scopes.length - 1) =>
+const lookup = (symbol, scopes, i = scopes.length - 1) =>
   i >= 0 && (scopes[i].find(node => node?.symbol === symbol)
-    ?? resolve(symbol, scopes, i - 1))
+    ?? lookup(symbol, scopes, i - 1))
 
-const identify = (graph, symbol) => {
+const identify = (symbol, graph) => {
+  const fixed = graph === undefined
+  graph ||= []
   graph[0] = graph[1] = graph
   graph['symbol'] = symbol
 
-  return graph
+  return fixed ? Object.freeze(graph) : graph
 }
 
 const isSymbol = node => typeof node === 'string'
-
-const isApplication = node => node.length === 2 && isSymbol(node[0])
+const isIdentified = graph => graph[0] === graph
+const isFixed = graph => graph[1] === graph
 
 const instantiate = (graph, scopes, mapping = []) => {
+  const match = (parameters, args) => {
+    if (isIdentified(parameters)) {
+      if (isFixed(parameters)) return [[parameters, args]]
+      if (isFixed(args)) return
+
+      const rest = match(parameters[1], args[1])
+      return rest && [[parameters, args[0]], ...rest]
+    }
+
+    if (isIdentified(args)) return
+    const left = match(parameters[0], args[0])
+    const right = match(parameters[1], args[1])
+    return left && right && [...left, ...right]
+  }
+
   const definition = graph[0]
   const established = scopes.some(scope =>
     scope[0] !== scope && scope.includes(definition))
 
-  if (!established || !definition[2]) return
+  if (!established) return
 
-  const parameters = definition[1]
+  const parameters = definition[1][0]
   const args = graph[1]
-  const bindings = parameters[1] === parameters
-    ? [[parameters, args]]
-    : parameters.length === args.length && args[1] !== args
-      ? parameters.map((parameter, i) => [parameter, args[i]])
-      : undefined
+  const bound = match(parameters, args)
 
-  if (!bindings) return
+  if (!bound) return
 
-  mapping = [...bindings, ...mapping]
+  mapping = [...bound, ...mapping]
 
   const copy = node => {
     const ref = mapping.find(([source]) => source === node)
     if (ref) return ref[1]
-    if (node[0] === node) return node
+    if (isIdentified(node)) return node
 
     const branch = []
     mapping.push([node, branch])
-    node.forEach(child => branch.push(copy(child)))
+    branch[0] = copy(node[0])
+    branch[1] = copy(node[1])
     instantiate(branch, scopes, mapping)
     return Object.freeze(branch)
   }
 
   graph[0] = args
-  graph[1] = copy(definition[2])
+  graph[1] = copy(definition[1][1])
+}
+
+const scope = (expression, scopes) => {
+  const define = expression => {
+    const graph = []
+    if (isSymbol(expression)) {
+      identify(expression, graph)
+    } else {
+      const [left, right] = expression
+      if (isSymbol(left)) identify(left, graph)
+      else graph[0] = define(left)
+      graph[1] = define(right)
+    }
+
+    if (isIdentified(graph)) scopes.push(graph)
+    return Object.freeze(graph)
+  }
+
+  const graph = []
+  const [parameters, body] = expression
+  scopes = [...scopes]
+
+  graph[0] = isSymbol(parameters)
+    ? identify(parameters, graph)
+    : define(parameters)
+  if (isIdentified(graph)) scopes.push(graph)
+  graph[1] = isSymbol(body)
+    ? lookup(body, scopes) || identify(body)
+    : fold(body, scopes)
+
+  return Object.freeze(graph)
 }
 
 const fold = (expression, scopes = []) => {
-  if (!Array.isArray(expression)) return
   const graph = []
   const enclosing = scopes
   scopes = [...enclosing, graph]
+  const [left, right] = expression
+  const ref = isSymbol(left) && lookup(left, scopes)
 
-  expression.forEach((node, i) => {
-    const parameter = i === 1 && graph[0] === graph
+  if (isSymbol(left)) {
+    if (ref) graph[0] = ref
+    else identify(left, graph)
+  } else {
+    graph[0] = fold(left, scopes)
+  }
 
-    if (isSymbol(node)) {
-      const ref = parameter ? undefined : resolve(node, scopes)
+  const introduced = isIdentified(graph)
+  if (introduced) {
+    graph[1] = isSymbol(right)
+      ? identify(right)
+      : scope(right, scopes)
+  } else {
+    graph[1] = isSymbol(right)
+      ? lookup(right, scopes) || identify(right)
+      : fold(right, scopes)
+  }
 
-      if (i === 0) {
-        if (ref) graph[i] = ref
-        else identify(graph, node)
-      } else if (ref) {
-        graph[i] = ref
-      } else {
-        const atom = identify([], node)
-        graph[i] = Object.freeze(atom)
-      }
-    } else {
-      const branch = fold(node, parameter ? [] : scopes)
-      graph[i] = branch
-
-      if (i === 1 && isSymbol(expression[0]))
-        scopes = [...scopes, branch]
-    }
-  })
-
-  if (isApplication(expression))
-    instantiate(graph, enclosing)
+  if (ref) instantiate(graph, enclosing)
 
   // log({ graph, scopes })
   return Object.freeze(graph)
 }
 
+const focus = (tree, graph) =>
+  isSymbol(tree) || isSymbol(tree[0]) || !isIdentified(graph[0])
+    ? graph
+    : focus(tree[1], graph[1])
+
 export const link = source => {
   try {
-    const tree = parse(source)
-    const graph = fold(tree)
-    return { graph, focus: graph.at(-1) }
+    const ast = parse(source)
+    const pairs = decompose(ast)
+    const graph = fold(pairs)
+    return { ast, pairs, graph, focus: focus(pairs, graph) }
   } catch (error) {
     const graph = []
     return { graph, focus: graph, error }

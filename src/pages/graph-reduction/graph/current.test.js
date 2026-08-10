@@ -5,62 +5,54 @@ import { link, step } from './index.js'
 
 const source = readFileSync(new URL('../core.lisp', import.meta.url), 'utf8')
 
-const find = (scope, symbol) =>
-  scope.find(node => node['symbol'] === symbol)
+const forms = (graph, length) =>
+  length === 1 ? [graph] : [graph[0], ...forms(graph[1], length - 1)]
 
 test('links the current combinator identities', () => {
   const { graph, focus, error } = link(source)
   if (error) throw error
 
-  const I = find(graph, 'I')
-  const K = find(graph, 'K')
-  const S = find(graph, 'S')
-  const Y = find(graph, 'Y')
-  const application = focus
+  const [I, K, S, , Y, application] = forms(graph, 6)
 
-  assert.equal(focus, graph.at(-1))
+  assert.equal(focus, application)
 
-  const ix = find(I, 'x')
+  const ix = I[1]
   assert.equal(I[0], I)
-  assert.equal(I[1], ix)
-  assert.equal(I[2], ix)
+  assert.equal(ix[0], ix)
+  assert.equal(ix[1], ix)
 
-  const ky = find(K[1], 'y')
+  const ky = K[1][0]
   assert.equal(K[0], K)
-  assert.equal(K[2][0], ky)
-  assert.equal(K[2][1], ky)
-  assert.equal(K[2].length, 2)
+  assert.equal(K[1][1][0], ky)
+  assert.equal(K[1][1][1], ky)
 
-  const sx = find(S[1], 'x')
-  const sy = find(S[1], 'y')
-  const sz = find(S[1], 'z')
+  const parameters = S[1][0]
+  const sx = parameters
+  const sy = parameters[1]
+  const sz = parameters[1][1]
+  const body = S[1][1]
   assert.equal(S[0], S)
-  assert.equal(S[2][0][0], sx)
-  assert.equal(S[2][0][1], sz)
-  assert.equal(S[2][1][0], sy)
-  assert.equal(S[2][1][1], sz)
-  assert.equal(S[2][0].length, 2)
-  assert.equal(S[2][1].length, 2)
+  assert.equal(body[0][0], sx)
+  assert.equal(body[0][1], sz)
+  assert.equal(body[1][0], sy)
+  assert.equal(body[1][1], sz)
 
   const [args, result] = application
   assert.equal(application.length, 2)
   assert.equal(application.includes(S), false)
   assert.equal(application['symbol'], undefined)
-  assert.notEqual(result, S[2])
+  assert.notEqual(result, body)
   assert.equal(result[0][0], args[0])
-  assert.equal(result[0][1], args[2])
+  assert.equal(result[0][1], args[1][1])
   assert.equal(result[1][0], args[1])
-  assert.equal(result[1][1], args[2])
-  assert.equal(result[0].length, 2)
-  assert.equal(result[1].length, 2)
+  assert.equal(result[1][1], args[1][1])
   assert.equal(step(application), result)
 
-  const yf = find(Y, 'f')
+  const yf = Y[1]
   assert.equal(Y[0], Y)
-  assert.equal(Y[2][0], yf)
-  assert.equal(Y[2][1][0], Y)
-  assert.equal(Y[2][1][1], yf)
-  assert.equal(Y[2][1].length, 2)
+  assert.equal(yf[1][0], yf)
+  assert.equal(yf[1][1][0], Y)
+  assert.equal(yf[1][1][1], yf)
 
   assert.equal(Object.isFrozen(graph), true)
   assert.equal(Object.isFrozen(S), true)
@@ -72,14 +64,14 @@ test('shadows an outer parameter in a nested definition', () => {
   const { graph, error } = link(source)
   if (error) throw error
 
-  const F = find(graph, 'F')
+  const [, , , F] = forms(graph, 6)
   const outer = F[1]
-  const sequence = F[2]
+  const sequence = outer[1]
   const G = sequence[0]
   const inner = G[1]
 
   assert.notEqual(inner, outer)
-  assert.equal(G[2], inner)
+  assert.equal(inner[1], inner)
   assert.equal(sequence[1], outer)
 })
 
@@ -87,20 +79,19 @@ test('captures an outer parameter in a nested definition', () => {
   const { graph, error } = link('((F (x) (G (y) x)))')
   if (error) throw error
 
-  const F = graph[0]
-  const G = F[2]
+  const F = graph
+  const G = F[1][1]
 
   assert.notEqual(G[1], F[1])
-  assert.equal(G[2], F[1])
+  assert.equal(G[1][1], F[1])
 })
 
 test('preserves an authored result', () => {
-  const { graph, error } = link('((I x x) (I a b))')
+  const { graph, focus, error } = link('((I x x) ((I a) b))')
   if (error) throw error
 
-  const [I, expression] = graph
-  assert.equal(graph.length, 2)
-  assert.equal(expression[0], I)
-  assert.equal(expression[1]['symbol'], 'a')
-  assert.equal(expression[2]['symbol'], 'b')
+  const application = focus[0]
+  assert.equal(application[1], application[0])
+  assert.equal(application[0]['symbol'], 'a')
+  assert.equal(focus[1]['symbol'], 'b')
 })

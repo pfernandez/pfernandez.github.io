@@ -9,6 +9,22 @@ const linked = source => {
 }
 
 describe('link', () => {
+  test('retains the authored and decomposed trees', () => {
+    const { ast, pairs } = linked('((I x x) (I a))')
+
+    assert.deepEqual(ast, [['I', 'x', 'x'], ['I', 'a']])
+    assert.deepEqual(pairs, [['I', ['x', 'x']], ['I', 'a']])
+  })
+
+  test('gives flat and right-nested programs the same focus', () => {
+    const flat = linked('((I x x) (K y y) (I a))')
+    const nested = linked('((I x x) ((K y y) (I a)))')
+
+    assert.deepEqual(flat.pairs, nested.pairs)
+    assert.equal(flat.focus, flat.graph[1][1])
+    assert.equal(nested.focus, nested.graph[1][1])
+  })
+
   test('completes an application as arguments followed by result', () => {
     const { graph, focus: application } = linked('((I x x) (I a))')
     const [definition] = graph
@@ -29,11 +45,11 @@ describe('link', () => {
     const [definition] = graph
     const [args, result] = application
 
-    assert.notEqual(result, definition[2])
+    assert.notEqual(result, definition[1][1])
     assert.equal(result[0][0], args[0])
-    assert.equal(result[0][1], args[2])
+    assert.equal(result[0][1], args[1][1])
     assert.equal(result[1][0], args[1])
-    assert.equal(result[1][1], args[2])
+    assert.equal(result[1][1], args[1][1])
   })
 
   test('leaves an undersupplied application pending', () => {
@@ -45,6 +61,17 @@ describe('link', () => {
 
     assert.equal(focus[0], definition)
     assert.equal(focus[1].length, 2)
+  })
+
+  test('matches explicitly nested parameter and argument shapes', () => {
+    const { focus } = linked(`
+    ((F ((x y) z) (x z))
+     (F ((a b) c)))
+    `)
+    const [args, result] = focus
+
+    assert.equal(result[0], args[0][0])
+    assert.equal(result[1], args[1])
   })
 
   test('completes an application created by copying', () => {
