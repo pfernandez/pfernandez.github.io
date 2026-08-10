@@ -20,6 +20,8 @@ const isSymbol = node => typeof node === 'string'
 const isIdentified = graph => graph[0] === graph
 const isFixed = graph => graph[1] === graph
 
+// Fresh identities are [self, scope]. Applications begin as
+// [definition, args]; completed applications become [args, result].
 const instantiate = (graph, scopes, mapping = []) => {
   const match = (parameters, args) => {
     if (isIdentified(parameters)) {
@@ -138,7 +140,7 @@ export const link = source => {
   try {
     const ast = parse(source)
     const pairs = decompose(ast)
-    const graph = fold(pairs)
+    const graph = isSymbol(pairs) ? identify(pairs) : fold(pairs)
     return { ast, pairs, graph, focus: focus(pairs, graph) }
   } catch (error) {
     const graph = []

@@ -16,6 +16,23 @@ describe('link', () => {
     assert.deepEqual(pairs, [['I', ['x', 'x']], ['I', 'a']])
   })
 
+  test('links a top-level symbol as a fixed identity', () => {
+    const bare = linked('x')
+    const grouped = linked('(x)')
+
+    assert.equal(bare.ast, 'x')
+    assert.deepEqual(grouped.ast, ['x'])
+
+    for (const { pairs, graph, focus } of [bare, grouped]) {
+      assert.equal(pairs, 'x')
+      assert.equal(graph[0], graph)
+      assert.equal(graph[1], graph)
+      assert.equal(graph['symbol'], 'x')
+      assert.equal(focus, graph)
+      assert.equal(Object.isFrozen(graph), true)
+    }
+  })
+
   test('gives flat and right-nested programs the same focus', () => {
     const flat = linked('((I x x) (K y y) (I a))')
     const nested = linked('((I x x) ((K y y) (I a)))')
