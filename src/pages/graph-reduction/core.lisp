@@ -4,4 +4,6 @@
  (S (x y z) ((x z) (y z)))
  (F x ((G x x) x))
  (Y f (f (Y f)))
+ (P f (f c))
+ (Q a (P (S (a b))))
  (S (a b c)))

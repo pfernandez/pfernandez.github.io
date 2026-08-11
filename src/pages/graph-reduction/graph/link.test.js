@@ -80,6 +80,44 @@ describe('link', () => {
     assert.equal(focus[1].length, 2)
   })
 
+  test('resumes a suspended application', () => {
+    const { graph, focus } = linked(`
+    ((S (x y z) ((x z) (y z)))
+     ((S (a b)) c))
+    `)
+    const [definition] = graph
+    const [args, result] = focus
+
+    assert.notEqual(focus[0], definition)
+    assert.equal(args[0]['symbol'], 'a')
+    assert.equal(args[1][0]['symbol'], 'b')
+    assert.equal(args[1][1]['symbol'], 'c')
+    assert.equal(result[0][0], args[0])
+    assert.equal(result[0][1], args[1][1])
+    assert.equal(result[1][0], args[1][0])
+    assert.equal(result[1][1], args[1][1])
+  })
+
+  test('resumes a suspended application inside a definition', () => {
+    const { graph, focus } = linked(`
+    ((S (x y z) ((x z) (y z)))
+     (P f (f c))
+     (P (S (a b))))
+    `)
+    const [S] = graph
+    const [partial, application] = focus
+    const [args, result] = application
+
+    assert.equal(partial[0], S)
+    assert.equal(args[0]['symbol'], 'a')
+    assert.equal(args[1][0]['symbol'], 'b')
+    assert.equal(args[1][1]['symbol'], 'c')
+    assert.equal(result[0][0], args[0])
+    assert.equal(result[0][1], args[1][1])
+    assert.equal(result[1][0], args[1][0])
+    assert.equal(result[1][1], args[1][1])
+  })
+
   test('matches explicitly nested parameter and argument shapes', () => {
     const { focus } = linked(`
     ((F ((x y) z) (x z))

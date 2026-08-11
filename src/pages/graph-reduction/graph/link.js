@@ -19,6 +19,7 @@ const isSymbol = node => typeof node === 'string'
 const isFixed = graph => graph[1] === graph
 const isNamed = graph => graph?.['symbol'] !== undefined
 const isDefinition = graph => isNamed(graph) && !isFixed(graph)
+const isSuspended = graph => isDefinition(graph?.[0])
 const atom = symbol => {
   const graph = []
   graph[0] = graph[1] = graph
@@ -28,6 +29,10 @@ const atom = symbol => {
 // Definitions are [parameters, body]. Applications begin as
 // [definition, args]; completed applications become [args, result].
 const instantiate = (graph, mapping = []) => {
+  const append = (graph, node) => isNamed(graph)
+    ? Object.freeze([graph, node])
+    : Object.freeze([graph[0], append(graph[1], node)])
+
   const match = (parameters, args) => {
     if (isFixed(parameters)) return [[parameters, args]]
     if (isFixed(args)) return
@@ -37,11 +42,19 @@ const instantiate = (graph, mapping = []) => {
     return left && right && [...left, ...right]
   }
 
-  const definition = graph[0]
+  let definition = graph[0]
+  let args = graph[1]
+
+  if (isSuspended(definition)) {
+    args = append(definition[1], args)
+    definition = definition[0]
+    graph[0] = definition
+    graph[1] = args
+  }
+
   if (!isDefinition(definition) || !definition[1]) return
 
   const parameters = definition[0]
-  const args = graph[1]
   const bound = match(parameters, args)
 
   if (!bound) return
@@ -80,7 +93,7 @@ const branch = (expression, scopes) => {
     ? lookup(right, scopes) || atom(right)
     : branch(right, scopes)
 
-  if (ref) instantiate(graph)
+  if (ref || isSuspended(graph[0])) instantiate(graph)
   return Object.freeze(graph)
 }
 
@@ -132,6 +145,8 @@ const fold = (expression, scopes = []) => {
     graph[1] = isSymbol(right)
       ? lookup(right, scopes) || atom(right)
       : fold(right, scopes)
+
+    if (isSuspended(graph[0])) instantiate(graph)
   }
 
   // log({ graph, scopes })

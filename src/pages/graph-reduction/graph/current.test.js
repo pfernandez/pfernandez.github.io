@@ -12,7 +12,7 @@ test('links the current combinator identities', () => {
   const { graph, focus, error } = link(source)
   if (error) throw error
 
-  const [I, K, S, , Y, application] = forms(graph, 6)
+  const [I, K, S, , Y, P, Q, application] = forms(graph, 8)
 
   assert.equal(focus, application)
 
@@ -39,7 +39,9 @@ test('links the current combinator identities', () => {
   assert.equal(body[1][1], sz)
 
   const [args, result] = application
-  assert.equal(application.length, 2)
+  assert.equal(P['symbol'], 'P')
+  assert.equal(P[1][0], P[0])
+  assert.equal(Q[1][0][0], S)
   assert.equal(application.includes(S), false)
   assert.equal(application['symbol'], undefined)
   assert.notEqual(result, body)
