@@ -62,7 +62,7 @@ describe('the image is the graph', () => {
 
     assert.equal(memory.getUint32(a, true), a)
     assert.equal(memory.getUint32(a + 4, true), a)
-    assert.equal(memory.getUint32(P, true), P)
+    assert.equal(memory.getUint32(P, true), x)
     assert.equal(memory.getUint32(P + 4, true), x)
   })
 })

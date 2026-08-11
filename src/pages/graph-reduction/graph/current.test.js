@@ -16,22 +16,23 @@ test('links the current combinator identities', () => {
 
   assert.equal(focus, application)
 
-  const ix = I[1]
-  assert.equal(I[0], I)
+  const ix = I[0]
+  assert.equal(I['symbol'], 'I')
+  assert.equal(I[1], ix)
   assert.equal(ix[0], ix)
   assert.equal(ix[1], ix)
 
-  const ky = K[1][0]
-  assert.equal(K[0], K)
-  assert.equal(K[1][1][0], ky)
-  assert.equal(K[1][1][1], ky)
+  const ky = K[0][0]
+  assert.equal(K['symbol'], 'K')
+  assert.equal(K[1][0], ky)
+  assert.equal(K[1][1], ky)
 
-  const parameters = S[1][0]
-  const sx = parameters
-  const sy = parameters[1]
+  const parameters = S[0]
+  const sx = parameters[0]
+  const sy = parameters[1][0]
   const sz = parameters[1][1]
-  const body = S[1][1]
-  assert.equal(S[0], S)
+  const body = S[1]
+  assert.equal(S['symbol'], 'S')
   assert.equal(body[0][0], sx)
   assert.equal(body[0][1], sz)
   assert.equal(body[1][0], sy)
@@ -44,15 +45,16 @@ test('links the current combinator identities', () => {
   assert.notEqual(result, body)
   assert.equal(result[0][0], args[0])
   assert.equal(result[0][1], args[1][1])
-  assert.equal(result[1][0], args[1])
+  assert.equal(result[1][0], args[1][0])
   assert.equal(result[1][1], args[1][1])
   assert.equal(step(application), result)
 
-  const yf = Y[1]
-  assert.equal(Y[0], Y)
-  assert.equal(yf[1][0], yf)
-  assert.equal(yf[1][1][0], Y)
-  assert.equal(yf[1][1][1], yf)
+  const yf = Y[0]
+  const ybody = Y[1]
+  assert.equal(Y['symbol'], 'Y')
+  assert.equal(ybody[0], yf)
+  assert.equal(ybody[1][0], Y)
+  assert.equal(ybody[1][1], yf)
 
   assert.equal(Object.isFrozen(graph), true)
   assert.equal(Object.isFrozen(S), true)
@@ -65,10 +67,10 @@ test('shadows an outer parameter in a nested definition', () => {
   if (error) throw error
 
   const [, , , F] = forms(graph, 6)
-  const outer = F[1]
-  const sequence = outer[1]
+  const outer = F[0]
+  const sequence = F[1]
   const G = sequence[0]
-  const inner = G[1]
+  const inner = G[0]
 
   assert.notEqual(inner, outer)
   assert.equal(inner[1], inner)
@@ -80,10 +82,10 @@ test('captures an outer parameter in a nested definition', () => {
   if (error) throw error
 
   const F = graph
-  const G = F[1][1]
+  const G = F[1]
 
-  assert.notEqual(G[1], F[1])
-  assert.equal(G[1][1], F[1])
+  assert.notEqual(G[0], F[0])
+  assert.equal(G[1], F[0])
 })
 
 test('preserves an authored result', () => {

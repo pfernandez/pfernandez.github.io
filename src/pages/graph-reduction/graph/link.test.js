@@ -62,10 +62,10 @@ describe('link', () => {
     const [definition] = graph
     const [args, result] = application
 
-    assert.notEqual(result, definition[1][1])
+    assert.notEqual(result, definition[1])
     assert.equal(result[0][0], args[0])
     assert.equal(result[0][1], args[1][1])
-    assert.equal(result[1][0], args[1])
+    assert.equal(result[1][0], args[1][0])
     assert.equal(result[1][1], args[1][1])
   })
 
@@ -113,18 +113,21 @@ describe('link', () => {
 
     assert.equal(result[0][0], args[0])
     assert.equal(result[0][1], args[0])
-    assert.equal(result[1][0], args[1])
-    assert.equal(result[1][1], args[1])
+    assert.equal(result[1][0], args[1][0])
+    assert.equal(result[1][1], args[1][0])
   })
 
   test('ties a copied recursive application into a cycle', () => {
-    const { focus } = linked(`
+    const { graph, focus } = linked(`
     ((Y f (f (Y f)))
      (Y a))
     `)
+    const [definition] = graph
     const first = step(focus)
     const second = step(first)
 
+    assert.notEqual(focus[0], definition)
+    assert.equal(first[0], focus[0])
     assert.equal(step(second), first)
   })
 
