@@ -190,6 +190,21 @@ describe('link', () => {
     assert.equal(step(second), first)
   })
 
+  test('ties guarded recurrence through successive states', () => {
+    const { focus: first } = linked(`
+    ((app (x y) (app (y x)))
+     (app (a b)))
+    `)
+    const second = step(first)
+    const third = step(second)
+
+    assert.equal(first[0][0]['symbol'], 'a')
+    assert.equal(first[0][1]['symbol'], 'b')
+    assert.equal(second[0][0], first[0][1])
+    assert.equal(second[0][1], first[0][0])
+    assert.equal(third, first)
+  })
+
   test('returns graph and focus together when linking fails', () => {
     const { graph, focus, error } = link('(')
 

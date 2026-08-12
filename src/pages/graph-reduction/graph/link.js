@@ -33,7 +33,7 @@ const atom = symbol => {
 // definition             [parameters, body]
 // suspended application  [definition, supplied]
 // completed application  [arguments, result]
-const instantiate = (graph, mapping = []) => {
+const instantiate = (graph, bindings = [], states = []) => {
   const append = (graph, node) => isNamed(graph)
     ? Object.freeze([graph, node])
     : Object.freeze([graph[0], append(graph[1], node)])
@@ -57,30 +57,46 @@ const instantiate = (graph, mapping = []) => {
     graph[1] = args
   }
 
-  if (!isDefinition(definition) || !definition[1]) return
+  if (!isDefinition(definition) || !definition[1]) return Object.freeze(graph)
 
   const parameters = definition[0]
   const bound = match(parameters, args)
 
-  if (!bound) return
+  if (!bound) return Object.freeze(graph)
 
-  mapping = [...bound, ...mapping]
+  const state = states.find(([defined, previous]) =>
+    defined === definition
+      && previous.every(([, arg], i) => arg === bound[i][1]))
+
+  if (state) return state[2]
+
+  states.push([definition, bound, graph])
+  bindings = [...bound, ...bindings]
+  const copies = []
 
   const copy = node => {
-    const ref = mapping.find(([source]) => source === node)
+    const ref = bindings.find(([source]) => source === node)
     if (ref) return ref[1]
     if (isNamed(node)) return node
 
+    if (isDefinition(node[0])) {
+      const application = [copy(node[0]), copy(node[1])]
+      return instantiate(application, bindings, states)
+    }
+
+    const found = copies.find(([source]) => source === node)
+    if (found) return found[1]
+
     const branch = []
-    mapping.push([node, branch])
+    copies.push([node, branch])
     branch[0] = copy(node[0])
     branch[1] = copy(node[1])
-    instantiate(branch, mapping)
-    return Object.freeze(branch)
+    return instantiate(branch, bindings, states)
   }
 
   graph[0] = args
   graph[1] = copy(definition[1])
+  return Object.freeze(graph)
 }
 
 const branch = (expression, scopes) => {
