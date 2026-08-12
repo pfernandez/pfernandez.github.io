@@ -69,15 +69,18 @@ describe('link', () => {
     assert.equal(result[1][1], args[1][1])
   })
 
-  test('leaves an undersupplied application pending', () => {
+  test('crystallizes an undersupplied application as its causal prefix', () => {
     const { graph, focus } = linked(`
     ((S (x y z) ((x z) (y z)))
      (S (a b)))
     `)
     const [definition] = graph
+    const suspension = graph[1]
 
-    assert.equal(focus[0], definition)
-    assert.equal(focus[1].length, 2)
+    assert.equal(suspension[0], definition)
+    assert.equal(suspension[1], focus)
+    assert.equal(focus[0]['symbol'], 'a')
+    assert.equal(focus[1]['symbol'], 'b')
   })
 
   test('resumes a suspended application', () => {

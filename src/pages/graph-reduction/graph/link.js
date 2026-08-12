@@ -27,7 +27,8 @@ const atom = symbol => {
 }
 
 // The linker uses four structural states; a suspension is an unfinished
-// frontier, not a completed causal transition:
+// frontier, not a completed causal transition. If it remains unresolved,
+// its supplied arguments are the causal prefix that actually occurred:
 // atom                   [self, self]
 // definition             [parameters, body]
 // suspended application  [definition, supplied]
@@ -186,8 +187,11 @@ export const link = source => {
     const linked = isSymbol(pairs)
       ? context(atom(pairs))
       : fold(pairs)
+    const focus = isSuspended(linked.focus)
+      ? linked.focus[1]
+      : linked.focus
 
-    return { ast, pairs, focus: linked.focus, graph: linked.graph }
+    return { ast, pairs, focus, graph: linked.graph }
   } catch (error) {
     const graph = []
     return { graph, focus: graph, error }
