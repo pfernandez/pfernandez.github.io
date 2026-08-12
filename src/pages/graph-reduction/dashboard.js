@@ -2,7 +2,7 @@ import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
 import { link, schemeNames, schemes, serialize, step } from './graph/index.js'
-import lisp from './core.lisp?raw'
+import lisp from './observe.lisp?raw'
 
 const initialState =
   { ...link(lisp), source: lisp, history: [], scheme: schemes.ink }
@@ -19,6 +19,7 @@ const dashboard = component(
   (state = initialState) => {
     const { focus, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
+    const [current] = focus
 
     const view = () =>
       dashboard({ ...state, focus: step(focus), history: [...history, state] })
@@ -33,7 +34,8 @@ const dashboard = component(
       div({ class: 'panel' },
           h2('Graph Reduction'),
           p({ class: 'description' },
-            'Expressions are converted directly to graph structure. ',
+            'The expression defines an observer whose left side is its ',
+            'current state and whose right side is its next state. ',
             'Symbols and colors denote memory address'),
 
           label({ class: 'row colors' }, 'Color scheme',
@@ -55,7 +57,7 @@ const dashboard = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : serialize(focus, { format: 'vdom', scheme })),
+                  : serialize(current, { format: 'vdom', scheme })),
 
           div({ class: 'description row' }, `Steps: ${time}`)))
   })

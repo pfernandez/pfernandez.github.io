@@ -1,7 +1,6 @@
 Error.stackTraceLimit = 1
 import { decompose } from './decompose.js'
 import { parse } from './parse.js'
-import { log } from './serialize.js'
 
 const lookup = (symbol, scopes, i = scopes.length - 1) =>
   i >= 0 && (scopes[i].symbol === symbol
@@ -94,7 +93,13 @@ const instantiate = (graph, bindings = [], states = []) => {
     if (isNamed(node) && (!isDefinition(node) || !captures(node))) return node
 
     if (isDefinition(node[0])) {
-      const application = [copy(node[0]), copy(node[1])]
+      const argument = copy(node[1])
+      const application = [
+        copy(node[0]),
+        isDefinition(node[1]?.[0]) && !isSuspended(argument)
+          ? argument[1]
+          : argument
+      ]
       return instantiate(application, bindings, states)
     }
 
@@ -208,7 +213,6 @@ const fold = (expression, scopes = []) => {
     }
   }
 
-  // log({ graph, scopes })
   return context(Object.freeze(graph), focus, call)
 }
 

@@ -237,6 +237,25 @@ describe('link', () => {
     assert.equal(third, first)
   })
 
+  test('constructs the unique states of an authored observer', () => {
+    const { focus: initial } = linked(`
+    ((next (x y) (y x))
+     (observe state (observe (next state)))
+     (observe (a b)))
+    `)
+    const first = step(initial)
+    const second = step(first)
+
+    assert.equal(initial[0][0]['symbol'], 'a')
+    assert.equal(initial[0][1]['symbol'], 'b')
+    assert.equal(first[0][0], initial[0][1])
+    assert.equal(first[0][1], initial[0][0])
+    assert.notEqual(second, initial)
+    assert.equal(second[0][0], initial[0][0])
+    assert.equal(second[0][1], initial[0][1])
+    assert.equal(step(second), first)
+  })
+
   test('returns graph and focus together when linking fails', () => {
     const { graph, focus, error } = link('(')
 
