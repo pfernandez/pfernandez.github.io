@@ -74,24 +74,38 @@ const instantiate = (graph, bindings = [], states = []) => {
   bindings = [...bound, ...bindings]
   const copies = []
 
+  const contains = (graph, node, seen = []) => {
+    if (graph === node) return true
+    if (isFixed(graph) || seen.includes(graph)) return false
+
+    seen.push(graph)
+    return contains(graph[0], node, seen) || contains(graph[1], node, seen)
+  }
+
+  const captures = definition => bindings.some(([source]) =>
+    !contains(definition[0], source) && contains(definition[1], source))
+
   const copy = node => {
     const ref = bindings.find(([source]) => source === node)
     if (ref) return ref[1]
-    if (isNamed(node)) return node
+
+    const found = copies.find(([source]) => source === node)
+    if (found) return found[1]
+    if (isNamed(node) && (!isDefinition(node) || !captures(node))) return node
 
     if (isDefinition(node[0])) {
       const application = [copy(node[0]), copy(node[1])]
       return instantiate(application, bindings, states)
     }
 
-    const found = copies.find(([source]) => source === node)
-    if (found) return found[1]
-
     const branch = []
     copies.push([node, branch])
-    branch[0] = copy(node[0])
+    if (isDefinition(node)) identify(branch, node['symbol'])
+    branch[0] = isDefinition(node) ? node[0] : copy(node[0])
     branch[1] = copy(node[1])
-    return instantiate(branch, bindings, states)
+    return isDefinition(node)
+      ? Object.freeze(branch)
+      : instantiate(branch, bindings, states)
   }
 
   graph[0] = args
@@ -182,7 +196,9 @@ const fold = (expression, scopes = []) => {
       instantiate(graph)
       call = true
     } else if (previous.call) {
-      focus = graph[1] = Object.freeze([previous.focus[1], graph[1]])
+      focus = graph[1] = [previous.focus[1], graph[1]]
+      if (isDefinition(focus[0])) instantiate(focus)
+      else Object.freeze(focus)
       call = true
     } else if (isDefinition(previous.focus)) {
       focus = following.focus

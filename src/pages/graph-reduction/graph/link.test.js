@@ -176,6 +176,23 @@ describe('link', () => {
     assert.equal(result[1][1], args[1][0])
   })
 
+  test('applies a returned definition with its lexical bindings', () => {
+    const { graph, focus } = linked(`
+    ((F x (G y x))
+     ((F a) b))
+    `)
+    const F = graph[0]
+    const first = graph[1][0]
+    const closure = first[1]
+    const [args, result] = focus
+
+    assert.notEqual(closure, F[1])
+    assert.equal(closure['symbol'], 'G')
+    assert.equal(closure[1], first[0])
+    assert.equal(args['symbol'], 'b')
+    assert.equal(result, first[0])
+  })
+
   test('ties a copied recursive application into a cycle', () => {
     const { graph, focus } = linked(`
     ((Y f (f (Y f)))
