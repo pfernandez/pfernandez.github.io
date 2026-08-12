@@ -26,8 +26,12 @@ const atom = symbol => {
   return Object.freeze(identify(graph, symbol))
 }
 
-// Definitions are [parameters, body]. Applications begin as
-// [definition, args]; completed applications become [args, result].
+// The linker uses four structural states; a suspension is an unfinished
+// frontier, not a completed causal transition:
+// atom                   [self, self]
+// definition             [parameters, body]
+// suspended application  [definition, supplied]
+// completed application  [arguments, result]
 const instantiate = (graph, mapping = []) => {
   const append = (graph, node) => isNamed(graph)
     ? Object.freeze([graph, node])
@@ -118,52 +122,72 @@ const scope = (expression, scopes, graph) => {
   graph[0] = define(parameters)
   graph[1] = isSymbol(body)
     ? lookup(body, scopes) || atom(body)
-    : fold(body, scopes)
+    : fold(body, scopes).graph
 
   return Object.freeze(graph)
 }
+
+const context = (graph, focus = graph, call = false) => ({ graph, focus, call })
 
 const fold = (expression, scopes = []) => {
   const graph = []
   scopes = [...scopes, graph]
   const [left, right] = expression
   const ref = isSymbol(left) && lookup(left, scopes)
+  let focus = graph
+  let call = false
 
   if (isSymbol(left)) {
     if (ref) {
       graph[0] = ref
       graph[1] = branch(right, scopes)
       instantiate(graph)
+      call = isDefinition(ref)
     } else {
       identify(graph, left)
-      if (Array.isArray(right)) return scope(right, scopes, graph)
+      if (Array.isArray(right)) {
+        const definition = scope(right, scopes, graph)
+        return context(definition)
+      }
 
       graph[0] = graph[1] = atom(right)
     }
   } else {
-    graph[0] = fold(left, scopes)
-    graph[1] = isSymbol(right)
-      ? lookup(right, scopes) || atom(right)
+    const previous = fold(left, scopes)
+    graph[0] = previous.graph
+    const following = isSymbol(right)
+      ? context(lookup(right, scopes) || atom(right))
       : fold(right, scopes)
 
-    if (isSuspended(graph[0])) instantiate(graph)
+    graph[1] = following.graph
+
+    if (isSuspended(previous.focus)) {
+      instantiate(graph)
+      call = true
+    } else if (previous.call) {
+      focus = graph[1] = Object.freeze([previous.focus[1], graph[1]])
+      call = true
+    } else if (isDefinition(previous.focus)) {
+      focus = following.focus
+      call = following.call
+    } else {
+      focus = graph
+    }
   }
 
   // log({ graph, scopes })
-  return Object.freeze(graph)
+  return context(Object.freeze(graph), focus, call)
 }
-
-const focus = (tree, graph) =>
-  isSymbol(tree) || isSymbol(tree[0]) || !isDefinition(graph[0])
-    ? graph
-    : focus(tree[1], graph[1])
 
 export const link = source => {
   try {
     const ast = parse(source)
     const pairs = decompose(ast)
-    const graph = isSymbol(pairs) ? atom(pairs) : fold(pairs)
-    return { ast, pairs, graph, focus: focus(pairs, graph) }
+    const linked = isSymbol(pairs)
+      ? context(atom(pairs))
+      : fold(pairs)
+
+    return { ast, pairs, focus: linked.focus, graph: linked.graph }
   } catch (error) {
     const graph = []
     return { graph, focus: graph, error }

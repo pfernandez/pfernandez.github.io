@@ -118,6 +118,24 @@ describe('link', () => {
     assert.equal(result[1][1], args[1][1])
   })
 
+  test('continues from the result of a completed application', () => {
+    const { graph, focus: second } = linked(`
+    ((S (x y z) ((x z) (y z)))
+     ((S (a b c)) d))
+    `)
+    const [first] = graph[1]
+    const [args, result] = first
+
+    assert.equal(graph[1][1], second)
+    assert.equal(second[0], result)
+    assert.equal(second[1]['symbol'], 'd')
+    assert.equal(result[0][0], args[0])
+    assert.equal(result[0][1], args[1][1])
+    assert.equal(result[1][0], args[1][0])
+    assert.equal(result[1][1], args[1][1])
+    assert.equal(step(graph[1]), second)
+  })
+
   test('matches explicitly nested parameter and argument shapes', () => {
     const { focus } = linked(`
     ((F ((x y) z) (x z))
