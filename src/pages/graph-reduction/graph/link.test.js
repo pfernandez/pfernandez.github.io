@@ -193,6 +193,21 @@ describe('link', () => {
     assert.equal(result, first[0])
   })
 
+  test('ties recurrence through a captured definition', () => {
+    const { graph, focus: first } = linked(`
+    ((F x (G y (G x)))
+     ((F a) b))
+    `)
+    const F = graph[0]
+    const closure = graph[1][0][1]
+    const second = step(first)
+
+    assert.notEqual(closure, F[1])
+    assert.equal(first[0]['symbol'], 'b')
+    assert.equal(second[0]['symbol'], 'a')
+    assert.equal(step(second), second)
+  })
+
   test('ties a copied recursive application into a cycle', () => {
     const { graph, focus } = linked(`
     ((Y f (f (Y f)))
