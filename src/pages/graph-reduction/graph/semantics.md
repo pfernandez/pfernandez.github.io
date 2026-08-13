@@ -33,6 +33,10 @@ A source symbol names an identity while the graph is being linked. Repeated
 uses of a visible name receive the same pair identity. The name remains as an
 annotation for presentation, but observation does not inspect it.
 
+The host may import named identities into the outermost lexical scope. Imported
+identities obey the same visibility rules as source identities; their names let
+the host associate their final addresses with device operations.
+
 Two nodes with the same shape are not thereby the same identity. Sharing and
 recurrence are represented by shared references, not by structural equality.
 

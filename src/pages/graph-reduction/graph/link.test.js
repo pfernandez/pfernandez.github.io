@@ -33,6 +33,21 @@ describe('link', () => {
     }
   })
 
+  test('links imported names as existing identities', () => {
+    const result = link('(render (h2 title))', ['render', 'h2'])
+    if (result.error) throw result.error
+    const [render, heading] = result.graph
+    const [h2, title] = heading
+
+    assert.equal(render['symbol'], 'render')
+    assert.equal(render[0], render)
+    assert.equal(render[1], render)
+    assert.equal(h2['symbol'], 'h2')
+    assert.equal(h2[0], h2)
+    assert.equal(h2[1], h2)
+    assert.equal(title['symbol'], 'title')
+  })
+
   test('gives flat and right-nested programs the same focus', () => {
     const flat = linked('((I x x) (K y y) (I a))')
     const nested = linked('((I x x) ((K y y) (I a)))')

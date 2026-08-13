@@ -252,15 +252,17 @@ const fold = (expression, scopes = []) => {
   return context(Object.freeze(graph), focus, call)
 }
 
-export const link = source => {
+export const link = (source, imports = []) => {
   try {
     // Retain the source shape, lower it to pairs, then link identities in the
     // pair graph. Only the last construction frontier becomes the focus.
     const ast = parse(source)
     const pairs = decompose(ast)
+    const imported = imports.map(atom)
+    const scopes = [imported]
     const linked = isSymbol(pairs)
-      ? context(atom(pairs))
-      : fold(pairs)
+      ? context(lookup(pairs, scopes) || atom(pairs))
+      : fold(pairs, scopes)
     const focus = isSuspended(linked.focus)
       ? linked.focus[1]
       : linked.focus
