@@ -54,6 +54,17 @@ describe('link', () => {
     assert.equal(step(application), result)
   })
 
+  test('does not copy an unused argument into the result', () => {
+    const { focus: application } = linked(`
+    ((K (x y) x)
+     (K (a b)))
+    `)
+    const [args, result] = application
+
+    assert.equal(result, args[0])
+    assert.notEqual(result, args[1])
+  })
+
   test('copies a result while preserving shared argument identities', () => {
     const { graph, focus: application } = linked(`
     ((S (x y z) ((x z) (y z)))
@@ -137,6 +148,20 @@ describe('link', () => {
     assert.equal(result[1][0], args[1][0])
     assert.equal(result[1][1], args[1][1])
     assert.equal(step(graph[1]), second)
+  })
+
+  test('binds an excess right-nested argument to the final parameter', () => {
+    const { focus: application } = linked(`
+    ((S (x y z) ((x z) (y z)))
+     (S (a b c d)))
+    `)
+    const [args, result] = application
+    const z = args[1][1]
+
+    assert.equal(z[0]['symbol'], 'c')
+    assert.equal(z[1]['symbol'], 'd')
+    assert.equal(result[0][1], z)
+    assert.equal(result[1][1], z)
   })
 
   test('matches explicitly nested parameter and argument shapes', () => {
