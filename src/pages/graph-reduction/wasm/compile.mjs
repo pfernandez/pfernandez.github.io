@@ -20,8 +20,7 @@ export const compile = async (source, filename = 'runner.wat') => {
 }
 
 const main = () =>
-  typeof process !== 'undefined'
-    && process.argv[1]
+  process.argv[1]
     && decodeURIComponent(new URL(import.meta.url).pathname) === process.argv[1]
 
 if (main()) {

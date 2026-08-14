@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { image } from './image.js'
-import { compile } from './compile.js'
+import { compile } from './compile.mjs'
 
 const source = readFileSync(new URL('./runner.wat', import.meta.url), 'utf8')
 const bytes = await compile(source)
