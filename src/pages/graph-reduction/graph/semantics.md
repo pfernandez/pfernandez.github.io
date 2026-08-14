@@ -123,14 +123,28 @@ step(pair) = pair.right
 Selection, branching, repetition, and eventual return must already be encoded
 in the graph. The observer neither resolves names nor reduces source forms.
 
+A continuously running observer may expose the current address and recursively
+apply `step`. It does not interpret `step(pair) === pair` as termination: a
+self-edge is a persistent period-one trajectory, while a longer cycle remains a
+longer repeating trajectory. Stopping, yielding, or coalescing repeated states
+belongs to the observing environment rather than to the pair graph.
+
 The current machine can construct finite linked pair graphs, including finite
 cycles representing repeated configurations. It does not yet provide:
 
 - lazy construction of an unbounded sequence of unique configurations;
-- a host-capability boundary for browser events, DOM operations, or storage;
+- allocation of new graph identities from browser input, network data, or
+  storage;
 - source locations and semantic diagnostics for failed linking;
 - a proof that the lexical graph rules are equivalent to a physical causal
   model.
 
 Those are boundaries of the present implementation, not additional meanings
 silently assigned to its pairs.
+
+An Elements call may receive property data as its first argument. One property
+is a `(name value)` pair; internal pairs collect multiple entries without
+requiring nil. The browser device converts the entries into an Elements property
+object. An event property such as `onclick` retains its value as a graph address
+until the external event occurs. The device then selects that prelinked
+continuation; it does not construct or choose the next application state.

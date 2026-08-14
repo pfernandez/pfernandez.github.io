@@ -3,11 +3,13 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { view } from './device.js'
 
-test('renders a Lisp element through the wasm device boundary', () => {
+test('selects a prelinked view through a browser event', () => {
   const source = readFileSync(new URL('./dashboard.lisp', import.meta.url),
                               'utf-8')
+  const button = view(source)
 
-  assert.deepEqual(
-    view(source),
-    ['h2', {}, 'Graph Reduction'])
+  assert.equal(button[0], 'button')
+  assert.equal(button[2], 'Next')
+  assert.equal(typeof button[1].onclick, 'function')
+  assert.deepEqual(button[1].onclick(), ['h2', {}, 'Graph Reduction'])
 })

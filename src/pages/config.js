@@ -6,6 +6,8 @@ export default
             summary: 'Graph Reduction',
             items: [{ label: 'Dashboard',
                       file: 'dashboard.js',
-                      default: true }] }],
+                      default: true },
+                    { label: 'Pure Lisp',
+                      file: 'app.lisp.js' }] }],
   markdownGlobals: () => ({ render }),
   keepAlive: true }
