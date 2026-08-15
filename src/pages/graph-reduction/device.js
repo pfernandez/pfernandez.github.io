@@ -18,9 +18,9 @@ const capabilities = Object.fromEntries(
 capabilities.render = ({ values }) => values()[0]
 capabilities.text = ({ values }) => values().join(' ')
 capabilities.alert = ({ values }) => globalThis.alert(values()[0])
-capabilities.component = ({ argument, evaluate, right }) => {
+capabilities.component = ({ argument, evaluate, left, right }) => {
   let app
-  app = component((address = right(argument)) => evaluate(address, app))
+  app = component((state = right(argument)) => evaluate(left(state), app))
   return app
 }
 

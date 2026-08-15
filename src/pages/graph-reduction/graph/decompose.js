@@ -1,5 +1,5 @@
 export const decompose = tree => {
-  if (!Array.isArray(tree)) return tree
+  if (!Array.isArray(tree) || !tree.length) return tree
 
   const [left, ...right] = tree
   if (!right.length) return decompose(left)

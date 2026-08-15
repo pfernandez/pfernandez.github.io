@@ -3,12 +3,14 @@
 ;   (h1 (text This page was emitted from wasm)))
 
 ((app message
-      (div
-        (button
-          (onclick (alert (text Hello component)))
-          ; (onclick (app (text Hello component)))
-          (text Click me))
-        (p message)))
+      ((div
+         (button
+           (onclick
+             ((alert (text Hello component)) ()))
+           ; (onclick (app (text Hello component)))
+           (text Click me))
+         (p message))
+       ()))
  (component
    (app (text Hello world))))
 
