@@ -1,6 +1,7 @@
 import { component, elements } from '@pfern/elements'
 import { addressLegend, link } from './graph/index.js'
 import { image } from './wasm/image.js'
+import { relay } from './wasm/relay.js'
 
 const capabilities = Object.fromEntries(
   Object.entries(elements).map(([name, element]) =>
@@ -18,9 +19,11 @@ const capabilities = Object.fromEntries(
 capabilities.render = ({ values }) => values()[0]
 capabilities.text = ({ values }) => values().join(' ')
 capabilities.alert = ({ values }) => globalThis.alert(values()[0])
-capabilities.component = ({ argument, evaluate, left, right }) => {
+capabilities.component = ({ argument, evaluate, left, observe, right }) => {
+  const initial = right(argument)
   let app
-  app = component((state = right(argument)) => evaluate(left(state), app))
+  app = component((state = initial) => evaluate(left(state), app))
+  observe(initial, app)
   return app
 }
 
@@ -52,6 +55,8 @@ export const view = source => {
       argument,
       evaluate: (node, next = transition) => evaluate(node, next),
       left,
+      observe: (focus, transition) =>
+        relay({ bytes: graphImage.bytes, focus }, transition),
       properties: properties(transition),
       right,
       transition,
