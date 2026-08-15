@@ -1,7 +1,6 @@
 import { component, elements } from '@pfern/elements'
 import { addressLegend, link } from './graph/index.js'
 import { image } from './wasm/image.js'
-import { emit, readLegend } from './wasm/module.js'
 
 const capabilities = Object.fromEntries(
   Object.entries(elements).map(([name, element]) =>
@@ -18,24 +17,24 @@ const capabilities = Object.fromEntries(
 // device boundary `render` exposes the graph-produced vnode to that host.
 capabilities.render = ({ values }) => values()[0]
 capabilities.text = ({ values }) => values().join(' ')
-capabilities.alert = ({ values }) => alert(values()[0])
+capabilities.alert = ({ values }) => globalThis.alert(values()[0])
+capabilities.component = ({ argument, evaluate, right }) => {
+  let app
+  app = component((address = right(argument)) => evaluate(address, app))
+  return app
+}
 
 export const view = source => {
   const linked = link(source, Object.keys(capabilities))
   if (linked.error) throw linked.error
 
   const graphImage = image(linked.graph, linked.focus)
-  const bytes = emit({
-    ...graphImage,
-    legend: addressLegend(graphImage)
-  })
-  const module = new WebAssembly.Module(bytes)
-  const instance = new WebAssembly.Instance(module)
-  const { focus, memory, step: right } = instance.exports
-  const graph = new DataView(memory.buffer)
-  const legend = readLegend(bytes)
+  const graph = new DataView(graphImage.bytes.buffer)
+  const legend = addressLegend(graphImage)
   const left = address => graph.getUint32(address, true)
-  const fixed = address => left(address) === address && right(address) === address
+  const right = address => graph.getUint32(address + 4, true)
+  const fixed = address =>
+    left(address) === address && right(address) === address
   const imported = address => capabilities[legend.get(left(address))]
 
   const evaluate = (address, transition) => {
@@ -51,7 +50,7 @@ export const view = source => {
 
     return capability({
       argument,
-      evaluate: node => evaluate(node, transition),
+      evaluate: (node, next = transition) => evaluate(node, next),
       left,
       properties: properties(transition),
       right,
@@ -87,7 +86,5 @@ export const view = source => {
       : [evaluate(operation, transition), ...args(argument, transition)]
   }
 
-  const application = component(address => evaluate(address, application))
-
-  return application(focus.value)
+  return evaluate(graphImage.focus)
 }
