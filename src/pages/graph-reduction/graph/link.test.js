@@ -33,14 +33,14 @@ describe('link', () => {
     }
   })
 
-  test('ties hold into a stable state', () => {
-    const held = linked(`
-    ((hold x (hold x))
-     (hold a))
+  test('ties fix into a stable state', () => {
+    const fixed = linked(`
+    ((fix x (fix x))
+     (fix a))
     `).focus
 
-    assert.equal(held[0]['symbol'], 'a')
-    assert.equal(held[1], held)
+    assert.equal(fixed[0]['symbol'], 'a')
+    assert.equal(fixed[1], fixed)
   })
 
   test('links imported names as existing identities', () => {

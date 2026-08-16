@@ -2,13 +2,13 @@
 ; (article
 ;   (h1 (text This page was emitted from wasm)))
 
-((hold x (hold x))
+((fix x (fix x))
  (app message
-      (hold
+      (fix
         (div
           (button
             (onclick
-              (hold (alert (text Hello component))))
+              (fix (alert (text Hello component))))
             ; (onclick (app (text Hello component)))
             (text Click me))
           (p message))))
