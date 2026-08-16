@@ -33,35 +33,14 @@ describe('link', () => {
     }
   })
 
-  test('requires a pair around a self reference', () => {
-    const { error } = link('()')
-
-    assert.match(error.message, /Self reference has no enclosing pair/)
-  })
-
-  test('links two self references into an anonymous atom', () => {
-    const { graph, focus } = linked('(() ())')
-
-    assert.equal(focus, graph)
-    assert.equal(graph[0], graph)
-    assert.equal(graph[1], graph)
-  })
-
-  test('uses hold recurrence and a self reference equivalently', () => {
-    const recursive = linked(`
+  test('ties hold into a stable state', () => {
+    const held = linked(`
     ((hold x (hold x))
      (hold a))
     `).focus
-    const literalApplication = linked(`
-    ((hold x (x ()))
-     (hold a))
-    `).focus
-    const literal = step(literalApplication)
 
-    assert.notEqual(literalApplication, literal)
-    assert.equal(recursive[1], recursive)
-    assert.equal(literal[1], literal)
-    assert.deepEqual(literal, recursive)
+    assert.equal(held[0]['symbol'], 'a')
+    assert.equal(held[1], held)
   })
 
   test('links imported names as existing identities', () => {

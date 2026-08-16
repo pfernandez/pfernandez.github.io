@@ -40,6 +40,10 @@ the host associate their final addresses with device operations.
 Two nodes with the same shape are not thereby the same identity. Sharing and
 recurrence are represented by shared references, not by structural equality.
 
+Serialized presentations use a colored `()` to mark an edge to an identity
+already expanded elsewhere. It is a reference glyph, not source syntax or nil;
+its color identifies the pair reached by that non-tree edge.
+
 ## Sequence and visibility
 
 `fold` reads a decomposed sequence left to right. At each pair:

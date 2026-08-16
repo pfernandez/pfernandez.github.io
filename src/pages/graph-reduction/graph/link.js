@@ -19,7 +19,6 @@ const identify = (graph, symbol) => {
 }
 
 const isSymbol = node => typeof node === 'string'
-const isSelf = expression => Array.isArray(expression) && !expression.length
 const isFixed = graph => graph[0] === graph && graph[1] === graph
 const isNamed = graph => graph?.['symbol'] !== undefined
 const isDefinition = graph => isNamed(graph) && !isFixed(graph)
@@ -39,8 +38,6 @@ const atom = symbol => {
 // definition             [parameters, body]
 // suspended application  [definition, supplied]
 // completed application  [arguments, result]
-// An authored `()` closes its enclosing pair, allowing any result to carry
-// itself as its own stable future without introducing another structural state.
 const instantiate = (graph, bindings = [], states = []) => {
   // A later argument extends the supplied arguments' right spine.
   const append = (graph, node) => isNamed(graph)
@@ -153,14 +150,13 @@ const branch = (expression, scopes) => {
   scopes = [...scopes, graph]
   const [left, right] = expression
   const ref = isSymbol(left) && lookup(left, scopes)
-  const build = expression => isSelf(expression)
-    ? graph
-    : isSymbol(expression)
-      ? lookup(expression, scopes) || atom(expression)
-      : branch(expression, scopes)
 
-  graph[0] = ref || build(left)
-  graph[1] = build(right)
+  graph[0] = isSymbol(left)
+    ? ref || atom(left)
+    : branch(left, scopes)
+  graph[1] = isSymbol(right)
+    ? lookup(right, scopes) || atom(right)
+    : branch(right, scopes)
 
   if (ref || isSuspended(graph[0])) instantiate(graph)
   return Object.freeze(graph)
@@ -169,8 +165,7 @@ const branch = (expression, scopes) => {
 // A definition introduces every parameter identity before linking its body.
 // Parameters share one lexical scope regardless of their nested pair shape.
 const scope = (expression, scopes, graph) => {
-  const define = (expression, enclosing = graph) => {
-    if (isSelf(expression)) return enclosing
+  const define = expression => {
     if (isSymbol(expression)) {
       const graph = atom(expression)
       scopes.push(graph)
@@ -179,8 +174,8 @@ const scope = (expression, scopes, graph) => {
 
     const graph = []
     const [left, right] = expression
-    graph[0] = define(left, graph)
-    graph[1] = define(right, graph)
+    graph[0] = define(left)
+    graph[1] = define(right)
     return Object.freeze(graph)
   }
 
@@ -188,11 +183,9 @@ const scope = (expression, scopes, graph) => {
   scopes = [...scopes]
 
   graph[0] = define(parameters)
-  graph[1] = isSelf(body)
-    ? graph
-    : isSymbol(body)
-      ? lookup(body, scopes) || atom(body)
-      : fold(body, scopes).graph
+  graph[1] = isSymbol(body)
+    ? lookup(body, scopes) || atom(body)
+    : fold(body, scopes).graph
 
   return Object.freeze(graph)
 }
@@ -215,27 +208,25 @@ const fold = (expression, scopes = []) => {
     if (ref) {
       // A visible leftmost identity makes this pair an application.
       graph[0] = ref
-      graph[1] = isSelf(right) ? graph : branch(right, scopes)
+      graph[1] = branch(right, scopes)
       instantiate(graph)
       call = isDefinition(ref)
     } else {
       // A fresh leftmost identity names this pair and begins a definition.
       identify(graph, left)
-      if (Array.isArray(right) && !isSelf(right)) {
+      if (Array.isArray(right)) {
         const definition = scope(right, scopes, graph)
         return context(definition)
       }
 
-      graph[0] = graph[1] = isSelf(right) ? graph : atom(right)
+      graph[0] = graph[1] = atom(right)
     }
   } else {
-    const previous = isSelf(left) ? context(graph) : fold(left, scopes)
+    const previous = fold(left, scopes)
     graph[0] = previous.graph
-    const following = isSelf(right)
-      ? context(graph)
-      : isSymbol(right)
-        ? context(lookup(right, scopes) || atom(right))
-        : fold(right, scopes)
+    const following = isSymbol(right)
+      ? context(lookup(right, scopes) || atom(right))
+      : fold(right, scopes)
 
     graph[1] = following.graph
 
@@ -263,9 +254,8 @@ const fold = (expression, scopes = []) => {
 
 export const link = (source, imports = []) => {
   try {
-    // Retain the source shape, lower sequences to pairs, resolve pair-local
-    // self references, then link identities. Only the last construction
-    // frontier becomes the focus.
+    // Retain the source shape, lower it to pairs, then link identities in the
+    // pair graph. Only the last construction frontier becomes the focus.
     const ast = parse(source)
     const pairs = decompose(ast)
     const imported = imports.map(atom)

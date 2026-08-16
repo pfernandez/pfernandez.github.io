@@ -14,9 +14,7 @@ test('requires one complete expression', () => {
   assert.throws(() => parse('a b'), /Expected one expression/)
 })
 
-test('requires a pair around a self reference', () => {
-  assert.throws(() => parse('()'), /Self reference has no enclosing pair/)
-  assert.throws(() => parse('(())'), /Self reference has no enclosing pair/)
-  assert.deepEqual(parse('(() ())'), [[], []])
-  assert.deepEqual(parse('(a (()))'), ['a', [[]]])
+test('keeps () out of source', () => {
+  assert.throws(() => parse('()'), /Unexpected \(\)/)
+  assert.throws(() => parse('(() ())'), /Unexpected \(\)/)
 })

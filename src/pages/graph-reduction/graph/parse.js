@@ -18,14 +18,6 @@ export const parse = source => {
   const tokens = tokenize(source)
   let index = 0
 
-  const validateSelf = (form, enclosed = false) => {
-    if (!Array.isArray(form)) return
-    if (!form.length && !enclosed)
-      err('Self reference has no enclosing pair')
-
-    form.forEach(child => validateSelf(child, enclosed || form.length > 1))
-  }
-
   const readForm = () => {
     const token = tokens[index++]
     if (token.text === '(') return readList(token)
@@ -39,6 +31,7 @@ export const parse = source => {
       items.push(readForm())
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
+    if (!items.length) err('Unexpected ()', opener)
     return items
   }
 
@@ -47,6 +40,5 @@ export const parse = source => {
 
   if (forms.length === 0) err('Missing expression')
   if (forms.length > 1) err('Expected one expression')
-  validateSelf(forms[0])
   return forms[0]
 }

@@ -31,6 +31,9 @@ test('reloads a prelinked view through worker state and browser events', () => {
     assert.equal(button[2], 'Click me')
     assert.equal(typeof button[1].onclick, 'function')
     assert.ok(worker)
+    const memory = new DataView(worker.message.bytes.buffer)
+    assert.equal(memory.getUint32(worker.message.focus + 4, true),
+                 worker.message.focus)
     assert.equal(worker.onmessage({ data: worker.message.focus })[0], 'div')
     button[1].onclick()
     assert.deepEqual(alerts, ['Hello component'])

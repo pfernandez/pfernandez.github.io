@@ -24,11 +24,6 @@ test('collapses singleton grouping', () => {
   assert.equal(decompose(parse('(x)')), 'x')
 })
 
-test('preserves self references while exposing their binary pair', () => {
-  assert.deepEqual(decompose(parse('(() ())')), [[], []])
-  assert.deepEqual(decompose(parse('(a b ())')), ['a', ['b', []]])
-})
-
 test('leaves the authored tree unchanged', () => {
   const ast = parse('(a b c)')
 
@@ -36,11 +31,10 @@ test('leaves the authored tree unchanged', () => {
   assert.deepEqual(ast, ['a', 'b', 'c'])
 })
 
-test('produces only pairs and self references', () => {
-  const ast = parse('((I x x) (S (x y z) ((x z) (y z))) (() ()))')
+test('produces only pairs', () => {
+  const ast = parse('((I x x) (S (x y z) ((x z) (y z))))')
   const visit = node => {
     if (!Array.isArray(node)) return
-    if (!node.length) return
     assert.equal(node.length, 2)
     node.forEach(visit)
   }
