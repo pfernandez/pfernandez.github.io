@@ -1,3 +1,5 @@
+import { leftAddress, rightAddress } from '../wasm/address.js'
+
 export const log = (x, label) => {
   if (label) console.log(label)
   if (typeof x === 'string') console.log(x)
@@ -180,8 +182,8 @@ const wasmTokens = (
         : identityToken('()', identity)
       : identityToken(String(symbol), identity)]
 
-  const left = view.getUint32(root, true)
-  const right = view.getUint32(root + 4, true)
+  const left = leftAddress(view, root)
+  const right = rightAddress(view, root)
   if (symbol !== undefined && left === root && right === root)
     return [identityToken(String(symbol), identity)]
 

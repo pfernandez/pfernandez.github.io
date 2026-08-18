@@ -187,8 +187,8 @@ than changing the fixed state that preceded it.
 
 ## Machine image
 
-An earlier image representation, retained as a design candidate, makes every
-node a pointer to its next transition. For a non-atomic pair addressed by `p`:
+The machine image makes every node a pointer to its next transition. For a
+non-atomic pair addressed by `p`:
 
 ```text
 memory[p - 4] = left
@@ -354,7 +354,7 @@ These milestones are experiments, not architectural commitments. A milestone
 is complete only when its behavior is demonstrated by focused tests.
 
 - [x] Re-enter an authored component with a new preauthored argument on click.
-- [ ] Re-evaluate the single-slot pointer representation from `f46a776` against
+- [x] Re-evaluate the single-slot pointer representation from `f46a776` against
       the current graph.
 - [ ] Pass a device-selected identity from a small authored input alphabet into
       an authored event continuation.

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
+import { stepAddress } from './address.js'
 import { image } from './image.js'
 import { compile } from './compile.mjs'
 
@@ -66,7 +67,7 @@ describe('the recursive runner', () => {
   test('dispatches a graph-authored cycle', () => {
     const { graphImage, seen } = observe(cycle(), 4)
     const view = new DataView(graphImage.bytes.buffer)
-    const second = view.getUint32(graphImage.focus + 4, true)
+    const second = stepAddress(view, graphImage.focus)
 
     assert.deepEqual(seen, [graphImage.focus, second,
                             graphImage.focus, second])

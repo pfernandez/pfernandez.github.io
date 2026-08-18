@@ -34,13 +34,13 @@ test('reloads a prelinked view through worker state and browser events', () => {
     assert.equal(typeof button[1].onclick, 'function')
     assert.ok(worker)
     const memory = new DataView(worker.message.bytes.buffer)
-    assert.equal(memory.getUint32(worker.message.focus + 4, true),
+    assert.equal(memory.getUint32(worker.message.focus, true),
                  worker.message.focus)
 
     button[1].onclick()
     const next = workers[1]
     const application = next.message.focus
-    const result = memory.getUint32(application + 4, true)
+    const result = memory.getUint32(application, true)
 
     assert.equal(worker.terminated, true)
     const updated = next.onmessage({ data: result })

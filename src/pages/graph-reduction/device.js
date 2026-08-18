@@ -1,5 +1,6 @@
 import { component, elements } from '@pfern/elements'
 import { addressLegend, link } from './graph/index.js'
+import { leftAddress, rightAddress } from './wasm/address.js'
 import { image } from './wasm/image.js'
 import { relay } from './wasm/relay.js'
 
@@ -40,8 +41,8 @@ export const view = source => {
   const graphImage = image(linked.graph, linked.focus)
   const graph = new DataView(graphImage.bytes.buffer)
   const legend = addressLegend(graphImage)
-  const left = address => graph.getUint32(address, true)
-  const right = address => graph.getUint32(address + 4, true)
+  const left = address => leftAddress(graph, address)
+  const right = address => rightAddress(graph, address)
   const fixed = address =>
     left(address) === address && right(address) === address
   const imported = address => capabilities[legend.get(left(address))]

@@ -7,7 +7,12 @@ import {
   serializeWasm
 } from '../graph/index.js'
 import { step } from '../graph/index.js'
-import { stepAddress } from './address.js'
+import {
+  isAtomAddress,
+  leftAddress,
+  rightAddress,
+  stepAddress
+} from './address.js'
 import { image } from './image.js'
 import { emit, readLegend, sections } from './wasm.js'
 
@@ -60,10 +65,14 @@ describe('the image is the graph', () => {
     const x = address('x')
     const P = address('P')
 
+    assert.equal(isAtomAddress(a), true)
+    assert.equal(isAtomAddress(P), false)
     assert.equal(memory.getUint32(a, true), a)
-    assert.equal(memory.getUint32(a + 4, true), a)
+    assert.equal(memory.getUint32(x, true), x)
+    assert.equal(memory.getUint32(P - 4, true), x)
     assert.equal(memory.getUint32(P, true), x)
-    assert.equal(memory.getUint32(P + 4, true), x)
+    assert.equal(leftAddress(memory, P), x)
+    assert.equal(rightAddress(memory, P), x)
   })
 })
 

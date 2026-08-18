@@ -28,10 +28,10 @@ const name = text => [...uleb(utf8(text).length), ...utf8(text)]
 const section = (id, body) => [id, ...uleb(body.length), ...body]
 
 export const emit = ({ bytes, focus, legend = new Map() }) => {
-  // step(p): return mem[p + 4]
+  // step(p): return mem[p]
   const step = [
     0x00,                              // no locals
-    0x20, 0x00, 0x28, 0x02, 0x04,      // return mem[p + 4]
+    0x20, 0x00, 0x28, 0x02, 0x00,      // return mem[p]
     0x0b
   ]
 

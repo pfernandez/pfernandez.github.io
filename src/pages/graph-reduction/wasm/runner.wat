@@ -10,5 +10,5 @@
     call $dispatch
 
     local.get $state
-    i32.load offset=4
+    i32.load
     return_call $run))
