@@ -45,20 +45,25 @@ nil.
 Source is initially authored as symbols and lists. Parsing preserves that
 shape; decomposition lowers sequences into pairs.
 
-A future identity-construction phase should resolve lexical names before
-linking. Its output should contain shared references rather than strings. It
-should also produce an external legend.
+Spelling and graph identity are different concerns, but they do not necessarily
+require separate graph walks. Lexical introduction, reference, and application
+all depend on the same position and visible history. The pair-local linking
+walk may therefore construct identities while it constructs applications.
+
+The reader may associate spellings with token identities and maintain an
+external legend. The linking walk can then compare identities without
+inspecting their spellings.
 
 ```text
 source
 -> authored AST
 -> decomposed pairs
--> lexically identified graph
 -> linked graph
 -> address image
 ```
 
-The linker should ultimately operate only on pairs and identity equality.
+The linker should ultimately be spelling-blind. This does not require it to be
+binding-blind: lexical identity construction may remain part of the same walk.
 
 Three kinds of identity must remain distinct:
 
@@ -70,12 +75,17 @@ Equal spelling does not imply equal binding identity. `F`'s `x` and `G`'s `x`
 may share a spelling atom in the reader, but their lexical binders remain
 distinct. Resolved uses point directly to the appropriate binder identity.
 
-## Library
+## Libraries
 
-The machine begins with an authored library in its visible history.
-Definitions such as `parse`, `link`, `observe`, and application helpers should
-eventually be ordinary library definitions rather than privileged runtime
-operations.
+A library is any recursively visible collection of definitions and their uses.
+It has no unique node type or privileged place in the graph. A core library is
+only a set conventionally imported or authored before an application.
+
+More than one library may be visible. Libraries may provide different device
+vocabularies, alphabets, mathematical operations, author languages, or observer
+conventions. Definitions such as `parse`, `link`, `observe`, and application
+helpers should eventually be ordinary library definitions rather than
+privileged runtime operations.
 
 A definition carries its dependencies through lexical reference:
 
@@ -89,7 +99,9 @@ The observer therefore need not copy or explicitly carry the entire library. A
 reference to `observe` transitively reaches the closed definitions it uses.
 
 An explicit library reference may still be carried when the application needs
-to replace or extend its library while running.
+to replace or extend its visible definitions while running. A recursive library
+definition may accept entries whose identities and meanings were not known when
+that definition was authored.
 
 ## Fixed states and continuations
 
@@ -158,35 +170,53 @@ External input joins a waiting continuation:
 continuation + input -> application -> next state
 ```
 
-Two encodings remain under consideration.
-
-Materialized application:
+An application may be present as a pair:
 
 ```text
 [continuation, input]
 ```
 
-Temporal application:
+In the machine image, that pair may also be the address from which observation
+moves to `input`. Material structure and temporal transition are therefore not
+necessarily competing representations of the application.
+
+The open question is whether each newly observed transition requires a new pair
+identity or can select an already-authored transition. Existing pairs remain
+immutable either way. A new event extends the realized causal history rather
+than changing the fixed state that preceded it.
+
+## Machine image
+
+An earlier image representation, retained as a design candidate, makes every
+node a pointer to its next transition. For a non-atomic pair addressed by `p`:
 
 ```text
-continuation -> input
+memory[p - 4] = left
+memory[p]     = right
+step(p)       = memory[p]
 ```
 
-In the temporal form, the ordered observer history constitutes the application.
-This could avoid allocating a pair merely to record two consecutive causal
-arrivals, but it makes observer history part of the machine's semantic state.
+An atom is one meaningful self-referential address:
 
-Whichever representation is chosen, existing pairs remain immutable. A new
-event extends the realized causal future rather than changing the fixed state
-that preceded it.
+```text
+memory[a] = a
+```
 
-## Incremental linking
+This is a lossless compression of `[self, self]`: the repeated edge carries no
+additional information. It also lets one plain pointer load perform the machine
+step. The representation must still distinguish atom addresses from addresses
+of non-atomic pairs, for example through alignment.
+
+The observer does not require left traversal. A serializer, linker, or device
+may know how the rest of a pair is laid out without making that operation part
+of the observer.
+
+## Linking over time
 
 A program definition is an intensional representation of its potentially
 infinite application graph.
 
-The linker should not attempt to enumerate every possible input and result
-eagerly. It should construct configurations incrementally:
+One possible implementation constructs configurations incrementally:
 
 1. Receive an application whose identities are now known.
 2. Construct its result topology.
@@ -195,9 +225,17 @@ eagerly. It should construct configurations incrementally:
 4. Append a new immutable configuration when it has not.
 5. Tie recurrence into cycles.
 
+This is not yet assumed to be necessary. A finite recursive graph may instead
+process an unbounded stream of preauthored identities, emit results, and receive
+those results as later inputs. The growing information then resides in the
+observer's history or input/output stream rather than newly allocated graph
+cells.
+
 For a finite state space and finite alphabet, all transitions may eventually be
 expanded. For a Turing-complete system, the reachable configuration space may
 be infinite, and termination for arbitrary inputs cannot generally be decided.
+Experiments should determine whether persistent graph construction is required
+before it becomes part of the substrate.
 
 ## Graph-resident observation
 
@@ -259,8 +297,14 @@ resolve names, or manage application state.
 
 ## Self-hosting
 
-The first graph-resident linker may be bootstrapped by the present JavaScript
-linker or written directly as a pair image in Wasm bytes.
+Self-hosting may not require placing a complete linker in the initial Wasm
+image. The bootstrap may instead be the smallest recursive graph able to accept
+an existing identity, let that argument affect its next transition, and call
+itself with further arguments. Source can then supply progressively richer
+libraries, lexical behavior, parsing, and linking.
+
+The first bootstrap may be produced by the present JavaScript linker or written
+directly as a pair image in Wasm bytes.
 
 A direct-byte bootstrap would make the initial assumptions explicit:
 
@@ -271,7 +315,7 @@ A direct-byte bootstrap would make the initial assumptions explicit:
 - initial focus;
 - device import convention.
 
-The bootstrap target is:
+One eventual bootstrap fixed point is:
 
 ```text
 hand-authored image
@@ -281,41 +325,67 @@ hand-authored image
 -> linker1 and linker2 are graph-isomorphic
 ```
 
-The JavaScript loader then ceases to be a semantic authority.
+The JavaScript loader then ceases to be a semantic authority. Whether the
+minimal seed must already contain a linker is deliberately left open.
 
 ## Minimal substrate
 
-The intended irreducible machine substrate is approximately:
+The irreducible substrate should be discovered rather than prescribed. The
+current candidate is approximately:
 
 - pair-address memory;
-- left and right traversal;
+- one pointer dereference for the next transition;
 - an entrypoint;
-- external input selection;
-- device dispatch;
-- append-only construction or interning of pair identities.
+- a device boundary through which identities may arrive and be emitted.
 
 It remains open whether generic referential identity comparison belongs to this
 substrate. Equality over an authored finite domain can be defined in source.
 Distinguishing arbitrary opaque but structurally identical atoms requires
 either observable addresses, observer history, or an authored discriminator.
 
+It also remains open whether input selection and pair construction belong to
+the substrate. Source may be able to select among preauthored identities and
+feed emitted identities back as later arguments without allocating new graph
+cells.
+
+## Milestones
+
+These milestones are experiments, not architectural commitments. A milestone
+is complete only when its behavior is demonstrated by focused tests.
+
+- [x] Re-enter an authored component with a new preauthored argument on click.
+- [ ] Re-evaluate the single-slot pointer representation from `f46a776` against
+      the current graph.
+- [ ] Pass a device-selected identity from a small authored input alphabet into
+      an authored event continuation.
+- [ ] Feed existing result identities back as new inputs without constructing
+      graph cells.
+- [ ] Author a recursive library definition that accepts entries it did not
+      previously know.
+- [ ] Find the smallest self-calling graph that can accept new arguments and
+      acquire further behavior from source.
+- [ ] Decide from those experiments whether runtime graph construction is
+      necessary.
+- [ ] Bootstrap the minimal graph directly from bytes.
+
 ## Open decisions
 
 The design deliberately leaves these questions unresolved:
 
-- Whether applications arriving through events are materialized pairs or
-  observer-history transitions.
+- Whether a newly observed application requires a new pair identity or selects
+  an already-authored transition.
 - Whether arbitrary input history belongs to the observer or persistent graph
   structure.
 - How a continuously running Wasm observer yields to external input.
-- How new pairs are appended and previously constructed configurations
-  interned.
+- Whether new pairs must be constructed at runtime at all.
+- If they must, how new pairs are appended and previously constructed
+  configurations interned.
 - Whether character identities carry only distinct addresses or authored bit
   behavior.
 - Whether generic reference equality is primitive or derived from an explicit
   identity representation.
-- How the current linker's construction and application walk separates into
-  symbol-aware construction followed by a symbol-blind linker.
+- How the reader removes spelling knowledge while preserving one pair-local
+  linking walk.
 
 These are implementation and semantic choices still under investigation, not
 meanings to hide in the device layer or silently assign to the linker.

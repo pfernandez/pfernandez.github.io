@@ -21,9 +21,15 @@ capabilities.text = ({ values }) => values().join(' ')
 capabilities.alert = ({ values }) => globalThis.alert(values()[0])
 capabilities.component = ({ argument, evaluate, left, observe, right }) => {
   const initial = right(argument)
+  let observer
   let app
-  app = component((state = initial) => evaluate(left(state), app))
-  observe(initial, app)
+  const advance = state => {
+    observer?.terminate()
+    observer = observe(state, app)
+  }
+
+  app = component((state = initial) => evaluate(left(state), advance))
+  advance(initial)
   return app
 }
 

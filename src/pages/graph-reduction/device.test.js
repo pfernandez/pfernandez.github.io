@@ -5,11 +5,8 @@ import { view } from './device.js'
 
 test('reloads a prelinked view through worker state and browser events', () => {
   const source = readFileSync(new URL('./app.lisp', import.meta.url), 'utf-8')
-  const NativeAlert = globalThis.alert
   const NativeWorker = globalThis.Worker
-  const alerts = []
   const workers = []
-  globalThis.alert = message => alerts.push(message)
   globalThis.Worker = class {
     constructor() {
       workers.push(this)
@@ -17,6 +14,10 @@ test('reloads a prelinked view through worker state and browser events', () => {
 
     postMessage(message) {
       this.message = message
+    }
+
+    terminate() {
+      this.terminated = true
     }
   }
 
@@ -29,17 +30,23 @@ test('reloads a prelinked view through worker state and browser events', () => {
     assert.equal(rendered[0], 'div')
     assert.equal(button[0], 'button')
     assert.equal(button[2], 'Click me')
+    assert.equal(rendered[3][2], 'Hello-world')
     assert.equal(typeof button[1].onclick, 'function')
     assert.ok(worker)
     const memory = new DataView(worker.message.bytes.buffer)
     assert.equal(memory.getUint32(worker.message.focus + 4, true),
                  worker.message.focus)
-    assert.equal(worker.onmessage({ data: worker.message.focus })[0], 'div')
+
     button[1].onclick()
-    assert.deepEqual(alerts, ['Hello component'])
+    const next = workers[1]
+    const application = next.message.focus
+    const result = memory.getUint32(application + 4, true)
+
+    assert.equal(worker.terminated, true)
+    const updated = next.onmessage({ data: result })
+    assert.equal(updated[0], 'div')
+    assert.equal(updated[3][2], 'Hello-component')
   } finally {
-    if (NativeAlert) globalThis.alert = NativeAlert
-    else delete globalThis.alert
     if (NativeWorker) globalThis.Worker = NativeWorker
     else delete globalThis.Worker
   }

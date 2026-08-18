@@ -11,7 +11,7 @@ worker.onmessage = async ({ data: { bytes, focus } }) => {
   const memory = new WebAssembly.Memory({ initial: pages })
   const graph = new Uint8Array(memory.buffer, 0, bytes.length)
   graph.set(bytes)
-  const dispatch = changes(address => worker.postMessage(address))
+  const dispatch = changes(address => worker.postMessage(address), focus)
 
   const instance = await WebAssembly.instantiate(await machine, {
     host: {

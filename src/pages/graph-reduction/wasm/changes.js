@@ -1,8 +1,5 @@
-export const changes = dispatch => {
-  let state
-
-  return next => {
+export const changes = (dispatch, state) =>
+  next => {
     if (next !== state) dispatch(next)
     state = next
   }
-}
