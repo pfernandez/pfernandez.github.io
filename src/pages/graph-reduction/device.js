@@ -102,7 +102,9 @@ export const view = source => {
     }
     const property = (name, address) => {
       return name?.startsWith('on')
-        ? () => transition(address)
+        ? imported(address)
+          ? evaluate(address, transition)
+          : () => transition(address)
         : evaluate(address, transition)
     }
 

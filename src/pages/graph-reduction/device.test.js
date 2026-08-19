@@ -23,6 +23,9 @@ const text = node =>
     ? node.slice(2).map(text).join('')
     : typeof node === 'string' ? node : ''
 
+const button = (node, label) =>
+  findAll(node, 'button').find(node => text(node) === label)
+
 const withWorkers = run => {
   const NativeWorker = globalThis.Worker
   const workers = []
@@ -78,9 +81,11 @@ test('chooses a preauthored dashboard state with authored events', () => {
     const first = workers[1]
     const memory = new DataView(first.message.bytes.buffer)
     const firstApplication = first.message.focus
-    const firstState = leftAddress(memory, firstApplication)
+    const firstArgs = leftAddress(memory, firstApplication)
+    const firstState = leftAddress(memory, firstArgs)
     const current = leftAddress(memory, firstState)
-    const pastel = rightAddress(memory, firstState)
+    const future = rightAddress(memory, firstState)
+    const pastel = rightAddress(memory, firstArgs)
     const result = rightAddress(memory, firstApplication)
     const updated = first.onmessage({ data: result })
     const nextMenu = find(updated, 'details')
@@ -94,11 +99,38 @@ test('chooses a preauthored dashboard state with authored events', () => {
     findAll(nextMenu, 'button')[2][1].onclick()
     const second = workers[2]
     const secondApplication = second.message.focus
-    const secondState = leftAddress(memory, secondApplication)
+    const secondArgs = leftAddress(memory, secondApplication)
+    const secondState = leftAddress(memory, secondArgs)
 
     assert.equal(leftAddress(memory, secondState), current)
-    assert.notEqual(rightAddress(memory, secondState), pastel)
+    assert.equal(rightAddress(memory, secondState), future)
+    assert.notEqual(rightAddress(memory, secondArgs), pastel)
     assert.deepEqual(second.message.bytes, before)
+  })
+})
+
+test('follows an observer state authored through recursion', () => {
+  withWorkers(workers => {
+    const app = view(source)
+    const rendered = app()
+    const before = workers[0].message.bytes.slice()
+
+    button(rendered, 'Next')[1].onclick()
+    const observer = workers[1]
+    const memory = new DataView(observer.message.bytes.buffer)
+    const application = observer.message.focus
+    const result = rightAddress(memory, application)
+    const updated = observer.onmessage({ data: result })
+
+    assert.equal(text(find(updated, 'pre')), 'b')
+    assert.equal(text(find(find(updated, 'details'), 'summary')), 'ink')
+    assert.deepEqual(observer.message.bytes, before)
+
+    button(updated, 'Next')[1].onclick()
+    const stable = workers[2]
+
+    assert.equal(stable.message.focus, application)
+    assert.deepEqual(stable.message.bytes, before)
   })
 })
 

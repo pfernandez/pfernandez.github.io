@@ -1,5 +1,5 @@
 ((fix x (fix x))
- (app (current appearance)
+ (app ((current future) appearance)
       (fix
         (div (class dashboard)
           (div (class panel)
@@ -16,16 +16,16 @@
                 (summary appearance)
                 (div (class choices)
                   (button
-                    (onclick (app (current ink)))
+                    (onclick (app ((current future) ink)))
                     Ink)
                   (button
-                    (onclick (app (current pastel)))
+                    (onclick (app ((current future) pastel)))
                     Pastel)
                   (button
-                    (onclick (app (current color)))
+                    (onclick (app ((current future) color)))
                     Color)
                   (button
-                    (onclick (app (current plain)))
+                    (onclick (app ((current future) plain)))
                     Plain)))))
 
           (div (class (text panel scene))
@@ -34,7 +34,9 @@
               (textarea (value (source current))))
 
             (div (class row)
-              (button (disabled true) (text Next))
+              (button
+                (onclick (app (future appearance)))
+                (text Next))
               (button (disabled true) (text Undo))
               (button (disabled true) (text Reset)))
 
@@ -45,4 +47,4 @@
             (div (class (text description row))
               (text Steps: 0))))))
  (component
-   (app ((a b) ink))))
+   (app (((a b) (fix b)) ink))))

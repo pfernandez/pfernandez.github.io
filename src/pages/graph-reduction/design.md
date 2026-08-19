@@ -343,6 +343,13 @@ substrate. Equality over an authored finite domain can be defined in source.
 Distinguishing arbitrary opaque but structurally identical atoms requires
 either observable addresses, observer history, or an authored discriminator.
 
+The current result-feedback experiment requires no referential comparison in
+the worker. Source carries an observer state `[current, future]`, and an authored
+event recursively re-enters the application with `future`. The final state is a
+fixed recurrence, so the complete path reuses existing graph identities without
+constructing graph cells. This establishes preauthored futures; selecting a
+future from a device-provided identity remains a separate experiment.
+
 It also remains open whether input selection and pair construction belong to
 the substrate. Source may be able to select among preauthored identities and
 feed emitted identities back as later arguments without allocating new graph
@@ -358,10 +365,10 @@ is complete only when its behavior is demonstrated by focused tests.
       the current graph.
 - [x] Select a preauthored application of an authored event continuation using
       an identity from a small authored input alphabet.
+- [x] Feed existing result identities back as new inputs without constructing
+      graph cells.
 - [ ] Pass a device-identified existing identity to an authored continuation
       without selecting its application in the device.
-- [ ] Feed existing result identities back as new inputs without constructing
-      graph cells.
 - [ ] Author a recursive library definition that accepts entries it did not
       previously know.
 - [ ] Find the smallest self-calling graph that can accept new arguments and
