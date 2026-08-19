@@ -356,8 +356,8 @@ is complete only when its behavior is demonstrated by focused tests.
 - [x] Re-enter an authored component with a new preauthored argument on click.
 - [x] Re-evaluate the single-slot pointer representation from `f46a776` against
       the current graph.
-- [ ] Pass a device-selected identity from a small authored input alphabet into
-      an authored event continuation.
+- [x] Select a preauthored application of an authored event continuation using
+      an identity from a small authored input alphabet.
 - [ ] Feed existing result identities back as new inputs without constructing
       graph cells.
 - [ ] Author a recursive library definition that accepts entries it did not
