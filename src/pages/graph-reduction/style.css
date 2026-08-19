@@ -36,8 +36,44 @@
 .dashboard .colors {
   font-size: smaller;
 }
-.dashboard .colors select {
+.dashboard .colors details {
+  position: relative;
+}
+
+.dashboard .colors summary {
+  cursor: pointer;
+  min-width: 8rem;
   padding: 4px 8px;
+  border: 1px solid light-dark(#bbb, #444);
+  border-radius: 4px;
+}
+
+.dashboard .colors .choices {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  display: grid;
+  padding: 4px;
+  border: 1px solid light-dark(#bbb, #444);
+  border-radius: 4px;
+  background: Canvas;
+  box-shadow: 0 4px 12px #0003;
+}
+
+.dashboard .colors .choices button {
+  margin: 0;
+  padding: 4px 8px;
+  border: 0;
+  color: CanvasText;
+  background: transparent;
+  text-align: left;
+}
+
+.dashboard .colors .choices button:hover,
+.dashboard .colors .choices button:focus {
+  background: light-dark(#eee, #222);
 }
 
 .dashboard .output {

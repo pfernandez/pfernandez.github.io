@@ -57,19 +57,6 @@ export const view = source => {
     left(address) === address && right(address) === address
   const imported = address => capabilities[legend.get(left(address))]
 
-  // A value-bearing event selects one branch from an authored table of
-  // `(identity transition)` entries. The table contains the possible
-  // applications; the device only relates an external spelling to one of its
-  // existing identities.
-  const select = (address, value) => {
-    const key = left(address)
-
-    if (fixed(key))
-      return legend.get(key) === value ? right(address) : undefined
-
-    return select(key, value) ?? select(right(address), value)
-  }
-
   const evaluate = (address, transition) => {
     const operation = left(address)
     const argument = right(address)
@@ -102,26 +89,25 @@ export const view = source => {
   const properties = transition => address => {
     if (fixed(address) || imported(address)) return
 
-    const entries = address => fixed(left(address))
-      ? [[legend.get(left(address)),
-          property(legend.get(left(address)), right(address))]]
-      : [...entries(left(address)), ...entries(right(address))]
+    const entries = address => {
+      if (fixed(address) || imported(address)) return
+      if (fixed(left(address))) {
+        const name = legend.get(left(address))
+        return [[name, property(name, right(address))]]
+      }
+
+      const before = entries(left(address))
+      const after = entries(right(address))
+      return before && after && [...before, ...after]
+    }
     const property = (name, address) => {
       return name?.startsWith('on')
-        ? value => {
-          const selected = typeof value === 'string'
-            ? select(address, value)
-            : address
-
-          if (selected === undefined)
-            throw new Error(`Unknown authored input identity: ${value}`)
-
-          return transition(selected)
-        }
+        ? () => transition(address)
         : evaluate(address, transition)
     }
 
-    return Object.fromEntries(entries(address))
+    const found = entries(address)
+    return found && Object.fromEntries(found)
   }
 
   const args = (address, transition) => {

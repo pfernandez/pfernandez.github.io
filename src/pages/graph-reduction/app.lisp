@@ -10,19 +10,23 @@
                 present configuration and whose right side is its following
                 configuration. Symbols and colors denote memory address))
 
-            (label (class (text row colors))
+            (div (class (text row colors))
               (text Color scheme)
-              (select
-                ((value appearance)
-                 (onchange
-                   ((ink    (app (current ink)))
-                    (pastel (app (current pastel)))
-                    (color  (app (current color)))
-                    (plain  (app (current plain))))))
-                (option (value ink)    Ink)
-                (option (value pastel) Pastel)
-                (option (value color)  Color)
-                (option (value plain)  Plain))))
+              (details
+                (summary appearance)
+                (div (class choices)
+                  (button
+                    (onclick (app (current ink)))
+                    Ink)
+                  (button
+                    (onclick (app (current pastel)))
+                    Pastel)
+                  (button
+                    (onclick (app (current color)))
+                    Color)
+                  (button
+                    (onclick (app (current plain)))
+                    Plain)))))
 
           (div (class (text panel scene))
             (label (class row)

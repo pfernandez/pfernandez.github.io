@@ -358,6 +358,8 @@ is complete only when its behavior is demonstrated by focused tests.
       the current graph.
 - [x] Select a preauthored application of an authored event continuation using
       an identity from a small authored input alphabet.
+- [ ] Pass a device-identified existing identity to an authored continuation
+      without selecting its application in the device.
 - [ ] Feed existing result identities back as new inputs without constructing
       graph cells.
 - [ ] Author a recursive library definition that accepts entries it did not
