@@ -258,6 +258,29 @@ describe('link', () => {
     assert.equal(step(second), second)
   })
 
+  test('carries a later definition through a recursive library', () => {
+    const { graph, focus } = linked(`
+    ((fix x (fix x))
+     (library (state entry)
+       (fix ((entry state) (library (state entry)))))
+     (flip (x y) (y x))
+     (library ((a b) flip)))
+    `)
+    const flip = graph[1][1][0]
+    const [args, fixed] = focus
+    const [state, entry] = args
+    const [value, recurrence] = fixed
+    const [application, recursive] = value
+    const [applied, result] = application
+
+    assert.equal(entry, flip)
+    assert.equal(applied, state)
+    assert.equal(result[0], state[1])
+    assert.equal(result[1], state[0])
+    assert.equal(recursive, focus)
+    assert.equal(recurrence, fixed)
+  })
+
   test('ties a copied recursive application into a cycle', () => {
     const { graph, focus } = linked(`
     ((Y f (f (Y f)))

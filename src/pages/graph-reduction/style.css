@@ -1,6 +1,6 @@
 /* Dashboard */
 
-.dashboard {
+.dashboard-view {
   display: grid;
   grid-template-columns: minmax(280px, 420px) 1fr;
   gap: 0;
@@ -8,7 +8,7 @@
   min-height: 100%;
 }
 
-.dashboard .row {
+.dashboard-view .row {
   display: flex;
   gap: 0 1rem;
   flex-wrap: wrap;
@@ -16,31 +16,31 @@
   margin-bottom: 1rem;
 }
 
-.dashboard .row > * {
+.dashboard-view .row > * {
   flex-grow: 1;
 }
 
-.dashboard .panel {
+.dashboard-view .panel {
   padding: 1.5rem 1.75rem;
 }
 
-.dashboard > .panel:last-child {
+.dashboard-view > .panel:last-child {
   border-left: 1px solid light-dark(#ccc, #333);
 }
 
-.dashboard .description {
+.dashboard-view .description {
   opacity: 0.8;
   font-size: smaller;
 }
 
-.dashboard .colors {
+.dashboard-view .colors {
   font-size: smaller;
 }
-.dashboard .colors details {
+.dashboard-view .colors details {
   position: relative;
 }
 
-.dashboard .colors summary {
+.dashboard-view .colors summary {
   cursor: pointer;
   min-width: 8rem;
   padding: 4px 8px;
@@ -48,7 +48,7 @@
   border-radius: 4px;
 }
 
-.dashboard .colors .choices {
+.dashboard-view .colors .choices {
   position: absolute;
   z-index: 1;
   top: calc(100% + 4px);
@@ -62,7 +62,7 @@
   box-shadow: 0 4px 12px #0003;
 }
 
-.dashboard .colors .choices button {
+.dashboard-view .colors .choices button {
   margin: 0;
   padding: 4px 8px;
   border: 0;
@@ -71,12 +71,12 @@
   text-align: left;
 }
 
-.dashboard .colors .choices button:hover,
-.dashboard .colors .choices button:focus {
+.dashboard-view .colors .choices button:hover,
+.dashboard-view .colors .choices button:focus {
   background: light-dark(#eee, #222);
 }
 
-.dashboard .output {
+.dashboard-view .output {
   display: block;
   overflow: auto;
   white-space: pre-wrap;
@@ -87,11 +87,11 @@
   margin: 4px 0;
 }
 
-.dashboard .identity {
+.dashboard-view .identity {
   font-weight: 700;
 }
 
-.dashboard textarea {
+.dashboard-view textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   font-size: smaller;
@@ -108,26 +108,26 @@
 }
 
 @media (max-width: 980px) {
-  .dashboard {
+  .dashboard-view {
     grid-template-columns: 1fr;
   }
 
-  .dashboard > .panel:last-child {
+  .dashboard-view > .panel:last-child {
     border-left: 0;
     border-top: 1px solid color-mix(in oklab, CanvasText 18%, transparent);
   }
 }
 
 @media (max-width: 768px) {
-  .dashboard {
+  .dashboard-view {
     display: block;
   }
 
-  .dashboard {
+  .dashboard-view {
     padding-top: 2.5rem;
   }
 
-  .dashboard .panel {
+  .dashboard-view .panel {
     padding: 1.5rem 1.25rem;
   }
 }

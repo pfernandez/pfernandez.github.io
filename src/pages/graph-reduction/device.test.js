@@ -4,7 +4,8 @@ import { test } from 'node:test'
 import { view } from './device.js'
 import { leftAddress, rightAddress } from './wasm/address.js'
 
-const source = readFileSync(new URL('./app.lisp', import.meta.url), 'utf-8')
+const source = readFileSync(
+  new URL('./dashboard.lisp', import.meta.url), 'utf-8')
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
@@ -71,11 +72,11 @@ test('chooses a preauthored dashboard state with authored events', () => {
     const textarea = find(rendered, 'textarea')
     const before = workers[0].message.bytes.slice()
 
-    assert.equal(rendered[1].class, 'dashboard')
+    assert.equal(rendered[1].class, 'dashboard-view')
     assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
     assert.equal(textarea[1].value, source)
     assert.equal(text(find(menu, 'summary')), 'ink')
-    assert.equal(text(find(rendered, 'pre')), '(a b)')
+    assert.equal(text(find(rendered, 'pre')), '(a (b c))')
 
     findAll(menu, 'button')[1][1].onclick()
     const first = workers[1]
@@ -93,7 +94,7 @@ test('chooses a preauthored dashboard state with authored events', () => {
     assert.equal(workers[0].terminated, true)
     assert.equal(firstApplication % 8, 4)
     assert.equal(text(find(nextMenu, 'summary')), 'pastel')
-    assert.equal(text(find(updated, 'pre')), '(a b)')
+    assert.equal(text(find(updated, 'pre')), '(a (b c))')
     assert.deepEqual(first.message.bytes, before)
 
     findAll(nextMenu, 'button')[2][1].onclick()
@@ -109,28 +110,48 @@ test('chooses a preauthored dashboard state with authored events', () => {
   })
 })
 
-test('follows an observer state authored through recursion', () => {
+test('follows three source-authored states through recursion', () => {
   withWorkers(workers => {
     const app = view(source)
     const rendered = app()
     const before = workers[0].message.bytes.slice()
 
-    button(rendered, 'Next')[1].onclick()
-    const observer = workers[1]
-    const memory = new DataView(observer.message.bytes.buffer)
-    const application = observer.message.focus
-    const result = rightAddress(memory, application)
-    const updated = observer.onmessage({ data: result })
+    assert.equal(text(rendered).includes('Steps:'), false)
 
-    assert.equal(text(find(updated, 'pre')), 'b')
+    button(rendered, 'Next')[1].onclick()
+    const first = workers[1]
+    const memory = new DataView(first.message.bytes.buffer)
+    const updated = first.onmessage({
+      data: rightAddress(memory, first.message.focus)
+    })
+
+    assert.equal(text(find(updated, 'pre')), '(b (c a))')
     assert.equal(text(find(find(updated, 'details'), 'summary')), 'ink')
-    assert.deepEqual(observer.message.bytes, before)
+    assert.deepEqual(first.message.bytes, before)
 
     button(updated, 'Next')[1].onclick()
-    const stable = workers[2]
+    const second = workers[2]
+    const thirdView = second.onmessage({
+      data: rightAddress(memory, second.message.focus)
+    })
 
-    assert.equal(stable.message.focus, application)
-    assert.deepEqual(stable.message.bytes, before)
+    assert.equal(text(find(thirdView, 'pre')), '(c (a b))')
+
+    button(thirdView, 'Next')[1].onclick()
+    const third = workers[3]
+    const cycled = third.onmessage({
+      data: rightAddress(memory, third.message.focus)
+    })
+
+    assert.equal(text(find(cycled, 'pre')), '(a (b c))')
+
+    button(cycled, 'Next')[1].onclick()
+    const repeated = workers[4]
+
+    assert.equal(repeated.message.focus, first.message.focus)
+    assert.deepEqual(repeated.message.bytes, before)
+    assert.equal(button(cycled, 'Undo')[1].disabled, 'true')
+    assert.equal(button(cycled, 'Reset')[1].disabled, 'true')
   })
 })
 

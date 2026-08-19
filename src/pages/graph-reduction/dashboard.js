@@ -30,7 +30,7 @@ const dashboard = component(
     const reset = () => dashboard({ ...history[0], scheme })
 
     return div(
-      { class: 'dashboard' },
+      { class: 'dashboard-view' },
       div({ class: 'panel' },
           h2('Graph Reduction'),
           p({ class: 'description' },

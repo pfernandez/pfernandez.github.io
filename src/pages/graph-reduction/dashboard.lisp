@@ -1,7 +1,9 @@
 ((fix x (fix x))
- (app ((current future) appearance)
+ (next (x y z) (y z x))
+ (observe state (observe (next state)))
+ (dashboard ((current future) appearance)
       (fix
-        (div (class dashboard)
+        (div (class dashboard-view)
           (div (class panel)
             (h2 (text Graph Reduction))
             (p (class description)
@@ -16,16 +18,24 @@
                 (summary appearance)
                 (div (class choices)
                   (button
-                    (onclick (app ((current future) ink)))
+                    (onclick
+                      (dashboard
+                        ((current future) ink)))
                     Ink)
                   (button
-                    (onclick (app ((current future) pastel)))
+                    (onclick
+                      (dashboard
+                        ((current future) pastel)))
                     Pastel)
                   (button
-                    (onclick (app ((current future) color)))
+                    (onclick
+                      (dashboard
+                        ((current future) color)))
                     Color)
                   (button
-                    (onclick (app ((current future) plain)))
+                    (onclick
+                      (dashboard
+                        ((current future) plain)))
                     Plain)))))
 
           (div (class (text panel scene))
@@ -35,16 +45,15 @@
 
             (div (class row)
               (button
-                (onclick (app (future appearance)))
+                (onclick
+                  (dashboard (future appearance)))
                 (text Next))
               (button (disabled true) (text Undo))
               (button (disabled true) (text Reset)))
 
             (label (class (text row output))
               Result
-              (serialize current appearance))
-
-            (div (class (text description row))
-              (text Steps: 0))))))
+              (serialize current appearance))))))
  (component
-   (app (((a b) (fix b)) ink))))
+   (dashboard
+     ((observe (a b c)) ink))))

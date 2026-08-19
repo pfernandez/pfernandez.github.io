@@ -124,15 +124,15 @@ handler(input) -> nextState
 A component may therefore have the conceptual form:
 
 ```text
-app(message)
+dashboard(message)
   = fix(view(message, onclick: handler))
 
 handler(input)
-  = app(result(message, input))
+  = dashboard(result(message, input))
 ```
 
-Each application of `app` produces a stable state closed over its argument. An
-event moves observation from one stable configuration to another.
+Each application of `dashboard` produces a stable state closed over its
+argument. An event moves observation from one stable configuration to another.
 
 ## Input
 
@@ -344,11 +344,14 @@ Distinguishing arbitrary opaque but structurally identical atoms requires
 either observable addresses, observer history, or an authored discriminator.
 
 The current result-feedback experiment requires no referential comparison in
-the worker. Source carries an observer state `[current, future]`, and an authored
-event recursively re-enters the application with `future`. The final state is a
-fixed recurrence, so the complete path reuses existing graph identities without
-constructing graph cells. This establishes preauthored futures; selecting a
-future from a device-provided identity remains a separate experiment.
+the worker. Source carries an observer state `[current, future]`. An authored
+event recursively re-enters the application with `future`. The current
+dashboard demonstrates this with a three-state recursive orbit, so the complete
+path reuses existing graph identities without constructing graph cells. This
+establishes graph-authored progression without admitting device-provided
+identities. Undo, Reset, and step counting remain absent or disabled until their
+history can be represented without host-owned state or fictitious graph
+transitions.
 
 It also remains open whether input selection and pair construction belong to
 the substrate. Source may be able to select among preauthored identities and
@@ -367,9 +370,7 @@ is complete only when its behavior is demonstrated by focused tests.
       an identity from a small authored input alphabet.
 - [x] Feed existing result identities back as new inputs without constructing
       graph cells.
-- [ ] Pass a device-identified existing identity to an authored continuation
-      without selecting its application in the device.
-- [ ] Author a recursive library definition that accepts entries it did not
+- [x] Author a recursive library definition that accepts entries it did not
       previously know.
 - [ ] Find the smallest self-calling graph that can accept new arguments and
       acquire further behavior from source.
