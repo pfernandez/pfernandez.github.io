@@ -355,6 +355,14 @@ names the preceding focus rather than the preceding observation frame. Undo,
 Reset, and step counting remain absent or disabled until their history can be
 represented without host-owned state or fictitious graph transitions.
 
+A finite authored path can already retain an application identity as an
+argument to its successor. An Undo event can then select that exact application
+without allocating or searching. The current linker materializes this history
+without modification because application identity is an ordinary argument
+identity. An unbounded recursive version does not recur, however: every new
+history argument denotes a new observer configuration, so eager linking needs
+an authored bound before it can terminate.
+
 It also remains open whether input selection and pair construction belong to
 the substrate. Source may be able to select among preauthored identities and
 feed emitted identities back as later arguments without allocating new graph
@@ -374,6 +382,8 @@ is complete only when its behavior is demonstrated by focused tests.
       graph cells.
 - [x] Carry the preceding focus while advancing through a recursive authored
       future.
+- [x] Return to an application identity retained by a finite authored
+      continuation.
 - [x] Author a recursive library definition that accepts entries it did not
       previously know.
 - [ ] Find the smallest self-calling graph that can accept new arguments and

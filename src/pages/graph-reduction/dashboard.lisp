@@ -1,6 +1,6 @@
 ((fix x (fix x))
- (next (x y z) (y z x))
- (observe state (observe (next state)))
+ (rotate (x y z) (y z x))
+ (observe state (observe (rotate state)))
  (dashboard ((history (focus next)) appearance)
       (fix
         (div (class dashboard-view)
@@ -8,9 +8,8 @@
             (h2 (text Graph Reduction))
             (p (class description)
               (text
-                The expression defines an observer whose left side is its
-                present configuration and whose right side is its following
-                configuration. Symbols and colors denote memory address))
+                The observer carries its previous, present, and following
+                configurations. Symbols and colors denote memory addresses))
 
             (div (class (text row colors))
               (text Color scheme)
@@ -40,7 +39,7 @@
 
           (div (class (text panel scene))
             (label (class row)
-              (text Expression)
+              (text Source)
               (textarea (value (source focus))))
 
             (div (class row)
@@ -50,6 +49,10 @@
                 (text Next))
               (button (disabled true) (text Undo))
               (button (disabled true) (text Reset)))
+
+            (label (class (text row output))
+              Previous
+              (serialize history appearance))
 
             (label (class (text row output))
               Result

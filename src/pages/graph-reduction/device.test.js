@@ -27,6 +27,8 @@ const text = node =>
 const button = (node, label) =>
   findAll(node, 'button').find(node => text(node) === label)
 
+const graphs = node => findAll(node, 'pre').map(text)
+
 const withWorkers = run => {
   const NativeWorker = globalThis.Worker
   const workers = []
@@ -76,7 +78,7 @@ test('chooses a preauthored dashboard state with authored events', () => {
     assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
     assert.equal(textarea[1].value, source)
     assert.equal(text(find(menu, 'summary')), 'ink')
-    assert.equal(text(find(rendered, 'pre')), '(a (b c))')
+    assert.deepEqual(graphs(rendered), ['seed', '(a (b c))'])
 
     findAll(menu, 'button')[1][1].onclick()
     const first = workers[1]
@@ -96,7 +98,7 @@ test('chooses a preauthored dashboard state with authored events', () => {
     assert.equal(workers[0].terminated, true)
     assert.equal(firstApplication % 8, 4)
     assert.equal(text(find(nextMenu, 'summary')), 'pastel')
-    assert.equal(text(find(updated, 'pre')), '(a (b c))')
+    assert.deepEqual(graphs(updated), ['seed', '(a (b c))'])
     assert.deepEqual(first.message.bytes, before)
 
     findAll(nextMenu, 'button')[2][1].onclick()
@@ -132,7 +134,7 @@ test('follows three source-authored states through recursion', () => {
       data: rightAddress(memory, first.message.focus)
     })
 
-    assert.equal(text(find(updated, 'pre')), '(b (c a))')
+    assert.deepEqual(graphs(updated), ['(a (b c))', '(b (c a))'])
     assert.equal(text(find(find(updated, 'details'), 'summary')), 'ink')
     assert.deepEqual(first.message.bytes, before)
 
@@ -150,7 +152,7 @@ test('follows three source-authored states through recursion', () => {
     assert.equal(
       rightAddress(memory, secondWindow),
       rightAddress(memory, firstFrame))
-    assert.equal(text(find(thirdView, 'pre')), '(c (a b))')
+    assert.deepEqual(graphs(thirdView), ['(b (c a))', '(c (a b))'])
 
     button(thirdView, 'Next')[1].onclick()
     const third = workers[3]
@@ -158,7 +160,7 @@ test('follows three source-authored states through recursion', () => {
       data: rightAddress(memory, third.message.focus)
     })
 
-    assert.equal(text(find(cycled, 'pre')), '(a (b c))')
+    assert.deepEqual(graphs(cycled), ['(c (a b))', '(a (b c))'])
 
     button(cycled, 'Next')[1].onclick()
     const repeated = workers[4]
@@ -166,7 +168,8 @@ test('follows three source-authored states through recursion', () => {
       data: rightAddress(memory, repeated.message.focus)
     })
 
-    assert.equal(text(find(repeatedView, 'pre')), '(b (c a))')
+    assert.deepEqual(
+      graphs(repeatedView), ['(a (b c))', '(b (c a))'])
 
     button(repeatedView, 'Next')[1].onclick()
     const closed = workers[5]
@@ -199,5 +202,48 @@ test('retains direct authored event transitions', () => {
     const updated = worker.onmessage({ data: result })
 
     assert.equal(text(updated), 'After')
+  })
+})
+
+test('returns to an authored application retained as history', () => {
+  withWorkers(workers => {
+    const app = view(`
+      ((fix x (fix x))
+       (after history
+         (fix
+           (div
+             (button (onclick history) Undo)
+             (p After))))
+       (before message
+         (fix
+           (div
+             (button
+               (onclick (after (before message)))
+               Next)
+             (p message))))
+       (component (before Before)))
+    `)
+    const initial = app()
+    const bytes = workers[0].message.bytes.slice()
+
+    button(initial, 'Next')[1].onclick()
+    const forward = workers[1]
+    const memory = new DataView(forward.message.bytes.buffer)
+    const history = leftAddress(memory, forward.message.focus)
+    const advanced = forward.onmessage({
+      data: rightAddress(memory, forward.message.focus)
+    })
+
+    assert.equal(text(find(advanced, 'p')), 'After')
+
+    button(advanced, 'Undo')[1].onclick()
+    const backward = workers[2]
+    const restored = backward.onmessage({
+      data: rightAddress(memory, backward.message.focus)
+    })
+
+    assert.equal(backward.message.focus, history)
+    assert.equal(text(find(restored, 'p')), 'Before')
+    assert.deepEqual(backward.message.bytes, bytes)
   })
 })
