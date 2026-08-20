@@ -83,9 +83,11 @@ test('chooses a preauthored dashboard state with authored events', () => {
     const memory = new DataView(first.message.bytes.buffer)
     const firstApplication = first.message.focus
     const firstArgs = leftAddress(memory, firstApplication)
-    const firstState = leftAddress(memory, firstArgs)
-    const current = leftAddress(memory, firstState)
-    const future = rightAddress(memory, firstState)
+    const firstWindow = leftAddress(memory, firstArgs)
+    const history = leftAddress(memory, firstWindow)
+    const frame = rightAddress(memory, firstWindow)
+    const focus = leftAddress(memory, frame)
+    const next = rightAddress(memory, frame)
     const pastel = rightAddress(memory, firstArgs)
     const result = rightAddress(memory, firstApplication)
     const updated = first.onmessage({ data: result })
@@ -101,10 +103,12 @@ test('chooses a preauthored dashboard state with authored events', () => {
     const second = workers[2]
     const secondApplication = second.message.focus
     const secondArgs = leftAddress(memory, secondApplication)
-    const secondState = leftAddress(memory, secondArgs)
+    const secondWindow = leftAddress(memory, secondArgs)
+    const secondFrame = rightAddress(memory, secondWindow)
 
-    assert.equal(leftAddress(memory, secondState), current)
-    assert.equal(rightAddress(memory, secondState), future)
+    assert.equal(leftAddress(memory, secondWindow), history)
+    assert.equal(leftAddress(memory, secondFrame), focus)
+    assert.equal(rightAddress(memory, secondFrame), next)
     assert.notEqual(rightAddress(memory, secondArgs), pastel)
     assert.deepEqual(second.message.bytes, before)
   })
@@ -121,6 +125,9 @@ test('follows three source-authored states through recursion', () => {
     button(rendered, 'Next')[1].onclick()
     const first = workers[1]
     const memory = new DataView(first.message.bytes.buffer)
+    const firstArgs = leftAddress(memory, first.message.focus)
+    const firstWindow = leftAddress(memory, firstArgs)
+    const firstFrame = rightAddress(memory, firstWindow)
     const updated = first.onmessage({
       data: rightAddress(memory, first.message.focus)
     })
@@ -131,10 +138,18 @@ test('follows three source-authored states through recursion', () => {
 
     button(updated, 'Next')[1].onclick()
     const second = workers[2]
+    const secondArgs = leftAddress(memory, second.message.focus)
+    const secondWindow = leftAddress(memory, secondArgs)
     const thirdView = second.onmessage({
       data: rightAddress(memory, second.message.focus)
     })
 
+    assert.equal(
+      leftAddress(memory, secondWindow),
+      leftAddress(memory, firstFrame))
+    assert.equal(
+      rightAddress(memory, secondWindow),
+      rightAddress(memory, firstFrame))
     assert.equal(text(find(thirdView, 'pre')), '(c (a b))')
 
     button(thirdView, 'Next')[1].onclick()
@@ -147,9 +162,17 @@ test('follows three source-authored states through recursion', () => {
 
     button(cycled, 'Next')[1].onclick()
     const repeated = workers[4]
+    const repeatedView = repeated.onmessage({
+      data: rightAddress(memory, repeated.message.focus)
+    })
 
-    assert.equal(repeated.message.focus, first.message.focus)
-    assert.deepEqual(repeated.message.bytes, before)
+    assert.equal(text(find(repeatedView, 'pre')), '(b (c a))')
+
+    button(repeatedView, 'Next')[1].onclick()
+    const closed = workers[5]
+
+    assert.equal(closed.message.focus, second.message.focus)
+    assert.deepEqual(closed.message.bytes, before)
     assert.equal(button(cycled, 'Undo')[1].disabled, 'true')
     assert.equal(button(cycled, 'Reset')[1].disabled, 'true')
   })

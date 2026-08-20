@@ -1,7 +1,7 @@
 ((fix x (fix x))
  (next (x y z) (y z x))
  (observe state (observe (next state)))
- (dashboard ((current future) appearance)
+ (dashboard ((history (focus next)) appearance)
       (fix
         (div (class dashboard-view)
           (div (class panel)
@@ -20,40 +20,40 @@
                   (button
                     (onclick
                       (dashboard
-                        ((current future) ink)))
+                        ((history (focus next)) ink)))
                     Ink)
                   (button
                     (onclick
                       (dashboard
-                        ((current future) pastel)))
+                        ((history (focus next)) pastel)))
                     Pastel)
                   (button
                     (onclick
                       (dashboard
-                        ((current future) color)))
+                        ((history (focus next)) color)))
                     Color)
                   (button
                     (onclick
                       (dashboard
-                        ((current future) plain)))
+                        ((history (focus next)) plain)))
                     Plain)))))
 
           (div (class (text panel scene))
             (label (class row)
               (text Expression)
-              (textarea (value (source current))))
+              (textarea (value (source focus))))
 
             (div (class row)
               (button
                 (onclick
-                  (dashboard (future appearance)))
+                  (dashboard ((focus next) appearance)))
                 (text Next))
               (button (disabled true) (text Undo))
               (button (disabled true) (text Reset)))
 
             (label (class (text row output))
               Result
-              (serialize current appearance))))))
+              (serialize focus appearance))))))
  (component
    (dashboard
-     ((observe (a b c)) ink))))
+     ((seed (observe (a b c))) ink))))

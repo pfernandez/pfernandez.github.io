@@ -344,14 +344,16 @@ Distinguishing arbitrary opaque but structurally identical atoms requires
 either observable addresses, observer history, or an authored discriminator.
 
 The current result-feedback experiment requires no referential comparison in
-the worker. Source carries an observer state `[current, future]`. An authored
-event recursively re-enters the application with `future`. The current
-dashboard demonstrates this with a three-state recursive orbit, so the complete
-path reuses existing graph identities without constructing graph cells. This
-establishes graph-authored progression without admitting device-provided
-identities. Undo, Reset, and step counting remain absent or disabled until their
-history can be represented without host-owned state or fictitious graph
-transitions.
+the worker. Source carries an observer window `[history, [focus, next]]`. An
+authored event recursively re-enters the application with `[focus, next]`:
+matching moves the old focus into history and opens the recursive next frame as
+the new focus and next. The dashboard demonstrates this with a three-state
+recursive orbit, so the complete path reuses existing graph identities without
+constructing graph cells at runtime. This establishes graph-authored
+progression without admitting device-provided identities. History currently
+names the preceding focus rather than the preceding observation frame. Undo,
+Reset, and step counting remain absent or disabled until their history can be
+represented without host-owned state or fictitious graph transitions.
 
 It also remains open whether input selection and pair construction belong to
 the substrate. Source may be able to select among preauthored identities and
@@ -370,6 +372,8 @@ is complete only when its behavior is demonstrated by focused tests.
       an identity from a small authored input alphabet.
 - [x] Feed existing result identities back as new inputs without constructing
       graph cells.
+- [x] Carry the preceding focus while advancing through a recursive authored
+      future.
 - [x] Author a recursive library definition that accepts entries it did not
       previously know.
 - [ ] Find the smallest self-calling graph that can accept new arguments and
