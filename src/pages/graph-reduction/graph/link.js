@@ -1,4 +1,3 @@
-Error.stackTraceLimit = 1
 import { decompose } from './decompose.js'
 import { parse } from './parse.js'
 
@@ -273,5 +272,3 @@ export const link = (source, imports = []) => {
     return { graph, focus: graph, error }
   }
 }
-
-// Can we count cycles without allocation, i.e. with a binary counter?

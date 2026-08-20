@@ -3,12 +3,7 @@ export { decompose } from './decompose.js'
 export { link } from './link.js'
 export { step } from './step.js'
 export {
-  addressLegend,
-  log,
   serialize,
-  serializeWasm,
   schemeNames,
-  schemes,
-  trace,
-  traceWasm
+  schemes
 } from './serialize.js'

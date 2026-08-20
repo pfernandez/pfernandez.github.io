@@ -1,18 +1,8 @@
-import { leftAddress, rightAddress } from '../wasm/address.js'
-
-export const log = (x, label) => {
-  if (label) console.log(label)
-  if (typeof x === 'string') console.log(x)
-  else console.dir(x, { colors: true, depth: null })
-  return x
-}
-
 export const schemes = Object.freeze(
   { ink: 'ink', pastel: 'pastel', color: 'color', plain: 'plain' })
 
 export const schemeNames = Object.values(schemes)
 
-const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
 const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
@@ -26,11 +16,11 @@ const xtermColor = color => {
   const green = Math.floor(offset / 6) % 6
   const blue = offset % 6
   const rgb = [red, green, blue].map(xtermChannel)
-  return { ansi: `38;5;${color}`, css: `rgb(${rgb.join(', ')})`, rgb }
+  return { css: `rgb(${rgb.join(', ')})`, rgb }
 }
 
 const rgbColor = rgb =>
-  ({ ansi: `38;2;${rgb.join(';')}`, css: `rgb(${rgb.join(', ')})`, rgb })
+  ({ css: `rgb(${rgb.join(', ')})`, rgb })
 
 const interpolate = (start, end, t) =>
   start.map((channel, i) => Math.round(channel + (end[i] - channel) * t))
@@ -58,8 +48,7 @@ const pastelGradient = index => {
 }
 
 const colorScheme = color =>
-  ({ ansi: identity => color(identity).ansi,
-     style: identity => ({ color: color(identity).css }) })
+  ({ style: identity => ({ color: color(identity).css }) })
 
 const opacity = index => 0.2 + spread(index) * 0.8
 
@@ -80,11 +69,6 @@ let nextJsIdentity = 0
 const jsIdentity = node => {
   if (!jsIdentities.has(node)) jsIdentities.set(node, nextJsIdentity++)
   return jsIdentities.get(node)
-}
-
-const wasmIdentity = (address, identities) => {
-  if (!identities.has(address)) identities.set(address, identities.size)
-  return identities.get(address)
 }
 
 const textToken = text => ({ text })
@@ -166,81 +150,8 @@ const layoutTokens = (document, width, column = 0) => {
 const graphTokens = (node, { width, repeat } = {}) =>
   layoutTokens(graphDocument(node, repeat), width).tokens
 
-const wasmTokens = (
-  view,
-  root,
-  legend,
-  { repeat = 'identity', path = '$', seen = new Map(),
-    identities = new Map() } = {}
-) => {
-  const symbol = legend.get(root)
-  const identity = wasmIdentity(root, identities)
-  if (seen.has(root))
-    return [symbol === undefined
-      ? repeat === 'path'
-        ? textToken(seen.get(root))
-        : identityToken('()', identity)
-      : identityToken(String(symbol), identity)]
-
-  const left = leftAddress(view, root)
-  const right = rightAddress(view, root)
-  if (symbol !== undefined && left === root && right === root)
-    return [identityToken(String(symbol), identity)]
-
-  seen.set(root, path)
-  const next = { repeat, seen, identities }
-  return [
-    identityToken('(', identity),
-    ...wasmTokens(view, left, legend, {
-      ...next,
-      path: `${path}.0`
-    }),
-    textToken(' '),
-    ...wasmTokens(view, right, legend, {
-      ...next,
-      path: `${path}.1`
-    }),
-    identityToken(')', identity)
-  ]
-}
-
 const tokensToText = tokens =>
   tokens.map(token => token.text).join('')
-
-const tokensToAnsi = (tokens, schemeName) => {
-  const ansi = selectedScheme(schemeName).ansi
-  if (!ansi) return tokensToText(tokens)
-
-  return tokens.map(token =>
-    token.identity === undefined
-      ? token.text
-      : `\x1b[${ansi(token.identity)}m${token.text}${RESET}`)
-    .join('')
-}
-
-const styleText = style =>
-  ['font-weight: 700']
-    .concat(Object.entries(style).map(([name, value]) => `${name}: ${value}`))
-    .join('; ')
-
-const tokensToConsole = (tokens, schemeName) => {
-  const style = selectedScheme(schemeName).style
-  if (!style) return [tokensToText(tokens)]
-
-  let text = ''
-  const styles = []
-
-  for (const token of tokens) {
-    if (token.identity === undefined) {
-      text += token.text.replaceAll('%', '%%')
-    } else {
-      text += `%c${token.text.replaceAll('%', '%%')}%c`
-      styles.push(styleText(style(token.identity)), '')
-    }
-  }
-
-  return [text, ...styles]
-}
 
 const tokensToVdom = (tokens, schemeName) => {
   const style = selectedScheme(schemeName).style ?? (() => ({}))
@@ -254,23 +165,8 @@ const tokensToVdom = (tokens, schemeName) => {
 }
 
 const renderTokens = (tokens, { format, scheme }) => {
-  if (format === 'ansi') return tokensToAnsi(tokens, scheme)
-  if (format === 'console') return tokensToConsole(tokens, scheme)
   if (format === 'vdom') return tokensToVdom(tokens, scheme)
   return tokensToText(tokens)
-}
-
-const writeTrace = (output, options) => {
-  const { label } = options
-  const count = options.count === true ? 0 : options.count
-  const prefix =
-    [count === false || count === undefined ? undefined : count,
-     label].filter(part => part !== undefined).join(' ')
-  const separator = prefix && !prefix.endsWith('\n') ? ' ' : ''
-
-  if (count !== false && count !== undefined) options.count = count + 1
-
-  return log(`${prefix}${separator}${output}\n`)
 }
 
 export const serialize = (
@@ -280,35 +176,3 @@ export const serialize = (
   width,
   repeat: format === 'text' ? 'path' : 'identity'
 }), { format, scheme })
-
-export const trace = (graph, options = {}) => {
-  const { format = 'ansi', scheme = schemes.color,
-          width = DEFAULT_WIDTH } = options
-  const output = serialize(graph, { format, scheme, width })
-
-  return writeTrace(output, options)
-}
-
-export const addressLegend = ({ addresses }) => {
-  const byAddress = new Map()
-
-  for (const [node, address] of addresses)
-    if (node.symbol !== undefined) byAddress.set(address, node.symbol)
-
-  return byAddress
-}
-
-export const serializeWasm = (
-  view,
-  root,
-  { legend = new Map(), format = 'text', scheme = schemes.color } = {}
-) => renderTokens(wasmTokens(view, root, legend, {
-  repeat: format === 'text' ? 'path' : 'identity'
-}), { format, scheme })
-
-export const traceWasm = (view, root, options = {}) => {
-  const { legend, format = 'ansi', scheme = schemes.color } = options
-  const output = serializeWasm(
-    view, root, { legend: legend ?? new Map(), format, scheme })
-  return writeTrace(output, options)
-}
