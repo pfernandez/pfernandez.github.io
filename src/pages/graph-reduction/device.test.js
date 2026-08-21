@@ -46,7 +46,7 @@ test('renders and revisits source-authored dashboard states', () => {
 
   assert.equal(rendered[1].class, 'dashboard-view')
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
-  assert.deepEqual(graphs(rendered), ['seed', '(a (b c))'])
+  assert.deepEqual(graphs(rendered), ['(c (a b))', '(a (b c))'])
 
   rendered = button(rendered, 'Next')[1].onclick()
   assert.deepEqual(graphs(rendered), ['(a (b c))', '(b (c a))'])
@@ -68,5 +68,28 @@ test('selects a preauthored appearance without leaving the graph', () => {
   const updated = pastel[1].onclick()
 
   assert.equal(text(find(find(updated, 'details'), 'summary')), 'pastel')
-  assert.deepEqual(graphs(updated), ['seed', '(a (b c))'])
+  assert.deepEqual(graphs(updated), ['(c (a b))', '(a (b c))'])
+})
+
+test('carries a completed application identity through an event', () => {
+  const app = view(`
+    ((after history
+       (div
+         (button (onclick history) Undo)
+         (p After)))
+     (before message
+       (div
+         (button
+           (onclick (after (before message)))
+           Next)
+         (p message)))
+     (component (before Before)))
+  `)
+  const initial = app()
+  const advanced = button(initial, 'Next')[1].onclick()
+  const restored = button(advanced, 'Undo')[1].onclick()
+
+  assert.equal(text(find(initial, 'p')), 'Before')
+  assert.equal(text(find(advanced, 'p')), 'After')
+  assert.equal(text(find(restored, 'p')), 'Before')
 })

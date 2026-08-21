@@ -310,23 +310,19 @@ describe('link', () => {
     assert.equal(third, first)
   })
 
-  test('constructs the unique states of an authored observer', () => {
+  test('ties a recursive transition directly into its orbit', () => {
     const { focus: initial } = linked(`
-    ((next (x y) (y x))
-     (observe state (observe (next state)))
-     (observe (a b)))
+    ((rotate (x y z) (rotate (y z x)))
+     (rotate (a b c)))
     `)
     const first = step(initial)
     const second = step(first)
+    const third = step(second)
 
     assert.equal(initial[0][0]['symbol'], 'a')
-    assert.equal(initial[0][1]['symbol'], 'b')
-    assert.equal(first[0][0], initial[0][1])
-    assert.equal(first[0][1], initial[0][0])
-    assert.notEqual(second, initial)
-    assert.equal(second[0][0], initial[0][0])
-    assert.equal(second[0][1], initial[0][1])
-    assert.equal(step(second), first)
+    assert.equal(first[0][0]['symbol'], 'b')
+    assert.equal(second[0][0]['symbol'], 'c')
+    assert.equal(third, initial)
   })
 
   test('returns graph and focus together when linking fails', () => {

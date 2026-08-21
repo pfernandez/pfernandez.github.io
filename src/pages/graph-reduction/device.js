@@ -27,11 +27,10 @@ capabilities.serialize = ({ argument, evaluate }) =>
     scheme: evaluate(right(argument))
   })
 capabilities.component = ({ argument, evaluate }) => {
-  const initial = right(argument)
   let app
-  const advance = application => app(right(application))
 
-  app = component((state = initial) => evaluate(left(state), advance))
+  app = component(
+    (application = argument) => evaluate(right(application), app))
   return app
 }
 
