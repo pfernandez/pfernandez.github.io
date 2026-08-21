@@ -1,13 +1,20 @@
 import { decompose } from './decompose.js'
 import { parse } from './parse.js'
 
-// A scope is a visible pair, not a searchable subtree. Walking the scope list
-// outward preserves lexical ancestry while `.find` exposes only local siblings.
-const lookup = (symbol, scopes, i = scopes.length - 1) =>
-  i >= 0 && (scopes[i].symbol === symbol
-    ? scopes[i]
-    : scopes[i].find(node => node?.symbol === symbol)
-      ?? lookup(symbol, scopes, i - 1))
+// A lexical scope is a visible pair, not a searchable subtree. The outermost
+// device scope maps authored names to function identities. Walking outward
+// preserves lexical ancestry while `.find` exposes only local siblings.
+const lookup = (symbol, scopes, i = scopes.length - 1) => {
+  if (i < 0) return
+
+  const scope = scopes[i]
+  return (scope instanceof Map
+    ? scope.get(symbol)
+    : scope.symbol === symbol
+      ? scope
+      : scope.find(node => node?.symbol === symbol))
+    ?? lookup(symbol, scopes, i - 1)
+}
 
 // Names annotate identities for linking and display; neither edge depends on
 // the spelling once the graph has been linked.
@@ -251,13 +258,14 @@ const fold = (expression, scopes = []) => {
   return context(Object.freeze(graph), focus, call)
 }
 
-export const link = (source, imports = []) => {
+export const link = (source, imports = {}) => {
   try {
     // Retain the source shape, lower it to pairs, then link identities in the
     // pair graph. Only the last construction frontier becomes the focus.
     const ast = parse(source)
     const pairs = decompose(ast)
-    const imported = imports.map(atom)
+    const imported = new Map(Object.entries(imports)
+      .map(([name, fn]) => [name, atom(fn)]))
     const scopes = [imported]
     const linked = isSymbol(pairs)
       ? context(lookup(pairs, scopes) || atom(pairs))

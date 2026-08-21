@@ -46,19 +46,19 @@ test('renders and revisits source-authored dashboard states', () => {
 
   assert.equal(rendered[1].class, 'dashboard-view')
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
-  assert.deepEqual(graphs(rendered), ['(c (a b))', '(a (b c))'])
+  assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(a (b c))', '(b (c a))'])
+  assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(b (c a))', '(c (a b))'])
+  assert.deepEqual(graphs(rendered), ['(B (C A))', '(C (A B))'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(c (a b))', '(a (b c))'])
+  assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(a (b c))', '(b (c a))'])
+  assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
 })
 
 test('selects a preauthored appearance without leaving the graph', () => {
@@ -68,7 +68,7 @@ test('selects a preauthored appearance without leaving the graph', () => {
   const updated = pastel[1].onclick()
 
   assert.equal(text(find(find(updated, 'details'), 'summary')), 'pastel')
-  assert.deepEqual(graphs(updated), ['(c (a b))', '(a (b c))'])
+  assert.deepEqual(graphs(updated), ['(C (A B))', '(A (B C))'])
 })
 
 test('carries a completed application identity through an event', () => {

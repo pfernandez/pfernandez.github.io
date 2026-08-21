@@ -56,4 +56,4 @@
          (serialize focus appearance)))))
  (component
    (dashboard
-     ((rotate (c a b)) ink))))
+     ((rotate (C A B)) ink))))
