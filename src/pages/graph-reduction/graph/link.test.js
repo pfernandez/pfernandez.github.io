@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { link, step } from './index.js'
 
-const linked = source => {
-  const result = link(source)
+const linked = (source, imports) => {
+  const result = link(source, imports)
   if (result.error) throw result.error
   return result
 }
@@ -328,6 +328,28 @@ describe('link', () => {
     assert.equal(first[0][0]['symbol'], 'b')
     assert.equal(second[0][0]['symbol'], 'c')
     assert.equal(third, initial)
+  })
+
+  test('ties separate recursive event branches', () => {
+    const button = () => {}
+    const { focus: initial } = linked(`
+    ((app x
+       (button
+         (onclick (app x))
+         (onclick (app A))))
+     (app B))
+    `, { button })
+    const body = initial[1]
+    const [stay, reset] = body[1]
+    const fixed = stay[1]
+    const origin = reset[1]
+    const [originStay, originReset] = origin[1][1]
+
+    assert.equal(body[0]['symbol'], button)
+    assert.equal(fixed, initial)
+    assert.equal(origin[0]['symbol'], 'A')
+    assert.equal(originStay[1], origin)
+    assert.equal(originReset[1], origin)
   })
 
   test('returns graph and focus together when linking fails', () => {
