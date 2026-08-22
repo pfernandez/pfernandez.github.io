@@ -123,3 +123,44 @@ test('keeps a bare parameter separate from its definition', () => {
   assert.equal(result[0], args)
   assert.equal(result[1], args)
 })
+
+test('copies a local definition before applying it', () => {
+  const { focus } = linked(`
+  ((F x
+      ((G y x)
+       (G b)))
+   (F a))
+  `)
+  const [args, result] = focus
+  const [G, application] = result
+
+  assert.equal(G['symbol'], 'G')
+  assert.equal(G[1], args)
+  assert.equal(application[0]['symbol'], 'b')
+  assert.equal(application[1], args)
+})
+
+test('keeps a nested definition inside its parent body', () => {
+  const { graph } = linked(`
+  ((F x (G y x))
+   (G z z))
+  `)
+  const nested = graph[0][1]
+  const following = graph[1]
+
+  assert.equal(nested['symbol'], 'G')
+  assert.equal(following['symbol'], 'G')
+  assert.notEqual(following, nested)
+})
+
+test('applies a visible definition inside a copied body', () => {
+  const { focus } = linked(`
+  ((I x x)
+   (F x (I x))
+   (F a))
+  `)
+  const [args, result] = focus
+
+  assert.equal(result[0], args)
+  assert.equal(result[1], args)
+})
