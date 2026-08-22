@@ -48,6 +48,12 @@
  * Truly new identities still require fresh storage, but existing identities do
  * not need to be copied merely to extend the graph. New pairs can retain them
  * through structural sharing.
+ *
+ * An application retains its complete definition sequence as result history.
+ * At the same time, it exposes the last value reached by that sequence to an
+ * enclosing application. This is the graph equivalent of a function keeping
+ * its lexical body while returning one value to its caller. The exposed value
+ * is already an identity in the graph; exposing it creates no additional cell.
  */
 
 import { decompose } from './decompose.js'
@@ -91,6 +97,15 @@ const isDefinition = graph => isNamed(graph) && !isFixed(graph)
 // Find the identity paired with a source identity.
 const find = (node, entries) =>
   entries.find(([source]) => source === node)?.[1]
+// A completed application carries the result exposed outside its history.
+const context = (graph, focus = graph, result) => ({ graph, focus, result })
+const output = state => state.result ?? state.focus
+// Keep the observable state while placing it in a larger history.
+const retain = (graph, state) => context(
+  Object.freeze(graph), state.focus, state.result)
+// An exposed value is linker knowledge, not another edge in the graph. The
+// outer map already lives for exactly one link and accepts identity keys.
+const exposed = (graph, stack) => stack[0].get(graph)
 // Before it has enough arguments, an application still points to its
 // definition on the left. Completed applications contain arguments instead.
 const isSuspended = graph => isDefinition(graph?.[0])
@@ -141,33 +156,32 @@ const copy = (node, stack, bindings, states, copies = []) => {
   const ref = find(node, bindings)
 
   // A parameter becomes the identity of the argument supplied for it.
-  if (ref) return ref
+  if (ref) return context(ref)
 
   const found = find(node, copies)
 
   // A branch already being copied keeps the same identity and closes a cycle.
-  if (found) return found
+  if (found) return context(found)
 
   // Named atoms and definitions without captured bindings are already stable.
   if (isNamed(node) && (!isDefinition(node) || !captures(node, bindings)))
-    return node
+    return context(node)
 
   const visible = isDefinition(node[0]) && (
     find(node[0], copies)
       ?? lookup(node[0]['symbol'], stack))
   const isVisible = Boolean(visible)
   const isNew = isDefinition(node[0]) && !isVisible
+  const previous = exposed(node, stack)
 
   // A visible definition on the left is being applied to the right side.
   if (isVisible) {
     const argument = copy(node[1], stack, bindings, states, copies)
-    const application = [
-      visible,
-      isDefinition(node[1]?.[0]) && !isSuspended(argument)
-        ? argument[1]
-        : argument
-    ]
-    return instantiate(application, stack, bindings, states)
+    const application = [visible, output(argument)]
+    const result = instantiate(application, stack, bindings, states)
+    return argument.graph === output(argument)
+      ? result
+      : retain([argument.graph, result.graph], result)
   }
 
   // An ordinary pair gets a fresh identity before either side is copied.
@@ -180,19 +194,30 @@ const copy = (node, stack, bindings, states, copies = []) => {
   // outer binding. Every other pair copies both sides.
   branch[0] = isDefinition(node)
     ? node[0]
-    : copy(node[0], stack, bindings, states, copies)
-  branch[1] = copy(node[1], stack, bindings, states, copies)
+    : copy(node[0], stack, bindings, states, copies).graph
+  const following = copy(node[1], stack, bindings, states, copies)
+  branch[1] = following.graph
 
   // A new definition on the left extends this local scope before observation
   // continues on the right. The enclosing pair is a sequence, not a call.
-  if (isNew) return Object.freeze(branch)
+  if (isNew)
+    return retain(branch, following)
 
-  return isDefinition(node)
-    ? Object.freeze(branch)
+  const copied = isDefinition(node)
+    ? context(Object.freeze(branch))
     : instantiate(branch, stack, bindings, states)
+
+  // A linked application may now look like an ordinary pair. Retain the
+  // value it exposed when substituting its parameter identities.
+  if (previous && previous !== node) {
+    const value = copy(previous, stack, bindings, states, copies)
+    return context(copied.graph, copied.focus, output(value))
+  }
+
+  return copied
 }
 
-const instantiate = (graph, stack = [], bindings = [], states = []) => {
+const instantiate = (graph, stack, bindings = [], states = []) => {
   let definition = graph[0]
   let args = graph[1]
 
@@ -206,12 +231,12 @@ const instantiate = (graph, stack = [], bindings = [], states = []) => {
 
   // A pair without a complete definition on the left cannot be applied.
   if (!isDefinition(definition) || !definition[1])
-    return Object.freeze(graph)
+    return context(Object.freeze(graph))
 
   const bound = match(definition[0], args)
 
   // Too few arguments leave the application suspended at this frontier.
-  if (!bound) return Object.freeze(graph)
+  if (!bound) return context(Object.freeze(graph))
 
   const state = states.find(([defined, previous]) =>
     defined === definition
@@ -219,7 +244,9 @@ const instantiate = (graph, stack = [], bindings = [], states = []) => {
 
   // The same definition and argument identities are the same state. Reusing
   // its unfinished graph closes recurrence into a cycle.
-  if (state) return state[2]
+  if (state)
+    return context(
+      state[2], state[2], exposed(state[2], stack) ?? state[2])
 
   states.push([definition, bound, graph])
   // Inner parameters precede outer bindings, so they shadow them.
@@ -227,8 +254,11 @@ const instantiate = (graph, stack = [], bindings = [], states = []) => {
   // A definition remains visible inside its own body, allowing recurrence.
   stack = [...stack, definition]
   graph[0] = args
-  graph[1] = copy(definition[1], stack, bindings, states)
-  return Object.freeze(graph)
+  const result = copy(definition[1], stack, bindings, states)
+  graph[1] = result.graph
+  Object.freeze(graph)
+  stack[0].set(graph, output(result))
+  return context(graph, graph, output(result))
 }
 
 // A parameter pattern introduces fresh identities while preserving its shape.
@@ -247,10 +277,6 @@ const parameters = (expression, stack) => {
   return Object.freeze(graph)
 }
 
-// `focus` and `call` are construction cursors. The final focus is exported,
-// but neither cursor is stored as additional state in the graph itself.
-const context = (graph, focus = graph, call = false) => ({ graph, focus, call })
-
 // Walk one pair at a time. `definitions` says whether a new leftmost name may
 // name the pair or must remain an ordinary atom inside an expression.
 const fold = (expression, stack = [], definitions = true) => {
@@ -267,10 +293,13 @@ const fold = (expression, stack = [], definitions = true) => {
 
   // A visible name on the left applies that identity to the right side.
   if (isVisible) {
+    const argument = fold(right, stack, false)
     graph[0] = ref
-    graph[1] = fold(right, stack, false).graph
-    instantiate(graph, stack)
-    return context(Object.freeze(graph), graph, isDefinition(ref))
+    graph[1] = output(argument)
+    const result = instantiate(graph, stack)
+    return argument.graph === output(argument)
+      ? result
+      : retain([argument.graph, result.graph], result)
   }
 
   // Inside an expression, a new name remains an atom instead of naming a pair.
@@ -286,7 +315,8 @@ const fold = (expression, stack = [], definitions = true) => {
     identify(graph, left)
     const [pattern, body] = Array.isArray(right) ? right : [right, right]
     graph[0] = parameters(pattern, stack)
-    graph[1] = fold(body, stack).graph
+    const result = fold(body, stack)
+    graph[1] = result.graph
     return context(Object.freeze(graph))
   }
 
@@ -298,21 +328,22 @@ const fold = (expression, stack = [], definitions = true) => {
 
   // A following sibling supplies the next argument to a suspended call.
   if (isSuspended(previous.focus)) {
-    instantiate(graph, stack)
-    return context(Object.freeze(graph), graph, true)
+    const applied = instantiate(graph, stack)
+    return retain(graph, applied)
   }
 
   // A following sibling applies to the result of a completed call.
-  if (previous.call) {
-    const focus = graph[1] = [previous.focus[1], graph[1]]
-    if (isDefinition(focus[0])) instantiate(focus, stack)
-    else Object.freeze(focus)
-    return context(Object.freeze(graph), focus, true)
+  if (previous.result) {
+    const application = graph[1] = [previous.result, graph[1]]
+    const applied = isDefinition(application[0])
+      ? instantiate(application, stack)
+      : context(Object.freeze(application), application, application)
+    return retain(graph, applied)
   }
 
   // A definition extends the visible library; observation begins after it.
   if (isDefinition(previous.focus))
-    return context(Object.freeze(graph), following.focus, following.call)
+    return retain(graph, following)
 
   // Otherwise this pair is the latest observable frontier.
   return context(Object.freeze(graph))
@@ -321,7 +352,7 @@ const fold = (expression, stack = [], definitions = true) => {
 export const link = (source, imports = {}) => {
   try {
     // Retain the source shape, lower it to pairs, then link identities in the
-    // pair graph. Only the last construction frontier becomes the focus.
+    // pair graph. Construction retains its history and exposes its last focus.
     const ast = parse(source)
     const pairs = decompose(ast)
     const imported = new Map(Object.entries(imports)

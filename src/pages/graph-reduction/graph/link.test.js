@@ -216,6 +216,29 @@ describe('link', () => {
     assert.equal(result[1], args[0])
   })
 
+  test('passes a result focus while retaining its definition sequence', () => {
+    const render = () => {}
+    const { graph, focus } = linked(`
+    ((I x x)
+     (F x
+       ((G y y)
+        (I x)))
+     (render (F a)))
+    `, { render })
+    const F = graph[1][0]
+    const history = graph[1][1]
+    const application = history[0]
+    const sequence = application[1]
+    const local = sequence[0]
+    const returned = sequence[1]
+
+    assert.equal(F['symbol'], 'F')
+    assert.equal(local['symbol'], 'G')
+    assert.equal(returned[1]['symbol'], 'a')
+    assert.equal(focus[0]['symbol'], render)
+    assert.equal(focus[1], returned[1])
+  })
+
   test('keeps copied application bindings local', () => {
     const { focus } = linked(`
     ((I x x)

@@ -21,5 +21,5 @@ export const functions = {
       scheme: evaluate(right(argument))
     }),
   component: ({ argument, evaluate }) =>
-    component(() => evaluate(right(argument)))
+    component(() => evaluate(argument))
 }

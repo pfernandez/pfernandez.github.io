@@ -40,6 +40,17 @@ test('retains an element with properties and no children', () => {
     ['button', { disabled: 'true' }])
 })
 
+test('renders the value after a private definition sequence', () => {
+  const app = view(`
+    ((observe message
+       ((identity x x)
+        (div message)))
+     (component (observe Hello)))
+  `)
+
+  assert.deepEqual(app(), ['div', {}, 'Hello'])
+})
+
 test('renders and revisits source-authored observer states', () => {
   const app = view(source)
   let rendered = app()
