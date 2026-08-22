@@ -117,6 +117,10 @@ const instantiate = (graph, bindings = [], states = []) => {
     // A definition is copied only when doing so closes over an outer binding.
     if (isNamed(node) && (!isDefinition(node) || !captures(node))) return node
 
+    // `fold` distinguishes a local definition's first encounter from later
+    // applications, but that history is absent here. A copied body beginning
+    // `[definition, following]` is therefore mistaken for an application and
+    // loses its local definition frame. Copy must preserve the same visibility.
     // Applications found in a copied body are completed as they are copied.
     if (isDefinition(node[0])) {
       const argument = copy(node[1])

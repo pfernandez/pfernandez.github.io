@@ -5,7 +5,7 @@ export default
   pages: [{ path: 'graph-reduction',
             summary: 'Graph Reduction',
             items: [{ label: 'Dashboard',
-                      file: 'dashboard.js',
+                      file: 'observe.js',
                       default: true },
                     { label: 'Pure Lisp',
                       file: 'observe.lisp.js' }] }],

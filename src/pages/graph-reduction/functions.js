@@ -12,7 +12,7 @@ export const functions = {
   ...Object.fromEntries(
     Object.entries(elements).map(([name, element]) =>
       [name, ({ argument, evaluate, values }) => element(
-        ...(entry(argument) ? [evaluate(argument)] : values()))])),
+        ...entry(argument) ? [evaluate(argument)] : values())])),
   text: ({ values }) => values().join(' '),
   source: ({ source }) => source,
   serialize: ({ argument, evaluate }) =>

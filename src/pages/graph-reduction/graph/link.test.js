@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { link, step } from './index.js'
+import { link } from './index.js'
 
 const linked = (source, imports) => {
   const result = link(source, imports)
@@ -81,7 +81,7 @@ describe('link', () => {
     assert.equal(application.includes(definition), false)
     assert.equal(args['symbol'], 'a')
     assert.equal(result, args)
-    assert.equal(step(application), result)
+    assert.equal(application[1], result)
   })
 
   test('does not copy an unused argument into the result', () => {
@@ -177,7 +177,6 @@ describe('link', () => {
     assert.equal(result[0][1], args[1][1])
     assert.equal(result[1][0], args[1][0])
     assert.equal(result[1][1], args[1][1])
-    assert.equal(step(graph[1]), second)
   })
 
   test('binds an excess right-nested argument to the final parameter', () => {
@@ -255,12 +254,12 @@ describe('link', () => {
     `)
     const F = graph[0]
     const closure = graph[1][0][1]
-    const second = step(first)
+    const second = first[1]
 
     assert.notEqual(closure, F[1])
     assert.equal(first[0]['symbol'], 'b')
     assert.equal(second[0]['symbol'], 'a')
-    assert.equal(step(second), second)
+    assert.equal(second[1], second)
   })
 
   test('carries a later definition through a recursive library', () => {
@@ -292,12 +291,12 @@ describe('link', () => {
      (Y a))
     `)
     const [definition] = graph
-    const first = step(focus)
-    const second = step(first)
+    const first = focus[1]
+    const second = first[1]
 
     assert.notEqual(focus[0], definition)
     assert.equal(first[0], focus[0])
-    assert.equal(step(second), first)
+    assert.equal(second[1], first)
   })
 
   test('ties guarded recurrence through successive states', () => {
@@ -305,8 +304,8 @@ describe('link', () => {
     ((app (x y) (app (y x)))
      (app (a b)))
     `)
-    const second = step(first)
-    const third = step(second)
+    const second = first[1]
+    const third = second[1]
 
     assert.equal(first[0][0]['symbol'], 'a')
     assert.equal(first[0][1]['symbol'], 'b')
@@ -320,9 +319,9 @@ describe('link', () => {
     ((rotate (x y z) (rotate (y z x)))
      (rotate (a b c)))
     `)
-    const first = step(initial)
-    const second = step(first)
-    const third = step(second)
+    const first = initial[1]
+    const second = first[1]
+    const third = second[1]
 
     assert.equal(initial[0][0]['symbol'], 'a')
     assert.equal(first[0][0]['symbol'], 'b')
