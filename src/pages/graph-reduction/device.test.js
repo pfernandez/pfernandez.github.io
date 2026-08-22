@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import { view } from './device.js'
 
 const source = readFileSync(
-  new URL('./dashboard.lisp', import.meta.url), 'utf-8')
+  new URL('./observe.lisp', import.meta.url), 'utf-8')
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
@@ -40,7 +40,7 @@ test('retains an element with properties and no children', () => {
     ['button', { disabled: 'true' }])
 })
 
-test('renders and revisits source-authored dashboard states', () => {
+test('renders and revisits source-authored observer states', () => {
   const app = view(source)
   let rendered = app()
 
@@ -54,11 +54,14 @@ test('renders and revisits source-authored dashboard states', () => {
   rendered = button(rendered, 'Next')[1].onclick()
   assert.deepEqual(graphs(rendered), ['(B (C A))', '(C (A B))'])
 
-  rendered = button(rendered, 'Next')[1].onclick()
+  rendered = button(rendered, 'Reset')[1].onclick()
   assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
 
   rendered = button(rendered, 'Next')[1].onclick()
   assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
+
+  rendered = button(rendered, 'Next')[1].onclick()
+  assert.deepEqual(graphs(rendered), ['(B (C A))', '(C (A B))'])
 })
 
 test('selects a preauthored appearance without leaving the graph', () => {

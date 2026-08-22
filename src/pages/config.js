@@ -8,6 +8,6 @@ export default
                       file: 'dashboard.js',
                       default: true },
                     { label: 'Pure Lisp',
-                      file: 'dashboard.lisp.js' }] }],
+                      file: 'observe.lisp.js' }] }],
   markdownGlobals: () => ({ render }),
   keepAlive: true }

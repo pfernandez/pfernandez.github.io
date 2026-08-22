@@ -2,7 +2,7 @@ import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
 import { link, schemeNames, schemes, serialize, step } from './graph/index.js'
-import lisp from './observe.lisp?raw'
+import lisp from './minimal-observer.lisp?raw'
 
 const initialState =
   { ...link(lisp), source: lisp, history: [], scheme: schemes.ink }
