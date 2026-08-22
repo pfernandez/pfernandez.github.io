@@ -51,6 +51,29 @@ test('renders the value after a private definition sequence', () => {
   assert.deepEqual(app(), ['div', {}, 'Hello'])
 })
 
+test('recurs through one uniform observer state', () => {
+  const app = view(`
+    ((identity x x)
+     (rotate (x y z) (rotate (y z x)))
+     (observe ((origin (history (focus next))) appearance)
+       (div
+         (button
+           (onclick
+             (observe ((origin (focus next)) appearance)))
+           Next)
+         (serialize history appearance)
+         (serialize focus appearance)))
+     (component
+       (observe ((identity (rotate (C A B))) ink))))
+  `)
+  let rendered = app()
+
+  assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
+
+  rendered = button(rendered, 'Next')[1].onclick()
+  assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
+})
+
 test('renders and revisits source-authored observer states', () => {
   const app = view(source)
   let rendered = app()
