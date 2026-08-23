@@ -64,14 +64,14 @@ test('renders the value after a private definition sequence', () => {
 test('recurs through one uniform observer state', () => {
   const app = view(`
     ((root (origin first second)
-       ((observe (state history focus next)
+       ((observe ((history focus) next)
           (div
             (button
-              (onclick (observe (advance focus next history)))
+              (onclick (observe ((focus next) history)))
               Next)
             (serialize history ink)
             (serialize focus ink)))
-        (observe (start origin first second))))
+        (observe ((origin first) second))))
      (component (root (C A B))))
   `)
   let rendered = app()

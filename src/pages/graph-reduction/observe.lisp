@@ -1,5 +1,5 @@
 ((root ((origin first second) initialAppearance)
-   ((observe ((state history focus next) appearance)
+   ((observe (((history focus) next) appearance)
       (div (class dashboard-view)
         (div (class panel)
           (h2 (text Graph Reduction))
@@ -15,19 +15,19 @@
               (div (class choices)
                 (button
                   (onclick
-                    (observe ((inkState history focus next) ink)))
+                    (observe (((history focus) next) ink)))
                   Ink)
                 (button
                   (onclick
-                    (observe ((pastelState history focus next) pastel)))
+                    (observe (((history focus) next) pastel)))
                   Pastel)
                 (button
                   (onclick
-                    (observe ((colorState history focus next) color)))
+                    (observe (((history focus) next) color)))
                   Color)
                 (button
                   (onclick
-                    (observe ((plainState history focus next) plain)))
+                    (observe (((history focus) next) plain)))
                   Plain)))))
 
         (div (class (text panel scene))
@@ -38,12 +38,12 @@
           (div (class row)
             (button
               (onclick
-                (observe ((advance focus next history) appearance)))
+                (observe (((focus next) history) appearance)))
               (text Next))
             (button (disabled true) (text Undo))
             (button
               (onclick
-                (observe ((reset origin first second) appearance)))
+                (observe (((origin first) second) appearance)))
               (text Reset)))
 
           (label (class (text row output))
@@ -53,7 +53,7 @@
           (label (class (text row output))
             (text Result)
             (serialize focus appearance)))))
-    (observe ((start origin first second) initialAppearance))))
+    (observe (((origin first) second) initialAppearance))))
  (component (root ((A B C) ink))))
 
 ; Possible private-observer shapes
