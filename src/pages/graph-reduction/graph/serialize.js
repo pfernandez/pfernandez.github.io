@@ -77,9 +77,14 @@ const identityToken = (text, identity) => ({ text, identity })
 
 const tokenDocument = token => ({ token, width: token.text.length })
 
+const symbolText = symbol => typeof symbol === 'function'
+  ? symbol.name || 'function'
+  : String(symbol)
+
 const graphDocument = (
   node,
   repeat = 'identity',
+  labels = false,
   path = '$',
   seen = new Map()
 ) => {
@@ -90,14 +95,20 @@ const graphDocument = (
       ? repeat === 'path'
         ? textToken(seen.get(node))
         : identityToken('()', jsIdentity(node))
-      : identityToken(String(node.symbol), jsIdentity(node)))
+      : identityToken(symbolText(node.symbol), jsIdentity(node)))
 
   if (node.symbol !== undefined && node[0] === node && node[1] === node)
-    return tokenDocument(identityToken(String(node.symbol), jsIdentity(node)))
+    return tokenDocument(identityToken(symbolText(node.symbol), jsIdentity(node)))
 
   seen.set(node, path)
-  const children = node.map((child, index) =>
-    graphDocument(child, repeat, `${path}.${index}`, seen))
+  const label = labels && node.symbol !== undefined && node[0] !== node
+    ? [tokenDocument(identityToken(symbolText(node.symbol), jsIdentity(node)))]
+    : []
+  const children = [
+    ...label,
+    ...node.map((child, index) =>
+      graphDocument(child, repeat, labels, `${path}.${index}`, seen))
+  ]
 
   return {
     children,
@@ -147,8 +158,8 @@ const layoutTokens = (document, width, column = 0) => {
   return { tokens, column: end + 1 }
 }
 
-const graphTokens = (node, { width, repeat } = {}) =>
-  layoutTokens(graphDocument(node, repeat), width).tokens
+const graphTokens = (node, { labels, width, repeat } = {}) =>
+  layoutTokens(graphDocument(node, repeat, labels), width).tokens
 
 const tokensToText = tokens =>
   tokens.map(token => token.text).join('')
@@ -171,8 +182,14 @@ const renderTokens = (tokens, { format, scheme }) => {
 
 export const serialize = (
   graph,
-  { format = 'text', scheme = schemes.color, width = DEFAULT_WIDTH } = {}
+  {
+    format = 'text',
+    labels = false,
+    scheme = schemes.color,
+    width = DEFAULT_WIDTH
+  } = {}
 ) => renderTokens(graphTokens(graph, {
+  labels,
   width,
   repeat: format === 'text' ? 'path' : 'identity'
 }), { format, scheme })

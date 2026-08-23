@@ -40,6 +40,16 @@ test('retains an element with properties and no children', () => {
     ['button', { disabled: 'true' }])
 })
 
+test('displays the labels of named graph pairs', () => {
+  assert.equal(
+    text(view('(serialize (step before after) plain)')),
+    '(step before after)')
+})
+
+test('displays imported functions by their authored names', () => {
+  assert.equal(text(view('(serialize div plain)')), 'div')
+})
+
 test('renders the value after a private definition sequence', () => {
   const app = view(`
     ((observe message
@@ -66,7 +76,7 @@ test('recurs through one uniform observer state', () => {
   `)
   let rendered = app()
 
-  assert.deepEqual(graphs(rendered), ['(A B)', 'A'])
+  assert.deepEqual(graphs(rendered), ['(C A B)', 'A'])
 
   rendered = button(rendered, 'Next')[1].onclick()
   assert.deepEqual(graphs(rendered), ['A', 'B'])
@@ -78,22 +88,22 @@ test('renders and revisits source-authored observer states', () => {
 
   assert.equal(rendered[1].class, 'dashboard-view')
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
-  assert.deepEqual(graphs(rendered), ['(A B)', 'A'])
+  assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['A', 'B'])
+  assert.deepEqual(graphs(rendered), ['B', 'C'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['B', '(A B)'])
+  assert.deepEqual(graphs(rendered), ['C', '(A B C)'])
 
   rendered = button(rendered, 'Reset')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(A B)', 'A'])
+  assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['A', 'B'])
+  assert.deepEqual(graphs(rendered), ['B', 'C'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['B', '(A B)'])
+  assert.deepEqual(graphs(rendered), ['C', '(A B C)'])
 })
 
 test('selects a preauthored appearance without leaving the graph', () => {
@@ -103,7 +113,7 @@ test('selects a preauthored appearance without leaving the graph', () => {
   const updated = pastel[1].onclick()
 
   assert.equal(text(find(find(updated, 'details'), 'summary')), 'pastel')
-  assert.deepEqual(graphs(updated), ['(A B)', 'A'])
+  assert.deepEqual(graphs(updated), ['(A B C)', 'B'])
 })
 
 test('carries a completed application identity through an event', () => {

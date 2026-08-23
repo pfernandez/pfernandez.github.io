@@ -57,7 +57,11 @@ const observe = component(
           label({ class: 'row output' },
                 'Result',
                 error ? pre({ class: 'error' }, String(error))
-                  : serialize(current, { format: 'vdom', scheme })),
+                  : serialize(current, {
+                    format: 'vdom',
+                    labels: true,
+                    scheme
+                  })),
 
           div({ class: 'description row' }, `Steps: ${time}`)))
   })

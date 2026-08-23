@@ -54,7 +54,7 @@
             (text Result)
             (serialize focus appearance)))))
     (observe ((start origin first second) initialAppearance))))
- (component (root ((C A B) ink))))
+ (component (root ((A B C) ink))))
 
 ; Possible private-observer shapes
 ;

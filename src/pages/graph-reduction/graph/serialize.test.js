@@ -46,6 +46,43 @@ describe('serialize', () => {
       '(x\n (y x)\n ())')
   })
 
+  test('optionally restores labels removed from named pairs', () => {
+    const before = []
+    const after = []
+    const transition = [before, after]
+    before[0] = before[1] = before
+    after[0] = after[1] = after
+    before.symbol = 'before'
+    after.symbol = 'after'
+    transition.symbol = 'step'
+
+    assert.equal(serialize(transition), '(before after)')
+    assert.equal(
+      serialize(transition, { labels: true }),
+      '(step before after)')
+  })
+
+  test('does not duplicate a label that occupies the left state', () => {
+    const following = []
+    const transition = []
+    following[0] = following[1] = following
+    following.symbol = 'following'
+    transition[0] = transition
+    transition[1] = following
+    transition.symbol = 'step'
+
+    assert.equal(serialize(transition, { labels: true }), '(step following)')
+  })
+
+  test('prints the names of function identities instead of their source', () => {
+    const render = () => {}
+    const identity = []
+    identity[0] = identity[1] = identity
+    identity.symbol = render
+
+    assert.equal(serialize(identity), 'render')
+  })
+
   test('vdom format returns an elements-style array', () => {
     const root = []
     root[0] = root
