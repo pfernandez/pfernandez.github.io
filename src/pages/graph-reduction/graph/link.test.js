@@ -33,6 +33,50 @@ describe('link', () => {
     }
   })
 
+  test('lets the first symbol name its pair', () => {
+    const two = linked('(a b)').graph
+    const three = linked('(a b c)').graph
+    const four = linked('(a b c d)').graph
+
+    assert.equal(two['symbol'], 'a')
+    assert.equal(two[0], two)
+    assert.equal(two[1]['symbol'], 'b')
+
+    assert.equal(three['symbol'], 'a')
+    assert.equal(three[0]['symbol'], 'b')
+    assert.equal(three[1]['symbol'], 'c')
+
+    assert.equal(four['symbol'], 'a')
+    assert.equal(four[0]['symbol'], 'b')
+    assert.equal(four[1][0]['symbol'], 'c')
+    assert.equal(four[1][1]['symbol'], 'd')
+  })
+
+  test('binds a named parameter pair as a whole and by state', () => {
+    const { focus } = linked(`
+    ((F (x y z) x)
+     (F (a b c)))
+    `)
+    const [args, result] = focus
+
+    assert.equal(args['symbol'], 'a')
+    assert.equal(args[0]['symbol'], 'b')
+    assert.equal(args[1]['symbol'], 'c')
+    assert.equal(result, args)
+  })
+
+  test('names a parameter pair inside a larger pattern', () => {
+    const { focus } = linked(`
+    ((F ((x y z) appearance) x)
+     (F ((a b c) ink)))
+    `)
+    const [args, result] = focus
+
+    assert.equal(args[0]['symbol'], 'a')
+    assert.equal(args[1]['symbol'], 'ink')
+    assert.equal(result, args[0])
+  })
+
   test('ties fix into a stable state', () => {
     const fixed = linked(`
     ((fix x (fix x))
@@ -84,7 +128,7 @@ describe('link', () => {
     assert.equal(application[1], result)
   })
 
-  test('does not copy an unused argument into the result', () => {
+  test('does not introduce an unused argument into the result', () => {
     const { focus: application } = linked(`
     ((K (x y) x)
      (K (a b)))
@@ -95,7 +139,7 @@ describe('link', () => {
     assert.notEqual(result, args[1])
   })
 
-  test('copies a result while preserving shared argument identities', () => {
+  test('builds a result while preserving shared argument identities', () => {
     const { graph, focus: application } = linked(`
     ((S (x y z) ((x z) (y z)))
      (S (a b c)))
@@ -104,10 +148,10 @@ describe('link', () => {
     const [args, result] = application
 
     assert.notEqual(result, definition[1])
-    assert.equal(result[0][0], args[0])
-    assert.equal(result[0][1], args[1][1])
-    assert.equal(result[1][0], args[1][0])
-    assert.equal(result[1][1], args[1][1])
+    assert.equal(result[0][0], args)
+    assert.equal(result[0][1], args[1])
+    assert.equal(result[1][0], args[0])
+    assert.equal(result[1][1], args[1])
   })
 
   test('crystallizes an undersupplied application as its causal prefix', () => {
@@ -133,13 +177,13 @@ describe('link', () => {
     const [args, result] = focus
 
     assert.notEqual(focus[0], definition)
-    assert.equal(args[0]['symbol'], 'a')
-    assert.equal(args[1][0]['symbol'], 'b')
-    assert.equal(args[1][1]['symbol'], 'c')
-    assert.equal(result[0][0], args[0])
-    assert.equal(result[0][1], args[1][1])
-    assert.equal(result[1][0], args[1][0])
-    assert.equal(result[1][1], args[1][1])
+    assert.equal(args['symbol'], 'a')
+    assert.equal(args[0]['symbol'], 'b')
+    assert.equal(args[1]['symbol'], 'c')
+    assert.equal(result[0][0], args)
+    assert.equal(result[0][1], args[1])
+    assert.equal(result[1][0], args[0])
+    assert.equal(result[1][1], args[1])
   })
 
   test('resumes a suspended application inside a definition', () => {
@@ -153,13 +197,13 @@ describe('link', () => {
     const [args, result] = application
 
     assert.equal(partial[0], S)
-    assert.equal(args[0]['symbol'], 'a')
-    assert.equal(args[1][0]['symbol'], 'b')
-    assert.equal(args[1][1]['symbol'], 'c')
-    assert.equal(result[0][0], args[0])
-    assert.equal(result[0][1], args[1][1])
-    assert.equal(result[1][0], args[1][0])
-    assert.equal(result[1][1], args[1][1])
+    assert.equal(args['symbol'], 'a')
+    assert.equal(args[0]['symbol'], 'b')
+    assert.equal(args[1]['symbol'], 'c')
+    assert.equal(result[0][0], args)
+    assert.equal(result[0][1], args[1])
+    assert.equal(result[1][0], args[0])
+    assert.equal(result[1][1], args[1])
   })
 
   test('continues from the result of a completed application', () => {
@@ -173,10 +217,10 @@ describe('link', () => {
     assert.equal(graph[1][1], second)
     assert.equal(second[0], result)
     assert.equal(second[1]['symbol'], 'd')
-    assert.equal(result[0][0], args[0])
-    assert.equal(result[0][1], args[1][1])
-    assert.equal(result[1][0], args[1][0])
-    assert.equal(result[1][1], args[1][1])
+    assert.equal(result[0][0], args)
+    assert.equal(result[0][1], args[1])
+    assert.equal(result[1][0], args[0])
+    assert.equal(result[1][1], args[1])
   })
 
   test('binds an excess right-nested argument to the final parameter', () => {
@@ -185,7 +229,7 @@ describe('link', () => {
      (S (a b c d)))
     `)
     const [args, result] = application
-    const z = args[1][1]
+    const z = args[1]
 
     assert.equal(z[0]['symbol'], 'c')
     assert.equal(z[1]['symbol'], 'd')
@@ -204,7 +248,7 @@ describe('link', () => {
     assert.equal(result[1], args[1])
   })
 
-  test('completes an application created by copying', () => {
+  test('completes an application exposed by a parameter', () => {
     const { focus } = linked(`
     ((I x x)
      (A (x unused f) (f x))
@@ -212,8 +256,8 @@ describe('link', () => {
     `)
     const [args, result] = focus
 
-    assert.equal(result[0], args[0])
-    assert.equal(result[1], args[0])
+    assert.equal(result[0], args)
+    assert.equal(result[1], args)
   })
 
   test('passes a result focus while retaining its definition sequence', () => {
@@ -239,7 +283,7 @@ describe('link', () => {
     assert.equal(focus[1], returned[1])
   })
 
-  test('keeps copied application bindings local', () => {
+  test('keeps application bindings local', () => {
     const { focus } = linked(`
     ((I x x)
      (A (x y f) ((f x) (f y)))
@@ -247,10 +291,10 @@ describe('link', () => {
     `)
     const [args, result] = focus
 
-    assert.equal(result[0][0], args[0])
-    assert.equal(result[0][1], args[0])
-    assert.equal(result[1][0], args[1][0])
-    assert.equal(result[1][1], args[1][0])
+    assert.equal(result[0][0], args)
+    assert.equal(result[0][1], args)
+    assert.equal(result[1][0], args[0])
+    assert.equal(result[1][1], args[0])
   })
 
   test('applies a returned definition with its lexical bindings', () => {
@@ -308,7 +352,7 @@ describe('link', () => {
     assert.equal(recurrence, fixed)
   })
 
-  test('ties a copied recursive application into a cycle', () => {
+  test('ties an instantiated recursive application into a cycle', () => {
     const { graph, focus } = linked(`
     ((Y f (f (Y f)))
      (Y a))
@@ -346,9 +390,9 @@ describe('link', () => {
     const second = first[1]
     const third = second[1]
 
-    assert.equal(initial[0][0]['symbol'], 'a')
-    assert.equal(first[0][0]['symbol'], 'b')
-    assert.equal(second[0][0]['symbol'], 'c')
+    assert.equal(initial[0]['symbol'], 'a')
+    assert.equal(first[0]['symbol'], 'b')
+    assert.equal(second[0]['symbol'], 'c')
     assert.equal(third, initial)
   })
 
@@ -363,15 +407,16 @@ describe('link', () => {
     `, { button })
     const body = initial[1]
     const [stay, reset] = body[1]
-    const fixed = stay[1]
-    const origin = reset[1]
-    const [originStay, originReset] = origin[1][1]
+    const resetBody = reset[1]
+    const [resetStay, resetAgain] = resetBody[1]
 
     assert.equal(body[0]['symbol'], button)
-    assert.equal(fixed, initial)
-    assert.equal(origin[0]['symbol'], 'A')
-    assert.equal(originStay[1], origin)
-    assert.equal(originReset[1], origin)
+    assert.equal(initial[0]['symbol'], 'B')
+    assert.equal(stay, initial)
+    assert.equal(reset[0]['symbol'], 'A')
+    assert.equal(resetBody[0]['symbol'], button)
+    assert.equal(resetStay, reset)
+    assert.equal(resetAgain, reset)
   })
 
   test('returns graph and focus together when linking fails', () => {

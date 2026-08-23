@@ -20,12 +20,12 @@ test('shares S identities between its parameters, body, and use', () => {
   const body = definition[1]
 
   assert.equal(definition['symbol'], 'S')
-  assert.equal(body[0][0], parameters[0])
-  assert.equal(body[0][1], parameters[1][1])
-  assert.equal(body[1][0], parameters[1][0])
-  assert.equal(body[1][1], parameters[1][1])
+  assert.equal(body[0][0], parameters)
+  assert.equal(body[0][1], parameters[1])
+  assert.equal(body[1][0], parameters[0])
+  assert.equal(body[1][1], parameters[1])
 
-  const c = focus[0][1][1]
+  const c = focus[0][1]
   assert.equal(c[0], c)
   assert.equal(c[1], c)
 })
@@ -103,8 +103,8 @@ test('does not treat a parameter identity as a definition', () => {
   const parameters = F[0]
   const body = F[1]
 
-  assert.equal(body[0], parameters[0])
-  assert.equal(body[1], parameters[1][1])
+  assert.equal(body[0], parameters)
+  assert.equal(body[1], parameters[1])
 })
 
 test('keeps a bare parameter separate from its definition', () => {
@@ -124,7 +124,7 @@ test('keeps a bare parameter separate from its definition', () => {
   assert.equal(result[1], args)
 })
 
-test('copies a local definition before applying it', () => {
+test('instantiates a local definition before applying it', () => {
   const { focus } = linked(`
   ((F x
       ((G y x)
@@ -153,7 +153,7 @@ test('keeps a nested definition inside its parent body', () => {
   assert.notEqual(following, nested)
 })
 
-test('applies a visible definition inside a copied body', () => {
+test('applies a visible definition inside an instantiated body', () => {
   const { focus } = linked(`
   ((I x x)
    (F x (I x))

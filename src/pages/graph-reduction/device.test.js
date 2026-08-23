@@ -53,25 +53,23 @@ test('renders the value after a private definition sequence', () => {
 
 test('recurs through one uniform observer state', () => {
   const app = view(`
-    ((identity x x)
-     (rotate (x y z) (rotate (y z x)))
-     (observe ((origin (history (focus next))) appearance)
-       (div
-         (button
-           (onclick
-             (observe ((origin (focus next)) appearance)))
-           Next)
-         (serialize history appearance)
-         (serialize focus appearance)))
-     (component
-       (observe ((identity (rotate (C A B))) ink))))
+    ((root (origin first second)
+       ((observe (state history focus next)
+          (div
+            (button
+              (onclick (observe (advance focus next history)))
+              Next)
+            (serialize history ink)
+            (serialize focus ink)))
+        (observe (start origin first second))))
+     (component (root (C A B))))
   `)
   let rendered = app()
 
-  assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
+  assert.deepEqual(graphs(rendered), ['(A B)', 'A'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
+  assert.deepEqual(graphs(rendered), ['A', 'B'])
 })
 
 test('renders and revisits source-authored observer states', () => {
@@ -80,22 +78,22 @@ test('renders and revisits source-authored observer states', () => {
 
   assert.equal(rendered[1].class, 'dashboard-view')
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
-  assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
+  assert.deepEqual(graphs(rendered), ['(A B)', 'A'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
+  assert.deepEqual(graphs(rendered), ['A', 'B'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(B (C A))', '(C (A B))'])
+  assert.deepEqual(graphs(rendered), ['B', '(A B)'])
 
   rendered = button(rendered, 'Reset')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(C (A B))', '(A (B C))'])
+  assert.deepEqual(graphs(rendered), ['(A B)', 'A'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(A (B C))', '(B (C A))'])
+  assert.deepEqual(graphs(rendered), ['A', 'B'])
 
   rendered = button(rendered, 'Next')[1].onclick()
-  assert.deepEqual(graphs(rendered), ['(B (C A))', '(C (A B))'])
+  assert.deepEqual(graphs(rendered), ['B', '(A B)'])
 })
 
 test('selects a preauthored appearance without leaving the graph', () => {
@@ -105,7 +103,7 @@ test('selects a preauthored appearance without leaving the graph', () => {
   const updated = pastel[1].onclick()
 
   assert.equal(text(find(find(updated, 'details'), 'summary')), 'pastel')
-  assert.deepEqual(graphs(updated), ['(C (A B))', '(A (B C))'])
+  assert.deepEqual(graphs(updated), ['(A B)', 'A'])
 })
 
 test('carries a completed application identity through an event', () => {

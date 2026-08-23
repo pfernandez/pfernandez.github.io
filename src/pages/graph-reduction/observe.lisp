@@ -1,7 +1,5 @@
-((observe initial
-   ((identity x x)
-    (rotate (x y z) (rotate (y z x)))
-    (screen ((origin (history (focus next))) appearance)
+((root ((origin first second) initialAppearance)
+   ((observe ((state history focus next) appearance)
       (div (class dashboard-view)
         (div (class panel)
           (h2 (text Graph Reduction))
@@ -17,23 +15,19 @@
               (div (class choices)
                 (button
                   (onclick
-                    (screen
-                      ((origin (history (focus next))) ink)))
+                    (observe ((inkState history focus next) ink)))
                   Ink)
                 (button
                   (onclick
-                    (screen
-                      ((origin (history (focus next))) pastel)))
+                    (observe ((pastelState history focus next) pastel)))
                   Pastel)
                 (button
                   (onclick
-                    (screen
-                      ((origin (history (focus next))) color)))
+                    (observe ((colorState history focus next) color)))
                   Color)
                 (button
                   (onclick
-                    (screen
-                      ((origin (history (focus next))) plain)))
+                    (observe ((plainState history focus next) plain)))
                   Plain)))))
 
         (div (class (text panel scene))
@@ -44,37 +38,34 @@
           (div (class row)
             (button
               (onclick
-                (screen ((origin (focus next)) appearance)))
+                (observe ((advance focus next history) appearance)))
               (text Next))
             (button (disabled true) (text Undo))
             (button
               (onclick
-                (screen ((origin origin) appearance)))
+                (observe ((reset origin first second) appearance)))
               (text Reset)))
 
           (label (class (text row output))
-            Previous
+            (text Previous)
             (serialize history appearance))
 
           (label (class (text row output))
-            Result
+            (text Result)
             (serialize focus appearance)))))
-    (screen ((identity (rotate initial)) ink))))
- (component (observe (C A B))))
+    (observe ((start origin first second) initialAppearance))))
+ (component (root ((C A B) ink))))
 
 ; Possible private-observer shapes
 ;
-; 1. A bootstrap scope with a private recursive screen. This is the form used
-; above. It preserves the origin, history, and reset identities, but the
-; recurring function is named screen rather than observe.
+; 1. A root scope with a private recursive observer. This is the form used
+; above. Root retains the initial identities while observe carries each frame.
 ;
-; ((observe initial
-;    ((identity x x)
-;     (rotate (x y z) (rotate (y z x)))
-;     (screen state
-;       (... (screen next)))
-;     (screen ((identity (rotate initial)) ink))))
-;  (component (observe (C A B))))
+; ((root initial
+;    ((observe state
+;       (... (observe next)))
+;     (observe initial)))
+;  (component (root source)))
 ;
 ; 2. One recursive observe with a uniform argument shape. Every call carries
 ; the origin, current state, and appearance. This needs an initial pair identity

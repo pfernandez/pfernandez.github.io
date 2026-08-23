@@ -4,24 +4,38 @@ import { link } from './graph/index.js'
 const left = pair => pair[0]
 const right = pair => pair[1]
 const callable = pair => typeof left(pair)?.symbol === 'function'
+const fixed = pair => left(pair) === pair && right(pair) === pair
 
 export const view = source => {
   const linked = link(source, functions)
   if (linked.error) throw linked.error
+  const active = new Set()
 
   const evaluate = pair => {
-    if ('symbol' in pair) return pair.symbol
+    if (active.has(pair)) return pair.symbol
+    active.add(pair)
 
-    const fn = left(pair)?.symbol
-    if (typeof fn !== 'function') {
-      if (typeof fn === 'string' && fn.startsWith('on')) {
-        const continuation = right(pair)
-        return [fn, () => evaluate(
-          callable(continuation) ? continuation : right(continuation))]
+    try {
+      if ('symbol' in pair) {
+        if (fixed(pair)) return pair.symbol
+
+        if (typeof pair.symbol === 'string' && pair.symbol.startsWith('on'))
+          return [pair.symbol, () => evaluate(right(pair))]
+
+        return [pair.symbol, callable(pair)
+          ? evaluateCall(pair)
+          : evaluate(right(pair))]
       }
 
-      return pair.map(evaluate)
+      return evaluateCall(pair)
+    } finally {
+      active.delete(pair)
     }
+  }
+
+  const evaluateCall = pair => {
+    const fn = left(pair)?.symbol
+    if (typeof fn !== 'function') return pair.map(evaluate)
 
     const argument = right(pair)
     return fn({
