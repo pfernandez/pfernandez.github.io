@@ -12,6 +12,8 @@ export const view = source => {
   const active = new Set()
 
   const evaluate = pair => {
+    // External views currently replace a recurring identity with its name;
+    // another adapter could instead preserve the shared reference.
     if (active.has(pair)) return pair.symbol
     active.add(pair)
 
@@ -47,5 +49,7 @@ export const view = source => {
       ? [pair]
       : [left(pair), ...list(right(pair))]
 
+  // The host currently starts at the linker's exposed focus; it could instead
+  // begin from an explicitly exported Root identity.
   return evaluate(focus)
 }
