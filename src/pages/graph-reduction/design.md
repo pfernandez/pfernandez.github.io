@@ -301,17 +301,21 @@ Event properties are a related boundary. The Elements capability adapter in
 `functions.js` preserves an `on*` continuation until the browser event occurs.
 The device evaluates named pairs uniformly and has no knowledge of event names.
 Elements.js already wraps event functions and treats a returned VDOM as the
-next component observation. We should revisit whether the remaining callback
-conversion can live in Elements.js without making it depend on this graph
-evaluator. No event rule should be hidden in the linker or device.
+next component observation. A direct event continues through its right edge. A
+fixed event has the form `event = (action event)`, so it exposes the left action
+and remains available through its recurring right edge. The Elements adapter
+turns either graph form into the callback required by the DOM. We should revisit
+whether that conversion can live in Elements.js without making it depend on
+this graph evaluator. No event rule is hidden in the linker or device.
 
-The authored `props` call turns any sequence of data entry pairs into an
-ordinary JavaScript properties object. It has no list of HTML attributes, so
-custom, `data-*`, SVG, and future properties use the same form. Its application
-also keeps repeated entry names local instead of letting a first `class` pair
-name later pairs elsewhere in the view. Held `on*` continuations retain their
-direct form for now; combining them with other properties depends on the
-general continuation representation rather than an HTML attribute list.
+The authored `props` call turns any sequence of entry pairs into an ordinary
+JavaScript properties object. It has no list of HTML attributes, so custom,
+`data-*`, SVG, and future properties use the same form. Its application also
+keeps repeated entry names local instead of letting a first `class` pair name
+later pairs elsewhere in the view. A fixed device action can now share `props`
+with ordinary data. A completed authored application may also retain
+construction history outside its exposed focus; carrying that focus through
+`props` remains part of the general continuation problem.
 
 The document Root currently contains one component around the dashboard. This
 keeps dashboard event updates local because Elements does not treat the special

@@ -179,3 +179,28 @@ test('carries a completed application identity through an event', () => {
   assert.equal(text(find(advanced, 'p')), 'After')
   assert.equal(text(find(restored, 'p')), 'Before')
 })
+
+test('defers and repeats a fixed event action', () => {
+  let calls = 0
+  const rendered = observe(`
+    ((fix x (fix x))
+     (button
+       (props
+         (class action)
+         (onclick (fix (effect Now))))
+       Go))
+  `, {
+    ...functions,
+    effect: ({ values }) => {
+      calls += 1
+      return values()[0]
+    }
+  })
+  const action = button(rendered, 'Go')
+
+  assert.equal(action[1].class, 'action')
+  assert.equal(calls, 0)
+  assert.equal(action[1].onclick(), 'Now')
+  assert.equal(action[1].onclick(), 'Now')
+  assert.equal(calls, 2)
+})

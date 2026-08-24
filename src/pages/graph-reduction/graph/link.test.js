@@ -87,6 +87,22 @@ describe('link', () => {
     assert.equal(fixed[1], fixed)
   })
 
+  test('names a fixed action as a recurring event', () => {
+    const effect = () => {}
+    const props = () => {}
+    const call = linked(`
+    ((fix x (fix x))
+     (props
+       (class action)
+       (onclick (fix (effect Now)))))
+    `, { effect, props }).focus
+    const event = call[1][1]
+
+    assert.equal(event['symbol'], 'onclick')
+    assert.equal(event[0][0]['symbol'], effect)
+    assert.equal(event[1], event)
+  })
+
   test('links imported names as existing identities', () => {
     const renderFunction = () => {}
     const headingFunction = () => {}

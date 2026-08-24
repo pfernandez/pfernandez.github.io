@@ -7,14 +7,17 @@ const right = pair => pair[1]
 const adaptElements = ({ component, ...elements }) => {
   const fixed = pair => left(pair) === pair && right(pair) === pair
   const entry = pair => 'symbol' in pair && !fixed(pair)
+  // A direct event continues right; a fixed event exposes its left action.
+  const target = pair => right(pair) === pair ? left(pair) : right(pair)
   const value = (node, evaluate) =>
     entry(node)
     && typeof node.symbol === 'string'
     && node.symbol.startsWith('on')
-      ? [node.symbol, () => evaluate(right(node))]
+      ? [node.symbol, () => evaluate(target(node))]
       : evaluate(node)
   const props = Object.defineProperty(
-    ({ values }) => Object.fromEntries(values()),
+    ({ args, evaluate }) => Object.fromEntries(
+      args().map(node => value(node, evaluate))),
     'name',
     { value: 'props' }
   )
