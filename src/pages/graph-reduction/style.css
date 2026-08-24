@@ -119,6 +119,29 @@
 }
 
 @media (max-width: 768px) {
+  body > main {
+    height: auto;
+  }
+
+  #sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    transform: none;
+    padding-right: 1.25rem;
+  }
+
+  #sidebar .sidebar-panel {
+    visibility: visible;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  #content {
+    position: relative;
+    overflow: visible;
+  }
+
   .dashboard-view {
     display: block;
   }

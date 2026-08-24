@@ -7,7 +7,7 @@ import { include } from './graph/index.js'
 
 const view = source => observe(source, functions)
 
-const files = Object.fromEntries(['dashboard', 'root'].map(file => [
+const files = Object.fromEntries(['dashboard', 'site', 'root'].map(file => [
   `./${file}.lisp`,
   readFileSync(new URL(`./${file}.lisp`, import.meta.url), 'utf-8')
 ]))
@@ -22,8 +22,8 @@ const find = (node, tag) =>
 
 const findAll = (node, tag) =>
   !Array.isArray(node) ? []
-    : node[0] === tag ? [node]
-      : node.flatMap(child => findAll(child, tag))
+    : [node[0] === tag ? [node] : [],
+      ...node.map(child => findAll(child, tag))].flat()
 
 const text = node =>
   Array.isArray(node)
@@ -32,6 +32,12 @@ const text = node =>
 
 const button = (node, label) =>
   findAll(node, 'button').find(node => text(node) === label)
+
+const id = (node, value) =>
+  findAll(node, 'div').find(node => node[1].id === value)
+
+const dashboard = node =>
+  findAll(node, 'div').find(node => node[1].class === 'dashboard-view')
 
 const graphs = node => findAll(node, 'pre').map(text)
 
@@ -43,8 +49,19 @@ test('does not mistake sibling elements for properties', () => {
 
 test('retains an element with properties and no children', () => {
   assert.deepEqual(
-    view('(button (disabled true))'),
+    view('(button (props (disabled true)))'),
     ['button', { disabled: 'true' }])
+})
+
+test('keeps arbitrary properties local to each element', () => {
+  assert.deepEqual(
+    view(`
+      (div
+        (props (data-state first))
+        (span (props (data-state second))))
+    `),
+    ['div', { 'data-state': 'first' },
+      ['span', { 'data-state': 'second' }]])
 })
 
 test('displays the labels of named graph pairs', () => {
@@ -63,8 +80,18 @@ test('authors the complete document from Root', () => {
   assert.equal(root[0], 'html')
   assert.ok(find(root, 'head'))
   assert.ok(find(root, 'body'))
+  assert.ok(find(root, 'main'))
+  assert.ok(find(root, 'nav'))
+  assert.ok(id(root, 'sidebar'))
+  assert.ok(id(root, 'content'))
   assert.equal(text(find(root, 'title')), 'pfernandez.github.io')
+  assert.equal(text(find(root, 'a')), 'Dashboard')
+  assert.equal(find(root, 'a')[1].href, '/graph-reduction')
+  assert.equal(find(root, 'a')[1].class, 'active')
+  assert.equal(find(root, 'a')[1]['aria-current'], 'page')
+  assert.equal(id(root, 'sidebar-panel')[1].class, 'sidebar-panel')
   assert.match(find(root, 'textarea')[1].value, /\(dashboard/)
+  assert.match(find(root, 'textarea')[1].value, /\(site/)
   assert.match(find(root, 'textarea')[1].value, /\(root/)
 })
 
@@ -102,7 +129,7 @@ test('recurs through one uniform observer state', () => {
 test('renders and revisits source-authored observer states', () => {
   let rendered = view(source)
 
-  assert.equal(find(rendered, 'div')[1].class, 'dashboard-view')
+  assert.ok(dashboard(rendered))
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
   assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
 
@@ -134,7 +161,7 @@ test('selects a preauthored appearance without leaving the graph', () => {
 test('carries a completed application identity through an event', () => {
   const initial = view(`
     ((after history
-       (div
+     (div
          (button (onclick history) Undo)
          (p After)))
      (before message

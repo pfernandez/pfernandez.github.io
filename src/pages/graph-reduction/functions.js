@@ -13,6 +13,11 @@ const adaptElements = ({ component, ...elements }) => {
     && node.symbol.startsWith('on')
       ? [node.symbol, () => evaluate(right(node))]
       : evaluate(node)
+  const props = Object.defineProperty(
+    ({ values }) => Object.fromEntries(values()),
+    'name',
+    { value: 'props' }
+  )
   const capability = (name, element) => Object.defineProperty(
     ({ args, evaluate }) => element(
       ...args().map(node => value(node, evaluate))),
@@ -21,6 +26,7 @@ const adaptElements = ({ component, ...elements }) => {
   )
 
   return {
+    props,
     ...Object.fromEntries(
       Object.entries(elements).map(([name, element]) =>
         [name, capability(name, element)])),

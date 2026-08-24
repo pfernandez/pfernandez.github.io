@@ -1,18 +1,18 @@
 ((dashboard ((origin first second) initialAppearance)
    ((observe (((history focus) next) appearance)
-      (div (class dashboard-view)
-        (div (class panel)
+      (div (props (class dashboard-view))
+        (div (props (class panel))
           (h2 (text Graph Reduction))
-          (p (class description)
+          (p (props (class description))
             (text
               The observer carries its previous, present, and following
               configurations. Symbols and colors denote memory addresses))
 
-          (div (class (text row colors))
+          (div (props (class (text row colors)))
             (text Color scheme)
             (details
               (summary appearance)
-              (div (class choices)
+              (div (props (class choices))
                 (button
                   (onclick
                     (observe (((history focus) next) ink)))
@@ -30,27 +30,27 @@
                     (observe (((history focus) next) plain)))
                   Plain)))))
 
-        (div (class (text panel scene))
-          (label (class row)
+        (div (props (class (text panel scene)))
+          (label (props (class row))
             (text Source)
-            (textarea (value (source focus))))
+            (textarea (props (value (source focus)))))
 
-          (div (class row)
+          (div (props (class row))
             (button
               (onclick
                 (observe (((focus next) history) appearance)))
               (text Next))
-            (button (disabled true) (text Undo))
+            (button (props (disabled true)) (text Undo))
             (button
               (onclick
                 (observe (((origin first) second) appearance)))
               (text Reset)))
 
-          (label (class (text row output))
+          (label (props (class (text row output)))
             (text Previous)
             (serialize history appearance))
 
-          (label (class (text row output))
+          (label (props (class (text row output)))
             (text Result)
             (serialize focus appearance)))))
     (observe (((origin first) second) initialAppearance)))))

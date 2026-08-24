@@ -1,4 +1,5 @@
 ((include ./dashboard.lisp)
+ (include ./site.lisp)
  (root initial
    ((document content
       (html
@@ -6,7 +7,8 @@
           (title (text pfernandez.github.io)))
         (body
           (component content))))
-    (document (dashboard initial))))
+    (document
+      (site (dashboard initial)))))
  (root ((A B C) ink)))
 
 ; Possible private-observer shapes

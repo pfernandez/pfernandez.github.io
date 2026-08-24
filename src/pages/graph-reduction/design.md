@@ -305,6 +305,14 @@ next component observation. We should revisit whether the remaining callback
 conversion can live in Elements.js without making it depend on this graph
 evaluator. No event rule should be hidden in the linker or device.
 
+The authored `props` call turns any sequence of data entry pairs into an
+ordinary JavaScript properties object. It has no list of HTML attributes, so
+custom, `data-*`, SVG, and future properties use the same form. Its application
+also keeps repeated entry names local instead of letting a first `class` pair
+name later pairs elsewhere in the view. Held `on*` continuations retain their
+direct form for now; combining them with other properties depends on the
+general continuation representation rather than an HTML attribute list.
+
 The document Root currently contains one component around the dashboard. This
 keeps dashboard event updates local because Elements does not treat the special
 `html`, `head`, or `body` nodes as local component roots. That boundary is an
@@ -327,8 +335,8 @@ static graph makes that machinery unnecessary.
 
 ### 2. Move the static site structure into Root
 
-- [ ] Author the title, navigation, available pages, and initial page identity
-      in Lisp.
+- [x] Author the title and navigation shell in Lisp.
+- [ ] Author the available pages and initial page identity in Lisp.
 - [ ] Place the current JavaScript and Lisp observers beneath that Root while
       the migration is in progress.
 - [ ] Determine which caches and keep-alive structures disappear because all
@@ -341,7 +349,7 @@ static graph makes that machinery unnecessary.
 - [ ] Demonstrate a returned function being called with graph-authored
       arguments without evaluator knowledge of its name.
 - [ ] Treat `component` exactly like every other imported function.
-- [ ] Demonstrate more than one graph-authored component boundary.
+- [x] Demonstrate more than one graph-authored component boundary.
 - [ ] Revisit `on*` property wrapping in Elements.js and remove corresponding
       event knowledge from the device where possible.
 
