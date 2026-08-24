@@ -5,8 +5,8 @@ const right = pair => pair[1]
 const isCall = pair => typeof left(pair)?.symbol === 'function'
 const fixed = pair => left(pair) === pair && right(pair) === pair
 
-export const view = (source, functions) => {
-  const { focus, result, error } = link(source, functions)
+export const view = (program, functions) => {
+  const { source, focus, result, error } = link(program, functions)
   if (error) throw error
   const active = new Set()
 

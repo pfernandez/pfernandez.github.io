@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { view as observe } from './device.js'
 import { functions } from './functions.js'
+import { include } from './graph/index.js'
 
 const view = source => observe(source, functions)
 
-const source = readFileSync(
-  new URL('./observe.lisp', import.meta.url), 'utf-8')
+const source = include(...['dashboard', 'root'].map(file => readFileSync(
+  new URL(`./${file}.lisp`, import.meta.url), 'utf-8')))
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
@@ -60,6 +61,8 @@ test('authors the complete document from Root', () => {
   assert.ok(find(root, 'head'))
   assert.ok(find(root, 'body'))
   assert.equal(text(find(root, 'title')), 'pfernandez.github.io')
+  assert.match(find(root, 'textarea')[1].value, /\(dashboard/)
+  assert.match(find(root, 'textarea')[1].value, /\(root/)
 })
 
 test('renders the value after a private definition sequence', () => {

@@ -374,20 +374,23 @@ const freeze = (graph, seen = []) => {
   return Object.freeze(graph)
 }
 
-export const link = (source, imports = {}) => {
+export const link = (program, imports = {}) => {
+  let source
+
   try {
     // Retain the source shape, lower it to pairs, then link identities in the
     // pair graph. Construction retains its history and exposes its last focus.
-    const ast = parse(source)
+    source = typeof program === 'string' ? program : program.source
+    const ast = typeof program === 'string' ? parse(source) : program.ast
     const pairs = decompose(ast)
     const linked = compile(pairs, imports)
 
     freeze(linked.graph)
 
-    return { ast, pairs, focus: linked.focus, result: linked.result,
-      graph: linked.graph }
+    return { source, ast, pairs, focus: linked.focus, result: linked.result,
+             graph: linked.graph }
   } catch (error) {
     const graph = []
-    return { graph, focus: graph, result: undefined, error }
+    return { source, graph, focus: graph, result: undefined, error }
   }
 }

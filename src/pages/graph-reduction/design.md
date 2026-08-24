@@ -24,9 +24,10 @@ index.html
 └─ src/index.js
    └─ render(root)
       └─ root.js
-         └─ view(source, functions)
-            └─ Lisp Root
-               └─ html(head, body(component(dashboard)))
+         └─ include(dashboard, root)
+            └─ view(program, functions)
+               └─ Lisp Root
+                  └─ html(head, body(component(dashboard)))
 ```
 
 The previous `page.js` shell, configuration, route loader, and keep-alive cache
@@ -57,6 +58,23 @@ render(root)
 The exact interface may still change, but its division of responsibility
 should not: the graph produces the complete document observation; the browser
 mounts it.
+
+`include` is source assembly, not a graph capability or module system. Each
+included file contains an outer sequence of forms. Inclusion removes only
+those file-level sequence boundaries and places the forms into one ordered AST
+before decomposition and linking:
+
+```text
+dashboard.lisp ─┐
+               ├─ include → decompose → link
+root.lisp ─────┘
+```
+
+File order is causal order. A later file can use definitions introduced by an
+earlier file; an earlier file cannot see a definition introduced later. Files
+do not create namespaces or private scopes. Ordinary lexical nesting inside
+each form still determines privacy. The program also retains the combined
+authored text for the `source` capability.
 
 ## Pairs, identities, and Root
 

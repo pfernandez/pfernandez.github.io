@@ -1,6 +1,8 @@
 import './style.css'
 import { view } from './device.js'
 import { functions } from './functions.js'
-import source from './observe.lisp?raw'
+import { include } from './graph/index.js'
+import dashboard from './dashboard.lisp?raw'
+import root from './root.lisp?raw'
 
-export default view(source, functions)
+export default view(include(dashboard, root), functions)
