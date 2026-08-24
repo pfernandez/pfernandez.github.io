@@ -6,19 +6,29 @@ const right = pair => pair[1]
 const fixed = pair => left(pair) === pair && right(pair) === pair
 const entry = pair => 'symbol' in pair && !fixed(pair)
 
+const value = (node, evaluate) =>
+  entry(node)
+  && typeof node.symbol === 'string'
+  && node.symbol.startsWith('on')
+    ? [node.symbol, () => evaluate(right(node))]
+    : evaluate(node)
+
 const capability = (name, element) => Object.defineProperty(
-  ({ argument, evaluate, values }) => element(
-    ...entry(argument) ? [evaluate(argument)] : values()),
+  ({ args, evaluate }) => element(
+    ...args().map(node => value(node, evaluate))),
   'name',
   { value: name }
 )
 
+const elementFunctions = Object.fromEntries(
+  Object.entries(elements).map(([name, element]) =>
+    [name, capability(name, element)]))
+
 // Capabilities receive the raw argument graph as well as explicit evaluators.
-// Most consume `values`; serialize and component deliberately retain identities.
+// Most consume `values`; serialize and component deliberately retain
+// identities.
 export const functions = {
-  ...Object.fromEntries(
-    Object.entries(elements).map(([name, element]) =>
-      [name, capability(name, element)])),
+  ...elementFunctions,
   text: ({ values }) => values().flat(Infinity).join(' '),
   source: ({ source }) => source,
   serialize: ({ argument, evaluate }) =>

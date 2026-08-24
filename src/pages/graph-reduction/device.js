@@ -19,9 +19,6 @@ export const view = source => {
       if ('symbol' in pair) {
         if (fixed(pair)) return pair.symbol
 
-        if (typeof pair.symbol === 'string' && pair.symbol.startsWith('on'))
-          return [pair.symbol, () => evaluate(right(pair))]
-
         return [pair.symbol, isCall(pair)
           ? invoke(pair)
           : evaluate(right(pair))]
@@ -38,16 +35,17 @@ export const view = source => {
     const argument = right(pair)
     return fn({
       argument,
+      args: (node = argument) => list(node),
       evaluate,
       source,
-      values: (node = argument) => args(node).map(evaluate)
+      values: (node = argument) => list(node).map(evaluate)
     })
   }
 
-  const args = pair =>
+  const list = pair =>
     'symbol' in pair || isCall(pair)
       ? [pair]
-      : [left(pair), ...args(right(pair))]
+      : [left(pair), ...list(right(pair))]
 
   return evaluate(focus)
 }

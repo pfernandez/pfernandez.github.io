@@ -1,109 +1,10 @@
 /**
- * The linker turns authored sequences into one static, right-nested pair graph.
- * Its unique Root closes over every causally connected observer and event. A
- * focus is only one observer's position inside that Root; many observers may
- * begin at many foci without changing the graph.
+ * Turn authored sequences into one static pair graph by accumulating left and
+ * proceeding right. Linking is pair-local, preserves lexical history, and
+ * never makes a future or private sibling identity visible. Names guide
+ * construction and display; observation follows identities, not spellings.
  *
- * A fixed atom is the smallest focus:
- *
- *     I = (I I)
- *
- * Exchanging its edges changes nothing. Orientation first becomes meaningful
- * when a focus relates distinct identities. We choose the left edge for the
- * current or earlier event and the right edge for the following focus. The
- * opposite convention would express the same capacity in reverse order:
- *
- *     I
- *     (I J)
- *     (I (J K))
- *     (I (J (K L)))
- *
- * A focus may be anonymous or named by one of its authored states. A right-only
- * observer walks the nested suffixes without changing the graph:
- *
- *     (I (J K)) -> (J K) -> K -> K -> ...
- *
- * Keep three orders distinct:
- *
- * - causal order: I, then J, then K;
- * - observer order: each focus followed by its right focus;
- * - linker order: I -> (I J) -> (I (J K)).
- *
- * Linker order describes successive static graph descriptions, not runtime
- * events. Extending `(I J)` as `((I J) K)` would create a different,
- * left-nested causal graph. A right-nested extension instead rebuilds the
- * enclosing right spine as `(I (J K))`. An earlier version may remain allocated
- * outside the new Root, while existing event identities can still be shared.
- *
- * Names identify pairs; they are not runtime cells or extra causal events. The
- * observer knows only the resulting identities. The walk applies these rules
- * at every level:
- *
- * - In `(F input output)`, a fresh `F` names the definition pair
- *   `(input output)`. The tag is removed from the pair's two states.
- * - In `(F argument)`, a visible `F` identifies the definition being applied
- *   and is removed. The application is the anonymous pair `(argument result)`.
- * - A compound state may name its own pair: `(a b c)` can express
- *   `a = (b c)`. It remains an argument or body once its enclosing context has
- *   already identified that role; three siblings do not make it a definition.
- * - A fresh name followed by one state has no inner pair to name, so it remains
- *   as the pair's left self-reference: `(a b)` means `a = (a b)`.
- * - A fresh name with no following state closes into the fixed pair
- *   `a = (a a)`. Thus applying `I = (x x)` to fresh `a` produces one identity,
- *   not an atom plus an anonymous duplicate pair.
- *
- * These are one rule at different sequence lengths:
- *
- *     a                  means a = (a a)
- *     (a b)              means a = (a b)
- *     (a b c)            means a = (b c)
- *     (a b c d)          means a = (b c), where c = (c d)
- *
- * A lone state may begin as the fixed construction frontier `a = (a a)`. If
- * `b` follows while the static graph is being linked, `b = (b b)` occupies its
- * right edge and the completed frontier is `a = (a b)`. This is the normal
- * continuation rule, not runtime mutation. Once Root is linked and frozen,
- * both identities and edges remain stable.
- *
- * A name may therefore be a removable tag or an identity occupying one of the
- * pair's states. Removing a tag must preserve the remaining authored sequence;
- * retaining a name as a self-reference changes the graph and must be deliberate.
- * Root follows the same rule as every other pair. If source later permits an
- * optional `(root (...))` tag, it must name the outermost pair without adding a
- * wrapper, input, or self-edge. It must not be mistaken for a unary function
- * merely because `root` is new.
- *
- * Parameter patterns obey the same rule. In `(x y z)`, `x` names and binds the
- * whole parameter pair while `y` and `z` bind its left and right states. This
- * is structural matching without an external wrapper. It does not describe
- * three unrelated parameters.
- *
- * Linking remains pair-local. At each pair the walk classifies the same
- * small truth table: fresh name, visible identity, definition, application,
- * compound state, or lone state. Each condition performs one local action and
- * then returns to the same recursion. Helpers may clarify a rule but should not
- * hide another traversal or recover meaning by searching a completed graph.
- *
- * Source causality and lexical visibility proceed left-to-right. The recursive
- * implementation need not. A right-first walk may make a closure or result
- * available before its name is tied, provided it receives only the scope
- * established on the causal left and never makes a future sibling visible to
- * the past. Construction direction must not change authored causality.
- *
- * A connection is legal only from the current pair and identities in its
- * lexical history. It may not reach into a sibling's private descendants or
- * refer to a future identity. Each branch inherits its enclosing scope, while
- * siblings share only identities made visible through that scope.
- *
- * A suspended application is the causal prefix that was authored, not a result
- * containing a hidden hole. Its definition may remain linker context while a
- * later authored argument completes the rightward transition. If no argument
- * follows, its last lone state remains fixed. Once linked, every possible
- * observer focus and continuation already exists in Root.
- *
- * An application retains its complete definition sequence as result history,
- * while exposing the last value of that sequence to an enclosing application.
- * The exposed value is an existing identity; exposing it creates no graph cell.
+ * See ../design.md for the complete graph semantics and machine design target.
  */
 
 import { decompose } from './decompose.js'
@@ -119,8 +20,8 @@ const identify = (graph, symbol) => {
 
 const isSymbol = node => typeof node === 'string'
 const isOpen = graph => graph?.length === 1 && graph[0] === graph
-const isFixed = graph => isOpen(graph) || (
-  Array.isArray(graph) && graph[0] === graph && graph[1] === graph)
+const isFixed = graph => isOpen(graph)
+  || Array.isArray(graph) && graph[0] === graph && graph[1] === graph
 const isNamed = graph => graph?.['symbol'] !== undefined
 // Find the identity paired with a source identity.
 const find = (node, entries) =>
@@ -443,7 +344,7 @@ const compile = (tree, imports) => {
 
     if (state)
       return context(state[2], scope, state[2],
-        exposed(state[2]) ?? state[2])
+                     exposed(state[2]) ?? state[2])
 
     states.push([definition, identity, graph])
     graph[0] = args
