@@ -1,4 +1,5 @@
-((root initial
+((include ./dashboard.lisp)
+ (root initial
    ((document content
       (html
         (head

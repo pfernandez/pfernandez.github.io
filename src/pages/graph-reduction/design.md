@@ -24,7 +24,7 @@ index.html
 └─ src/index.js
    └─ render(root)
       └─ root.js
-         └─ include(dashboard, root)
+         └─ include(root, available Lisp files)
             └─ view(program, functions)
                └─ Lisp Root
                   └─ html(head, body(component(dashboard)))
@@ -59,9 +59,16 @@ The exact interface may still change, but its division of responsibility
 should not: the graph produces the complete document observation; the browser
 mounts it.
 
-`include` is source assembly, not a graph capability or module system. Each
-included file contains an outer sequence of forms. Inclusion removes only
-those file-level sequence boundaries and places the forms into one ordered AST
+`include` is source assembly, not a graph capability or module system. A Lisp
+file names another available file with a top-level form:
+
+```lisp
+((include ./dashboard.lisp)
+ (root ...))
+```
+
+Each file contains an outer sequence of forms. Inclusion replaces the
+directive with that file's outer forms and places them into one ordered AST
 before decomposition and linking:
 
 ```text
@@ -70,11 +77,14 @@ dashboard.lisp ─┐
 root.lisp ─────┘
 ```
 
-File order is causal order. A later file can use definitions introduced by an
-earlier file; an earlier file cannot see a definition introduced later. Files
-do not create namespaces or private scopes. Ordinary lexical nesting inside
-each form still determines privacy. The program also retains the combined
-authored text for the `source` capability.
+Inclusion position is causal order. A later form can use definitions introduced
+by an earlier include; an earlier form cannot see a definition included later.
+Files do not create namespaces or private scopes. Ordinary lexical nesting
+inside each form still determines privacy. The directive creates no graph
+identity and is absent from the linked AST. The host supplies available file
+contents, while the Lisp entry file chooses and orders its dependencies. The
+program also retains the original files and their combined authored text for
+the `source` capability.
 
 ## Pairs, identities, and Root
 

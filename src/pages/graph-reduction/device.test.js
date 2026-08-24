@@ -7,8 +7,11 @@ import { include } from './graph/index.js'
 
 const view = source => observe(source, functions)
 
-const source = include(...['dashboard', 'root'].map(file => readFileSync(
-  new URL(`./${file}.lisp`, import.meta.url), 'utf-8')))
+const files = Object.fromEntries(['dashboard', 'root'].map(file => [
+  `./${file}.lisp`,
+  readFileSync(new URL(`./${file}.lisp`, import.meta.url), 'utf-8')
+]))
+const source = include(files['./root.lisp'], files)
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
