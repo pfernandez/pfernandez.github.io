@@ -16,22 +16,25 @@ graph.
 
 ## The present browser boundary
 
-The site currently has one document render owned by `src/index.js`:
+The document is now authored by the Lisp Root and mounted once by
+`src/index.js`:
 
 ```text
 index.html
 └─ src/index.js
-   └─ render(html(head, body(page())))
-      └─ page.js
-         └─ observe.js or observe.lisp.js
+   └─ render(root)
+      └─ root.js
+         └─ view(source, functions)
+            └─ Lisp Root
+               └─ html(head, body(component(dashboard)))
 ```
 
-`page.js` currently owns routing, imports, loading states, module caches,
-keep-alive slots, navigation, and the content boundary. The Lisp application is
-only one page component beneath that shell. Its definition named `root` is
-therefore not yet the Root of the site.
+The previous `page.js` shell, configuration, route loader, and keep-alive cache
+remain in the repository but are no longer imported by the browser entrypoint.
+Their useful behavior has not yet been reauthored, so the current Root contains
+the dashboard rather than the former multi-page site.
 
-The target reverses that ownership:
+The target ownership is now established:
 
 ```text
 index.html
@@ -44,15 +47,16 @@ index.html
             └─ authored observers and components
 ```
 
-The host should eventually do approximately this and no more:
+The host now does approximately this and should remain this small:
 
 ```js
 const root = view(source, functions)
-render(root())
+render(root)
 ```
 
-The exact interface may change, but its division of responsibility should not:
-the graph produces the complete document observation; the browser mounts it.
+The exact interface may still change, but its division of responsibility
+should not: the graph produces the complete document observation; the browser
+mounts it.
 
 ## Pairs, identities, and Root
 
@@ -197,6 +201,11 @@ A completed application retains its definition sequence as result history but
 exposes that sequence's final value to an enclosing application. Exposure
 reuses an existing identity and creates no additional graph cell.
 
+`link` preserves both sides of this distinction. `focus` is the complete final
+application identity, including its history; `result` is the value it exposes.
+The browser device currently starts from `result` when present and otherwise
+from `focus`. This is an entrypoint convention, not a change to the graph.
+
 Recurrence reuses a configuration only when the same definition identity is
 reached with the same argument identities during one instantiation. This ties
 cycles by identity; it is not structural deduplication.
@@ -248,21 +257,17 @@ the graph can express itself.
 
 ## `component` and events
 
-`component` is an ordinary function from the graph's perspective. It must not
-receive a special graph node, linker rule, evaluator branch, or calling syntax.
-Its present implementation is foreign because Elements.js associates a
-returned component function with a DOM reconciliation boundary.
+`component` is an ordinary function from the graph's perspective. It receives
+an authored observation and returns that VDOM marked as an Elements
+reconciliation boundary. It has no graph node, linker rule, evaluator branch,
+or calling syntax of its own.
 
-Two operations are currently easy to conflate:
-
-1. Creating a component function from an authored observation.
-2. Calling that function with arguments to obtain its current VDOM.
-
-The JavaScript page loader presently performs the second operation for the
-top-level exported component. Before the graph authors nested components, it
-needs an ordinary and general way for one returned function to be called by
-another expression. This is a function-value question, not justification for a
-special `component` form.
+Elements.js implements `component` as a JavaScript function that creates
+another function. The Elements adapter contains that foreign calling
+convention: it evaluates the authored observation, creates the component, calls
+it once, and returns its VDOM. No JavaScript function escapes into the graph or
+page loader. General returned-function values remain an open language question,
+but `component` no longer requires them.
 
 Event properties are a related boundary. The Elements capability adapter in
 `functions.js` preserves an `on*` continuation until the browser event occurs.
@@ -272,8 +277,10 @@ next component observation. We should revisit whether the remaining callback
 conversion can live in Elements.js without making it depend on this graph
 evaluator. No event rule should be hidden in the linker or device.
 
-The initial Root migration can use one top-level component and defer nested
-component calls. That is a migration limit, not a language rule.
+The document Root currently contains one component around the dashboard. This
+keeps dashboard event updates local because Elements does not treat the special
+`html`, `head`, or `body` nodes as local component roots. That boundary is an
+Elements constraint, not a graph-language rule.
 
 ## Migration plan
 
@@ -283,11 +290,11 @@ static graph makes that machinery unnecessary.
 
 ### 1. Establish the document Root
 
-- [ ] Author a site-level Lisp Root that produces the complete
+- [x] Author a site-level Lisp Root that produces the complete
       `html/head/body` observation.
-- [ ] Reduce `src/index.js` to loading the source, connecting capabilities,
+- [x] Reduce `src/index.js` to loading the source, connecting capabilities,
       obtaining the initial Root observation, and calling `render`.
-- [ ] Use one top-level component until ordinary nested component calls are
+- [x] Use one dashboard component until ordinary nested component calls are
       established.
 
 ### 2. Move the static site structure into Root

@@ -24,8 +24,10 @@ const adaptElements = ({ component, ...elements }) => {
     ...Object.fromEntries(
       Object.entries(elements).map(([name, element]) =>
         [name, capability(name, element)])),
-    component: ({ argument, evaluate }) =>
-      component(() => evaluate(argument))
+    component: ({ argument, evaluate }) => {
+      const observation = evaluate(argument)
+      return component(() => observation)()
+    }
   }
 }
 

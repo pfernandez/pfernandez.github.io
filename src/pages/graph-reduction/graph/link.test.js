@@ -128,6 +128,13 @@ describe('link', () => {
     assert.equal(application[1], result)
   })
 
+  test('exposes a result without discarding its application focus', () => {
+    const { focus, result } = linked('((I x x) (I a))')
+
+    assert.equal(result, focus[1])
+    assert.notEqual(result, focus)
+  })
+
   test('does not introduce an unused argument into the result', () => {
     const { focus: application } = linked(`
     ((K (x y) x)

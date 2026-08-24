@@ -1,4 +1,3 @@
-import { functions } from './functions.js'
 import { link } from './graph/index.js'
 
 const left = pair => pair[0]
@@ -6,8 +5,8 @@ const right = pair => pair[1]
 const isCall = pair => typeof left(pair)?.symbol === 'function'
 const fixed = pair => left(pair) === pair && right(pair) === pair
 
-export const view = source => {
-  const { focus, error } = link(source, functions)
+export const view = (source, functions) => {
+  const { focus, result, error } = link(source, functions)
   if (error) throw error
   const active = new Set()
 
@@ -49,7 +48,7 @@ export const view = source => {
       ? [pair]
       : [left(pair), ...list(right(pair))]
 
-  // The host currently starts at the linker's exposed focus; it could instead
-  // begin from an explicitly exported Root identity.
-  return evaluate(focus)
+  // The source-selected result is the host entrypoint when one is exposed;
+  // otherwise the host begins at the complete final focus.
+  return evaluate(result ?? focus)
 }

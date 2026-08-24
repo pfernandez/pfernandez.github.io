@@ -1,6 +1,6 @@
 import './style.css'
 import { view } from './device.js'
 import { functions } from './functions.js'
-import lisp from './observe.lisp?raw'
+import source from './observe.lisp?raw'
 
-export default view(lisp, functions)
+export default view(source, functions)

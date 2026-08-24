@@ -384,9 +384,10 @@ export const link = (source, imports = {}) => {
 
     freeze(linked.graph)
 
-    return { ast, pairs, focus: linked.focus, graph: linked.graph }
+    return { ast, pairs, focus: linked.focus, result: linked.result,
+      graph: linked.graph }
   } catch (error) {
     const graph = []
-    return { graph, focus: graph, error }
+    return { graph, focus: graph, result: undefined, error }
   }
 }

@@ -1,71 +1,82 @@
-((root ((origin first second) initialAppearance)
-   ((observe (((history focus) next) appearance)
-      (div (class dashboard-view)
-        (div (class panel)
-          (h2 (text Graph Reduction))
-          (p (class description)
-            (text
-              The observer carries its previous, present, and following
-              configurations. Symbols and colors denote memory addresses))
+((root initial
+   ((dashboard ((origin first second) initialAppearance)
+      ((observe (((history focus) next) appearance)
+         (div (class dashboard-view)
+           (div (class panel)
+             (h2 (text Graph Reduction))
+             (p (class description)
+               (text
+                 The observer carries its previous, present, and following
+                 configurations. Symbols and colors denote memory addresses))
 
-          (div (class (text row colors))
-            (text Color scheme)
-            (details
-              (summary appearance)
-              (div (class choices)
-                (button
-                  (onclick
-                    (observe (((history focus) next) ink)))
-                  Ink)
-                (button
-                  (onclick
-                    (observe (((history focus) next) pastel)))
-                  Pastel)
-                (button
-                  (onclick
-                    (observe (((history focus) next) color)))
-                  Color)
-                (button
-                  (onclick
-                    (observe (((history focus) next) plain)))
-                  Plain)))))
+             (div (class (text row colors))
+               (text Color scheme)
+               (details
+                 (summary appearance)
+                 (div (class choices)
+                   (button
+                     (onclick
+                       (observe (((history focus) next) ink)))
+                     Ink)
+                   (button
+                     (onclick
+                       (observe (((history focus) next) pastel)))
+                     Pastel)
+                   (button
+                     (onclick
+                       (observe (((history focus) next) color)))
+                     Color)
+                   (button
+                     (onclick
+                       (observe (((history focus) next) plain)))
+                     Plain)))))
 
-        (div (class (text panel scene))
-          (label (class row)
-            (text Source)
-            (textarea (value (source focus))))
+           (div (class (text panel scene))
+             (label (class row)
+               (text Source)
+               (textarea (value (source focus))))
 
-          (div (class row)
-            (button
-              (onclick
-                (observe (((focus next) history) appearance)))
-              (text Next))
-            (button (disabled true) (text Undo))
-            (button
-              (onclick
-                (observe (((origin first) second) appearance)))
-              (text Reset)))
+             (div (class row)
+               (button
+                 (onclick
+                   (observe (((focus next) history) appearance)))
+                 (text Next))
+               (button (disabled true) (text Undo))
+               (button
+                 (onclick
+                   (observe (((origin first) second) appearance)))
+                 (text Reset)))
 
-          (label (class (text row output))
-            (text Previous)
-            (serialize history appearance))
+             (label (class (text row output))
+               (text Previous)
+               (serialize history appearance))
 
-          (label (class (text row output))
-            (text Result)
-            (serialize focus appearance)))))
-    (observe (((origin first) second) initialAppearance))))
- (component (root ((A B C) ink))))
+             (label (class (text row output))
+               (text Result)
+               (serialize focus appearance)))))
+       (observe (((origin first) second) initialAppearance))))
+    (document content
+      (html
+        (head
+          (title (text pfernandez.github.io)))
+        (body
+          (component content))))
+    (document (dashboard initial))))
+ (root ((A B C) ink)))
 
 ; Possible private-observer shapes
 ;
-; 1. A root scope with a private recursive observer. This is the form used
-; above. Root retains the initial identities while observe carries each frame.
+; 1. Root contains a dashboard with a private recursive observer. This is the
+; form used above. Dashboard retains initial identities while observe carries
+; frames.
 ;
 ; ((root initial
-;    ((observe state
-;       (... (observe next)))
-;     (observe initial)))
-;  (component (root source)))
+;    ((dashboard state
+;       ((observe frame
+;          (... (observe next)))
+;        (observe state)))
+;     (document (dashboard initial))))
+;  (root source))
 ;
 ; 2. One recursive observe with a uniform argument shape. Every call carries
 ; the origin, current state, and appearance. This needs an initial pair identity

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { view } from './device.js'
+import { view as observe } from './device.js'
+import { functions } from './functions.js'
+
+const view = source => observe(source, functions)
 
 const source = readFileSync(
   new URL('./observe.lisp', import.meta.url), 'utf-8')
@@ -50,19 +53,28 @@ test('displays imported functions by their authored names', () => {
   assert.equal(text(view('(serialize div plain)')), 'div')
 })
 
+test('authors the complete document from Root', () => {
+  const root = view(source)
+
+  assert.equal(root[0], 'html')
+  assert.ok(find(root, 'head'))
+  assert.ok(find(root, 'body'))
+  assert.equal(text(find(root, 'title')), 'pfernandez.github.io')
+})
+
 test('renders the value after a private definition sequence', () => {
-  const app = view(`
+  const rendered = view(`
     ((observe message
        ((identity x x)
         (div message)))
      (component (observe Hello)))
   `)
 
-  assert.deepEqual(app(), ['div', {}, 'Hello'])
+  assert.deepEqual(rendered, ['div', {}, 'Hello'])
 })
 
 test('recurs through one uniform observer state', () => {
-  const app = view(`
+  let rendered = view(`
     ((root (origin first second)
        ((observe ((history focus) next)
           (div
@@ -74,7 +86,6 @@ test('recurs through one uniform observer state', () => {
         (observe ((origin first) second))))
      (component (root (C A B))))
   `)
-  let rendered = app()
 
   assert.deepEqual(graphs(rendered), ['(C A B)', 'A'])
 
@@ -83,10 +94,9 @@ test('recurs through one uniform observer state', () => {
 })
 
 test('renders and revisits source-authored observer states', () => {
-  const app = view(source)
-  let rendered = app()
+  let rendered = view(source)
 
-  assert.equal(rendered[1].class, 'dashboard-view')
+  assert.equal(find(rendered, 'div')[1].class, 'dashboard-view')
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
   assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
 
@@ -107,8 +117,7 @@ test('renders and revisits source-authored observer states', () => {
 })
 
 test('selects a preauthored appearance without leaving the graph', () => {
-  const app = view(source)
-  const rendered = app()
+  const rendered = view(source)
   const pastel = findAll(find(rendered, 'details'), 'button')[1]
   const updated = pastel[1].onclick()
 
@@ -117,7 +126,7 @@ test('selects a preauthored appearance without leaving the graph', () => {
 })
 
 test('carries a completed application identity through an event', () => {
-  const app = view(`
+  const initial = view(`
     ((after history
        (div
          (button (onclick history) Undo)
@@ -130,7 +139,6 @@ test('carries a completed application identity through an event', () => {
          (p message)))
      (component (before Before)))
   `)
-  const initial = app()
   const advanced = button(initial, 'Next')[1].onclick()
   const restored = button(advanced, 'Undo')[1].onclick()
 
