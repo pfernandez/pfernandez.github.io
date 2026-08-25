@@ -87,6 +87,19 @@ describe('link', () => {
     assert.equal(fixed[1], fixed)
   })
 
+  test('exposes an observation while retaining its returning root', () => {
+    const { focus, result } = linked(`
+    ((root observation (root observation))
+     (first (focus next) focus)
+     (first (root view)))
+    `)
+    const [root, observation] = focus
+
+    assert.equal(root[0], observation)
+    assert.equal(root[1], root)
+    assert.equal(result, observation)
+  })
+
   test('names a fixed action as a recurring event', () => {
     const effect = () => {}
     const props = () => {}

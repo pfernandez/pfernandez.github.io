@@ -30,6 +30,40 @@ test('shares S identities between its parameters, body, and use', () => {
   assert.equal(c[1], c)
 })
 
+test('does not reinterpret a branch when its enclosing pair is named', () => {
+  const unnamed = linked('((I x x) (K (x y) x))').graph
+  const named = linked('(Root (I x x) (K (x y) x))').graph
+
+  assert.equal(named['symbol'], 'Root')
+  assert.equal(unnamed[0][0], unnamed[0][1])
+  assert.equal(named[0][0], named[0][1])
+})
+
+test('cascades a new identity through following occurrences', () => {
+  const { focus, result } = linked(`
+  ((same (pair x x) x)
+   (same (value a a)))
+  `)
+  const args = focus[0]
+
+  assert.equal(args[0], args[1])
+  assert.equal(result, args[0])
+})
+
+test('does not bind one repeated identity to distinct arguments', () => {
+  const { graph, result } = linked(`
+  ((same (pair x x) x)
+   (a a)
+   (b b)
+   (same (value a b)))
+  `)
+  const application = graph[1][1][1]
+  const args = application[1]
+
+  assert.notEqual(args[0], args[1])
+  assert.equal(result, undefined)
+})
+
 test('shares Y identities with its recursive body', () => {
   const { graph } = linked(`
   ((Y f (f (Y f)))

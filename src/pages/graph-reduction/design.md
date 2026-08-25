@@ -99,9 +99,20 @@ atom = [self, self]
 Two pairs with the same shape may still be different identities. Sharing,
 cycles, and recurrence are expressed by shared references.
 
-The graph has one Root containing every causally connected observer and event.
-A focus is one observer's position within Root. Many observers may begin at
-many foci without changing the static graph.
+The graph returned by the linker is the complete **Root**: the static outer
+environment containing every causally connected observer and event. A focus is
+one observer's position within Root. Many observers may choose many different
+origins without changing the graph.
+
+Three identities must remain distinct:
+
+- **Root** is the complete static graph.
+- An **observer origin** is a recurrent identity selected within Root.
+- An **observation** is the value exposed from that origin to its environment.
+
+The spelling `root` has no privilege. Any symbol in the outermost naming
+position names Root by the same rule used at every other pair. Its position is
+significant; its spelling is not.
 
 A fixed atom is the smallest closed focus:
 
@@ -174,9 +185,9 @@ The linker currently applies these contextual forms:
   remains as a left self-reference: `(a b)` means `a = (a b)`.
 - A lone fresh name closes into `a = (a a)`.
 
-Root follows these same rules. It is not a special node type. If `root` is
-authored as a label, it must name the outermost pair without adding a wrapper,
-input, or self-edge merely because its spelling is new.
+Root contains only ordinary pairs and shared identities; it is not a special
+node type. Naming it must not add a wrapper, input, self-edge, or linker
+exception, and must not reinterpret any identity already nested beneath it.
 
 ## Lexical visibility
 
@@ -190,16 +201,28 @@ history:
 - A definition cannot see a later sibling.
 - A child inherits the visible identities of its enclosing branches.
 - A sibling cannot see another sibling's private children.
-- A nested parameter shadows an outer identity with the same spelling.
+- A nested transition's left branch may shadow an outer identity with the same
+  spelling.
 
 Right-first construction is permissible only when it is an implementation
 technique: it may prepare a result before tying its name, but it must never make
 a causally future identity visible to the past.
 
-Parameter patterns obey the same structural rules as other pairs. In
-`(x y z)`, `x` can name the parameter pair while `y` and `z` bind its left and
-right states. It is not necessarily a flat collection of three unrelated
-parameters.
+Identification cascades through each lexical frame. The first occurrence of a
+spelling introduces an identity; following occurrences reuse the nearest visible
+identity. A transition's left branch starts a local frame, so its identities
+shadow matching outer spellings, flow into the right branch, and remain private
+outside the transition.
+
+An identity becomes a parameter only relative to an application: it lies in the
+applied transition's left branch and is paired with an argument identity. It is
+not a different kind of graph cell. Left patterns obey the same structural rules
+as other pairs. In `(x y z)`, `x` can name the whole pattern while `y` and `z`
+identify its left and right states.
+
+Repeated identities are constraints. If one left identity occupies two paths,
+both paths in the supplied argument must lead to the same identity. The linker
+must not bind that one identity to two different arguments.
 
 ## Linking and application
 
@@ -208,7 +231,7 @@ small set of contextual states:
 
 ```text
 atom                   [self, self]
-definition             [parameters, body]
+definition             [input, body]
 suspended application  [definition, supplied]
 completed application  [arguments, result]
 ```
@@ -250,6 +273,27 @@ next(pair) = pair.right
 A self-edge is a period-one trajectory, not termination. Longer cycles are
 longer repeating trajectories. Stopping, yielding, sampling, or displaying a
 focus belongs to an observer or its environment rather than to pair semantics.
+
+An observer may retain a value on its left while returning through its right:
+
+```text
+origin = (observation origin)
+```
+
+The origin and observation are different identities. Following the continuation
+returns to the exact origin, while an ordinary authored selector can expose the
+observation to an enclosing application:
+
+```lisp
+((root observation (root observation))
+ (first (focus next) focus)
+ (first (root view)))
+```
+
+Completion is therefore relative to an observer: it is the return to that
+observer's origin identity, not an empty value, structural equality, or a
+universal stopping state. More complicated excursions may visit other
+identities before returning to the same origin.
 
 The source-authored dashboard demonstrates a richer observer: its recursive
 calls carry history, focus, next, and appearance through preauthored

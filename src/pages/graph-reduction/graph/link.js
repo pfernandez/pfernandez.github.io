@@ -36,7 +36,7 @@ const atom = symbol => {
 // frontier, not a completed causal transition. If it remains unresolved,
 // its supplied arguments are the causal prefix that actually occurred:
 // atom                   [self, self]
-// definition             [parameters, body]
+// definition             [input, body]
 // suspended application  [definition, supplied]
 // completed application  [arguments, result]
 
@@ -51,30 +51,36 @@ const append = (graph, node) => {
   return graph
 }
 
-// Match each parameter identity with the argument branch that fills it.
-const match = (parameters, args) => {
-  const whole = isNamed(parameters) ? [[parameters, args]] : []
-  if (isFixed(parameters)) return whole
+// Match each identity on a transition's left with the branch that fills it.
+// Repeated identities constrain their arguments to share that identity too.
+const match = (input, args, bindings = []) => {
+  const known = find(input, bindings)
+  if (known) return known === args ? bindings : undefined
+
+  let matched = isNamed(input)
+    ? [...bindings, [input, args]]
+    : bindings
+  if (isFixed(input)) return matched
   if (isFixed(args)) return
 
   // A self-edge names a partial argument; it does not fill a distinct state.
-  if (isNamed(parameters)
-    && parameters[0] !== parameters
+  if (isNamed(input)
+    && input[0] !== input
     && args[0] === args) return
 
-  const left = parameters[0] === parameters
-    ? []
-    : match(parameters[0], args[0])
-  const right = parameters[1] === parameters
-    ? []
-    : match(parameters[1], args[1])
-  return left && right && [...whole, ...left, ...right]
+  if (input[0] !== input) {
+    matched = match(input[0], args[0], matched)
+    if (!matched) return
+  }
+  if (input[1] !== input)
+    matched = match(input[1], args[1], matched)
+  return matched
 }
 
 // Children identify a destructured pair. Its name matters to recurrence only
 // when the name itself occupies one of the pattern's states.
-const stateBindings = bindings => bindings.filter(([parameter]) =>
-  isFixed(parameter) || parameter[0] === parameter)
+const stateBindings = bindings => bindings.filter(([input]) =>
+  isFixed(input) || input[0] === input)
 
 const compile = (tree, imports) => {
   // Scope is persistent: a definition sees exactly the identities visible when
@@ -86,7 +92,7 @@ const compile = (tree, imports) => {
   const remember = (graph, facts) =>
     memory.set(graph, { ...details(graph), ...facts })
   const isDefinition = graph => details(graph).definition
-  const isParameter = graph => details(graph).parameter
+  const isInput = graph => details(graph).input
   const isCallable = graph => isDefinition(graph)
     || typeof graph?.['symbol'] === 'function'
   const exposed = graph => details(graph).result
@@ -116,7 +122,7 @@ const compile = (tree, imports) => {
       bindings = [],
       definitions = true,
       literal = false,
-      parameters = false,
+      frame,
       states,
       template
     } = options
@@ -133,15 +139,27 @@ const compile = (tree, imports) => {
       return context([before.graph, after.graph], scope)
     }
 
-    // A parameter always introduces a fresh local identity. A compound head
-    // names its parameter pair at any nesting depth.
-    if (parameters) {
-      if (isSymbol(expression)) {
-        const graph = atom(expression)
-        remember(graph, { parameter: true })
-        return context(graph, extend(scope, expression, graph))
+    // A symbol reuses the nearest visible identity. The first occurrence in a
+    // transition's local frame shadows its surroundings and identifies itself.
+    if (isSymbol(expression)) {
+      const known = scope.get(expression)
+      if (frame && known !== frame.get(expression))
+        return context(known, scope)
+
+      if (!frame) {
+        const { ref } = resolve(expression, scope, bindings)
+        if (ref) return context(ref, scope)
+        if (template?.['symbol'] === expression)
+          return context(template, extend(scope, expression, template))
       }
 
+      const graph = atom(expression)
+      if (frame) remember(graph, { input: true })
+      return context(graph, extend(scope, expression, graph))
+    }
+
+    // A compound head identifies the pair within the same local frame.
+    if (frame) {
       const graph = []
       const [left, right] = expression
       const named = isSymbol(left) && Array.isArray(right)
@@ -149,8 +167,11 @@ const compile = (tree, imports) => {
       let local = scope
 
       if (named) {
+        const known = scope.get(left)
+        if (known !== frame.get(left)) return context(known, scope)
+
         identify(graph, left)
-        remember(graph, { parameter: true })
+        remember(graph, { input: true })
         local = extend(scope, left, graph)
       }
 
@@ -159,16 +180,6 @@ const compile = (tree, imports) => {
       graph[0] = before.graph
       graph[1] = after.graph
       return context(graph, after.scope)
-    }
-
-    // A lone symbol reuses the identity visible at this exact causal point.
-    if (isSymbol(expression)) {
-      const { visible, ref } = resolve(expression, scope, bindings)
-      if (ref)
-        return context(ref, scope)
-      if (template?.['symbol'] === expression)
-        return context(template, scope)
-      return context(atom(expression), scope)
     }
 
     const graph = []
@@ -184,7 +195,7 @@ const compile = (tree, imports) => {
       const argument = next(right, scope, {
         definitions: false,
         literal: ref['symbol'].literal,
-        template: isParameter(visible) || isCallable(template?.[0])
+        template: isInput(visible) || isCallable(template?.[0])
           ? template?.[1]
           : template?.[0]
       })
@@ -198,13 +209,13 @@ const compile = (tree, imports) => {
         : retain([argument.graph, applied.graph], applied)
     }
 
-    // Inside a value, a compound head names the pair. A bound parameter either
+    // Inside a value, a compound head names the pair. A bound input either
     // becomes a call above, fills an open identity, or reuses a completed one.
     if (!definitions && isSymbol(left) && Array.isArray(right)) {
       const transition = isSymbol(right[0])
         && resolve(right[0], scope, bindings).ref
 
-      if (!isParameter(visible) && transition && isCallable(transition)) {
+      if (!isInput(visible) && transition && isCallable(transition)) {
         const state = next(right, scope, {
           definitions: false,
           template
@@ -214,7 +225,7 @@ const compile = (tree, imports) => {
         return state
       }
 
-      if (isParameter(visible) && ref !== visible) {
+      if (isInput(visible) && ref !== visible) {
         if (!isOpen(ref))
           return context(ref, scope)
 
@@ -248,17 +259,17 @@ const compile = (tree, imports) => {
       identify(graph, left)
       const local = extend(scope, left, graph)
       const [pattern, body] = right
-      const parameters = next(pattern, local, {
-        parameters: true
+      const input = next(pattern, local, {
+        frame: local
       })
-      graph[0] = parameters.graph
+      graph[0] = input.graph
       remember(graph, {
         bindings,
         body,
         definition: true,
-        scope: parameters.scope
+        scope: input.scope
       })
-      const result = next(body, parameters.scope, {
+      const result = next(body, input.scope, {
         template: template?.[1]
       })
       graph[1] = result.graph

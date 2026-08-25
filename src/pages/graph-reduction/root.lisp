@@ -1,15 +1,17 @@
 ((include ./content.lisp)
  (include ./site.lisp)
- (root initial
-   ((document content
-      (html
-        (head
-          (title (text pfernandez.github.io)))
-        (body
-          (component content))))
-    (document
-      (site (screen initial)))))
- (root ((A B C) ink)))
+ (root observation (root observation))
+ (document content
+   (html
+     (head
+       (title (text pfernandez.github.io)))
+     (body
+       (component content))))
+ (first (focus next) focus)
+ (first
+   (root
+     (document
+       (site (screen ((A B C) ink)))))))
 
 ; Possible private-observer shapes
 ;
