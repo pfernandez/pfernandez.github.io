@@ -1,5 +1,8 @@
 import './style.css'
-import { render } from '@pfern/elements'
+import { onNavigate, render } from '@pfern/elements'
 import root from './pages/graph-reduction/root.js'
 
-render(root)
+const start = () => render(root())
+
+onNavigate(start)
+start()

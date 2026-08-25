@@ -1,4 +1,4 @@
-((dashboard ((origin first second) initialAppearance)
+((screen ((origin first second) initialAppearance)
    ((observe (((history focus) next) appearance)
       (div (props (class dashboard-view))
         (div (props (class panel))

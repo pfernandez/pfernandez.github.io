@@ -33,7 +33,9 @@ export const content = config.pages.reduce((acc, section) =>
             item.keepAlive,
             section.keepAlive,
             config.keepAlive),
-          publicPath: publicPath(section.path, item.file),
+          publicPath: item.publicPath
+            ? normalizeRoute(item.publicPath)
+            : publicPath(section.path, item.file),
           localPath: localPath(section.path, item.file) })) }], [])
 
 export const findItemByRoute = route => {

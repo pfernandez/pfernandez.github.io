@@ -1,4 +1,4 @@
-((include ./dashboard.lisp)
+((include ./content.lisp)
  (include ./site.lisp)
  (root initial
    ((document content
@@ -8,7 +8,7 @@
         (body
           (component content))))
     (document
-      (site (dashboard initial)))))
+      (site (screen initial)))))
  (root ((A B C) ink)))
 
 ; Possible private-observer shapes

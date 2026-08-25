@@ -115,12 +115,23 @@ const compile = (tree, imports) => {
     const {
       bindings = [],
       definitions = true,
+      literal = false,
       parameters = false,
       states,
       template
     } = options
     const next = (node, nextScope = scope, changes = {}) => walk(
       node, nextScope, { ...options, ...changes })
+
+    // A literal capability receives fresh atoms and pairs exactly as authored.
+    // Its arguments are data, so visible names cannot resolve or define scope.
+    if (literal) {
+      if (isSymbol(expression)) return context(atom(expression), scope)
+
+      const before = next(expression[0])
+      const after = next(expression[1])
+      return context([before.graph, after.graph], scope)
+    }
 
     // A parameter always introduces a fresh local identity. A compound head
     // names its parameter pair at any nesting depth.
@@ -172,6 +183,7 @@ const compile = (tree, imports) => {
     if (ref && isCallable(ref)) {
       const argument = next(right, scope, {
         definitions: false,
+        literal: ref['symbol'].literal,
         template: isParameter(visible) || isCallable(template?.[0])
           ? template?.[1]
           : template?.[0]

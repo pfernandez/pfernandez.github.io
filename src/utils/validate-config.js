@@ -46,11 +46,12 @@ export const validateConfig = config => {
         continue
       }
 
-      const route =
-        `/${path}/${file}`
-          .replace(/\/+/g, '/')
-          .replace(/\.[^/.]+$/, '')
-          .replace(/\/+$/g, '')
+      const route = item.publicPath
+        ? String(item.publicPath).replace(/\/+$/g, '') || '/'
+        : `/${path}/${file}`
+            .replace(/\/+/g, '/')
+            .replace(/\.[^/.]+$/, '')
+            .replace(/\/+$/g, '')
 
       const prev = routes.get(route)
       if (prev) {

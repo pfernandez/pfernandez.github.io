@@ -5,13 +5,19 @@ import { view as observe } from './device.js'
 import { functions } from './functions.js'
 import { include } from './graph/index.js'
 
-const view = source => observe(source, functions)
+const view = (source, imports = {}) =>
+  observe(source, { ...functions, ...imports })
 
-const files = Object.fromEntries(['dashboard', 'site', 'root'].map(file => [
+const files = Object.fromEntries(['dashboard', 'machine', 'site', 'root']
+  .map(file => [
   `./${file}.lisp`,
   readFileSync(new URL(`./${file}.lisp`, import.meta.url), 'utf-8')
 ]))
-const source = include(files['./root.lisp'], files)
+const page = content => include(files['./root.lisp'], {
+  ...files,
+  './content.lisp': files[`./${content}.lisp`]
+})
+const source = page('dashboard')
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
@@ -64,6 +70,16 @@ test('keeps arbitrary properties local to each element', () => {
       ['span', { 'data-state': 'second' }]])
 })
 
+test('treats text arguments as literal strings', () => {
+  assert.equal(
+    view('(text This web application is running within the machine)'),
+    'This web application is running within the machine')
+})
+
+test('does not resolve visible identities inside text', () => {
+  assert.equal(view('((web x x) (text web x))'), 'web x')
+})
+
 test('displays the labels of named graph pairs', () => {
   assert.equal(
     text(view('(serialize (step before after) plain)')),
@@ -75,7 +91,7 @@ test('displays imported functions by their authored names', () => {
 })
 
 test('authors the complete document from Root', () => {
-  const root = view(source)
+  const root = view(source, { route: '/graph-reduction' })
 
   assert.equal(root[0], 'html')
   assert.ok(find(root, 'head'))
@@ -93,6 +109,21 @@ test('authors the complete document from Root', () => {
   assert.match(find(root, 'textarea')[1].value, /\(dashboard/)
   assert.match(find(root, 'textarea')[1].value, /\(site/)
   assert.match(find(root, 'textarea')[1].value, /\(root/)
+})
+
+test('renders another page through the shared Root', () => {
+  const root = view(page('machine'), {
+    route: '/graph-reduction/machine'
+  })
+  const links = findAll(root, 'a')
+
+  assert.equal(text(find(root, 'p')),
+               'This web application is running entirely within the machine '
+               + 'it describes.')
+  assert.equal(links[0][1].href, '/graph-reduction')
+  assert.equal(links[1][1].href, '/graph-reduction/machine')
+  assert.equal(links[1][1].class, 'active')
+  assert.equal(links[1][1]['aria-current'], 'page')
 })
 
 test('renders the value after a private definition sequence', () => {

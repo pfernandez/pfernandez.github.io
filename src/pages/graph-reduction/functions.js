@@ -1,8 +1,12 @@
 import { component, elements } from '@pfern/elements'
+import { content, getActiveRoute } from '../../utils/site-content.js'
 import { serialize } from './graph/index.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
+
+const text = ({ values }) => values().flat(Infinity).join(' ')
+text.literal = true
 
 const adaptElements = ({ component, ...elements }) => {
   const fixed = pair => left(pair) === pair && right(pair) === pair
@@ -27,8 +31,25 @@ const adaptElements = ({ component, ...elements }) => {
     'name',
     { value: name }
   )
+  const navigation = ({ values }) => {
+    const activeRoute = getActiveRoute(values()[0])
+
+    return elements.nav(...content.map(group =>
+      elements.section(
+        elements.h2(group.summary),
+        elements.ul(...group.items.map(item => {
+          const active = item.publicPath === activeRoute
+          const props = {
+            href: item.publicPath,
+            class: active ? 'active' : ''
+          }
+          if (active) props['aria-current'] = 'page'
+          return elements.li(elements.a(props, item.label))
+        })))))
+  }
 
   return {
+    navigation,
     props,
     ...Object.fromEntries(
       Object.entries(elements).map(([name, element]) =>
@@ -45,7 +66,7 @@ const adaptElements = ({ component, ...elements }) => {
 // identities.
 export const functions = {
   ...adaptElements({ ...elements, component }),
-  text: ({ values }) => values().flat(Infinity).join(' '),
+  text,
   source: ({ source }) => source,
   serialize: ({ argument, evaluate }) =>
     serialize(left(argument), {

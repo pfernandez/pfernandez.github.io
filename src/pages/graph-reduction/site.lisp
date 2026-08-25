@@ -7,17 +7,7 @@
            (class sidebar-panel))
          (header
            (h1 (text pfernandez.github.io)))
-         (nav
-           (section
-             (h2 (text Graph Reduction))
-             (ul
-               (li
-                 (a
-                   (props
-                    (href /graph-reduction)
-                    (class active)
-                    (aria-current page))
-                   (text Dashboard))))))))
+         (navigation route)))
 
      (div (props (id content))
        (component child)))))
