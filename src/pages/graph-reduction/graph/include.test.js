@@ -6,14 +6,14 @@ test('includes file sequences in causal order', () => {
   const library = '((I x x))'
   const application = '((include library.lisp) (I a))'
   const program = include(application, { 'library.lisp': library })
-  const { ast, focus, source, error } = link(program)
+  const { ast, focus, legend, source, error } = link(program)
 
   if (error) throw error
   assert.equal(source, `${library}\n${application}`)
   assert.equal(program.entry, application)
   assert.equal(program.files['library.lisp'], library)
   assert.deepEqual(ast, [['I', 'x', 'x'], ['I', 'a']])
-  assert.equal(focus[0]['symbol'], 'a')
+  assert.equal(legend.get(focus[0]).name, 'a')
   assert.equal(focus[1], focus[0])
 })
 

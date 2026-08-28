@@ -83,31 +83,33 @@ const symbolText = symbol => typeof symbol === 'function'
 
 const graphDocument = (
   node,
+  legend,
   repeat = 'identity',
   labels = false,
   path = '$',
   seen = new Map()
 ) => {
   if (!Array.isArray(node)) return tokenDocument(textToken(String(node)))
+  const symbol = legend?.get(node)?.name
 
   if (seen.has(node))
-    return tokenDocument(node.symbol === undefined
+    return tokenDocument(symbol === undefined
       ? repeat === 'path'
         ? textToken(seen.get(node))
         : identityToken('()', jsIdentity(node))
-      : identityToken(symbolText(node.symbol), jsIdentity(node)))
+      : identityToken(symbolText(symbol), jsIdentity(node)))
 
-  if (node.symbol !== undefined && node[0] === node && node[1] === node)
-    return tokenDocument(identityToken(symbolText(node.symbol), jsIdentity(node)))
+  if (symbol !== undefined && node[0] === node && node[1] === node)
+    return tokenDocument(identityToken(symbolText(symbol), jsIdentity(node)))
 
   seen.set(node, path)
-  const label = labels && node.symbol !== undefined && node[0] !== node
-    ? [tokenDocument(identityToken(symbolText(node.symbol), jsIdentity(node)))]
+  const label = labels && symbol !== undefined && node[0] !== node
+    ? [tokenDocument(identityToken(symbolText(symbol), jsIdentity(node)))]
     : []
   const children = [
     ...label,
     ...node.map((child, index) =>
-      graphDocument(child, repeat, labels, `${path}.${index}`, seen))
+      graphDocument(child, legend, repeat, labels, `${path}.${index}`, seen))
   ]
 
   return {
@@ -158,8 +160,8 @@ const layoutTokens = (document, width, column = 0) => {
   return { tokens, column: end + 1 }
 }
 
-const graphTokens = (node, { labels, width, repeat } = {}) =>
-  layoutTokens(graphDocument(node, repeat, labels), width).tokens
+const graphTokens = (node, { labels, legend, width, repeat } = {}) =>
+  layoutTokens(graphDocument(node, legend, repeat, labels), width).tokens
 
 const tokensToText = tokens =>
   tokens.map(token => token.text).join('')
@@ -185,11 +187,13 @@ export const serialize = (
   {
     format = 'text',
     labels = false,
+    legend,
     scheme = schemes.color,
     width = DEFAULT_WIDTH
   } = {}
 ) => renderTokens(graphTokens(graph, {
   labels,
+  legend,
   width,
   repeat: format === 'text' ? 'path' : 'identity'
 }), { format, scheme })

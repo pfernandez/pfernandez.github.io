@@ -13,13 +13,15 @@ const extend = (scope, symbol, graph) =>
 export const connect = (pairs, imports = {}) => {
   const definitions = new Map()
   const capabilities = new Map()
+  const calls = new Set()
   const legend = new Map()
   const owner = new Map()
+  const values = new Set()
+  const fills = new Set()
+  const inputs = new Set()
   const root = Symbol('Root')
 
   const identify = (graph, name, capability) => {
-    // Retained temporarily while existing consumers move to the legend.
-    graph['symbol'] = capability ?? name
     legend.set(graph, {
       name,
       ...(capability && { capability }),
@@ -30,7 +32,7 @@ export const connect = (pairs, imports = {}) => {
 
   const atom = (name, ownedBy, capability) => {
     const graph = identify([], name, capability)
-    graph[0] = graph[1] = graph
+    graph[0] = graph
     owner.set(graph, ownedBy)
     return graph
   }
@@ -79,7 +81,10 @@ export const connect = (pairs, imports = {}) => {
       if (frame ? local : visible) return context(visible, scope)
 
       const graph = atom(expression, ownedBy)
-      if (frame) frame.parameters.add(graph)
+      if (frame) {
+        frame.parameters.add(graph)
+        inputs.add(graph)
+      }
       return context(graph, extend(scope, expression, graph))
     }
 
@@ -100,6 +105,7 @@ export const connect = (pairs, imports = {}) => {
 
         identify(graph, left)
         frame.parameters.add(graph)
+        inputs.add(graph)
         local = extend(scope, left, graph)
       }
 
@@ -123,11 +129,14 @@ export const connect = (pairs, imports = {}) => {
       })
       graph[0] = visible
       graph[1] = argument.graph
+      calls.add(graph)
+      values.add(argument.graph)
       return context(graph, scope)
     }
 
     // A value may name an application without adding another pair around it.
-    if (!definitionsAllowed && isNew && Array.isArray(right)) {
+    // Naming a later application shadows an earlier value with the same name.
+    if (!definitionsAllowed && isSymbol(left) && Array.isArray(right)) {
       const transition = isSymbol(right[0]) && scope.get(right[0])
       if (callable(transition)) {
         const state = next(right, scope, { definitionsAllowed: false })
@@ -135,15 +144,17 @@ export const connect = (pairs, imports = {}) => {
         return context(state.graph, extend(scope, left, state.graph))
       }
 
-      identify(graph, left)
-      const local = extend(scope, left, graph)
-      const before = next(right[0], local, { definitionsAllowed: false })
-      const after = next(right[1], before.scope, {
-        definitionsAllowed: false
-      })
-      graph[0] = before.graph
-      graph[1] = after.graph
-      return context(graph, extend(scope, left, graph))
+      if (isNew) {
+        identify(graph, left)
+        const local = extend(scope, left, graph)
+        const before = next(right[0], local, { definitionsAllowed: false })
+        const after = next(right[1], before.scope, {
+          definitionsAllowed: false
+        })
+        graph[0] = before.graph
+        graph[1] = after.graph
+        return context(graph, extend(scope, left, graph))
+      }
     }
 
     // A fresh compound head introduces a definition. Record it before walking
@@ -183,6 +194,8 @@ export const connect = (pairs, imports = {}) => {
       const following = next(right, scope, { definitionsAllowed: false })
       graph[0] = visible
       graph[1] = following.graph
+      calls.add(graph)
+      if (inputs.has(visible) && Array.isArray(right)) fills.add(graph)
       return context(graph, scope)
     }
 
@@ -197,10 +210,14 @@ export const connect = (pairs, imports = {}) => {
 
   return {
     capabilities,
+    calls,
     definitions,
+    fills,
     graph: walk(pairs).graph,
     legend,
+    inputs,
     owner,
-    root
+    root,
+    values
   }
 }

@@ -154,9 +154,11 @@ may be suggested by the same structure, but is not established by the linker.
 
 ## Names and authored sequences
 
-Names help authors, the linker, and the serializer identify pairs. They are not
-runtime cells or extra causal events. Once linking is complete, the observer
-does not need their spelling.
+Names help authors and the compiler connect pairs. They are not runtime cells,
+pair properties, or extra causal events. The final graph contains only arrays
+and shared references. An identity-keyed legend retains authored names and
+foreign capabilities for serializers and devices at the graph's edge; an
+observer walking the graph itself does not need their spelling.
 
 The same local naming rule applies at every sequence length:
 
@@ -224,6 +226,41 @@ Repeated identities are constraints. If one left identity occupies two paths,
 both paths in the supplied argument must lead to the same identity. The linker
 must not bind that one identity to two different arguments.
 
+## Compilation layers
+
+Compilation is deliberately separated into inspectable transformations:
+
+```text
+source -> parse -> AST -> decompose -> pairs
+       -> connect -> connected identities
+       -> compose -> application graph
+       -> finalize -> frozen Root
+```
+
+Each layer has one kind of knowledge:
+
+- `parse(source)` recognizes source text and preserves authored sequences.
+- `decompose(ast)` lowers every sequence to pairs without resolving names.
+- `connect(pairs, imports)` replaces spellings with lexically visible
+  identities. It records definitions, inputs, applications, ownership, names,
+  and capabilities in identity-keyed compiler tables, but applies nothing.
+- `compose(connected)` copies that artifact, matches argument identities,
+  copies definition bodies, exposes results, completes suspended applications,
+  and ties recurring configurations. The connected input remains unchanged.
+- `finalize(composed)` closes every remaining one-edge construction frontier
+  into a fixed atom and freezes the reachable Root.
+- `link(program, imports)` only coordinates those layers and reports errors.
+
+The AST, decomposed pairs, connected graph, and final graph therefore remain
+separately available for tests and future views. Only the finalized graph is a
+runtime graph. The connected artifact may contain temporary `[self]` frontiers
+and compiler tables that have no runtime representation.
+
+Separating connection from composition also gives names a clean lifetime.
+Only `connect` interprets source strings. `compose` works with identities and
+its tables, while the device and serializer consult the legend without adding
+names to graph cells.
+
 ## Linking and application
 
 Linking is a pair-local construction walk. At each pair it distinguishes a
@@ -260,6 +297,12 @@ from `focus`. This is an entrypoint convention, not a change to the graph.
 Recurrence reuses a configuration only when the same definition identity is
 reached with the same argument identities during one instantiation. This ties
 cycles by identity; it is not structural deduplication.
+
+An unnamed recurrence enters the existing configuration directly. A named
+recurrence remains an observable continuation shaped `[self, target]`: its
+name stays available to a device while its right edge enters the configuration
+that already exists. This preserves the distinction between an authored event
+boundary and the state selected when that event occurs.
 
 ## Observation
 

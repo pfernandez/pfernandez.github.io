@@ -6,6 +6,13 @@ import {
   serialize
 } from './index.js'
 
+const legend = new Map()
+const identify = (graph, name) => {
+  legend.set(graph, { name })
+  return graph
+}
+const print = (graph, options = {}) => serialize(graph, { legend, ...options })
+
 describe('serialize', () => {
   test('text names repeated paths and cycles', () => {
     const root = []
@@ -35,14 +42,14 @@ describe('serialize', () => {
     const y = []
     x[0] = x[1] = x
     y[0] = y[1] = y
-    x.symbol = 'x'
-    y.symbol = 'y'
+    identify(x, 'x')
+    identify(y, 'y')
     const graph = [x, [y, x], []]
     const expected = '(x (y x) ())'
 
-    assert.equal(serialize(graph), expected)
+    assert.equal(print(graph), expected)
     assert.equal(
-      serialize(graph, { width: 10 }),
+      print(graph, { width: 10 }),
       '(x\n (y x)\n ())')
   })
 
@@ -52,13 +59,13 @@ describe('serialize', () => {
     const transition = [before, after]
     before[0] = before[1] = before
     after[0] = after[1] = after
-    before.symbol = 'before'
-    after.symbol = 'after'
-    transition.symbol = 'step'
+    identify(before, 'before')
+    identify(after, 'after')
+    identify(transition, 'step')
 
-    assert.equal(serialize(transition), '(before after)')
+    assert.equal(print(transition), '(before after)')
     assert.equal(
-      serialize(transition, { labels: true }),
+      print(transition, { labels: true }),
       '(step before after)')
   })
 
@@ -66,21 +73,20 @@ describe('serialize', () => {
     const following = []
     const transition = []
     following[0] = following[1] = following
-    following.symbol = 'following'
+    identify(following, 'following')
     transition[0] = transition
     transition[1] = following
-    transition.symbol = 'step'
+    identify(transition, 'step')
 
-    assert.equal(serialize(transition, { labels: true }), '(step following)')
+    assert.equal(print(transition, { labels: true }), '(step following)')
   })
 
   test('prints the names of function identities instead of their source', () => {
-    const render = () => {}
     const identity = []
     identity[0] = identity[1] = identity
-    identity.symbol = render
+    identify(identity, 'render')
 
-    assert.equal(serialize(identity), 'render')
+    assert.equal(print(identity), 'render')
   })
 
   test('vdom format returns an elements-style array', () => {
@@ -122,10 +128,10 @@ describe('serialize', () => {
     const atom = []
     transition[0] = transition
     transition[1] = atom[0] = atom[1] = atom
-    transition.symbol = 'T'
-    atom.symbol = 'a'
+    identify(transition, 'T')
+    identify(atom, 'a')
 
-    const output = serialize(transition, {
+    const output = print(transition, {
       format: 'vdom',
       scheme: schemes.color
     })

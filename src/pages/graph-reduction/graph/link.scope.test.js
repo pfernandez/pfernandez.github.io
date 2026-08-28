@@ -7,9 +7,10 @@ const linked = source => {
   if (result.error) throw result.error
   return result
 }
+const name = (legend, graph) => legend.get(graph)?.name
 
 test('shares S identities between its parameters, body, and use', () => {
-  const { graph } = linked(`
+  const { graph, legend } = linked(`
   ((S (x y z) ((x z) (y z)))
    (S (a b c)))
   `)
@@ -19,7 +20,7 @@ test('shares S identities between its parameters, body, and use', () => {
   const parameters = definition[0]
   const body = definition[1]
 
-  assert.equal(definition['symbol'], 'S')
+  assert.equal(name(legend, definition), 'S')
   assert.equal(body[0][0], parameters)
   assert.equal(body[0][1], parameters[1])
   assert.equal(body[1][0], parameters[0])
@@ -32,9 +33,10 @@ test('shares S identities between its parameters, body, and use', () => {
 
 test('does not reinterpret a branch when its enclosing pair is named', () => {
   const unnamed = linked('((I x x) (K (x y) x))').graph
-  const named = linked('(Root (I x x) (K (x y) x))').graph
+  const { graph: named, legend } = linked(
+    '(Root (I x x) (K (x y) x))')
 
-  assert.equal(named['symbol'], 'Root')
+  assert.equal(name(legend, named), 'Root')
   assert.equal(unnamed[0][0], unnamed[0][1])
   assert.equal(named[0][0], named[0][1])
 })
@@ -65,7 +67,7 @@ test('does not bind one repeated identity to distinct arguments', () => {
 })
 
 test('shares Y identities with its recursive body', () => {
-  const { graph } = linked(`
+  const { graph, legend } = linked(`
   ((Y f (f (Y f)))
    (Y a))
   `)
@@ -74,14 +76,14 @@ test('shares Y identities with its recursive body', () => {
   const f = definition[0]
   const body = definition[1]
 
-  assert.equal(definition['symbol'], 'Y')
+  assert.equal(name(legend, definition), 'Y')
   assert.equal(body[0], f)
   assert.equal(body[1][0], definition)
   assert.equal(body[1][1], f)
 })
 
 test('does not resolve a symbol to a later definition', () => {
-  const { graph } = linked(`
+  const { graph, legend } = linked(`
   ((F x G)
    (G y y))
   `)
@@ -89,14 +91,14 @@ test('does not resolve a symbol to a later definition', () => {
   const F = graph[0]
   const G = graph[1]
 
-  assert.equal(F[1]['symbol'], 'G')
+  assert.equal(name(legend, F[1]), 'G')
   assert.equal(F[1][0], F[1])
   assert.equal(F[1][1], F[1])
   assert.notEqual(F[1], G)
 })
 
 test('does not expose a sibling definition\'s parameters', () => {
-  const { graph } = linked(`
+  const { graph, legend } = linked(`
   ((F x
       ((G (y) y)
        (H z y))))
@@ -107,7 +109,7 @@ test('does not expose a sibling definition\'s parameters', () => {
   const G = sequence[0]
   const H = sequence[1]
 
-  assert.equal(H[1]['symbol'], 'y')
+  assert.equal(name(legend, H[1]), 'y')
   assert.equal(H[1][0], H[1])
   assert.equal(H[1][1], H[1])
   assert.notEqual(H[1], G[0])
@@ -159,7 +161,7 @@ test('keeps a bare parameter separate from its definition', () => {
 })
 
 test('instantiates a local definition before applying it', () => {
-  const { focus } = linked(`
+  const { focus, legend } = linked(`
   ((F x
       ((G y x)
        (G b)))
@@ -168,22 +170,22 @@ test('instantiates a local definition before applying it', () => {
   const [args, result] = focus
   const [G, application] = result
 
-  assert.equal(G['symbol'], 'G')
+  assert.equal(name(legend, G), 'G')
   assert.equal(G[1], args)
-  assert.equal(application[0]['symbol'], 'b')
+  assert.equal(name(legend, application[0]), 'b')
   assert.equal(application[1], args)
 })
 
 test('keeps a nested definition inside its parent body', () => {
-  const { graph } = linked(`
+  const { graph, legend } = linked(`
   ((F x (G y x))
    (G z z))
   `)
   const nested = graph[0][1]
   const following = graph[1]
 
-  assert.equal(nested['symbol'], 'G')
-  assert.equal(following['symbol'], 'G')
+  assert.equal(name(legend, nested), 'G')
+  assert.equal(name(legend, following), 'G')
   assert.notEqual(following, nested)
 })
 

@@ -10,24 +10,25 @@ text.literal = true
 
 const adaptElements = ({ component, ...elements }) => {
   const fixed = pair => left(pair) === pair && right(pair) === pair
-  const entry = pair => 'symbol' in pair && !fixed(pair)
+  const entry = (pair, legend) => legend.has(pair) && !fixed(pair)
   // A direct event continues right; a fixed event exposes its left action.
   const target = pair => right(pair) === pair ? left(pair) : right(pair)
-  const value = (node, evaluate) =>
-    entry(node)
-    && typeof node.symbol === 'string'
-    && node.symbol.startsWith('on')
-      ? [node.symbol, () => evaluate(target(node))]
+  const value = (node, evaluate, legend) => {
+    const name = legend.get(node)?.name
+    return entry(node, legend)
+    && name.startsWith('on')
+      ? [name, () => evaluate(target(node))]
       : evaluate(node)
+  }
   const props = Object.defineProperty(
-    ({ args, evaluate }) => Object.fromEntries(
-      args().map(node => value(node, evaluate))),
+    ({ args, evaluate, legend }) => Object.fromEntries(
+      args().map(node => value(node, evaluate, legend))),
     'name',
     { value: 'props' }
   )
   const capability = (name, element) => Object.defineProperty(
-    ({ args, evaluate }) => element(
-      ...args().map(node => value(node, evaluate))),
+    ({ args, evaluate, legend }) => element(
+      ...args().map(node => value(node, evaluate, legend))),
     'name',
     { value: name }
   )
@@ -68,10 +69,11 @@ export const functions = {
   ...adaptElements({ ...elements, component }),
   text,
   source: ({ source }) => source,
-  serialize: ({ argument, evaluate }) =>
+  serialize: ({ argument, evaluate, legend }) =>
     serialize(left(argument), {
       format: 'vdom',
       labels: true,
+      legend,
       scheme: evaluate(right(argument))
     })
 }

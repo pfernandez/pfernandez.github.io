@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { compose } from './compose.js'
+import { connect } from './connect.js'
+import { decompose } from './decompose.js'
+import { finalize } from './finalize.js'
+import { parse } from './parse.js'
+
+const compiled = source => finalize(compose(connect(decompose(parse(source)))))
+
+test('builds a fresh graph without changing connected identities', () => {
+  const connected = connect(decompose(parse('((I x x) (I a))')))
+  const input = connected.definitions.get(connected.graph[0]).input
+  const argument = connected.graph[1][1]
+  const composed = compose(connected)
+
+  assert.notEqual(composed.graph, connected.graph)
+  assert.notEqual(composed.graph[0], connected.graph[0])
+  assert.equal(input.length, 1)
+  assert.equal(input[0], input)
+  assert.equal(argument.length, 1)
+  assert.equal(argument[0], argument)
+})
+
+test('composes identity without resolving another symbol', () => {
+  const { graph, focus, result, legend } = compiled('((I x x) (I a))')
+  const [I] = graph
+
+  assert.equal(I[0], I[1])
+  assert.equal(legend.get(focus[0]).name, 'a')
+  assert.equal(focus[1], focus[0])
+  assert.equal(result, focus[1])
+})
+
+test('composes shared argument identities', () => {
+  const { focus } = compiled(`
+    ((S (x y z) ((x z) (y z)))
+     (S (a b c)))
+  `)
+  const [args, result] = focus
+
+  assert.equal(result[0][0], args)
+  assert.equal(result[0][1], args[1])
+  assert.equal(result[1][0], args[0])
+  assert.equal(result[1][1], args[1])
+})
+
+test('ties recurring definition and argument identities', () => {
+  const { focus, legend } = compiled(`
+    ((fix x (fix x))
+     (fix a))
+  `)
+
+  assert.equal(legend.get(focus[0]).name, 'a')
+  assert.equal(focus[1], focus)
+})

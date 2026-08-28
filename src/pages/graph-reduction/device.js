@@ -2,25 +2,27 @@ import { link } from './graph/index.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
-const isCall = pair => typeof left(pair)?.symbol === 'function'
 const fixed = pair => left(pair) === pair && right(pair) === pair
 
 export const view = (program, functions) => {
-  const { source, focus, result, error } = link(program, functions)
+  const { source, focus, result, legend, error } = link(program, functions)
   if (error) throw error
   const active = new Set()
+  const entry = pair => legend.get(pair)
+  const symbol = pair => entry(pair)?.capability ?? entry(pair)?.name
+  const isCall = pair => typeof entry(left(pair))?.capability === 'function'
 
   const evaluate = pair => {
     // External views currently replace a recurring identity with its name;
     // another adapter could instead preserve the shared reference.
-    if (active.has(pair)) return pair.symbol
+    if (active.has(pair)) return symbol(pair)
     active.add(pair)
 
     try {
-      if ('symbol' in pair) {
-        if (fixed(pair)) return pair.symbol
+      if (legend.has(pair)) {
+        if (fixed(pair)) return symbol(pair)
 
-        return [pair.symbol, isCall(pair)
+        return [symbol(pair), isCall(pair)
           ? invoke(pair)
           : evaluate(right(pair))]
       }
@@ -32,19 +34,20 @@ export const view = (program, functions) => {
   }
 
   const invoke = pair => {
-    const fn = left(pair)?.symbol
+    const fn = entry(left(pair))?.capability
     const argument = right(pair)
     return fn({
       argument,
       args: (node = argument) => list(node),
       evaluate,
+      legend,
       source,
       values: (node = argument) => list(node).map(evaluate)
     })
   }
 
   const list = pair =>
-    'symbol' in pair || isCall(pair)
+    legend.has(pair) || isCall(pair)
       ? [pair]
       : [left(pair), ...list(right(pair))]
 

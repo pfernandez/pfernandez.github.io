@@ -8,16 +8,17 @@ const connected = (source, imports) =>
   connect(decompose(parse(source)), imports)
 
 test('connects lexical identities without applying them', () => {
-  const { definitions, graph } = connected(`
+  const { definitions, graph, legend } = connected(`
     ((I x x)
      (I a))
   `)
   const [I, application] = graph
 
   assert.equal(definitions.get(I).input, I[0])
-  assert.equal(I[0], I[1])
+  assert.equal(I[0][0], I[0])
+  assert.equal(I[0].length, 1)
   assert.equal(application[0], I)
-  assert.equal(application[1]['symbol'], 'a')
+  assert.equal(legend.get(application[1]).name, 'a')
 })
 
 test('connects free identities before composition', () => {
@@ -57,8 +58,8 @@ test('records imported capabilities in an identity-keyed legend', () => {
     capability: text,
     arguments: 'literal'
   })
-  assert.equal(graph[1][0]['symbol'], 'words')
-  assert.equal(graph[1][1][0]['symbol'], 'remain')
+  assert.equal(legend.get(graph[1][0]).name, 'words')
+  assert.equal(legend.get(graph[1][1][0]).name, 'remain')
 })
 
 test('does not share literal arguments with visible identities', () => {
@@ -70,4 +71,20 @@ test('does not share literal arguments with visible identities', () => {
 
   assert.notEqual(literal[0], visible)
   assert.notEqual(literal[1], visible[0])
+})
+
+test('lets repeated names identify separate application values', () => {
+  const button = () => {}
+  const { graph, legend } = connected(`
+    ((app x (button (event (app x)) (event (app A))))
+     (app B))
+  `, { button })
+  const app = graph[0]
+  const [stay, reset] = app[1][1]
+
+  assert.equal(stay[0], app)
+  assert.equal(reset[0], app)
+  assert.equal(legend.get(stay).name, 'event')
+  assert.equal(legend.get(reset).name, 'event')
+  assert.notEqual(stay, reset)
 })
