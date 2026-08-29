@@ -1,5 +1,4 @@
-import { copyBody } from './copy-body.js'
-import { copy } from './copy.js'
+import { copyBody, copyConnected } from './copy.js'
 import { match, stateBindings } from './match.js'
 import { isFixed, isOpen } from './pair.js'
 
@@ -21,7 +20,7 @@ const append = (graph, node) => {
  * substitutes arguments, preserves history, and ties recurring states.
  */
 export const compose = connected => {
-  const image = copy(connected)
+  const image = copyConnected(connected)
   const {
     calls,
     definitions,
