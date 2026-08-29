@@ -55,15 +55,17 @@ const stateBindings = bindings => bindings.filter(([input]) =>
  * substitutes arguments, preserves history, and ties recurring states.
  */
 export const compose = connected => {
-  connected = copy(connected)
-  const capabilities = new Map(connected.capabilities)
-  const calls = new Set(connected.calls)
-  const definitions = new Map(connected.definitions)
-  const legend = new Map(connected.legend)
-  const owner = new Map(connected.owner)
+  const image = copy(connected)
+  const {
+    calls,
+    capabilities,
+    definitions,
+    fills,
+    legend,
+    owner,
+    values
+  } = image
   const results = new Map()
-  const values = new Set(connected.values)
-  const fills = new Set(connected.fills)
 
   const context = (graph, focus = graph, result) =>
     ({ graph, focus, result })
@@ -142,7 +144,7 @@ export const compose = connected => {
   const walk = (
     expression,
     states = [],
-    ownedBy = connected.root,
+    ownedBy = image.root,
     chain = true
   ) => {
     if (isOpen(expression)
@@ -267,12 +269,10 @@ export const compose = connected => {
     return context(graph, graph, output(result))
   }
 
-  const composed = walk(connected.graph)
+  const composed = walk(image.graph)
   if (suspended(composed.focus)) composed.focus = composed.focus[1]
 
   return {
-    capabilities,
-    definitions,
     focus: composed.focus,
     graph: composed.graph,
     legend,

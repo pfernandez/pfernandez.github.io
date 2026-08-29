@@ -26,7 +26,7 @@ export const link = (program, imports = {}) => {
       source,
       ast,
       pairs,
-      connected: connected.graph,
+      connected,
       graph: finalized.graph,
       focus: finalized.focus,
       result: finalized.result,

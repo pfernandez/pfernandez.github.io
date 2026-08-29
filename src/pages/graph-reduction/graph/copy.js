@@ -1,4 +1,6 @@
-/** Copy a connected compiler artifact while preserving every shared identity. */
+/**
+ * Copy a connected compiler artifact while preserving every shared identity.
+ */
 export const copy = connected => {
   const copies = new Map()
 
@@ -25,7 +27,6 @@ export const copy = connected => {
     root: connected.root,
     calls: set(connected.calls),
     fills: set(connected.fills),
-    inputs: set(connected.inputs),
     values: set(connected.values),
     capabilities: map(connected.capabilities),
     legend: map(connected.legend),

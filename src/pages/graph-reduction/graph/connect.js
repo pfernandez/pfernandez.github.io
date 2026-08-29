@@ -22,11 +22,10 @@ export const connect = (pairs, imports = {}) => {
   const root = Symbol('Root')
 
   const identify = (graph, name, capability) => {
-    legend.set(graph, {
-      name,
-      ...(capability && { capability }),
-      ...(capability?.literal && { arguments: 'literal' })
-    })
+    const entry = { name }
+    if (capability) entry.capability = capability
+    if (capability?.literal) entry.arguments = 'literal'
+    legend.set(graph, entry)
     return graph
   }
 
@@ -215,7 +214,6 @@ export const connect = (pairs, imports = {}) => {
     fills,
     graph: walk(pairs).graph,
     legend,
-    inputs,
     owner,
     root,
     values

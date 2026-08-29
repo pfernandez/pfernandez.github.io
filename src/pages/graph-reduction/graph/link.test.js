@@ -18,6 +18,18 @@ describe('link', () => {
     assert.deepEqual(pairs, [['I', ['x', 'x']], ['I', 'a']])
   })
 
+  test('retains an inspectable connected artifact', () => {
+    const { connected, graph, legend } = linked('((I x x) (I a))')
+    const argument = connected.graph[1][1]
+
+    assert.notEqual(connected.graph, graph)
+    assert.equal(connected.legend.get(argument).name, 'a')
+    assert.equal(argument.length, 1)
+    assert.equal(argument[0], argument)
+    assert.equal(name(legend, graph[1][0]), 'a')
+    assert.equal(graph[1][0].length, 2)
+  })
+
   test('links a top-level symbol as a fixed identity', () => {
     const bare = linked('x')
     const grouped = linked('(x)')
@@ -91,7 +103,7 @@ describe('link', () => {
   })
 
   test('exposes an observation while retaining its returning root', () => {
-    const { focus, result, legend } = linked(`
+    const { focus, result } = linked(`
     ((root observation (root observation))
      (first (focus next) focus)
      (first (root view)))

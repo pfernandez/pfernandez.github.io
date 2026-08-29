@@ -241,7 +241,8 @@ Each layer has one kind of knowledge:
 
 - `parse(source)` recognizes source text and preserves authored sequences.
 - `decompose(ast)` lowers every sequence to pairs without resolving names.
-- `connect(pairs, imports)` replaces spellings with lexically visible
+- `connect(pairs, imports)` returns a connected artifact that replaces
+  spellings with lexically visible
   identities. It records definitions, inputs, applications, ownership, names,
   and capabilities in identity-keyed compiler tables, but applies nothing.
 - `compose(connected)` copies that artifact, matches argument identities,
@@ -251,10 +252,13 @@ Each layer has one kind of knowledge:
   into a fixed atom and freezes the reachable Root.
 - `link(program, imports)` only coordinates those layers and reports errors.
 
-The AST, decomposed pairs, connected graph, and final graph therefore remain
-separately available for tests and future views. Only the finalized graph is a
-runtime graph. The connected artifact may contain temporary `[self]` frontiers
-and compiler tables that have no runtime representation.
+The AST, decomposed pairs, complete connected artifact, and final graph
+therefore remain separately available for tests and future views. The
+connected artifact keeps its own graph, legend, and compiler tables together;
+its legend never describes a copied graph from another stage. Only the
+finalized graph is a runtime graph. The connected artifact may contain
+temporary `[self]` frontiers and compiler tables that have no runtime
+representation.
 
 Separating connection from composition also gives names a clean lifetime.
 Only `connect` interprets source strings. `compose` works with identities and
