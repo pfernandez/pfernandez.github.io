@@ -1,4 +1,4 @@
-import { isFixed, isOpen } from './pair.js'
+import { isFixed, isOpen } from './helpers.js'
 
 /**
  * Copy a connected compiler artifact while preserving every shared identity.

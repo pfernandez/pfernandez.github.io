@@ -1,4 +1,4 @@
-import { isOpen } from './pair.js'
+import { isOpen } from './helpers.js'
 
 /** Close construction frontiers and freeze one complete pair graph. */
 export const finalize = composed => {

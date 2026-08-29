@@ -1,5 +1,5 @@
 import { copyBody, copyConnected } from './copy.js'
-import { isFixed, isOpen } from './pair.js'
+import { isFixed, isOpen } from './helpers.js'
 
 const append = (graph, node) => {
   if (isFixed(graph)) graph[1] = node
