@@ -1,15 +1,10 @@
+import { copyBody } from './copy-body.js'
 import { copy } from './copy.js'
-
-const isOpen = graph => Array.isArray(graph)
-  && graph.length === 1
-  && graph[0] === graph
-
-const isFixed = graph => Array.isArray(graph)
-  && graph[0] === graph
-  && graph[1] === graph
+import { match, stateBindings } from './match.js'
+import { isFixed, isOpen } from './pair.js'
 
 const append = (graph, node) => {
-  if (graph[0] === graph && graph[1] === graph) graph[1] = node
+  if (isFixed(graph)) graph[1] = node
   else if (graph[0] === graph) {
     graph[0] = graph[1]
     graph[1] = node
@@ -17,35 +12,6 @@ const append = (graph, node) => {
 
   return graph
 }
-
-const find = (node, entries) =>
-  entries.find(([source]) => source === node)?.[1]
-
-const match = (input, args, parameters, bindings = []) => {
-  const known = find(input, bindings)
-  if (known) return known === args ? bindings : undefined
-
-  let matched = parameters.has(input)
-    ? [...bindings, [input, args]]
-    : bindings
-  if (isOpen(input) || isFixed(input)) return matched
-  if (isOpen(args) || isFixed(args)) return
-
-  if (parameters.has(input)
-    && input[0] !== input
-    && args[0] === args) return
-
-  if (input[0] !== input) {
-    matched = match(input[0], args[0], parameters, matched)
-    if (!matched) return
-  }
-  if (input[1] !== input)
-    matched = match(input[1], args[1], parameters, matched)
-  return matched
-}
-
-const stateBindings = bindings => bindings.filter(([input]) =>
-  isFixed(input) || input[0] === input)
 
 /**
  * Materialize applications in an identity-connected graph.
@@ -58,7 +24,6 @@ export const compose = connected => {
   const image = copy(connected)
   const {
     calls,
-    capabilities,
     definitions,
     fills,
     legend,
@@ -74,72 +39,11 @@ export const compose = connected => {
   const exposed = graph => results.get(graph)
   const value = state => exposed(output(state)) ?? output(state)
   const callable = graph =>
-    definitions.has(graph) || capabilities.has(graph)
+    definitions.has(graph) || legend.get(graph)?.capability
   const suspended = graph => !legend.has(graph)
     && definitions.has(graph?.[0])
     && !results.has(graph)
   const applicable = graph => callable(graph) || suspended(graph)
-
-  const describe = (source, graph) => {
-    const entry = legend.get(source)
-    if (!entry) return graph
-
-    legend.set(graph, entry)
-    return graph
-  }
-
-  const clone = (node, sourceOwner, targetOwner, mapping) => {
-    const bound = mapping.get(node)
-    if (bound) return bound
-    if (isOpen(node) || isFixed(node)) return node
-
-    const definition = definitions.get(node)
-    if (definition) {
-      if (owner.get(node) !== sourceOwner) return node
-
-      const graph = describe(node, [])
-      mapping.set(node, graph)
-      owner.set(graph, targetOwner)
-      const input = clone(
-        definition.input, node, graph, mapping)
-      const body = clone(
-        definition.body, node, graph, mapping)
-      graph[0] = input
-      graph[1] = body
-      definitions.set(graph, {
-        input,
-        body,
-        parameters: new Set([...definition.parameters]
-          .map(parameter => mapping.get(parameter) ?? parameter))
-      })
-      if (calls.has(node)) calls.add(graph)
-      if (fills.has(node)) fills.add(graph)
-      if (values.has(node)) values.add(graph)
-      return graph
-    }
-
-    if (owner.get(node) !== sourceOwner) return node
-
-    const graph = describe(node, [])
-    mapping.set(node, graph)
-    owner.set(graph, targetOwner)
-    graph[0] = node[0] === node
-      ? graph
-      : clone(node[0], sourceOwner, targetOwner, mapping)
-    graph[1] = node[1] === node
-      ? graph
-      : clone(node[1], sourceOwner, targetOwner, mapping)
-    if (calls.has(node)) calls.add(graph)
-    if (fills.has(node)) fills.add(graph)
-    if (values.has(node)) values.add(graph)
-    return graph
-  }
-
-  const copyBody = (definition, bindings) => {
-    const defined = definitions.get(definition)
-    const mapping = new Map(bindings)
-    return clone(defined.body, definition, definition, mapping)
-  }
 
   const walk = (
     expression,
@@ -150,11 +54,12 @@ export const compose = connected => {
     if (isOpen(expression)
       || isFixed(expression)
       || definitions.has(expression)
-      || capabilities.has(expression)
       || owner.get(expression) !== ownedBy)
       return context(expression)
 
-    const graph = describe(expression, [])
+    const graph = []
+    const entry = legend.get(expression)
+    if (entry) legend.set(graph, entry)
     owner.set(graph, ownedBy)
     const left = expression[0]
     const right = expression[1]
@@ -234,6 +139,7 @@ export const compose = connected => {
     return context(graph, following.focus, following.result)
   }
 
+  // Apply a matching definition or return a previously constructed recurrence.
   const instantiate = (graph, states = []) => {
     let definition = graph[0]
     let args = graph[1]
@@ -263,7 +169,7 @@ export const compose = connected => {
     states.push([definition, identity, graph])
     graph[0] = args
     const result = walk(
-      copyBody(definition, bindings), states, definition, false)
+      copyBody(definition, bindings, image), states, definition, false)
     graph[1] = result.graph
     results.set(graph, output(result))
     return context(graph, graph, output(result))

@@ -12,14 +12,13 @@ const extend = (scope, symbol, graph) =>
  */
 export const connect = (pairs, imports = {}) => {
   const definitions = new Map()
-  const capabilities = new Map()
   const calls = new Set()
   const legend = new Map()
   const owner = new Map()
   const values = new Set()
   const fills = new Set()
-  const inputs = new Set()
-  const root = Symbol('Root')
+  const parameters = new Set()
+  const root = Symbol()
 
   const identify = (graph, name, capability) => {
     const entry = { name }
@@ -36,43 +35,36 @@ export const connect = (pairs, imports = {}) => {
     return graph
   }
 
-  let initial = new Map()
-  Object.entries(imports).forEach(([name, capability]) => {
-    const graph = atom(name, undefined, capability)
-    capabilities.set(graph, capability)
-    initial = extend(initial, name, graph)
-  })
+  const literal = (expression, ownedBy) => {
+    if (isSymbol(expression)) return atom(expression, ownedBy)
+
+    const graph = []
+    owner.set(graph, ownedBy)
+    graph[0] = literal(expression[0], ownedBy)
+    graph[1] = literal(expression[1], ownedBy)
+    return graph
+  }
+
+  const initial = new Map(Object.entries(imports)
+    .map(([name, capability]) =>
+      [name, atom(name, undefined, capability)]))
 
   const context = (graph, scope) => ({ graph, scope })
   const callable = graph =>
-    definitions.has(graph) || capabilities.has(graph)
+    definitions.has(graph) || legend.get(graph)?.capability
 
   const walk = (
     expression,
     scope = initial,
     { definitionsAllowed = true,
       frame,
-      literal = false,
       ownedBy = root } = {}
   ) => {
     const next = (node, nextScope = scope, changes = {}) => walk(
       node,
       nextScope,
-      { definitionsAllowed, frame, literal, ownedBy, ...changes }
+      { definitionsAllowed, frame, ownedBy, ...changes }
     )
-
-    if (literal) {
-      if (isSymbol(expression))
-        return context(atom(expression, ownedBy), scope)
-
-      const graph = []
-      owner.set(graph, ownedBy)
-      const before = next(expression[0])
-      const after = next(expression[1])
-      graph[0] = before.graph
-      graph[1] = after.graph
-      return context(graph, scope)
-    }
 
     if (isSymbol(expression)) {
       const visible = scope.get(expression)
@@ -82,7 +74,7 @@ export const connect = (pairs, imports = {}) => {
       const graph = atom(expression, ownedBy)
       if (frame) {
         frame.parameters.add(graph)
-        inputs.add(graph)
+        parameters.add(graph)
       }
       return context(graph, extend(scope, expression, graph))
     }
@@ -104,7 +96,7 @@ export const connect = (pairs, imports = {}) => {
 
         identify(graph, left)
         frame.parameters.add(graph)
-        inputs.add(graph)
+        parameters.add(graph)
         local = extend(scope, left, graph)
       }
 
@@ -122,10 +114,9 @@ export const connect = (pairs, imports = {}) => {
     // connected as a value and remains unapplied in this intermediate graph.
     if (visible && callable(visible)) {
       const descriptor = legend.get(visible)
-      const argument = next(right, scope, {
-        definitionsAllowed: false,
-        literal: descriptor?.arguments === 'literal'
-      })
+      const argument = descriptor?.arguments === 'literal'
+        ? context(literal(right, ownedBy), scope)
+        : next(right, scope, { definitionsAllowed: false })
       graph[0] = visible
       graph[1] = argument.graph
       calls.add(graph)
@@ -194,7 +185,7 @@ export const connect = (pairs, imports = {}) => {
       graph[0] = visible
       graph[1] = following.graph
       calls.add(graph)
-      if (inputs.has(visible) && Array.isArray(right)) fills.add(graph)
+      if (parameters.has(visible) && Array.isArray(right)) fills.add(graph)
       return context(graph, scope)
     }
 
@@ -208,7 +199,6 @@ export const connect = (pairs, imports = {}) => {
   }
 
   return {
-    capabilities,
     calls,
     definitions,
     fills,

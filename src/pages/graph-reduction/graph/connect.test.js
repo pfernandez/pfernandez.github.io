@@ -49,10 +49,9 @@ test('keeps nested parameters lexical', () => {
 test('records imported capabilities in an identity-keyed legend', () => {
   const text = () => {}
   text.literal = true
-  const { capabilities, graph, legend } = connected(
+  const { graph, legend } = connected(
     '(text words remain literal)', { text })
 
-  assert.equal(capabilities.get(graph[0]), text)
   assert.deepEqual(legend.get(graph[0]), {
     name: 'text',
     capability: text,

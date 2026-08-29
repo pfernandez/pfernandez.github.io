@@ -243,11 +243,13 @@ Each layer has one kind of knowledge:
 - `decompose(ast)` lowers every sequence to pairs without resolving names.
 - `connect(pairs, imports)` returns a connected artifact that replaces
   spellings with lexically visible
-  identities. It records definitions, inputs, applications, ownership, names,
-  and capabilities in identity-keyed compiler tables, but applies nothing.
+  identities. It records definitions, inputs, applications, and ownership in
+  identity-keyed compiler tables, and records names and capabilities in the
+  legend, but applies nothing.
 - `compose(connected)` copies that artifact, matches argument identities,
-  copies definition bodies, exposes results, completes suspended applications,
-  and ties recurring configurations. The connected input remains unchanged.
+  copies definition bodies through one explicit allocation boundary, exposes
+  results, completes suspended applications, and ties recurring
+  configurations. The connected input remains unchanged.
 - `finalize(composed)` closes every remaining one-edge construction frontier
   into a fixed atom and freezes the reachable Root.
 - `link(program, imports)` only coordinates those layers and reports errors.

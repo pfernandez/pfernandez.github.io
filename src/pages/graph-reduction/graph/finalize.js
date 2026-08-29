@@ -1,4 +1,4 @@
-const open = graph => graph?.length === 1 && graph[0] === graph
+import { isOpen } from './pair.js'
 
 /** Close construction frontiers and freeze one complete pair graph. */
 export const finalize = composed => {
@@ -8,7 +8,7 @@ export const finalize = composed => {
     if (!Array.isArray(graph) || seen.has(graph)) return graph
 
     seen.add(graph)
-    if (open(graph)) graph[1] = graph
+    if (isOpen(graph)) graph[1] = graph
     graph.forEach(freeze)
     return Object.freeze(graph)
   }
