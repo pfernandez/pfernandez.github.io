@@ -1,5 +1,4 @@
 import { copyBody, copyConnected } from './copy.js'
-import { match, stateBindings } from './match.js'
 import { isFixed, isOpen } from './pair.js'
 
 const append = (graph, node) => {
@@ -10,6 +9,30 @@ const append = (graph, node) => {
   } else graph[1] = append(graph[1], node)
 
   return graph
+}
+
+/** Match definition inputs with arguments by identity and structure. */
+const match = (input, args, parameters, bindings = []) => {
+  const known = bindings.find(([node]) => node === input)?.[1]
+  if (known) return known === args ? bindings : undefined
+
+  let matched = parameters.has(input)
+    ? [...bindings, [input, args]]
+    : bindings
+  if (isOpen(input) || isFixed(input)) return matched
+  if (isOpen(args) || isFixed(args)) return
+
+  if (parameters.has(input)
+    && input[0] !== input
+    && args[0] === args) return
+
+  if (input[0] !== input) {
+    matched = match(input[0], args[0], parameters, matched)
+    if (!matched) return
+  }
+  if (input[1] !== input)
+    matched = match(input[1], args[1], parameters, matched)
+  return matched
 }
 
 /**
@@ -157,7 +180,8 @@ export const compose = connected => {
       defined.input, args, defined.parameters)
     if (!bindings) return context(graph)
 
-    const identity = stateBindings(bindings)
+    const identity = bindings.filter(([input]) =>
+      isFixed(input) || input[0] === input)
     const state = states.find(([known, previous]) =>
       known === definition
         && previous.length === identity.length
