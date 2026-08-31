@@ -1,14 +1,11 @@
-import { component, elements } from '@pfern/elements'
-import { content, getActiveRoute } from '../../utils/site-content.js'
-import { serialize } from './graph/index.js'
+import { component, elements, render } from '@pfern/elements'
+import { markdown } from './markdown.js'
+import { activeRoute, groups } from './navigation.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
 
-const text = ({ values }) => values().flat(Infinity).join(' ')
-text.literal = true
-
-const adaptElements = ({ component, ...elements }) => {
+const domCapabilities = ({ component, ...elements }) => {
   const fixed = pair => left(pair) === pair && right(pair) === pair
   const entry = (pair, legend) => legend.has(pair) && !fixed(pair)
   // A direct event continues right; a fixed event exposes its left action.
@@ -16,7 +13,7 @@ const adaptElements = ({ component, ...elements }) => {
   const value = (node, evaluate, legend) => {
     const name = legend.get(node)?.name
     return entry(node, legend)
-    && name.startsWith('on')
+      && name.startsWith('on')
       ? [name, () => evaluate(target(node))]
       : evaluate(node)
   }
@@ -33,15 +30,15 @@ const adaptElements = ({ component, ...elements }) => {
     { value: name }
   )
   const navigation = ({ values }) => {
-    const activeRoute = getActiveRoute(values()[0])
+    const current = activeRoute(values()[0])
 
-    return elements.nav(...content.map(group =>
+    return elements.nav(...groups.map(group =>
       elements.section(
         elements.h2(group.summary),
         elements.ul(...group.items.map(item => {
-          const active = item.publicPath === activeRoute
+          const active = item.route === current
           const props = {
-            href: item.publicPath,
+            href: item.route,
             class: active ? 'active' : ''
           }
           if (active) props['aria-current'] = 'page'
@@ -62,18 +59,4 @@ const adaptElements = ({ component, ...elements }) => {
   }
 }
 
-// Capabilities receive the raw argument graph as well as explicit evaluators.
-// Most consume `values`; serialize and component deliberately retain
-// identities.
-export const functions = {
-  ...adaptElements({ ...elements, component }),
-  text,
-  source: ({ source }) => source,
-  serialize: ({ argument, evaluate, legend }) =>
-    serialize(left(argument), {
-      format: 'vdom',
-      labels: true,
-      legend,
-      scheme: evaluate(right(argument))
-    })
-}
+export const dom = domCapabilities({ ...elements, component, markdown, render })

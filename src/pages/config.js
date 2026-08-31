@@ -5,13 +5,10 @@ export default
   pages: [{ path: 'graph-reduction',
             summary: 'Graph Reduction',
             items: [{ label: 'Dashboard',
-                      file: 'root.js',
-                      source: 'dashboard.lisp',
-                      publicPath: '/graph-reduction',
+                      route: '/graph-reduction',
+                      source: '/src/pages/graph-reduction/dashboard.lisp',
                       default: true },
                     { label: 'Machine',
-                      file: 'root.js',
-                      source: 'machine.lisp',
-                      publicPath: '/graph-reduction/machine' }] }],
-  markdownGlobals: () => ({ render }),
-  keepAlive: true }
+                      route: '/graph-reduction/machine',
+                      source: '/src/pages/machine/machine.lisp' }] }],
+  markdownGlobals: () => ({ render }) }

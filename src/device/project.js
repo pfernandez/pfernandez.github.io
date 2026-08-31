@@ -1,19 +1,15 @@
-import { link } from './graph/index.js'
-
 const left = pair => pair[0]
 const right = pair => pair[1]
 const fixed = pair => left(pair) === pair && right(pair) === pair
 
-export const view = (program, functions) => {
-  const { source, focus, result, legend, error } = link(program, functions)
-  if (error) throw error
+export const project = ({ source, focus, result, legend }) => {
   const active = new Set()
   const entry = pair => legend.get(pair)
   const symbol = pair => entry(pair)?.capability ?? entry(pair)?.name
   const isCall = pair => typeof entry(left(pair))?.capability === 'function'
 
   const evaluate = pair => {
-    // External views currently replace a recurring identity with its name;
+    // Device projection currently replaces a recurring identity with its name;
     // another adapter could instead preserve the shared reference.
     if (active.has(pair)) return symbol(pair)
     active.add(pair)

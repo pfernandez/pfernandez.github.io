@@ -26,9 +26,9 @@ import {
   article,
   aside,
   body,
+  h1,
   head,
   header,
-  h1,
   html,
   li,
   link,
@@ -44,7 +44,7 @@ import {
 } from '@pfern/elements'
 
 import config from '../src/pages/config.js'
-import { content } from '../src/utils/site-content.js'
+import { groups, pages } from '../src/device/navigation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
@@ -136,11 +136,11 @@ const readDistIndexAssets = async () => {
 
 const renderNavVNode = activeRoute =>
   aside(
-    nav(...content.map(group =>
+    nav(...groups.map(group =>
       section(
         summary(group.summary || ''),
         ul(...group.items.map(item => {
-          const href = item.publicPath
+          const href = item.route
           const isActive = href === activeRoute
           const props = {
             href,
@@ -154,7 +154,6 @@ const renderNavVNode = activeRoute =>
   )
 
 const renderDocument = ({
-  route,
   title,
   description,
   cssLinks,
@@ -207,29 +206,14 @@ const main = async () => {
     return mdMath
   }
 
-  /** @type {{ route: string, localPath: string, label: string, type: 'md' | 'js' }[]} */
-  const routes = []
-  for (const group of content) {
-    for (const item of group.items) {
-      if (!item?.publicPath || !item?.localPath) continue
-      if (item.publicPath === '/') continue
-      if (item.localPath.endsWith('.md')) {
-        routes.push({
-          route: item.publicPath,
-          localPath: item.localPath,
-          label: item.label || item.publicPath,
-          type: 'md'
-        })
-      } else if (item.localPath.endsWith('.js')) {
-        routes.push({
-          route: item.publicPath,
-          localPath: item.localPath,
-          label: item.label || item.publicPath,
-          type: 'js'
-        })
-      }
-    }
-  }
+  const routes = pages
+    .filter(item => item.route && item.route !== '/')
+    .map(item => ({
+      route: item.route,
+      localPath: item.source,
+      label: item.label || item.route,
+      type: item.source.endsWith('.md') ? 'md' : 'app'
+    }))
 
   for (const entry of routes) {
     if (entry.type === 'md') {

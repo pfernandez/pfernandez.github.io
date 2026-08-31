@@ -16,31 +16,31 @@ graph.
 
 ## The present browser boundary
 
-The document is now authored by the Lisp Root and mounted once by
-`src/index.js`:
+The document is now authored and rendered by the Lisp Root. `src/index.js`
+assembles the available source, links it once, and projects the resulting graph
+into its device capabilities:
 
 ```text
 index.html
 └─ src/index.js
-   └─ render(root)
-      └─ root.js
-         └─ include(root, available Lisp files)
-            └─ view(program, functions)
-               └─ Lisp Root
-                  └─ html(head, body(component(dashboard)))
+   └─ link(program, capabilities)
+      └─ project(graph)
+         └─ Lisp Root
+            └─ render(html(head, body(component(dashboard))))
 ```
 
-The previous `page.js` shell, configuration, route loader, and keep-alive cache
-remain in the repository but are no longer imported by the browser entrypoint.
-Their useful behavior has not yet been reauthored, so the current Root contains
-the dashboard rather than the former multi-page site.
+The previous JavaScript page shell, generic loaders, and keep-alive cache have
+been removed. Route selection remains a small temporary device responsibility;
+it selects the content assembled with Root before the one link operation.
 
 The target ownership is now established:
 
 ```text
 index.html
-└─ minimal JavaScript start
-   └─ Lisp Root
+└─ minimal JavaScript entry
+   └─ link once
+      └─ project
+         └─ Lisp Root
       └─ html
          ├─ head
          └─ body
@@ -51,19 +51,19 @@ index.html
 The host now does approximately this and should remain this small:
 
 ```js
-const root = view(source, functions)
-render(root)
+const graph = link(program(), capabilities())
+project(graph)
 ```
 
 The exact interface may still change, but its division of responsibility
-should not: the graph produces the complete document observation; the browser
-mounts it.
+should not: the graph produces the complete document observation and authors
+the call to the browser's `render` capability.
 
 `include` is source assembly, not a graph capability or module system. A Lisp
 file names another available file with a top-level form:
 
 ```lisp
-((include ./dashboard.lisp)
+((include /src/pages/graph-reduction/dashboard.lisp)
  (root ...))
 ```
 
@@ -351,10 +351,13 @@ perform graph traversal or decide the next application themselves.
 
 ## The capability frontier
 
-`functions.js` is the current boundary between graph identities and foreign
-JavaScript functions. During migration, that boundary may temporarily grow so
-the Lisp Root can own the whole application immediately. It must then contract
-as pure behavior moves into authored definitions.
+`src/device/` is the current boundary between graph identities and foreign
+JavaScript functions. `project.js` invokes capabilities already connected to a
+linked graph; it does not parse, link, select applications, or own state. The
+other device modules expose specific host mechanisms such as DOM construction,
+Markdown, files, navigation, text, and graph serialization. This boundary may
+temporarily grow so the Lisp Root can own the whole application immediately. It
+must then contract as pure behavior moves into authored definitions.
 
 Capabilities should expose mechanisms, not application policy:
 
@@ -391,7 +394,7 @@ page loader. General returned-function values remain an open language question,
 but `component` no longer requires them.
 
 Event properties are a related boundary. The Elements capability adapter in
-`functions.js` preserves an `on*` continuation until the browser event occurs.
+`device/dom.js` preserves an `on*` continuation until the browser event occurs.
 The device evaluates named pairs uniformly and has no knowledge of event names.
 Elements.js already wraps event functions and treats a returned VDOM as the
 next component observation. A direct event continues through its right edge. A
@@ -425,8 +428,8 @@ static graph makes that machinery unnecessary.
 
 - [x] Author a site-level Lisp Root that produces the complete
       `html/head/body` observation.
-- [x] Reduce `src/index.js` to loading the source, connecting capabilities,
-      obtaining the initial Root observation, and calling `render`.
+- [x] Reduce `src/index.js` to assembling source, linking once, and projecting
+      the graph into capabilities. Root authors the call to `render`.
 - [x] Use one dashboard component until ordinary nested component calls are
       established.
 
@@ -456,8 +459,8 @@ static graph makes that machinery unnecessary.
 - [ ] Move content composition and application state into Lisp.
 - [ ] Replace broad temporary functions with the smallest browser operations
       the graph cannot perform internally.
-- [ ] Remove superseded responsibilities from `page.js`, `config.js`, loaders,
-      and `functions.js` rather than preserving parallel implementations.
+- [x] Remove the superseded JavaScript page shell, generic loaders, and
+      monolithic capability table rather than preserving parallel systems.
 
 ### 5. Continue toward the native machine
 

@@ -1,8 +1,9 @@
 import './style.css'
-import { onNavigate, render } from '@pfern/elements'
-import root from './pages/graph-reduction/root.js'
+import { capabilities, program, project } from './device/index.js'
+import { link } from './graph/index.js'
 
-const start = () => render(root())
+const graph = link(program(), capabilities())
 
-onNavigate(start)
-start()
+if (graph.error) throw graph.error
+
+project(graph)

@@ -1,4 +1,4 @@
-((site child
+((page child
    (main
      (div (props (id sidebar))
        (div

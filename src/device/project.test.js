@@ -1,23 +1,37 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import { view as observe } from './device.js'
-import { functions } from './functions.js'
-import { include } from './graph/index.js'
+import { capabilities } from './index.js'
+import { project } from './project.js'
+import { include, link } from '../graph/index.js'
 
-const view = (source, imports = {}) =>
-  observe(source, { ...functions, ...imports })
+const render = ({ values }) => values()[0]
+const view = (source, imports = {}) => {
+  const linked = link(source, {
+    ...capabilities(),
+    render,
+    ...imports
+  })
+  if (linked.error) throw linked.error
+  return project(linked)
+}
 
-const files = Object.fromEntries(['dashboard', 'machine', 'site', 'root']
-  .map(file => [
-  `./${file}.lisp`,
-  readFileSync(new URL(`./${file}.lisp`, import.meta.url), 'utf-8')
-]))
-const page = content => include(files['./root.lisp'], {
+const files = {
+  '/src/components/page.lisp': readFileSync(
+    new URL('../components/page.lisp', import.meta.url), 'utf-8'),
+  '/src/pages/graph-reduction/dashboard.lisp': readFileSync(
+    new URL('../pages/graph-reduction/dashboard.lisp', import.meta.url),
+    'utf-8'),
+  '/src/pages/machine/machine.lisp': readFileSync(
+    new URL('../pages/machine/machine.lisp', import.meta.url), 'utf-8'),
+  '/src/root.lisp': readFileSync(
+    new URL('../root.lisp', import.meta.url), 'utf-8')
+}
+const page = content => include(files['/src/root.lisp'], {
   ...files,
-  './content.lisp': files[`./${content}.lisp`]
+  './content.lisp': files[content]
 })
-const source = page('dashboard')
+const source = page('/src/pages/graph-reduction/dashboard.lisp')
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
@@ -29,7 +43,7 @@ const find = (node, tag) =>
 const findAll = (node, tag) =>
   !Array.isArray(node) ? []
     : [node[0] === tag ? [node] : [],
-      ...node.map(child => findAll(child, tag))].flat()
+       ...node.map(child => findAll(child, tag))].flat()
 
 const text = node =>
   Array.isArray(node)
@@ -67,7 +81,7 @@ test('keeps arbitrary properties local to each element', () => {
         (span (props (data-state second))))
     `),
     ['div', { 'data-state': 'first' },
-      ['span', { 'data-state': 'second' }]])
+     ['span', { 'data-state': 'second' }]])
 })
 
 test('treats text arguments as literal strings', () => {
@@ -78,6 +92,14 @@ test('treats text arguments as literal strings', () => {
 
 test('does not resolve visible identities inside text', () => {
   assert.equal(view('((web x x) (text web x))'), 'web x')
+})
+
+test('renders Markdown through the DOM device', () => {
+  const rendered = view('(markdown (text # Hello))')
+
+  assert.equal(rendered[0], 'div')
+  assert.equal(rendered[1].class, 'markdown')
+  assert.match(rendered[1].innerHTML, /<h1>Hello<\/h1>/)
 })
 
 test('displays the labels of named graph pairs', () => {
@@ -107,12 +129,12 @@ test('authors the complete document from Root', () => {
   assert.equal(find(root, 'a')[1]['aria-current'], 'page')
   assert.equal(id(root, 'sidebar-panel')[1].class, 'sidebar-panel')
   assert.match(find(root, 'textarea')[1].value, /\(dashboard/)
-  assert.match(find(root, 'textarea')[1].value, /\(site/)
+  assert.match(find(root, 'textarea')[1].value, /\(page/)
   assert.match(find(root, 'textarea')[1].value, /\(root/)
 })
 
 test('renders another page through the shared Root', () => {
-  const root = view(page('machine'), {
+  const root = view(page('/src/pages/machine/machine.lisp'), {
     route: '/graph-reduction/machine'
   })
   const links = findAll(root, 'a')
@@ -213,7 +235,7 @@ test('carries a completed application identity through an event', () => {
 
 test('defers and repeats a fixed event action', () => {
   let calls = 0
-  const rendered = observe(`
+  const rendered = view(`
     ((fix x (fix x))
      (button
        (props
@@ -221,7 +243,6 @@ test('defers and repeats a fixed event action', () => {
          (onclick (fix (effect Now))))
        Go))
   `, {
-    ...functions,
     effect: ({ values }) => {
       calls += 1
       return values()[0]

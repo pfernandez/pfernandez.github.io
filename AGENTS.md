@@ -1,10 +1,10 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Core application code lives in `src/`. `src/index.js` boots the site, `src/components/` holds shared UI/rendering helpers, and `src/pages/` contains page-specific modules and assets. The graph reduction work is isolated under `src/pages/graph-reduction/` with colocated tests such as `graph/*.test.js`, `observer/*.test.js`, and `visualizations/*.test.js`. Build and utility scripts live in `scripts/`. Static content and post markdown belong in `public/`, especially `public/posts/`.
+Core application code lives in `src/`. `src/index.js` boots the site, `src/graph/` contains the graph compiler, and `src/device/` contains host capabilities and projection. `src/components/` holds shared authored components, while `src/pages/` contains page-specific JavaScript and Lisp sources. Tests are colocated with the graph and device modules. Build and utility scripts live in `scripts/`. Static content and post markdown belong in `public/`, especially `public/posts/`.
 
 ## Build, Test, and Development Commands
-Use `npm run dev` to start the Vite dev server. Use `npm run build` to create the production bundle and run prerendering. Use `npm run preview` to serve the built output locally. Use `npm test` to run all `*.test.js` files with Node’s built-in test runner. Use `npm run proofs` for the graph-reduction proof generator, and `npm run prerender` if you only need the prerender step.
+Use `npm run dev` to start the Vite dev server. Use `npm run build` to create the production bundle and run prerendering. Use `npm run preview` to serve the built output locally. Use `npm test` to run the graph and device `*.test.js` files with Node’s built-in test runner. Use `npm run prerender` if you only need the prerender step.
 
 ## Coding Style & Naming Conventions
 This repo uses ES modules and a lightweight functional style. Follow the ESLint config in `eslint.config.js`: 2-space indentation, single quotes, no semicolons, Unix line endings, and short lines where practical. Prefer small, composable functions and keep page-specific logic inside its page directory. Name test files `*.test.js`; use descriptive module names like `collapse.js`, `layout.js`, or `dashboard.js`.

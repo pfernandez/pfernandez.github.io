@@ -1,8 +1,7 @@
-import './style.css'
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
-import { link, schemeNames, schemes, serialize } from './graph/index.js'
-import lisp from './minimal-observer.lisp?raw'
+import { link, schemeNames, schemes, serialize } from '../../graph/index.js'
+import lisp from './dashboard.lisp?raw'
 
 const initialState =
   { ...link(lisp), source: lisp, history: [], scheme: schemes.ink }
@@ -15,19 +14,19 @@ const infer = (
     previous = history[time - 1],
     stable = error || focus[1] === focus }) => ({ time, previous, stable })
 
-const observe = component(
+const dashboard = component(
   (state = initialState) => {
     const { focus, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)
     const [current, next] = focus
 
     const view = () =>
-      observe({ ...state, focus: next, history: [...history, state] })
+      dashboard({ ...state, focus: next, history: [...history, state] })
     const load = source =>
-      observe({ ...state, ...link(source), source, history: [] })
-    const chooseScheme = scheme => observe({ ...state, scheme })
-    const undo = () => observe({ ...previous, scheme })
-    const reset = () => observe({ ...history[0], scheme })
+      dashboard({ ...state, ...link(source), source, history: [] })
+    const chooseScheme = scheme => dashboard({ ...state, scheme })
+    const undo = () => dashboard({ ...previous, scheme })
+    const reset = () => dashboard({ ...history[0], scheme })
 
     return div(
       { class: 'dashboard-view' },
@@ -66,4 +65,4 @@ const observe = component(
           div({ class: 'description row' }, `Steps: ${time}`)))
   })
 
-export default observe
+export default dashboard
