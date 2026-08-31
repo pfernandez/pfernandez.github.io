@@ -10,7 +10,6 @@
 
 :root {
   --sidebar-w: 14rem;
-  --toggle-viewport-left: 1.25rem;
   color-scheme: light dark;
 }
 
@@ -133,10 +132,6 @@ x3d {
   box-shadow: inset 0px 0px 4px -2px #000000;
 }
 
-.keep-alive x3d {
-  margin-bottom: 0;
-}
-
 .x3dom-states-item {
   color: #ccc;
 }
@@ -166,86 +161,15 @@ x3d {
     left: 0;
   }
 
-  /* Visual indicator for keyboard users */
-  .toggle:focus-visible {
-    outline: 2px solid rgba(0, 0, 0, 0.3);
-    outline-offset: 2px;
-  }
-
-  #content article {
-    padding-top: 4rem;
-  }
-
-  #sidebar {
-    width: calc(var(--sidebar-w) + 3rem);
-    left: 0;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-  }
-
-  #sidebar.open {
-    transform: translateX(0);
-    padding-right: 4.5rem;
-  }
-
-  /* A11y: keep links out of the focus order when closed. */
-  #sidebar .sidebar-panel {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  #sidebar.open .sidebar-panel {
-    visibility: visible;
-    pointer-events: auto;
-  }
-
-  .toggle {
-    position: absolute;
-    display: block;
-    top: 1rem;
-    left: calc(100% + var(--toggle-viewport-left));
-    background-color: light-dark(#ffffff, #111111);
-    color: light-dark(#000000, #aaa);
-    border: 2px solid;
-    margin-bottom: 1rem;
-    padding: 0;
-  }
-
-  #sidebar.open .toggle {
-    left: calc(100% - 3.25rem);
-  }
-
-  .toggle .icon {
-    display: block;
-    width: 2rem;
-    height: 2rem;
-    padding-top: 6px;
-  }
-
-  #content,
-  .keep-alive,
-  .keep-alive > section {
+  #content {
     left: 0 !important;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  #sidebar {
-    transition: none;
-  }
-}
-
-/* Mid widths and narrower */
-@media (max-width: 1024px) {}
 
 /* Wide widths only */
 @media (min-width: 769px) {
   h2 {
     margin: 0 0 1rem;
-  }
-
-  .toggle {
-    display: none;
   }
 
   #content article {
@@ -258,42 +182,13 @@ x3d {
   }
 }
 
-/* Keep-alive stack:
-   - Fixed positioning so it doesn't push markdown below and scroll together.
-   - Uses visibility (not display:none) so X3DOM doesn't lose its layout size
-     while inactive (helps preserve correct canvas sizing when returning). */
-
-#content,
-.keep-alive,
-.keep-alive > section {
+#content {
   position: fixed;
   overflow: scroll;
   top: 0;
   right: 0;
   bottom: 0;
   left: var(--sidebar-w);
-}
-
-.keep-alive,
-.keep-alive > section {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.keep-alive[data-active="true"] {
-  visibility: visible;
-  pointer-events: auto;
-}
-
-.keep-alive > section[data-active="true"] {
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* `inert` fallback for browsers without support (e.g. some Firefox builds). */
-[inert] {
-  pointer-events: none !important;
-  user-select: none !important;
 }
 
 /*******************************************************************************

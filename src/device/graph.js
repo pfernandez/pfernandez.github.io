@@ -3,6 +3,7 @@ import { serialize as print } from '../graph/index.js'
 const left = pair => pair[0]
 const right = pair => pair[1]
 
+/** Capabilities that expose authored source and graph serialization. */
 export const graph = {
   source: ({ source }) => source,
   serialize: ({ argument, evaluate, legend }) =>

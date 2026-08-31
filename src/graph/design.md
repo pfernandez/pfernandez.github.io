@@ -439,8 +439,7 @@ static graph makes that machinery unnecessary.
 - [ ] Author the available pages and initial page identity in Lisp.
 - [ ] Place the current JavaScript and Lisp observers beneath that Root while
       the migration is in progress.
-- [ ] Determine which caches and keep-alive structures disappear because all
-      page identities already exist in one linked graph.
+- [x] Remove the superseded route caches and keep-alive structures.
 - [ ] Keep CSS and other build assets outside the graph until representing them
       serves a semantic purpose.
 

@@ -9,6 +9,7 @@ const sources = typeof import.meta.glob === 'function'
   })
   : {}
 
+/** Assemble the selected page with the authored Root before linking once. */
 export const program = (route = currentRoute()) => {
   const page = currentPage(route)
   const root = sources['/src/root.lisp']

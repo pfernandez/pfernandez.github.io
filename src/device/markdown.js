@@ -2,10 +2,10 @@ import { component, div } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
 import config from '../pages/config.js'
 
+/**
+ * Render Markdown as a DOM capability; build-time prerendering handles math.
+ */
 const md = MarkdownIt({ html: true })
-
-let mdMath = null
-let mathInit = null
 
 let renderSeq = 0
 const tokenMeta = new Map()
@@ -267,8 +267,8 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {
       get(target, prop, receiver) {
         if (prop === 'getElementById') {
           // Prefer IDs within this markdown render root first. This prevents
-          // keep-alive pages from clobbering each other when multiple markdown
-          // routes (or demos) share the same `id=` values.
+          // Prevent separate Markdown roots from clobbering each other when
+          // multiple routes or demos share the same `id=` values.
           return id => {
             const local =
               root?.querySelector?.(`#${cssEscape(id)}`) || null
@@ -400,12 +400,11 @@ export const createMarkdown = () => {
   const markdown = component((string, { basePath = null } = {}) => {
     const token = ++renderSeq
     const extracted = extractScriptsFromMarkdown(string)
-    const rerender = () => markdown(string, { basePath })
-    const { html, allowScripts } = render(extracted.text, rerender)
+    const html = md.render(extracted.text)
 
     if (basePath) scriptsByBasePath.set(basePath, extracted.scripts)
 
-    if (allowScripts && (extracted.scripts.length || hasScriptTag(html))) {
+    if (extracted.scripts.length || hasScriptTag(html)) {
       tokenMeta.set(token, { basePath, scripts: extracted.scripts })
       schedule(() => runScripts(token))
     }
@@ -421,34 +420,3 @@ export const createMarkdown = () => {
 }
 
 export const markdown = createMarkdown()
-
-const needsMath = text =>
-  typeof text === 'string' && (/\$[^$\n]+\$/.test(text)
-      || /\\\(/.test(text)
-      || /\\\[/.test(text))
-
-const initMath = () => {
-  mathInit ||= (async () => {
-    const { createMathjaxInstance, mathjax } =
-      await import('@mdit/plugin-mathjax')
-
-    const mathjaxInstance = await createMathjaxInstance({
-      output: 'svg', // or 'chtml' for dynamic
-      delimiters: 'all' // supports both $...$ and \(...\)
-    })
-
-    mdMath = MarkdownIt({ html: true }).use(mathjax, mathjaxInstance)
-  })()
-
-  return mathInit
-}
-
-const render = (text, rerender) => {
-  if (!needsMath(text)) return { html: md.render(text), allowScripts: true }
-  if (mdMath) return { html: mdMath.render(text), allowScripts: true }
-
-  typeof rerender === 'function' && initMath().then(rerender)
-  // Avoid running scripts twice: this initial render is a temporary fallback
-  // until MathJax is ready.
-  return { html: md.render(text), allowScripts: false }
-}

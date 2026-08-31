@@ -2,6 +2,7 @@ const left = pair => pair[0]
 const right = pair => pair[1]
 const fixed = pair => left(pair) === pair && right(pair) === pair
 
+/** Project one already-linked graph into its attached device capabilities. */
 export const project = ({ source, focus, result, legend }) => {
   const active = new Set()
   const entry = pair => legend.get(pair)

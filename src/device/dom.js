@@ -1,6 +1,6 @@
 import { component, elements, render } from '@pfern/elements'
 import { markdown } from './markdown.js'
-import { activeRoute, groups } from './navigation.js'
+import { navigation } from './navigation.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
@@ -29,23 +29,6 @@ const domCapabilities = ({ component, ...elements }) => {
     'name',
     { value: name }
   )
-  const navigation = ({ values }) => {
-    const current = activeRoute(values()[0])
-
-    return elements.nav(...groups.map(group =>
-      elements.section(
-        elements.h2(group.summary),
-        elements.ul(...group.items.map(item => {
-          const active = item.route === current
-          const props = {
-            href: item.route,
-            class: active ? 'active' : ''
-          }
-          if (active) props['aria-current'] = 'page'
-          return elements.li(elements.a(props, item.label))
-        })))))
-  }
-
   return {
     navigation,
     props,
@@ -59,4 +42,5 @@ const domCapabilities = ({ component, ...elements }) => {
   }
 }
 
+/** Adapt Elements functions to the uniform graph-capability interface. */
 export const dom = domCapabilities({ ...elements, component, markdown, render })
