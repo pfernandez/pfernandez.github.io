@@ -1,5 +1,6 @@
 import './style.css'
-import { capabilities, program, project } from './device/index.js'
+import { program } from './device/files.js'
+import { capabilities, project } from './device/index.js'
 import { link } from './graph/index.js'
 
 const graph = link(program(), capabilities())

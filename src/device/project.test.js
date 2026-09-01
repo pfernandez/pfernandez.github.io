@@ -204,11 +204,18 @@ test('renders and revisits source-authored observer states', () => {
 
 test('selects a preauthored appearance without leaving the graph', () => {
   const rendered = view(source)
-  const pastel = findAll(find(rendered, 'details'), 'button')[1]
-  const updated = pastel[1].onclick()
+  const choices = findAll(find(rendered, 'details'), 'button')
 
-  assert.equal(text(find(find(updated, 'details'), 'summary')), 'pastel')
-  assert.deepEqual(graphs(updated), ['(A B C)', 'B'])
+  for (const [choice, appearance] of [
+    [choices[1], 'pastel'],
+    [choices[3], 'plain']
+  ]) {
+    const updated = choice[1].onclick()
+
+    assert.equal(updated[0], 'div')
+    assert.equal(text(find(find(updated, 'details'), 'summary')), appearance)
+    assert.deepEqual(graphs(updated), ['(A B C)', 'B'])
+  }
 })
 
 test('carries a completed application identity through an event', () => {

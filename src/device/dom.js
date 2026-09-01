@@ -8,13 +8,20 @@ const right = pair => pair[1]
 const domCapabilities = ({ component, ...elements }) => {
   const fixed = pair => left(pair) === pair && right(pair) === pair
   const entry = (pair, legend) => legend.has(pair) && !fixed(pair)
-  // A direct event continues right; a fixed event exposes its left action.
-  const target = pair => right(pair) === pair ? left(pair) : right(pair)
+  // Repeated property labels form a chain. Follow it to the authored action;
+  // a fixed event exposes its left branch and any other event its right.
+  const target = (pair, legend) => {
+    const next = right(pair) === pair ? left(pair) : right(pair)
+    return next !== pair
+      && legend.get(next)?.name === legend.get(pair)?.name
+      ? target(next, legend)
+      : next
+  }
   const value = (node, evaluate, legend) => {
     const name = legend.get(node)?.name
     return entry(node, legend)
       && name.startsWith('on')
-      ? [name, () => evaluate(target(node))]
+      ? [name, () => evaluate(target(node, legend))]
       : evaluate(node)
   }
   const props = Object.defineProperty(
