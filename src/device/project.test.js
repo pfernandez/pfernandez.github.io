@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { capabilities } from './index.js'
 import { project } from './project.js'
-import { include, link } from '../graph/index.js'
+import { assembleProgram } from './program.js'
+import { link } from '../graph/index.js'
 
 const render = ({ values }) => values()[0]
 const view = (source, imports = {}) => {
@@ -27,11 +28,8 @@ const files = {
   '/src/root.lisp': readFileSync(
     new URL('../root.lisp', import.meta.url), 'utf-8')
 }
-const page = content => include(files['/src/root.lisp'], {
-  ...files,
-  './content.lisp': files[content]
-})
-const source = page('/src/pages/graph-reduction/dashboard.lisp')
+const page = route => assembleProgram(files, route)
+const source = page('/graph-reduction')
 
 const find = (node, tag) =>
   Array.isArray(node) && node[0] === tag
@@ -134,7 +132,7 @@ test('authors the complete document from Root', () => {
 })
 
 test('renders another page through the shared Root', () => {
-  const root = view(page('/src/pages/machine/machine.lisp'), {
+  const root = view(page('/graph-reduction/machine'), {
     route: '/graph-reduction/machine'
   })
   const links = findAll(root, 'a')
@@ -173,32 +171,40 @@ test('recurs through one uniform observer state', () => {
      (component (root (C A B))))
   `)
 
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['(C A B)', 'A'])
 
   rendered = button(rendered, 'Next')[1].onclick()
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['A', 'B'])
 })
 
 test('renders and revisits source-authored observer states', () => {
   let rendered = view(source)
 
+  assert.equal(rendered[0], 'html')
   assert.ok(dashboard(rendered))
   assert.equal(text(find(rendered, 'h2')), 'Graph Reduction')
   assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
 
   rendered = button(rendered, 'Next')[1].onclick()
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['B', 'C'])
 
   rendered = button(rendered, 'Next')[1].onclick()
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['C', '(A B C)'])
 
   rendered = button(rendered, 'Reset')[1].onclick()
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
 
   rendered = button(rendered, 'Next')[1].onclick()
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['B', 'C'])
 
   rendered = button(rendered, 'Next')[1].onclick()
+  assert.equal(rendered[0], 'div')
   assert.deepEqual(graphs(rendered), ['C', '(A B C)'])
 })
 
@@ -235,6 +241,9 @@ test('carries a completed application identity through an event', () => {
   const advanced = button(initial, 'Next')[1].onclick()
   const restored = button(advanced, 'Undo')[1].onclick()
 
+  assert.equal(initial[0], 'div')
+  assert.equal(advanced[0], 'div')
+  assert.equal(restored[0], 'div')
   assert.equal(text(find(initial, 'p')), 'Before')
   assert.equal(text(find(advanced, 'p')), 'After')
   assert.equal(text(find(restored, 'p')), 'Before')

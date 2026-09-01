@@ -9,15 +9,9 @@ const md = MarkdownIt({ html: true })
 
 let renderSeq = 0
 const tokenMeta = new Map()
-const scriptsByBasePath = new Map()
 
-const pageJsModules = typeof import.meta.glob === 'function'
-  ? import.meta.glob([
-    '/src/pages/**/*.js',
-    '!/src/pages/config.js',
-    '!/src/pages/**/*.test.js'
-  ])
-  : {}
+const loadPageModules = () => import('./markdown-modules.js')
+  .then(({ pageModules }) => pageModules)
 
 let markdownGlobalsCache = null
 let markdownGlobalsCacheFn = null
@@ -55,7 +49,7 @@ const getMarkdownGlobals = async () => {
 
 const hasScriptTag = html => /<script[\s>]/i.test(html)
 
-const extractScriptsFromMarkdown = markdownText => {
+export const extractScriptsFromMarkdown = markdownText => {
   const scripts = []
 
   const fenceStart = line => line.match(/^ {0,3}(`{3,}|~{3,})/)?.[1] || null
@@ -185,9 +179,10 @@ const getContainerByTokenOrPath = (token, basePath) => {
     `[data-md-base-path="${cssEscape(basePath)}"]`)
 }
 
-const runScriptsInContainer = async (container, { basePath, extracted } = {
-  basePath: null, extracted: []
-}) => {
+export const runScriptsInContainer = async (
+  container,
+  { basePath = null, extracted = [], modules } = {}
+) => {
   const scripts = Array.from(container.querySelectorAll('script'))
   const placeholders = scripts.filter(s => s.hasAttribute('data-md-script'))
 
@@ -202,10 +197,6 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {
   }
 
   if (!placeholders.length) return
-
-  const scriptsForPath =
-    basePath && scriptsByBasePath.get(basePath) || []
-  const resolvedExtracted = extracted.length ? extracted : scriptsForPath
 
   const parts = []
   for (const s of placeholders) {
@@ -224,7 +215,7 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {
     const idxAttr = s.getAttribute('data-md-script')
     if (idxAttr != null) {
       const idx = Number(idxAttr)
-      const entry = resolvedExtracted[idx]
+      const entry = extracted[idx]
       if (entry?.src) {
         console.warn('Markdown <script src> is not supported:', entry.src)
         parts.push('')
@@ -259,7 +250,10 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {
   const md = Object.freeze({
     basePath,
     root: container,
-    import: spec => mdImport(spec, { basePath: basePath || null })
+    import: spec => importMarkdownModule(spec, {
+      basePath: basePath || null,
+      modules
+    })
   })
 
   const makeScopedDocument = (doc, root) =>
@@ -267,7 +261,7 @@ const runScriptsInContainer = async (container, { basePath, extracted } = {
       get(target, prop, receiver) {
         if (prop === 'getElementById') {
           // Prefer IDs within this markdown render root first. This prevents
-          // Prevent separate Markdown roots from clobbering each other when
+          // separate Markdown roots from clobbering each other when
           // multiple routes or demos share the same `id=` values.
           return id => {
             const local =
@@ -320,7 +314,10 @@ const resolvePosix = (fromDir, rel) => {
   return `/${out.join('/')}`
 }
 
-const mdImport = async (spec, { basePath } = { basePath: null }) => {
+export const importMarkdownModule = async (
+  spec,
+  { basePath = null, modules } = {}
+) => {
   if (typeof spec !== 'string' || !spec)
     throw new TypeError('md.import(spec) expects a non-empty string.')
 
@@ -349,8 +346,9 @@ const mdImport = async (spec, { basePath } = { basePath: null }) => {
     candidates.push(resolved.replace(/\/index\.js$/, ''))
   }
 
+  const pageModules = modules ?? await loadPageModules()
   for (const c of candidates) {
-    const loader = pageJsModules[c]
+    const loader = pageModules[c]
     if (loader) return loader()
   }
 
@@ -387,22 +385,11 @@ const runScripts = async token => {
   await runScriptsInContainer(container, { basePath, extracted })
 }
 
-export const runMarkdownScriptsForBasePath = basePath => {
-  if (typeof document === 'undefined') return
-  if (typeof basePath !== 'string' || !basePath) return
-  const container = document.querySelector(
-    `[data-md-base-path="${cssEscape(basePath)}"]`)
-  if (!container) return
-  schedule(() => runScriptsInContainer(container, { basePath, extracted: [] }))
-}
-
 export const createMarkdown = () => {
   const markdown = component((string, { basePath = null } = {}) => {
     const token = ++renderSeq
     const extracted = extractScriptsFromMarkdown(string)
     const html = md.render(extracted.text)
-
-    if (basePath) scriptsByBasePath.set(basePath, extracted.scripts)
 
     if (extracted.scripts.length || hasScriptTag(html)) {
       tokenMeta.set(token, { basePath, scripts: extracted.scripts })

@@ -20,4 +20,17 @@ test('closes construction frontiers and freezes the composed graph', () => {
   assert.equal(atom[1], atom)
   assert.equal(Object.isFrozen(atom), true)
   assert.equal(Object.isFrozen(finalized.graph), true)
+
+  const reachable = new Set()
+  const visit = graph => {
+    assert.equal(Array.isArray(graph), true)
+    if (reachable.has(graph)) return
+
+    reachable.add(graph)
+    assert.equal(graph.length, 2)
+    assert.equal(Object.isFrozen(graph), true)
+    graph.forEach(visit)
+  }
+
+  visit(finalized.graph)
 })

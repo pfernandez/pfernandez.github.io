@@ -1,5 +1,5 @@
-import { include } from '../graph/index.js'
-import { currentPage, currentRoute } from './navigation.js'
+import { currentRoute } from './navigation.js'
+import { assembleProgram } from './program.js'
 
 // Vite must see this call directly to replace it with the source imports.
 const sources = import.meta.glob('/src/**/*.lisp', {
@@ -9,16 +9,5 @@ const sources = import.meta.glob('/src/**/*.lisp', {
 })
 
 /** Assemble the selected page with the authored Root before linking once. */
-export const program = (route = currentRoute()) => {
-  const page = currentPage(route)
-  const root = sources['/src/root.lisp']
-  const content = sources[page?.source]
-
-  if (!root) throw new Error('Missing root source: /src/root.lisp')
-  if (!content) throw new Error(`Missing page source: ${page?.source}`)
-
-  return include(root, {
-    ...sources,
-    './content.lisp': content
-  })
-}
+export const program = (route = currentRoute()) =>
+  assembleProgram(sources, route)

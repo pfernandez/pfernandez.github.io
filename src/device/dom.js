@@ -17,11 +17,17 @@ const domCapabilities = ({ component, ...elements }) => {
       ? target(next, legend)
       : next
   }
+  // A device call produces its value directly. An authored application keeps
+  // its arguments on the left and exposes its observable result on the right.
+  const observation = (pair, legend) =>
+    typeof legend.get(left(pair))?.capability === 'function'
+      ? pair
+      : right(pair)
   const value = (node, evaluate, legend) => {
     const name = legend.get(node)?.name
     return entry(node, legend)
       && name.startsWith('on')
-      ? [name, () => evaluate(target(node, legend))]
+      ? [name, () => evaluate(observation(target(node, legend), legend))]
       : evaluate(node)
   }
   const props = Object.defineProperty(

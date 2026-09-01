@@ -3,10 +3,9 @@ import { test } from 'node:test'
 import { compose } from './compose.js'
 import { connect } from './connect.js'
 import { decompose } from './decompose.js'
-import { finalize } from './finalize.js'
 import { parse } from './parse.js'
 
-const compiled = source => finalize(compose(connect(decompose(parse(source)))))
+const composed = source => compose(connect(decompose(parse(source))))
 
 test('builds a fresh graph without changing connected identities', () => {
   const connected = connect(decompose(parse('((I x x) (I a))')))
@@ -23,17 +22,15 @@ test('builds a fresh graph without changing connected identities', () => {
 })
 
 test('composes identity without resolving another symbol', () => {
-  const { graph, focus, result, legend } = compiled('((I x x) (I a))')
-  const [I] = graph
+  const { focus, result, legend } = composed('((I x x) (I a))')
 
-  assert.equal(I[0], I[1])
   assert.equal(legend.get(focus[0]).name, 'a')
   assert.equal(focus[1], focus[0])
   assert.equal(result, focus[1])
 })
 
 test('composes shared argument identities', () => {
-  const { focus } = compiled(`
+  const { focus } = composed(`
     ((S (x y z) ((x z) (y z)))
      (S (a b c)))
   `)
@@ -46,7 +43,7 @@ test('composes shared argument identities', () => {
 })
 
 test('ties recurring definition and argument identities', () => {
-  const { focus, legend } = compiled(`
+  const { focus, legend } = composed(`
     ((fix x (fix x))
      (fix a))
   `)
