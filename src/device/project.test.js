@@ -26,6 +26,8 @@ const files = {
     'utf-8'),
   '/src/pages/machine/machine.lisp': readFileSync(
     new URL('../pages/machine/machine.lisp', import.meta.url), 'utf-8'),
+  '/src/pages/pages.lisp': readFileSync(
+    new URL('../pages/pages.lisp', import.meta.url), 'utf-8'),
   '/src/root.lisp': readFileSync(
     new URL('../root.lisp', import.meta.url), 'utf-8')
 }

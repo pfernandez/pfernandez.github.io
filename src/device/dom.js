@@ -1,5 +1,6 @@
 import { component, elements, render } from '@pfern/elements'
 import { markdown } from './markdown.js'
+import { record } from './record.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
@@ -32,10 +33,11 @@ const domCapabilities = ({ component, ...elements }) => {
   const props = Object.defineProperty(
     // Completed applications may retain unnamed construction history between
     // entries. Only authored, named pairs are JavaScript properties.
-    ({ args, evaluate, legend }) => Object.fromEntries(
-      args()
-        .filter(node => legend.has(node))
-        .map(node => value(node, evaluate, legend))),
+    ({ args, evaluate, legend }) => record(
+      args(),
+      node => legend.has(node)
+        ? value(node, evaluate, legend)
+        : undefined),
     'name',
     { value: 'props' }
   )

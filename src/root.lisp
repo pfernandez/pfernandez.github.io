@@ -1,4 +1,4 @@
-((include ./pages.lisp)
+((include /src/pages/pages.lisp)
  (include /src/components/page.lisp)
  (root observation (root observation))
  (document content

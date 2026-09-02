@@ -75,9 +75,9 @@ before decomposition and linking:
 
 ```text
 dashboard.lisp ─┐
-machine.lisp ───┼─ include → decompose → link
-page.lisp ──────┤
-root.lisp ──────┘
+machine.lisp ───┴─ pages.lisp ─┐
+page.lisp ─────────────────────┼─ include → decompose → link
+root.lisp ─────────────────────┘
 ```
 
 Inclusion position is causal order. A later form can use definitions introduced
@@ -85,17 +85,25 @@ by an earlier include; an earlier form cannot see a definition included later.
 Files do not create namespaces or private scopes. Ordinary lexical nesting
 inside each form still determines privacy. The directive creates no graph
 identity and is absent from the linked AST. The host supplies available file
-contents. `files.js` turns the page `source` paths in `config.js` into the
-virtual `pages.lisp` library; Root chooses where that library and its shared
-components enter causal order. The assembled value also retains the original
-files and their combined authored text for the `source` capability.
+contents. The authored `pages.lisp` file includes each page at its causal
+position and carries a `site` definition containing the title, routes, labels,
+and source paths. The definition is visible to later source while identities
+introduced inside its body remain local. Root includes that real library before
+its shared page component. The assembled value also retains the original files
+and their combined authored text for the `source` capability.
+
+The browser assembler and build-time prerenderer both read the same `site`
+definition as host data. A small record helper performs the structural
+operation they share with authored DOM properties: named entries become one
+JavaScript object. Graph projection and parsed-source projection still supply
+their own representations and evaluation rules.
 
 `page.lisp` names the reusable initial continuation for each page, such as
-`dashboard-initial`. The original route configuration still names only the
-page source. During assembly, the first identity in that source (`dashboard`)
-selects the correspondingly named continuation. The assembler supplies its
-small `start` application as a virtual include; there is no separate entry file
-and the initial page construction is not duplicated outside the graph.
+`dashboard-initial`. The authored manifest names its page source. During
+assembly, the first identity in that source (`dashboard`) selects the
+correspondingly named continuation. The assembler supplies its small `start`
+application as a virtual include; there is no separate entry file and the
+initial page construction is not duplicated outside the graph.
 
 ## Pairs, identities, and Root
 
@@ -369,11 +377,12 @@ application themselves.
 JavaScript functions. `project.js` invokes capabilities already connected to a
 linked graph; it does not parse, link, select applications, or own state. The
 other device modules expose specific host mechanisms such as DOM construction,
-Markdown, source files, text, and graph serialization. Initial route
-configuration selects a named authored continuation during source assembly;
-navigation is no longer a capability. This boundary may temporarily grow so
-the Lisp Root can own the whole application immediately. It must then contract
-as pure behavior moves into authored definitions.
+Markdown, source files, text, and graph serialization. The authored site
+manifest supplies route configuration to both browser assembly and static
+prerendering. The initial pathname selects a named authored continuation during
+source assembly; navigation is no longer a capability. This boundary may
+temporarily grow so the Lisp Root can own the whole application immediately.
+It must then contract as pure behavior moves into authored definitions.
 
 Capabilities should expose mechanisms, not application policy:
 

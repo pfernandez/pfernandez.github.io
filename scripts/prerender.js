@@ -43,12 +43,16 @@ import {
   ul
 } from '@pfern/elements'
 
-import config from '../src/pages/config.js'
-import { groups, pages } from '../src/device/navigation.js'
+import { pages as pageEntries } from '../src/device/navigation.js'
+import { manifest } from '../src/pages/manifest.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
 const distDir = path.join(rootDir, 'dist')
+const config = manifest(await fs.readFile(
+  path.join(rootDir, 'src/pages/pages.lisp'), 'utf8'))
+const groups = config.pages
+const pages = pageEntries(groups)
 
 const stripSlash = p => String(p || '').replace(/^\/+/, '').replace(/\/+$/, '')
 

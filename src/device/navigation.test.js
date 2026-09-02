@@ -7,17 +7,25 @@ import {
   normalizeRoute
 } from './navigation.js'
 
+const pages = [
+  { route: '/graph-reduction',
+    source: '/src/pages/graph-reduction/dashboard.lisp',
+    default: true },
+  { route: '/graph-reduction/machine',
+    source: '/src/pages/machine/machine.lisp' }
+]
+
 test('normalizes route suffixes and selects the default route', () => {
   assert.equal(normalizeRoute('/graph-reduction///'), '/graph-reduction')
   assert.equal(normalizeRoute('/'), '/')
-  assert.equal(activeRoute('/'), '/graph-reduction')
+  assert.equal(activeRoute(pages, '/'), '/graph-reduction')
 })
 
 test('selects known pages and falls back to the default page', () => {
   assert.equal(
-    currentPage('/graph-reduction/machine').source,
+    currentPage(pages, '/graph-reduction/machine').source,
     '/src/pages/machine/machine.lisp')
-  assert.equal(currentPage('/missing').route, '/graph-reduction')
+  assert.equal(currentPage(pages, '/missing').route, '/graph-reduction')
 })
 
 test('reads the browser route when one exists', () => {

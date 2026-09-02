@@ -1,6 +1,5 @@
 import { component, div } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
-import config from '../pages/config.js'
 
 /**
  * Render Markdown as a DOM capability; build-time prerendering handles math.
@@ -12,40 +11,6 @@ const tokenMeta = new Map()
 
 const loadPageModules = () => import('./markdown-modules.js')
   .then(({ pageModules }) => pageModules)
-
-let markdownGlobalsCache = null
-let markdownGlobalsCacheFn = null
-
-const isPlainObject = x =>
-  typeof x === 'object' && x !== null && !Array.isArray(x)
-
-const isValidIdentifier = name =>
-  typeof name === 'string' && /^[A-Za-z_$][0-9A-Za-z_$]*$/.test(name)
-
-const getMarkdownGlobals = async () => {
-  const fn = config?.markdownGlobals
-  if (typeof fn !== 'function') return {}
-
-  const canCache = fn.length === 0
-  if (canCache && fn === markdownGlobalsCacheFn && markdownGlobalsCache)
-    return markdownGlobalsCache
-
-  let globals
-  try {
-    globals = await fn()
-  } catch (err) {
-    console.warn('markdownGlobals() failed:', err)
-    return {}
-  }
-
-  const out = isPlainObject(globals) ? globals : {}
-  if (canCache) {
-    markdownGlobalsCacheFn = fn
-    markdownGlobalsCache = Object.freeze(out)
-    return markdownGlobalsCache
-  }
-  return Object.freeze(out)
-}
 
 const hasScriptTag = html => /<script[\s>]/i.test(html)
 
@@ -279,18 +244,12 @@ export const runScriptsInContainer = async (
     const scopedDocument =
       doc ? makeScopedDocument(doc, container) : undefined
 
-    const globals = await getMarkdownGlobals()
-    const keys = Object.keys(globals).filter(k =>
-      isValidIdentifier(k) && k !== 'md' && k !== 'document')
-    const values = keys.map(k => globals[k])
-
     const fn = new Function(
       'md',
       'document',
-      ...keys,
       `return (async () => {\n${code}\n})()`)
 
-    await fn(md, scopedDocument, ...values)
+    await fn(md, scopedDocument)
   } catch (err) {
     console.error('Markdown script error:', err)
   }
@@ -327,8 +286,7 @@ export const importMarkdownModule = async (
   if (!isRelative && !isAbsolutePage) {
     throw new Error(
       `Unsupported markdown import: ${spec} `
-      + '(only relative /src/pages imports are supported; '
-      + 'use config.markdownGlobals for shared libraries)')
+      + '(only relative /src/pages imports are supported)')
   }
 
   if (isRelative && !basePath) {
