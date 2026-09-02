@@ -1,7 +1,6 @@
-import { elements } from '@pfern/elements'
 import config from '../pages/config.js'
 
-/** Route configuration and the temporary browser-navigation capability. */
+/** Route configuration used only to choose the initial page continuation. */
 export const groups = config.pages
 export const pages = groups.flatMap(group => group.items)
 
@@ -23,20 +22,3 @@ export const currentPage = route => {
 
 export const currentRoute = () =>
   globalThis.window?.location.pathname ?? '/'
-
-export const navigation = ({ values }) => {
-  const current = activeRoute(values()[0])
-
-  return elements.nav(...groups.map(group =>
-    elements.section(
-      elements.h2(group.summary),
-      elements.ul(...group.items.map(item => {
-        const active = item.route === current
-        const props = {
-          href: item.route,
-          class: active ? 'active' : ''
-        }
-        if (active) props['aria-current'] = 'page'
-        return elements.li(elements.a(props, item.label))
-      })))))
-}

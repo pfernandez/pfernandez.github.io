@@ -30,8 +30,9 @@ index.html
 ```
 
 The previous JavaScript page shell, generic loaders, and keep-alive cache have
-been removed. Route selection remains a small temporary device responsibility;
-it selects the content assembled with Root before the one link operation.
+been removed. Every authored page is now linked into the same Root. Route
+selection remains one small temporary host responsibility: it chooses the
+initial named page continuation before the one link operation.
 
 The target ownership is now established:
 
@@ -44,8 +45,9 @@ index.html
       └─ html
          ├─ head
          └─ body
-            ├─ navigation
-            └─ authored observers and components
+            └─ site observer
+               ├─ authored navigation
+               └─ authored pages and components
 ```
 
 The host now does approximately this and should remain this small:
@@ -73,8 +75,9 @@ before decomposition and linking:
 
 ```text
 dashboard.lisp ─┐
-               ├─ include → decompose → link
-root.lisp ─────┘
+machine.lisp ───┼─ include → decompose → link
+page.lisp ──────┤
+root.lisp ──────┘
 ```
 
 Inclusion position is causal order. A later form can use definitions introduced
@@ -82,9 +85,17 @@ by an earlier include; an earlier form cannot see a definition included later.
 Files do not create namespaces or private scopes. Ordinary lexical nesting
 inside each form still determines privacy. The directive creates no graph
 identity and is absent from the linked AST. The host supplies available file
-contents, while the Lisp entry file chooses and orders its dependencies. The
-program also retains the original files and their combined authored text for
-the `source` capability.
+contents. `files.js` turns the page `source` paths in `config.js` into the
+virtual `pages.lisp` library; Root chooses where that library and its shared
+components enter causal order. The assembled value also retains the original
+files and their combined authored text for the `source` capability.
+
+`page.lisp` names the reusable initial continuation for each page, such as
+`dashboard-initial`. The original route configuration still names only the
+page source. During assembly, the first identity in that source (`dashboard`)
+selects the correspondingly named continuation. The assembler supplies its
+small `start` application as a virtual include; there is no separate entry file
+and the initial page construction is not duplicated outside the graph.
 
 ## Pairs, identities, and Root
 
@@ -346,8 +357,11 @@ identities before returning to the same origin.
 
 The source-authored dashboard demonstrates a richer observer: its recursive
 calls carry history, focus, next, and appearance through preauthored
-identities. Browser events select authored continuations; they should not
-perform graph traversal or decide the next application themselves.
+identities. The site navigation applies the same rule at a larger scale. Both
+page definitions exist in Root, and each link returns an authored `page`
+application around the selected page observation. Browser events select those
+continuations; they do not relink, traverse the graph, or decide the next
+application themselves.
 
 ## The capability frontier
 
@@ -355,9 +369,11 @@ perform graph traversal or decide the next application themselves.
 JavaScript functions. `project.js` invokes capabilities already connected to a
 linked graph; it does not parse, link, select applications, or own state. The
 other device modules expose specific host mechanisms such as DOM construction,
-Markdown, files, navigation, text, and graph serialization. This boundary may
-temporarily grow so the Lisp Root can own the whole application immediately. It
-must then contract as pure behavior moves into authored definitions.
+Markdown, source files, text, and graph serialization. Initial route
+configuration selects a named authored continuation during source assembly;
+navigation is no longer a capability. This boundary may temporarily grow so
+the Lisp Root can own the whole application immediately. It must then contract
+as pure behavior moves into authored definitions.
 
 Capabilities should expose mechanisms, not application policy:
 
@@ -372,7 +388,10 @@ component                      manageApplicationState
 JavaScript may remain responsible for irreducible browser operations such as
 DOM access, history, network loading, and translating external events into
 known graph identities. It should not choose graph branches, advance an
-observer, resolve source names, or own application state.
+observer, resolve source names, or own application state. The pathname still
+chooses one named authored continuation at startup; after linking, page
+selection is an ordinary graph continuation. Reflecting that selection back
+into browser history remains future device work.
 
 Moving a capability into Lisp means replacing one broad foreign operation with
 authored composition over smaller device primitives. The final system need not
@@ -395,28 +414,30 @@ but `component` no longer requires them.
 
 Event properties are a related boundary. The Elements capability adapter in
 `device/dom.js` preserves an `on*` continuation until the browser event occurs.
-The device evaluates named pairs uniformly and has no knowledge of event names.
-Elements.js already wraps event functions and treats a returned VDOM as the
-next component observation. A direct event continues through its right edge. A
-fixed event has the form `event = (action event)`, so it exposes the left action
-and remains available through its recurring right edge. The Elements adapter
-turns either graph form into the callback required by the DOM. We should revisit
-whether that conversion can live in Elements.js without making it depend on
-this graph evaluator. No event rule is hidden in the linker or device.
+This adapter explicitly recognizes `on*` property names; the linker and general
+projector do not. Elements.js wraps the resulting functions and treats a
+returned VDOM as the next component observation. A direct event continues
+through its right edge. A fixed event has the form `event = (action event)`, so
+it exposes the left action and remains available through its recurring right
+edge. We should revisit whether that conversion can live in Elements.js without
+making it depend on this graph evaluator.
 
 The authored `props` call turns any sequence of entry pairs into an ordinary
 JavaScript properties object. It has no list of HTML attributes, so custom,
 `data-*`, SVG, and future properties use the same form. Its application also
 keeps repeated entry names local instead of letting a first `class` pair name
 later pairs elsewhere in the view. A fixed device action can now share `props`
-with ordinary data. A completed authored application may also retain
-construction history outside its exposed focus; carrying that focus through
-`props` remains part of the general continuation problem.
+with ordinary data. A completed authored application may retain unnamed
+construction history between property entries. `props` projects only authored,
+named entry pairs, so that history remains in the graph without becoming a
+JavaScript property.
 
-The document Root currently contains one component around the dashboard. This
-keeps dashboard event updates local because Elements does not treat the special
-`html`, `head`, or `body` nodes as local component roots. That boundary is an
-Elements constraint, not a graph-language rule.
+The document Root contains a component around the site page, and the authored
+page contains another around its selected child. A navigation event updates the
+site page boundary; a dashboard event updates the child boundary. This keeps
+events local because Elements does not treat the special `html`, `head`, or
+`body` nodes as local component roots. Those boundaries are Elements
+constraints, not graph-language rules.
 
 ## Migration plan
 
@@ -436,7 +457,7 @@ static graph makes that machinery unnecessary.
 ### 2. Move the static site structure into Root
 
 - [x] Author the title and navigation shell in Lisp.
-- [ ] Author the available pages and initial page identity in Lisp.
+- [x] Author the available pages and initial page identity in Lisp.
 - [ ] Place the current JavaScript and Lisp observers beneath that Root while
       the migration is in progress.
 - [x] Remove the superseded route caches and keep-alive structures.
@@ -454,7 +475,8 @@ static graph makes that machinery unnecessary.
 
 ### 4. Contract the capability frontier
 
-- [ ] Move route selection and navigation policy into Lisp.
+- [ ] Move initial route selection and browser-history synchronization into
+      Lisp; page transitions are already authored continuations.
 - [ ] Move content composition and application state into Lisp.
 - [ ] Replace broad temporary functions with the smallest browser operations
       the graph cannot perform internally.

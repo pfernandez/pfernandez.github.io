@@ -1,4 +1,4 @@
-((screen initial
+((machine self
    (div
      (props (class panel))
      (h2 (text The Machine))

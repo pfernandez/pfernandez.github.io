@@ -3,19 +3,20 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { capabilities } from './index.js'
 import { project } from './project.js'
-import { assembleProgram } from './program.js'
+import { assemble } from './files.js'
 import { link } from '../graph/index.js'
 
 const render = ({ values }) => values()[0]
-const view = (source, imports = {}) => {
+const compile = (source, imports = {}) => {
   const linked = link(source, {
     ...capabilities(),
     render,
     ...imports
   })
   if (linked.error) throw linked.error
-  return project(linked)
+  return linked
 }
+const view = (source, imports = {}) => project(compile(source, imports))
 
 const files = {
   '/src/components/page.lisp': readFileSync(
@@ -28,7 +29,7 @@ const files = {
   '/src/root.lisp': readFileSync(
     new URL('../root.lisp', import.meta.url), 'utf-8')
 }
-const page = route => assembleProgram(files, route)
+const page = route => assemble(files, route)
 const source = page('/graph-reduction')
 
 const find = (node, tag) =>
@@ -111,7 +112,8 @@ test('displays imported functions by their authored names', () => {
 })
 
 test('authors the complete document from Root', () => {
-  const root = view(source, { route: '/graph-reduction' })
+  const root = view(source)
+  const links = findAll(root, 'a')
 
   assert.equal(root[0], 'html')
   assert.ok(find(root, 'head'))
@@ -121,20 +123,21 @@ test('authors the complete document from Root', () => {
   assert.ok(id(root, 'sidebar'))
   assert.ok(id(root, 'content'))
   assert.equal(text(find(root, 'title')), 'pfernandez.github.io')
-  assert.equal(text(find(root, 'a')), 'Dashboard')
-  assert.equal(find(root, 'a')[1].href, '/graph-reduction')
-  assert.equal(find(root, 'a')[1].class, 'active')
-  assert.equal(find(root, 'a')[1]['aria-current'], 'page')
+  assert.equal(text(links[0]), 'Dashboard')
+  assert.equal(links[0][1].href, '/graph-reduction')
+  assert.equal(typeof links[0][1].onclick, 'function')
+  assert.equal(text(links[1]), 'Machine')
+  assert.equal(links[1][1].href, '/graph-reduction/machine')
+  assert.equal(typeof links[1][1].onclick, 'function')
   assert.equal(id(root, 'sidebar-panel')[1].class, 'sidebar-panel')
   assert.match(find(root, 'textarea')[1].value, /\(dashboard/)
+  assert.match(find(root, 'textarea')[1].value, /\(machine/)
   assert.match(find(root, 'textarea')[1].value, /\(page/)
   assert.match(find(root, 'textarea')[1].value, /\(root/)
 })
 
 test('renders another page through the shared Root', () => {
-  const root = view(page('/graph-reduction/machine'), {
-    route: '/graph-reduction/machine'
-  })
+  const root = view(page('/graph-reduction/machine'))
   const links = findAll(root, 'a')
 
   assert.equal(text(find(root, 'p')),
@@ -142,8 +145,39 @@ test('renders another page through the shared Root', () => {
                + 'it describes.')
   assert.equal(links[0][1].href, '/graph-reduction')
   assert.equal(links[1][1].href, '/graph-reduction/machine')
-  assert.equal(links[1][1].class, 'active')
-  assert.equal(links[1][1]['aria-current'], 'page')
+})
+
+test('switches between preauthored page identities without relinking', () => {
+  const linked = compile(source)
+  const identity = name => [...linked.legend]
+    .find(([, entry]) => entry.name === name)?.[0]
+  const dashboardIdentity = identity('dashboard')
+  const machineIdentity = identity('machine')
+  const graph = linked.graph
+  let rendered = project(linked)
+
+  assert.ok(dashboardIdentity)
+  assert.ok(machineIdentity)
+  assert.notEqual(dashboardIdentity, machineIdentity)
+
+  const machineLink = findAll(rendered, 'a')[1]
+  assert.deepEqual(Object.keys(machineLink[1]), ['href', 'onclick'])
+  rendered = machineLink[1].onclick()
+
+  assert.equal(rendered[0], 'main')
+  assert.equal(
+    text(find(rendered, 'p')),
+    'This web application is running entirely within the machine it '
+      + 'describes.')
+
+  rendered = findAll(rendered, 'a')[0][1].onclick()
+
+  assert.equal(rendered[0], 'main')
+  assert.ok(dashboard(rendered))
+  assert.deepEqual(graphs(rendered), ['(A B C)', 'B'])
+  assert.equal(linked.graph, graph)
+  assert.equal(linked.legend.get(dashboardIdentity).name, 'dashboard')
+  assert.equal(linked.legend.get(machineIdentity).name, 'machine')
 })
 
 test('renders the value after a private definition sequence', () => {

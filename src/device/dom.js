@@ -1,6 +1,5 @@
 import { component, elements, render } from '@pfern/elements'
 import { markdown } from './markdown.js'
-import { navigation } from './navigation.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
@@ -31,8 +30,12 @@ const domCapabilities = ({ component, ...elements }) => {
       : evaluate(node)
   }
   const props = Object.defineProperty(
+    // Completed applications may retain unnamed construction history between
+    // entries. Only authored, named pairs are JavaScript properties.
     ({ args, evaluate, legend }) => Object.fromEntries(
-      args().map(node => value(node, evaluate, legend))),
+      args()
+        .filter(node => legend.has(node))
+        .map(node => value(node, evaluate, legend))),
     'name',
     { value: 'props' }
   )
@@ -43,7 +46,6 @@ const domCapabilities = ({ component, ...elements }) => {
     { value: name }
   )
   return {
-    navigation,
     props,
     ...Object.fromEntries(
       Object.entries(elements).map(([name, element]) =>

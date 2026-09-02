@@ -1,4 +1,8 @@
-((page child
+((dashboard-initial self
+   (dashboard ((A B C) ink)))
+ (machine-initial self
+   (machine machine))
+ (page child
    (main
      (div (props (id sidebar))
        (div
@@ -7,7 +11,26 @@
            (class sidebar-panel))
          (header
            (h1 (text pfernandez.github.io)))
-         (navigation route)))
+         (nav
+           (section
+             (h2 (text Graph Reduction))
+             (ul
+               (li
+                 (a
+                   (props
+                     (href /graph-reduction)
+                     (onclick
+                       (page
+                         (dashboard-initial dashboard-initial))))
+                   (text Dashboard)))
+               (li
+                 (a
+                   (props
+                     (href /graph-reduction/machine)
+                     (onclick
+                       (page
+                         (machine-initial machine-initial))))
+                   (text Machine))))))))
 
      (div (props (id content))
        (component child)))))

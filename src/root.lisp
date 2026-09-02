@@ -1,4 +1,4 @@
-((include ./content.lisp)
+((include ./pages.lisp)
  (include /src/components/page.lisp)
  (root observation (root observation))
  (document content
@@ -8,11 +8,13 @@
      (body
        (component content))))
  (first (focus next) focus)
- (render
-   (first
-     (root
-       (document
-         (page (screen ((A B C) ink))))))))
+ (start state
+   (render
+     (first
+       (root
+         (document
+           (page state))))))
+ (include ./initial.lisp))
 
 ; Possible private-observer shapes
 ;
