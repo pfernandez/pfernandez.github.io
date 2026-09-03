@@ -17,6 +17,7 @@ export const connect = (pairs, imports = {}) => {
   const owner = new Map()
   const values = new Set()
   const fills = new Set()
+  const namedValues = new Set()
   const parameters = new Set()
   const root = Symbol()
 
@@ -126,15 +127,16 @@ export const connect = (pairs, imports = {}) => {
 
     // A value may name an application without adding another pair around it.
     // Naming a later application shadows an earlier value with the same name.
-    if (!definitionsAllowed && isSymbol(left) && Array.isArray(right)) {
+    if (isSymbol(left) && Array.isArray(right)) {
       const transition = isSymbol(right[0]) && scope.get(right[0])
-      if (callable(transition)) {
+      if (callable(transition) && (!definitionsAllowed || isNew)) {
         const state = next(right, scope, { definitionsAllowed: false })
         identify(state.graph, left)
+        if (definitionsAllowed) namedValues.add(state.graph)
         return context(state.graph, extend(scope, left, state.graph))
       }
 
-      if (isNew) {
+      if (!definitionsAllowed && isNew) {
         identify(graph, left)
         const local = extend(scope, left, graph)
         const before = next(right[0], local, { definitionsAllowed: false })
@@ -204,6 +206,7 @@ export const connect = (pairs, imports = {}) => {
     fills,
     graph: walk(pairs).graph,
     legend,
+    namedValues,
     owner,
     root,
     values

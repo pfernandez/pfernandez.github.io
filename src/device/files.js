@@ -23,7 +23,7 @@ export const assemble = (sources, route) => {
   // The first authored identity names the page; page.lisp owns its initial
   // continuation so route configuration does not duplicate graph structure.
   const name = parse(content)[0]?.[0]
-  const initial = `((start (${name}-initial ${name}-initial)))`
+  const initial = `((start ${name}-initial))`
 
   return include(root, {
     ...sources,

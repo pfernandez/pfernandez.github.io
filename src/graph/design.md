@@ -98,12 +98,13 @@ operation they share with authored DOM properties: named entries become one
 JavaScript object. Graph projection and parsed-source projection still supply
 their own representations and evaluation rules.
 
-`page.lisp` names the reusable initial continuation for each page, such as
-`dashboard-initial`. The authored manifest names its page source. During
-assembly, the first identity in that source (`dashboard`) selects the
-correspondingly named continuation. The assembler supplies its small `start`
-application as a virtual include; there is no separate entry file and the
-initial page construction is not duplicated outside the graph.
+`page.lisp` names the completed initial application for each page, such as
+`dashboard-initial`. This name identifies the application directly; it does not
+introduce a dummy definition or argument. The authored manifest names its page
+source. During assembly, the first identity in that source (`dashboard`)
+selects the correspondingly named application. The assembler supplies its
+small `start` application as a virtual include; there is no separate entry file
+and the initial page construction is not duplicated outside the graph.
 
 ## Pairs, identities, and Root
 

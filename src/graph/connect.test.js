@@ -32,6 +32,20 @@ test('connects free identities before composition', () => {
   assert.equal(F[1][1], F[0])
 })
 
+test('lets a top-level value name an application', () => {
+  const { calls, definitions, graph, legend, namedValues } = connected(`
+    ((I x x)
+     (first (I a)))
+  `)
+  const [I, first] = graph
+
+  assert.equal(first[0], I)
+  assert.equal(legend.get(first).name, 'first')
+  assert.equal(calls.has(first), true)
+  assert.equal(definitions.has(first), false)
+  assert.equal(namedValues.has(first), true)
+})
+
 test('keeps nested parameters lexical', () => {
   const { graph } = connected(`
     ((F x

@@ -49,9 +49,11 @@ export const compose = connected => {
     definitions,
     fills,
     legend,
+    namedValues,
     owner,
     values
   } = image
+  const materialized = new Map()
   const results = new Map()
 
   const context = (graph, focus = graph, result) =>
@@ -73,6 +75,9 @@ export const compose = connected => {
     ownedBy = image.root,
     chain = true
   ) => {
+    const known = materialized.get(expression)
+    if (known) return context(exposed(known) ?? known)
+
     if (isOpen(expression)
       || isFixed(expression)
       || definitions.has(expression)
@@ -82,6 +87,7 @@ export const compose = connected => {
     const graph = []
     const entry = legend.get(expression)
     if (entry) legend.set(graph, entry)
+    if (namedValues.has(expression)) namedValues.add(graph)
     owner.set(graph, ownedBy)
     const left = expression[0]
     const right = expression[1]
@@ -94,6 +100,8 @@ export const compose = connected => {
       const applied = definitions.has(left) || suspended(left)
         ? instantiate(graph, states)
         : context(graph)
+      if (namedValues.has(expression))
+        materialized.set(expression, applied.graph)
 
       // A named recurrence remains an observable continuation whose right
       // edge enters the state that already exists.
@@ -137,6 +145,12 @@ export const compose = connected => {
     if (legend.has(expression) || values.has(expression))
       return context(graph)
 
+    // Definitions and named values extend history while exposing the next
+    // sibling. Their own results do not continue into that sibling.
+    if (definitions.has(previous.focus)
+      || namedValues.has(previous.focus))
+      return retain(graph, following)
+
     // A later state completes the arguments of a suspended application.
     if (chain && suspended(previous.focus)) {
       const applied = instantiate(graph, states)
@@ -152,10 +166,6 @@ export const compose = connected => {
         : context(application, application, application)
       return retain(graph, applied)
     }
-
-    // Definitions extend history while exposing the following focus.
-    if (definitions.has(previous.focus))
-      return retain(graph, following)
 
     if (!chain) return context(graph)
     return context(graph, following.focus, following.result)

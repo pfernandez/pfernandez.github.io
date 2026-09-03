@@ -31,7 +31,7 @@ const sources = {
 
 test('assembles configured pages with the selected continuation', () => {
   const program = assemble(sources, '/graph-reduction/machine')
-  const initial = '((start (machine-initial machine-initial)))'
+  const initial = '((start machine-initial))'
 
   assert.equal(
     program.source,
@@ -42,7 +42,7 @@ test('assembles configured pages with the selected continuation', () => {
   ])
   assert.deepEqual(
     program.ast.at(-1),
-    ['start', ['machine-initial', 'machine-initial']])
+    ['start', 'machine-initial'])
   assert.equal(program.entry, root)
 })
 

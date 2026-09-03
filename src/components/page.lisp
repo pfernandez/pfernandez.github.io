@@ -1,6 +1,6 @@
-((dashboard-initial self
+((dashboard-initial
    (dashboard ((A B C) ink)))
- (machine-initial self
+ (machine-initial
    (machine machine))
  (page child
    (main
@@ -20,16 +20,14 @@
                    (props
                      (href /graph-reduction)
                      (onclick
-                       (page
-                         (dashboard-initial dashboard-initial))))
+                       (page dashboard-initial)))
                    (text Dashboard)))
                (li
                  (a
                    (props
                      (href /graph-reduction/machine)
                      (onclick
-                       (page
-                         (machine-initial machine-initial))))
+                       (page machine-initial)))
                    (text Machine))))))))
 
      (div (props (id content))

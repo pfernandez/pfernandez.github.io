@@ -29,6 +29,7 @@ export const copyConnected = connected => {
     root: connected.root,
     calls: set(connected.calls),
     fills: set(connected.fills),
+    namedValues: set(connected.namedValues),
     values: set(connected.values),
     legend: map(connected.legend),
     owner: new Map([...connected.owner].map(([key, value]) =>

@@ -42,6 +42,21 @@ test('composes shared argument identities', () => {
   assert.equal(result[1][1], args[1])
 })
 
+test('reuses the result identity of a named application', () => {
+  const { focus, legend } = composed(`
+    ((I x x)
+     (first (I a))
+     (pair (x y) (x y))
+     (pair (first first)))
+  `)
+  const [args, result] = focus
+
+  assert.equal(legend.get(args[0]).name, 'a')
+  assert.equal(args[0], args[1])
+  assert.equal(result[0], args[0])
+  assert.equal(result[1], args[1])
+})
+
 test('ties recurring definition and argument identities', () => {
   const { focus, legend } = composed(`
     ((fix x (fix x))
