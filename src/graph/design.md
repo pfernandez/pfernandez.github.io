@@ -511,8 +511,8 @@ static graph makes that machinery unnecessary.
 
 - [x] Author the title and navigation shell in Lisp.
 - [x] Author the available pages and initial page identity in Lisp.
-- [ ] Place the current JavaScript and Lisp observers beneath that Root while
-      the migration is in progress.
+- [x] Run the Lisp dashboard beneath Root. Retain the unused JavaScript
+      dashboard only as a migration reference.
 - [x] Remove the superseded route caches and keep-alive structures.
 - [ ] Keep CSS and other build assets outside the graph until representing them
       serves a semantic purpose.
@@ -530,7 +530,10 @@ static graph makes that machinery unnecessary.
 
 - [ ] Move initial route selection and browser-history synchronization into
       Lisp; page transitions are already authored continuations.
-- [ ] Move content composition and application state into Lisp.
+- [x] Move finite content composition and preauthored application state into
+      Lisp.
+- [ ] Determine how dynamic input and accumulated state extend a running
+      graph.
 - [ ] Replace broad temporary functions with the smallest browser operations
       the graph cannot perform internally.
 - [x] Remove the superseded JavaScript page shell, generic loaders, and

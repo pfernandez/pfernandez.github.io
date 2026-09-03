@@ -40,8 +40,11 @@
 
         (div (props (class (text panel scene)))
           (label (props (class row))
-            (text Source)
-            (textarea (props (value (source focus)))))
+            (text Root Source)
+            (textarea
+              (props
+                (readonly true)
+                (value (source focus)))))
 
           (div (props (class row))
             (button

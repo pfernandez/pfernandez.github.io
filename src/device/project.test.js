@@ -167,10 +167,13 @@ test('authors the complete document from Root', () => {
   assert.equal(links[1][1].href, '/graph-reduction/machine')
   assert.equal(typeof links[1][1].onclick, 'function')
   assert.equal(id(root, 'sidebar-panel')[1].class, 'sidebar-panel')
-  assert.match(find(root, 'textarea')[1].value, /\(dashboard/)
-  assert.match(find(root, 'textarea')[1].value, /\(machine/)
-  assert.match(find(root, 'textarea')[1].value, /\(page/)
-  assert.match(find(root, 'textarea')[1].value, /\(root/)
+  const rootSource = find(root, 'textarea')
+  assert.equal(rootSource[1].readonly, 'true')
+  assert.match(rootSource[1].value, /\(dashboard/)
+  assert.match(rootSource[1].value, /\(machine/)
+  assert.match(rootSource[1].value, /\(page/)
+  assert.match(rootSource[1].value, /\(root/)
+  assert.match(text(root), /Root Source/)
 })
 
 test('renders another page through the shared Root', () => {

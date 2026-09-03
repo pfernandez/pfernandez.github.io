@@ -1,3 +1,7 @@
+/**
+ * Retained as a migration reference. The running site uses dashboard.lisp;
+ * this module is not imported by the application.
+ */
 import { button, component, div, h2, label, select as menu, option, p, pre,
          textarea } from '@pfern/elements'
 import { link, schemeNames, schemes, serialize } from '../../graph/index.js'
