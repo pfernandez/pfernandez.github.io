@@ -24,7 +24,16 @@ export const project = ({ source, focus, result, legend }) => {
           : evaluate(right(pair))]
       }
 
-      return isCall(pair) ? invoke(pair) : pair.map(evaluate)
+      if (isCall(pair)) return invoke(pair)
+
+      if (isCall(left(pair))) {
+        const returned = evaluate(left(pair))
+        if (typeof returned !== 'function')
+          throw new TypeError('Capability result is not callable')
+        return returned(...list(right(pair)).map(evaluate))
+      }
+
+      return pair.map(evaluate)
     } finally {
       active.delete(pair)
     }

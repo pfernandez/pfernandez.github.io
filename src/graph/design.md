@@ -342,6 +342,18 @@ name stays available to a device while its right edge enters the configuration
 that already exists. This preserves the distinction between an authored event
 boundary and the state selected when that event occurs.
 
+A left-nested foreign application can apply a capability's returned function:
+
+```lisp
+((make input) argument)
+```
+
+Composition retains this pair because the capability result does not exist
+until projection. The projector invokes the result only when it is a
+JavaScript function and passes the right-hand sequence as arguments. This rule
+uses pair position and the returned value's type; it does not know the
+capability's name or require declared return metadata.
+
 ## Observation
 
 The graph is static. Observation changes focus, not graph structure. A minimal
@@ -428,11 +440,12 @@ reconciliation boundary. It has no graph node, linker rule, evaluator branch,
 or calling syntax of its own.
 
 Elements.js implements `component` as a JavaScript function that creates
-another function. The Elements adapter contains that foreign calling
-convention: it evaluates the authored observation, creates the component, calls
-it once, and returns its VDOM. No JavaScript function escapes into the graph or
-page loader. General returned-function values remain an open language question,
-but `component` no longer requires them.
+another function. One small device function translates that foreign calling
+convention into `observation -> boundary-marked observation`. It then passes
+through the same capability wrapper as every element, Markdown, and `render`;
+there is no special `component` branch in the adapter. No JavaScript function
+escapes into the graph or page loader. General returned-function values remain
+an open language question, but `component` does not require them.
 
 Event properties are a related boundary. The Elements capability adapter in
 `device/dom.js` preserves an `on*` continuation until the browser event occurs.
@@ -488,9 +501,9 @@ static graph makes that machinery unnecessary.
 
 ### 3. Make functions uniformly composable
 
-- [ ] Demonstrate a returned function being called with graph-authored
+- [x] Demonstrate a returned function being called with graph-authored
       arguments without evaluator knowledge of its name.
-- [ ] Treat `component` exactly like every other imported function.
+- [x] Treat `component` exactly like every other imported function.
 - [x] Demonstrate more than one graph-authored component boundary.
 - [ ] Revisit `on*` property wrapping in Elements.js and remove corresponding
       event knowledge from the device where possible.
@@ -523,7 +536,8 @@ the device layer.
 ## Open questions
 
 - What is the general representation and application rule for a function value
-  returned by a foreign or authored function?
+  returned by an authored function? Left-nested application of a foreign
+  function value is established at the projection boundary.
 - Can event continuations and their dynamic arguments be handled entirely by
   ordinary Elements.js property behavior?
 - Does route selection need any identity comparison not already authorable from

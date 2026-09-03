@@ -145,6 +145,12 @@ export const compose = connected => {
     if (legend.has(expression) || values.has(expression))
       return context(graph)
 
+    // A right state applies a value returned by a foreign call on its left.
+    // The host result remains unknown until projection, so retain this pair as
+    // the observable application.
+    if (calls.has(left) && legend.get(left[0])?.capability)
+      return context(graph)
+
     // Definitions and named values extend history while exposing the next
     // sibling. Their own results do not continue into that sibling.
     if (definitions.has(previous.focus)

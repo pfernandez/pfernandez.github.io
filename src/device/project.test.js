@@ -113,6 +113,19 @@ test('displays imported functions by their authored names', () => {
   assert.equal(text(view('(serialize div plain)')), 'div')
 })
 
+test('calls a returned function with graph-authored arguments', () => {
+  const make = ({ values }) => suffix =>
+    `${values()[0]} ${suffix}`
+
+  assert.equal(view('((make Hello) World)', { make }), 'Hello World')
+})
+
+test('rejects applying a returned value that is not a function', () => {
+  assert.throws(
+    () => view('((text Hello) World)'),
+    /Capability result is not callable/)
+})
+
 test('authors the complete document from Root', () => {
   const root = view(source)
   const links = findAll(root, 'a')

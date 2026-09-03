@@ -5,7 +5,8 @@ import { connect } from './connect.js'
 import { decompose } from './decompose.js'
 import { parse } from './parse.js'
 
-const composed = source => compose(connect(decompose(parse(source))))
+const composed = (source, imports) =>
+  compose(connect(decompose(parse(source)), imports))
 
 test('builds a fresh graph without changing connected identities', () => {
   const connected = connect(decompose(parse('((I x x) (I a))')))
@@ -55,6 +56,15 @@ test('reuses the result identity of a named application', () => {
   assert.equal(args[0], args[1])
   assert.equal(result[0], args[0])
   assert.equal(result[1], args[1])
+})
+
+test('retains application of a foreign result for projection', () => {
+  const make = () => {}
+  const { focus, legend } = composed('((make x) y)', { make })
+
+  assert.equal(legend.get(focus[0][0]).capability, make)
+  assert.equal(legend.get(focus[0][1]).name, 'x')
+  assert.equal(legend.get(focus[1]).name, 'y')
 })
 
 test('ties recurring definition and argument identities', () => {

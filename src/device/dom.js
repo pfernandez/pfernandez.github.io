@@ -1,11 +1,15 @@
-import { component, elements, render } from '@pfern/elements'
+import {
+  component as createComponent,
+  elements,
+  render
+} from '@pfern/elements'
 import { markdown } from './markdown.js'
 import { record } from './record.js'
 
 const left = pair => pair[0]
 const right = pair => pair[1]
 
-const domCapabilities = ({ component, ...elements }) => {
+const domCapabilities = functions => {
   const fixed = pair => left(pair) === pair && right(pair) === pair
   const entry = (pair, legend) => legend.has(pair) && !fixed(pair)
   // Repeated property labels form a chain. Follow it to the authored action;
@@ -50,14 +54,16 @@ const domCapabilities = ({ component, ...elements }) => {
   return {
     props,
     ...Object.fromEntries(
-      Object.entries(elements).map(([name, element]) =>
-        [name, capability(name, element)])),
-    component: ({ argument, evaluate }) => {
-      const observation = evaluate(argument)
-      return component(() => observation)()
-    }
+      Object.entries(functions).map(([name, fn]) =>
+        [name, capability(name, fn)]))
   }
 }
 
 /** Adapt Elements functions to the uniform graph-capability interface. */
-export const dom = domCapabilities({ ...elements, component, markdown, render })
+export const dom = domCapabilities({
+  ...elements,
+  component: observation =>
+    createComponent(() => observation)(),
+  markdown,
+  render
+})
