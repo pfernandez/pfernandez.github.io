@@ -273,8 +273,10 @@ Each layer has one kind of knowledge:
 - `compose(connected)` copies that artifact, matches argument identities,
   copies definition bodies through one explicit allocation boundary, exposes
   results, completes suspended applications, materializes each named
-  application value once, and ties recurring configurations. The connected
-  input remains unchanged.
+  application value once, and ties recurring configurations. Its `results`
+  table identifies completed applications, while `selections` records which
+  value a retained construction sequence exposes. The connected input remains
+  unchanged.
 - `finalize(composed)` closes every remaining one-edge construction frontier
   into a fixed atom and freezes the reachable Root.
 - `link(program, imports)` only coordinates those layers and reports errors.
@@ -319,6 +321,13 @@ authored prefix is the observable structure that actually occurred.
 A completed application retains its definition sequence as result history but
 exposes that sequence's final value to an enclosing application. Exposure
 reuses an existing identity and creates no additional graph cell.
+
+Composition preserves two related facts separately. A completed application
+is one value when passed as an argument, even though it contains its argument
+and result. A retained definition or application sequence remains available as
+construction history, but exposes the focus it produced when projected. The
+`results` and `selections` tables record those facts without adding runtime
+tags or cells.
 
 A named application value is a completed application retained in library
 history. Composition materializes it once. Every later reference exposes that
@@ -447,15 +456,24 @@ there is no special `component` branch in the adapter. No JavaScript function
 escapes into the graph or page loader. General returned-function values remain
 an open language question, but `component` does not require them.
 
-Event properties are a related boundary. The Elements capability adapter in
-`device/dom.js` preserves an `on*` continuation until the browser event occurs.
-This adapter explicitly recognizes `on*` property names; the linker and general
-projector do not. Elements.js wraps the resulting functions and treats a
-returned VDOM as the next component observation. A direct event continues
-through its right edge. A fixed event has the form `event = (action event)`, so
-it exposes the left action and remains available through its recurring right
-edge. We should revisit whether that conversion can live in Elements.js without
-making it depend on this graph evaluator.
+Event properties use the same ordinary properties boundary as every other DOM
+value. The source explicitly turns an authored observation into a host-callable
+continuation:
+
+```lisp
+(button
+  (props
+    (onclick (continue observation)))
+  label)
+```
+
+`continue` preserves the already-linked observation and evaluates it only when
+the browser calls the resulting function. Neither `device/dom.js` nor
+Elements.js recognizes `on*` names or knows how to advance the graph. Elements
+only invokes the function and treats returned VDOM as the next component
+observation. A fixed action has the form `(action self)`; its recurring right
+edge preserves the continuation while its left edge is the observation to
+perform.
 
 The authored `props` call turns any sequence of entry pairs into an ordinary
 JavaScript properties object. It has no list of HTML attributes, so custom,
@@ -505,8 +523,8 @@ static graph makes that machinery unnecessary.
       arguments without evaluator knowledge of its name.
 - [x] Treat `component` exactly like every other imported function.
 - [x] Demonstrate more than one graph-authored component boundary.
-- [ ] Revisit `on*` property wrapping in Elements.js and remove corresponding
-      event knowledge from the device where possible.
+- [x] Express event continuation explicitly in Lisp and remove `on*` knowledge
+      and graph-shaped property inference from the DOM and Elements adapters.
 
 ### 4. Contract the capability frontier
 
@@ -538,8 +556,8 @@ the device layer.
 - What is the general representation and application rule for a function value
   returned by an authored function? Left-nested application of a foreign
   function value is established at the projection boundary.
-- Can event continuations and their dynamic arguments be handled entirely by
-  ordinary Elements.js property behavior?
+- How should dynamic browser event arguments enter an authored continuation
+  without giving the device authority to choose graph structure?
 - Does route selection need any identity comparison not already authorable from
   a finite route library?
 - Which parts of dynamic loading remain meaningful when the site is linked as

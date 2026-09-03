@@ -30,6 +30,8 @@ export const link = (program, imports = {}) => {
       graph: finalized.graph,
       focus: finalized.focus,
       result: finalized.result,
+      results: finalized.results,
+      selections: finalized.selections,
       legend: finalized.legend
     }
   } catch (error) {
@@ -39,6 +41,8 @@ export const link = (program, imports = {}) => {
       graph,
       focus: graph,
       result: undefined,
+      results: new Map(),
+      selections: new Map(),
       legend: new Map(),
       error
     }

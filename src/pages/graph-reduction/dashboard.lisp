@@ -14,20 +14,28 @@
               (summary appearance)
               (div (props (class choices))
                 (button
-                  (onclick
-                    (observe (((history focus) next) ink)))
+                  (props
+                    (onclick
+                      (continue
+                        (observe (((history focus) next) ink)))))
                   Ink)
                 (button
-                  (onclick
-                    (observe (((history focus) next) pastel)))
+                  (props
+                    (onclick
+                      (continue
+                        (observe (((history focus) next) pastel)))))
                   Pastel)
                 (button
-                  (onclick
-                    (observe (((history focus) next) color)))
+                  (props
+                    (onclick
+                      (continue
+                        (observe (((history focus) next) color)))))
                   Color)
                 (button
-                  (onclick
-                    (observe (((history focus) next) plain)))
+                  (props
+                    (onclick
+                      (continue
+                        (observe (((history focus) next) plain)))))
                   Plain)))))
 
         (div (props (class (text panel scene)))
@@ -37,13 +45,17 @@
 
           (div (props (class row))
             (button
-              (onclick
-                (observe (((focus next) history) appearance)))
+              (props
+                (onclick
+                  (continue
+                    (observe (((focus next) history) appearance)))))
               (text Next))
             (button (props (disabled true)) (text Undo))
             (button
-              (onclick
-                (observe (((origin first) second) appearance)))
+              (props
+                (onclick
+                  (continue
+                    (observe (((origin first) second) appearance)))))
               (text Reset)))
 
           (label (props (class (text row output)))

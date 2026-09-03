@@ -120,10 +120,32 @@ test('calls a returned function with graph-authored arguments', () => {
   assert.equal(view('((make Hello) World)', { make }), 'Hello World')
 })
 
+test('passes a completed application as one selected argument', () => {
+  const effect = ({ values }) => `effect:${values()[0]}`
+  const collect = ({ values }) => values()
+
+  assert.deepEqual(
+    view('((after x (effect x)) (collect (after A) B))', {
+      collect,
+      effect
+    }),
+    ['effect:A', 'B'])
+})
+
 test('rejects applying a returned value that is not a function', () => {
   assert.throws(
     () => view('((text Hello) World)'),
     /Capability result is not callable/)
+})
+
+test('continues from an authored observation when called', () => {
+  const continuation = view(`
+    ((after message (p message))
+     (continue (after Now)))
+  `)
+
+  assert.equal(typeof continuation, 'function')
+  assert.deepEqual(continuation(), ['p', {}, 'Now'])
 })
 
 test('authors the complete document from Root', () => {
@@ -212,7 +234,9 @@ test('recurs through one uniform observer state', () => {
        ((observe ((history focus) next)
           (div
             (button
-              (onclick (observe ((focus next) history)))
+              (props
+                (onclick
+                  (continue (observe ((focus next) history)))))
               Next)
             (serialize history ink)
             (serialize focus ink)))
@@ -277,12 +301,13 @@ test('carries a completed application identity through an event', () => {
   const initial = view(`
     ((after history
      (div
-         (button (onclick history) Undo)
+         (button (props (onclick (continue history))) Undo)
          (p After)))
      (before message
        (div
          (button
-           (onclick (after (before message)))
+           (props
+             (onclick (continue (after (before message)))))
            Next)
          (p message)))
      (component (before Before)))
@@ -305,7 +330,7 @@ test('defers and repeats a fixed event action', () => {
      (button
        (props
          (class action)
-         (onclick (fix (effect Now))))
+         (onclick (continue (fix (effect Now)))))
        Go))
   `, {
     effect: ({ values }) => {

@@ -54,12 +54,19 @@ export const compose = connected => {
     values
   } = image
   const materialized = new Map()
+  // Results make completed applications atomic when passed as arguments.
   const results = new Map()
+  // Selections preserve construction history while exposing its final value.
+  const selections = new Map()
 
   const context = (graph, focus = graph, result) =>
     ({ graph, focus, result })
   const output = state => state.result ?? state.focus
-  const retain = (graph, state) => ({ ...state, graph })
+  const retain = (graph, state) => {
+    const result = output(state)
+    if (graph !== result) selections.set(graph, result)
+    return { ...state, graph }
+  }
   const exposed = graph => results.get(graph)
   const value = state => exposed(output(state)) ?? output(state)
   const callable = graph =>
@@ -221,6 +228,8 @@ export const compose = connected => {
     focus: composed.focus,
     graph: composed.graph,
     legend,
-    result: composed.result
+    result: composed.result,
+    results,
+    selections
   }
 }

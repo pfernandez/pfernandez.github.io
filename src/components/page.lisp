@@ -20,14 +20,16 @@
                    (props
                      (href /graph-reduction)
                      (onclick
-                       (page dashboard-initial)))
+                       (continue
+                         (page dashboard-initial))))
                    (text Dashboard)))
                (li
                  (a
                    (props
                      (href /graph-reduction/machine)
                      (onclick
-                       (page machine-initial)))
+                       (continue
+                         (page machine-initial))))
                    (text Machine))))))))
 
      (div (props (id content))

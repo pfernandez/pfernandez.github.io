@@ -67,6 +67,20 @@ test('retains application of a foreign result for projection', () => {
   assert.equal(legend.get(focus[1]).name, 'y')
 })
 
+test('retains construction while selecting a nested application result', () => {
+  const effect = () => {}
+  const collect = () => {}
+  const { focus, graph, results, selections } = composed(`
+    ((after x (effect x))
+     (collect (after A) B))
+  `, { collect, effect })
+  const application = focus[1][0]
+
+  assert.equal(graph[1], focus)
+  assert.equal(selections.get(graph), focus)
+  assert.equal(results.get(application), application[1])
+})
+
 test('ties recurring definition and argument identities', () => {
   const { focus, legend } = composed(`
     ((fix x (fix x))

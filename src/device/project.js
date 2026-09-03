@@ -3,13 +3,26 @@ const right = pair => pair[1]
 const fixed = pair => left(pair) === pair && right(pair) === pair
 
 /** Project one already-linked graph into its attached device capabilities. */
-export const project = ({ source, focus, result, legend }) => {
+export const project = ({
+  source,
+  focus,
+  result,
+  results,
+  selections,
+  legend
+}) => {
   const active = new Set()
   const entry = pair => legend.get(pair)
   const symbol = pair => entry(pair)?.capability ?? entry(pair)?.name
   const isCall = pair => typeof entry(left(pair))?.capability === 'function'
 
   const evaluate = pair => {
+    // Construction remains in Root while its authored result crosses the
+    // device boundary.
+    const selected = !legend.has(pair)
+      && (selections?.get(pair) ?? results?.get(pair))
+    if (selected && selected !== pair) return evaluate(selected)
+
     // Device projection currently replaces a recurring identity with its name;
     // another adapter could instead preserve the shared reference.
     if (active.has(pair)) return symbol(pair)
@@ -53,7 +66,7 @@ export const project = ({ source, focus, result, legend }) => {
   }
 
   const list = pair =>
-    legend.has(pair) || isCall(pair)
+    legend.has(pair) || isCall(pair) || results?.has(pair)
       ? [pair]
       : [left(pair), ...list(right(pair))]
 
