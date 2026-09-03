@@ -58,6 +58,21 @@ test('reuses the result identity of a named application', () => {
   assert.equal(result[1], args[1])
 })
 
+test('reuses a named application inside an instantiated body', () => {
+  const { focus, result } = composed(`
+    ((I x x)
+     (pair (x y) (x y))
+     (F z
+       ((first (I z))
+        (pair (first first))))
+     (F a))
+  `)
+  const args = focus[0]
+
+  assert.equal(result[0], args)
+  assert.equal(result[1], args)
+})
+
 test('retains application of a foreign result for projection', () => {
   const make = () => {}
   const { focus, legend } = composed('((make x) y)', { make })

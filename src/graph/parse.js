@@ -9,7 +9,7 @@ const tokenize = source =>
                col: lines.at(-1).length + 1 }
     })
 
-export const err = (message, token) => {
+const err = (message, token) => {
   throw new Error(
     token ? `${message} at line ${token.line}, col ${token.col}` : message)
 }

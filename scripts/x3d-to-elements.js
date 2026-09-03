@@ -75,7 +75,7 @@ const parseAttributes = attrText => {
 const parseXml = xmlText => {
   const xml = stripProlog(xmlText)
 
-  const root = { type: 'element', name: '__root__', attrs: {}, children: []}
+  const root = { type: 'element', name: '__root__', attrs: {}, children: [] }
   const stack = [root]
 
   const tagRe = /<!--[\s\S]*?-->|<[^>]+>|[^<]+/g
@@ -102,7 +102,7 @@ const parseXml = xmlText => {
       const attrText = spaceIdx === -1 ? '' : inner.slice(spaceIdx).trim()
       const attrs = attrText ? parseAttributes(attrText) : {}
 
-      const el = { type: 'element', name, attrs, children: []}
+      const el = { type: 'element', name, attrs, children: [] }
       stack[stack.length - 1].children.push(el)
       if (!selfClosing) stack.push(el)
       continue

@@ -175,10 +175,11 @@ export const connect = (pairs, imports = {}) => {
     // With only one following state, a fresh name remains as a self-reference.
     if (isNew) {
       identify(graph, left)
-      const following = next(right, extend(scope, left, graph))
+      const local = extend(scope, left, graph)
+      const following = next(right, local)
       graph[0] = graph
       graph[1] = following.graph
-      return context(graph, extend(scope, left, graph))
+      return context(graph, local)
     }
 
     // A visible value occupies the causal left of an ordinary pair.

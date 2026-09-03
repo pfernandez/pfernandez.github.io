@@ -54,6 +54,7 @@ export const copyBody = (definition, bindings, image) => {
     definitions,
     fills,
     legend,
+    namedValues,
     owner,
     values
   } = image
@@ -90,6 +91,7 @@ export const copyBody = (definition, bindings, image) => {
 
     if (calls.has(source)) calls.add(target)
     if (fills.has(source)) fills.add(target)
+    if (namedValues.has(source)) namedValues.add(target)
     if (values.has(source)) values.add(target)
     return target
   }
