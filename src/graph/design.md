@@ -201,6 +201,9 @@ The linker currently applies these contextual forms:
   `(input output)`. The label is not a third runtime state.
 - In `(F argument)`, a visible definition `F` begins an application. Its result
   is the anonymous transition `(argument result)`.
+- A fresh name may identify an application that is already recognizable from
+  its visible callable, as in `(first (F argument))`. The name identifies that
+  application directly; it does not add a wrapper pair or dummy argument.
 - A compound state can name itself. `(a b c)` may express `a = (b c)` without
   an additional wrapper pair.
 - A fresh name followed by one state has no inner pair to label, so the name
@@ -264,12 +267,14 @@ Each layer has one kind of knowledge:
 - `connect(pairs, imports)` returns a connected artifact that replaces
   spellings with lexically visible
   identities. It records definitions, inputs, applications, and ownership in
-  identity-keyed compiler tables, and records names and capabilities in the
-  legend, but applies nothing.
+  identity-keyed compiler tables. It also distinguishes named application
+  values from ordinary calls and records names and capabilities in the legend,
+  but applies nothing.
 - `compose(connected)` copies that artifact, matches argument identities,
   copies definition bodies through one explicit allocation boundary, exposes
-  results, completes suspended applications, and ties recurring
-  configurations. The connected input remains unchanged.
+  results, completes suspended applications, materializes each named
+  application value once, and ties recurring configurations. The connected
+  input remains unchanged.
 - `finalize(composed)` closes every remaining one-edge construction frontier
   into a fixed atom and freezes the reachable Root.
 - `link(program, imports)` only coordinates those layers and reports errors.
@@ -314,6 +319,13 @@ authored prefix is the observable structure that actually occurred.
 A completed application retains its definition sequence as result history but
 exposes that sequence's final value to an enclosing application. Exposure
 reuses an existing identity and creates no additional graph cell.
+
+A named application value is a completed application retained in library
+history. Composition materializes it once. Every later reference exposes that
+same stored result identity rather than recomposing the application or
+reattaching its construction history to the consuming call. `namedValues` and
+the materialization table are compiler knowledge only; neither adds a tag or
+cell to the finalized graph.
 
 `link` preserves both sides of this distinction. `focus` is the complete final
 application identity, including its history; `result` is the value it exposes.
