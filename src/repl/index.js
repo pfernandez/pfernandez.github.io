@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
 import { schemeNames, serialize } from '../graph/index.js'
+import { observe } from './observe.js'
 import { submit, undo } from './session.js'
 
 const { values } = parseArgs({ options: {
@@ -9,6 +10,7 @@ const { values } = parseArgs({ options: {
   labels: { type: 'boolean' },
   'no-labels': { type: 'boolean' },
   scheme: { type: 'string', short: 's' },
+  steps: { type: 'boolean' },
   width: { type: 'string', short: 'w' }
 } })
 
@@ -18,6 +20,7 @@ if (values.help) {
   -f, --format text|ansi
   -s, --scheme ${schemeNames.join('|')}
   -w, --width columns
+      --steps
       --labels | --no-labels`)
   process.exit(0)
 }
@@ -26,6 +29,7 @@ const settings = {
   format: values.format ?? (process.stdout.isTTY ? 'ansi' : 'text'),
   labels: values.labels ?? !values['no-labels'],
   scheme: values.scheme ?? 'color',
+  steps: values.steps ?? false,
   width: Number(values.width ?? process.stdout.columns ?? 24)
 }
 
@@ -47,6 +51,19 @@ let source = ''
 const print = (node, legend = session?.legend) => node && console.log(
   serialize(node, { ...settings, legend }))
 
+const walk = (all = settings.steps) => {
+  const start = session?.result ?? session?.focus
+  if (!start) return
+
+  const observation = observe(start)
+  if (all) observation.steps.forEach(step => print(step))
+  else print(observation.focus)
+}
+
+const output = () => session?.result || settings.steps
+  ? walk()
+  : print(session?.focus)
+
 const command = line => {
   const [name, value] = line.split(/\s+/, 2)
 
@@ -58,9 +75,15 @@ const command = line => {
     settings.width = Number(value)
   else if (name === ':labels' && ['on', 'off'].includes(value))
     settings.labels = value === 'on'
+  else if (name === ':steps' && ['on', 'off'].includes(value))
+    settings.steps = value === 'on'
+  else if (line === ':steps') walk(true)
+  else if (line === ':observe') walk(false)
+  else if (line === ':focus') print(session?.focus)
+  else if (line === ':result') print(session?.result)
   else if (line === ':undo') {
     session = undo(session)
-    print(session?.result ?? session?.focus)
+    output()
   }
   else if (line === ':reset') session = undefined
   else if (line === ':source') console.log(session?.source ?? '')
@@ -71,7 +94,7 @@ const command = line => {
   else if (line === ':graph') print(session?.graph)
   else if (line === ':help')
     console.log(
-      ':format :scheme :width :labels :source :ast :pairs :connected :graph :undo :reset :quit')
+      ':format :scheme :width :labels :steps :observe :focus :result :source :ast :pairs :connected :graph :undo :reset :quit')
   else console.error(`Unknown command: ${line}`)
 }
 
@@ -83,7 +106,7 @@ input.on('line', line => {
 
     try {
       session = submit(session, source)
-      print(session.result ?? session.focus)
+      output()
       source = ''
     } catch (error) {
       if (!String(error.message).startsWith('Missing )')) {

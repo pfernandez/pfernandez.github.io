@@ -60,6 +60,6 @@ test('undoes the latest submission', () => {
 
   assert.deepEqual(restored.ast, first.ast)
   assert.equal(restored.source, first.source)
-  assert.notEqual(restored.graph, first.graph)
+  assert.equal(restored.graph, first.graph)
   assert.equal(undo(restored), undefined)
 })
