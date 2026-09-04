@@ -3,6 +3,7 @@ export const schemes = Object.freeze(
 
 export const schemeNames = Object.values(schemes)
 
+const RESET = '\x1b[0m'
 const COLOR_STEPS = [2, 3, 4, 5]
 const COLOR_COUNT = COLOR_STEPS.length ** 3
 const PASTEL_COLORS = [205, 198, 165, 135, 99]
@@ -16,11 +17,11 @@ const xtermColor = color => {
   const green = Math.floor(offset / 6) % 6
   const blue = offset % 6
   const rgb = [red, green, blue].map(xtermChannel)
-  return { css: `rgb(${rgb.join(', ')})`, rgb }
+  return { ansi: `38;5;${color}`, css: `rgb(${rgb.join(', ')})`, rgb }
 }
 
 const rgbColor = rgb =>
-  ({ css: `rgb(${rgb.join(', ')})`, rgb })
+  ({ ansi: `38;2;${rgb.join(';')}`, css: `rgb(${rgb.join(', ')})`, rgb })
 
 const interpolate = (start, end, t) =>
   start.map((channel, i) => Math.round(channel + (end[i] - channel) * t))
@@ -48,7 +49,8 @@ const pastelGradient = index => {
 }
 
 const colorScheme = color =>
-  ({ style: identity => ({ color: color(identity).css }) })
+  ({ ansi: identity => color(identity).ansi,
+     style: identity => ({ color: color(identity).css }) })
 
 const opacity = index => 0.2 + spread(index) * 0.8
 
@@ -166,6 +168,16 @@ const graphTokens = (node, { labels, legend, width, repeat } = {}) =>
 const tokensToText = tokens =>
   tokens.map(token => token.text).join('')
 
+const tokensToAnsi = (tokens, schemeName) => {
+  const ansi = selectedScheme(schemeName).ansi
+  if (!ansi) return tokensToText(tokens)
+
+  return tokens.map(token => token.identity === undefined
+    ? token.text
+    : `\x1b[${ansi(token.identity)}m${token.text}${RESET}`)
+    .join('')
+}
+
 const tokensToVdom = (tokens, schemeName) => {
   const style = selectedScheme(schemeName).style ?? (() => ({}))
   return ['pre', { class: 'output' }, ...tokens.map(token =>
@@ -178,6 +190,7 @@ const tokensToVdom = (tokens, schemeName) => {
 }
 
 const renderTokens = (tokens, { format, scheme }) => {
+  if (format === 'ansi') return tokensToAnsi(tokens, scheme)
   if (format === 'vdom') return tokensToVdom(tokens, scheme)
   return tokensToText(tokens)
 }

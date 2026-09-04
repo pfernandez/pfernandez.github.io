@@ -37,6 +37,19 @@ describe('serialize', () => {
       ['pre', { class: 'output' }])
   })
 
+  test('ansi colors do not change formatted output', () => {
+    const root = []
+    root[0] = root
+    root[1] = ['a', 'b']
+    const options = { format: 'ansi', width: 5 }
+    const plain = serialize(root, { ...options, scheme: schemes.plain })
+    const color = serialize(root, { ...options, scheme: schemes.color })
+
+    assert.match(color, /\x1b\[38;/)
+    assert.equal(color.replace(/\x1b\[[0-9;]+m/g, ''), plain)
+    assert.match(plain, /\n/)
+  })
+
   test('replaces references with symbols in arbitrary sequences', () => {
     const x = []
     const y = []

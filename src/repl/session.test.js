@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { link, serialize } from '../graph/index.js'
-import { submit } from './session.js'
+import { submit, undo } from './session.js'
 
 const output = linked => serialize(linked.result ?? linked.focus, {
   labels: true,
@@ -51,4 +51,15 @@ test('constructs a fresh Root for each submission', () => {
   assert.notEqual(second.graph, first.graph)
   assert.ok(Object.isFrozen(first.graph))
   assert.ok(Object.isFrozen(second.graph))
+})
+
+test('undoes the latest submission', () => {
+  const first = submit(undefined, '(I x x)')
+  const second = submit(first, '(I a)')
+  const restored = undo(second)
+
+  assert.deepEqual(restored.ast, first.ast)
+  assert.equal(restored.source, first.source)
+  assert.notEqual(restored.graph, first.graph)
+  assert.equal(undo(restored), undefined)
 })

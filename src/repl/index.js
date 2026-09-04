@@ -1,6 +1,39 @@
 import { createInterface } from 'node:readline'
-import { serialize } from '../graph/index.js'
-import { submit } from './session.js'
+import { parseArgs } from 'node:util'
+import { schemeNames, serialize } from '../graph/index.js'
+import { submit, undo } from './session.js'
+
+const { values } = parseArgs({ options: {
+  format: { type: 'string', short: 'f' },
+  help: { type: 'boolean', short: 'h' },
+  labels: { type: 'boolean' },
+  'no-labels': { type: 'boolean' },
+  scheme: { type: 'string', short: 's' },
+  width: { type: 'string', short: 'w' }
+} })
+
+if (values.help) {
+  console.log(`Usage: npm run repl -- [options]
+
+  -f, --format text|ansi
+  -s, --scheme ${schemeNames.join('|')}
+  -w, --width columns
+      --labels | --no-labels`)
+  process.exit(0)
+}
+
+const settings = {
+  format: values.format ?? (process.stdout.isTTY ? 'ansi' : 'text'),
+  labels: values.labels ?? !values['no-labels'],
+  scheme: values.scheme ?? 'color',
+  width: Number(values.width ?? process.stdout.columns ?? 24)
+}
+
+if (!['ansi', 'text'].includes(settings.format))
+  throw new Error(`Unknown format: ${settings.format}`)
+if (!schemeNames.includes(settings.scheme))
+  throw new Error(`Unknown scheme: ${settings.scheme}`)
+if (!(settings.width > 0)) throw new Error(`Invalid width: ${values.width}`)
 
 const input = createInterface({
   input: process.stdin,
@@ -12,10 +45,24 @@ let session
 let source = ''
 
 const print = (node, legend = session?.legend) => node && console.log(
-  serialize(node, { labels: true, legend, width: 80 }))
+  serialize(node, { ...settings, legend }))
 
 const command = line => {
-  if (line === ':reset') session = undefined
+  const [name, value] = line.split(/\s+/, 2)
+
+  if (name === ':format' && ['ansi', 'text'].includes(value))
+    settings.format = value
+  else if (name === ':scheme' && schemeNames.includes(value))
+    settings.scheme = value
+  else if (name === ':width' && Number(value) > 0)
+    settings.width = Number(value)
+  else if (name === ':labels' && ['on', 'off'].includes(value))
+    settings.labels = value === 'on'
+  else if (line === ':undo') {
+    session = undo(session)
+    print(session?.result ?? session?.focus)
+  }
+  else if (line === ':reset') session = undefined
   else if (line === ':source') console.log(session?.source ?? '')
   else if (line === ':ast') console.dir(session?.ast, { depth: null })
   else if (line === ':pairs') console.dir(session?.pairs, { depth: null })
@@ -23,7 +70,8 @@ const command = line => {
     print(session?.connected.graph, session?.connected.legend)
   else if (line === ':graph') print(session?.graph)
   else if (line === ':help')
-    console.log(':source :ast :pairs :connected :graph :reset :quit')
+    console.log(
+      ':format :scheme :width :labels :source :ast :pairs :connected :graph :undo :reset :quit')
   else console.error(`Unknown command: ${line}`)
 }
 
