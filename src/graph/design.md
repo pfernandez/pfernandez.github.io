@@ -294,6 +294,30 @@ Only `connect` interprets source strings. `compose` works with identities and
 its tables, while the device and serializer consult the legend without adding
 names to graph cells.
 
+## Program assembly
+
+A program is an ordered history of authored forms. Files, includes, and REPL
+submissions are sources of those forms; their boundaries do not become graph
+structure. Assembly therefore happens before the first context-sensitive
+stage:
+
+```text
+source units -> parsed forms -> one ordered AST -> decompose -> connect
+```
+
+Includes already follow this rule. Each file is parsed separately and its
+outer forms replace the include directive at that causal position. The
+combined source is retained for display, but the compiler receives the
+assembled AST without reparsing it.
+
+The initial REPL follows the same rule. Each successful submission contributes
+one parsed form to the ordered AST, after which the complete program is linked
+again. A failed submission leaves the preceding session unchanged. Successive
+evaluations therefore produce successive static Roots with equivalent source
+semantics but fresh JavaScript reference identities. Retaining connected
+identities across submissions would be an incremental-linking feature, not a
+different assembly rule.
+
 ## Linking and application
 
 Linking is a pair-local construction walk. At each pair it distinguishes a
