@@ -48,8 +48,11 @@ const input = createInterface({
 let session
 let source = ''
 
-const print = (node, legend = session?.legend) => node && console.log(
-  serialize(node, { ...settings, legend }))
+const print = (
+  node,
+  legend = session?.legend,
+  context = session?.graph
+) => node && console.log(serialize(node, { ...settings, context, legend }))
 
 const walk = (all = settings.steps) => {
   const start = session?.result ?? session?.focus
@@ -90,7 +93,10 @@ const command = line => {
   else if (line === ':ast') console.dir(session?.ast, { depth: null })
   else if (line === ':pairs') console.dir(session?.pairs, { depth: null })
   else if (line === ':connected')
-    print(session?.connected.graph, session?.connected.legend)
+    print(
+      session?.connected.graph,
+      session?.connected.legend,
+      session?.connected.graph)
   else if (line === ':graph') print(session?.graph)
   else if (line === ':help')
     console.log(

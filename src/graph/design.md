@@ -272,11 +272,12 @@ Each layer has one kind of knowledge:
   but applies nothing.
 - `compose(connected)` copies that artifact, matches argument identities,
   copies definition bodies through one explicit allocation boundary, exposes
-  results, completes suspended applications, materializes each named
-  application value once, and ties recurring configurations. Its `results`
-  table identifies completed applications, while `selections` records which
-  value a retained construction sequence exposes. The connected input remains
-  unchanged.
+  results, completes suspended applications, begins new applications from
+  callable results, materializes each named application value once, and ties
+  recurring configurations. Non-callable results do not absorb following
+  siblings. Its `results` table identifies completed applications, while
+  `selections` records which value a retained construction sequence exposes.
+  The connected input remains unchanged.
 - `finalize(composed)` closes every remaining one-edge construction frontier
   into a fixed atom and freezes the reachable Root.
 - `link(program, imports)` only coordinates those layers and reports errors.
@@ -293,6 +294,11 @@ Separating connection from composition also gives names a clean lifetime.
 Only `connect` interprets source strings. `compose` works with identities and
 its tables, while the device and serializer consult the legend without adding
 names to graph cells.
+
+The serializer may render a selected graph within its complete Root. Identities
+encountered earlier in that context appear by name instead of being expanded
+again inside the selection. This changes presentation only; it neither selects
+a focus nor adds information to the graph.
 
 ## Program assembly
 
@@ -345,6 +351,14 @@ authored prefix is the observable structure that actually occurred.
 A completed application retains its definition sequence as result history but
 exposes that sequence's final value to an enclosing application. Exposure
 reuses an existing identity and creates no additional graph cell.
+
+Completion does not create an opening where none exists. A completed
+application and the state following it remain siblings unless the exposed
+result is itself callable. A callable result may begin a new, left-nested
+application. If its argument is produced by another completed application,
+that application's transition remains in Root while its exposed result becomes
+the argument. A suspended application is different: its existing opening may
+still be filled by the following state.
 
 Composition preserves two related facts separately. A completed application
 is one value when passed as an argument, even though it contains its argument
@@ -420,6 +434,54 @@ Completion is therefore relative to an observer: it is the return to that
 observer's origin identity, not an empty value, structural equality, or a
 universal stopping state. More complicated excursions may visit other
 identities before returning to the same origin.
+
+### Minimal finite observers
+
+The smallest closed graph contains one identity:
+
+```text
+I = [I, I]
+```
+
+Both edges return immediately. Two identities are enough to distinguish an
+observation from the origin that carries it:
+
+```text
+A = [A, A]
+O = [A, O]
+```
+
+The right observer remains at `O`, while its left edge identifies `A` as the
+observation. Two identities can also produce a changing right orbit:
+
+```text
+A = [A, B]
+B = [B, A]
+```
+
+The observed sequence is `A -> B -> A`. These are exact pointer graphs, not
+claims that every useful observer has one of these forms.
+
+The current symbolic source for a two-state permutation is larger:
+
+```lisp
+((swap (x y) (swap (y x)))
+ (swap (a b)))
+```
+
+Its selected graph contains five reachable pair identities. It retains the two
+argument configurations as well as the two recurrent states and their shared
+identity. Constructing the same five identities directly with references gives
+an isomorphic graph. Comparing this authored image with the two-identity orbit
+separates compiler and history costs from the minimal observer substrate.
+
+It may be useful to enumerate small finite observers and compare them. What
+counts as a distinct observer remains open. We might classify pointer
+structure, authored recurrence, pair nesting, observable orbit, or some
+combination of them. These classifications need not produce the same sequence
+or identify the same graphs. Any enumeration should therefore preserve the
+generated structures and state its chosen equivalence explicitly, so that
+other classifications can be applied later.
 
 The source-authored dashboard demonstrates a richer observer: its recursive
 calls carry history, focus, next, and appearance through preauthored
@@ -580,9 +642,10 @@ the device layer.
 
 ## Open questions
 
-- What is the general representation and application rule for a function value
-  returned by an authored function? Left-nested application of a foreign
-  function value is established at the projection boundary.
+- An authored definition returned by an application can be applied again by
+  left nesting, and a foreign function can be applied at the projection
+  boundary. What other graph identities, if any, should be callable without
+  first being named as definitions?
 - How should dynamic browser event arguments enter an authored continuation
   without giving the device authority to choose graph structure?
 - Does route selection need any identity comparison not already authorable from

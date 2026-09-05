@@ -83,6 +83,22 @@ const symbolText = symbol => typeof symbol === 'function'
   ? symbol.name || 'function'
   : String(symbol)
 
+const preceding = (context, target) => {
+  const seen = new Map()
+
+  const visit = (node, path = '$') => {
+    if (node === target) return true
+    if (!Array.isArray(node) || seen.has(node)) return false
+
+    seen.set(node, path)
+    return node.some((child, index) =>
+      visit(child, `${path}.${index}`))
+  }
+
+  if (context) visit(context)
+  return seen
+}
+
 const graphDocument = (
   node,
   legend,
@@ -162,8 +178,17 @@ const layoutTokens = (document, width, column = 0) => {
   return { tokens, column: end + 1 }
 }
 
-const graphTokens = (node, { labels, legend, width, repeat } = {}) =>
-  layoutTokens(graphDocument(node, legend, repeat, labels), width).tokens
+const graphTokens = (
+  node,
+  { context, labels, legend, width, repeat } = {}
+) => layoutTokens(graphDocument(
+  node,
+  legend,
+  repeat,
+  labels,
+  '$',
+  preceding(context, node)
+), width).tokens
 
 const tokensToText = tokens =>
   tokens.map(token => token.text).join('')
@@ -198,6 +223,7 @@ const renderTokens = (tokens, { format, scheme }) => {
 export const serialize = (
   graph,
   {
+    context,
     format = 'text',
     labels = false,
     legend,
@@ -205,6 +231,7 @@ export const serialize = (
     width = DEFAULT_WIDTH
   } = {}
 ) => renderTokens(graphTokens(graph, {
+  context,
   labels,
   legend,
   width,

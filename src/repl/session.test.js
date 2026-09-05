@@ -4,6 +4,7 @@ import { link, serialize } from '../graph/index.js'
 import { submit, undo } from './session.js'
 
 const output = linked => serialize(linked.result ?? linked.focus, {
+  context: linked.graph,
   labels: true,
   legend: linked.legend
 })
@@ -19,6 +20,14 @@ test('appends submissions as causally ordered forms', () => {
   ])
   assert.equal(output(applied), 'a')
   assert.equal(output(followed), 'b')
+})
+
+test('prints an application result within its accumulated Root', () => {
+  const I = submit(undefined, '(I x x)')
+  const S = submit(I, '(S (a b c) ((a c) (b c)))')
+  const applied = submit(S, '(S a b c)')
+
+  assert.equal(output(applied), '((a c) (b c))')
 })
 
 test('matches the equivalent authored program', () => {

@@ -82,6 +82,23 @@ describe('serialize', () => {
       '(step before after)')
   })
 
+  test('renders a selected graph within its preceding context', () => {
+    const b = []
+    const c = []
+    b[0] = b[1] = b
+    c[0] = c[1] = c
+    const args = [b, c]
+    const result = [[args, c], [b, c]]
+    const root = [args, result]
+    identify(args, 'a')
+    identify(b, 'b')
+    identify(c, 'c')
+
+    assert.equal(
+      print(result, { context: root, labels: true }),
+      '((a c) (b c))')
+  })
+
   test('does not duplicate a label that occupies the left state', () => {
     const following = []
     const transition = []
