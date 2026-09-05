@@ -13,13 +13,15 @@ const source = readFileSync(
 const program = () => assemble(parse(source))
 
 test('assembles causally named pair values', () => {
-  const { names } = assemble(parse(`
+  const { graph, names } = assemble(parse(`
     ((left left)
      (right left left))
   `))
   const left = names.get('left')
   const right = names.get('right')
 
+  assert.equal(graph[0], left)
+  assert.equal(graph[1], right)
   assert.equal(left[0], left)
   assert.equal(left[1], left)
   assert.equal(right[0], left)

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { link } from '../../graph/index.js'
 import { unfold } from './direct.js'
+import { expand } from './expand.js'
 
 const compile = source => {
   const linked = link(source)
@@ -92,4 +93,22 @@ test('expands a finite orbit into direct transition functions', () => {
   assert.equal(middle[1][1][1], B)
   assert.equal(result[1][0], first)
   assert.equal(result[1][1][1], A)
+})
+
+test('carries history through a linked recurrent graph', () => {
+  const linked = compile(`
+    ((swap (x y) (swap (y x)))
+     (swap (A B)))
+  `)
+  const { pair } = language()
+  const initial = expand(pair, linked.focus)
+  const result = unfold(initial)
+  const middle = result[1][1][0]
+
+  assert.equal(middle[1][1][0], initial)
+  assert.equal(middle[1][1][1], linked.focus[1])
+  assert.notEqual(middle[1][0], initial[1][0])
+  assert.equal(result[1][1][0], middle)
+  assert.equal(result[1][1][1], linked.focus)
+  assert.equal(result[1][0], initial[1][0])
 })
