@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { observe } from './observe.js'
+import { observe } from '../../repl/observe.js'
 import { unfold } from './unfold.js'
 
 const fixed = () => {
