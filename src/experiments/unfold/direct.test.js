@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { link } from '../../graph/index.js'
+import { observe } from '../../repl/observe.js'
 import { unfold } from './direct.js'
 import { expand } from './expand.js'
 
@@ -11,6 +12,14 @@ const compile = source => {
 }
 
 const output = linked => linked.focus[1]
+
+const configurations = (origin, root, result = []) => root === origin
+  ? [origin[1][1], ...result]
+  : configurations(
+      origin,
+      root[1][1][0],
+      [root[1][1][1], ...result]
+    )
 
 const fixed = () => {
   const identity = []
@@ -111,4 +120,8 @@ test('carries history through a linked recurrent graph', () => {
   assert.equal(result[1][1][0], middle)
   assert.equal(result[1][1][1], linked.focus)
   assert.equal(result[1][0], initial[1][0])
+  assert.deepEqual(
+    configurations(initial, result),
+    observe(linked.focus).steps
+  )
 })
