@@ -2,7 +2,12 @@ import { decompose } from '../../graph/index.js'
 
 const isSymbol = value => typeof value === 'string'
 
-/** Give a sequence of raw pair values shared identities by name. */
+/**
+ * Give raw pair values shared identities by name.
+ *
+ * A name is visible within its value and every following form. A single value
+ * fills its right side; two or more values fill both sides of its pair.
+ */
 export const assemble = tree => {
   const names = new Map()
 

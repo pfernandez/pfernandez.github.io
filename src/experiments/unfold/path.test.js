@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { observe } from '../../repl/observe.js'
-import { unfold } from './unfold.js'
+import { unfold } from './path.js'
 
 const fixed = () => {
   const identity = []

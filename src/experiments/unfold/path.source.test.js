@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { parse } from '../../graph/index.js'
 import { assemble } from './assemble.js'
-import { unfold } from './unfold.js'
+import { unfold } from './path.js'
 
 const source = readFileSync(
-  new URL('./unfold.lisp', import.meta.url),
+  new URL('./path.lisp', import.meta.url),
   'utf8'
 )
 

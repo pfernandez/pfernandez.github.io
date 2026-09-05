@@ -1,6 +1,6 @@
 ; Raw pair assembly. A name identifies the pair made from everything after it.
-; With one following value, its missing left side refers to itself. Only names
-; introduced above a form are visible within it.
+; With one following value, its missing left side refers to itself. A form's
+; name is visible within itself; every other name must have appeared above it.
 
 ((left left)
  (right left left)
