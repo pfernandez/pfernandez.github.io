@@ -182,6 +182,21 @@ describe('link', () => {
     assert.notEqual(result, focus)
   })
 
+  test('composes successive applications as sibling transitions', () => {
+    const flat = linked('((I x x) (I a) (I b))')
+    const nested = linked('((I x x) ((I a) (I b)))')
+    const [first, second] = flat.graph[1]
+
+    assert.equal(name(flat.legend, first[0]), 'a')
+    assert.equal(first[1], first[0])
+    assert.equal(name(flat.legend, second[0]), 'b')
+    assert.equal(second[1], second[0])
+    assert.equal(flat.focus, second)
+    assert.equal(flat.result, second[1])
+    assert.equal(name(nested.legend, nested.focus[0]), 'b')
+    assert.equal(nested.result, nested.focus[1])
+  })
+
   test('does not introduce an unused argument into the result', () => {
     const { focus: application } = linked(`
     ((K (x y) x)
@@ -260,21 +275,21 @@ describe('link', () => {
     assert.equal(result[1][1], args[1])
   })
 
-  test('continues from the result of a completed application', () => {
-    const { graph, focus: second, legend } = linked(`
+  test('does not continue from a non-callable result', () => {
+    const { graph, focus, result, legend } = linked(`
     ((S (x y z) ((x z) (y z)))
      ((S (a b c)) d))
     `)
-    const [first] = graph[1]
-    const [args, result] = first
+    const [first, second] = graph[1]
+    const [args, applied] = first
 
-    assert.equal(graph[1][1], second)
-    assert.equal(second[0], result)
-    assert.equal(name(legend, second[1]), 'd')
-    assert.equal(result[0][0], args)
-    assert.equal(result[0][1], args[1])
-    assert.equal(result[1][0], args[0])
-    assert.equal(result[1][1], args[1])
+    assert.equal(focus, second)
+    assert.equal(result, undefined)
+    assert.equal(name(legend, second), 'd')
+    assert.equal(applied[0][0], args)
+    assert.equal(applied[0][1], args[1])
+    assert.equal(applied[1][0], args[0])
+    assert.equal(applied[1][1], args[1])
   })
 
   test('binds an excess right-nested argument to the final parameter', () => {
@@ -366,6 +381,18 @@ describe('link', () => {
     assert.equal(closure[1], first[0])
     assert.equal(name(legend, args), 'b')
     assert.equal(result, first[0])
+  })
+
+  test('applies a returned definition to a completed result', () => {
+    const { focus, legend } = linked(`
+    ((F x (G y x))
+     (I x x)
+     ((F a) (I b)))
+    `)
+    const [args, result] = focus
+
+    assert.equal(name(legend, args), 'b')
+    assert.equal(name(legend, result), 'a')
   })
 
   test('ties recurrence through a captured definition', () => {

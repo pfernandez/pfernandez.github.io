@@ -170,13 +170,18 @@ export const compose = connected => {
       return retain(graph, applied)
     }
 
-    // A later state continues from the result of a completed application.
-    if (chain && previous.result) {
-      const application = graph[1] = [previous.result, graph[1]]
+    // A completed application can begin another application only when its
+    // result is callable. Otherwise the following state remains its sibling.
+    if (chain && previous.result && applicable(previous.result)) {
+      const argument = value(following)
+      const application = [previous.result, argument]
       owner.set(application, ownedBy)
       const applied = definitions.has(application[0])
         ? instantiate(application, states)
         : context(application, application, application)
+      graph[1] = following.graph === argument
+        ? applied.graph
+        : [following.graph, applied.graph]
       return retain(graph, applied)
     }
 

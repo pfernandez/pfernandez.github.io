@@ -11,12 +11,14 @@ const output = linked => serialize(linked.result ?? linked.focus, {
 test('appends submissions as causally ordered forms', () => {
   const defined = submit(undefined, '(I x x)')
   const applied = submit(defined, '(I a)')
+  const followed = submit(applied, '(I b)')
 
   assert.deepEqual(applied.ast, [
     ['I', 'x', 'x'],
     ['I', 'a']
   ])
   assert.equal(output(applied), 'a')
+  assert.equal(output(followed), 'b')
 })
 
 test('matches the equivalent authored program', () => {

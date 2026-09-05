@@ -60,9 +60,9 @@ const walk = (all = settings.steps) => {
   else print(observation.focus)
 }
 
-const output = () => session?.result || settings.steps
+const output = () => settings.steps
   ? walk()
-  : print(session?.focus)
+  : print(session?.result ?? session?.focus)
 
 const command = line => {
   const [name, value] = line.split(/\s+/, 2)
