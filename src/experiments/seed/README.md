@@ -129,6 +129,39 @@ indefinitely. A simultaneous knot is therefore necessary for some finite
 multi-identity pointer cycles, but not for recurrent computation. Repeated
 observer states can unfold temporally from an acyclic definition body.
 
+## Thin compiler comparison
+
+`compile.js` connects a deliberately small functional source subset directly
+to the contextual reducer. It parses, decomposes, connects lexical identities,
+and freezes. It does not match inputs, copy bodies, materialize results, or tie
+recursive applications. Those operations did not simply disappear: the
+JavaScript reducer now interprets applications and constructs environments,
+argument stacks, and successive observation states at runtime.
+
+A unary definition is authored as `(name parameter body)` and becomes the
+self-enclosed pair `name = (name (parameter body))`. Multiple arguments remain
+ordinary nested unary definitions and applications are explicitly left-nested.
+The restriction keeps the comparison honest: currying moves structured input
+matching out of the compiler rather than hiding it in another pass.
+
+The outer source expression is a sequence of pair forms. Its complete graph is
+retained, while its final authored form is exposed as the initial focus. This
+subset deliberately does not name application results: after decomposition,
+`(result (function argument))` is indistinguishable from a unary definition.
+Supporting both meanings requires an additional source rule or annotation.
+
+The self-edge is recurrence, not a general data or function tag. The current
+reducer recognizes `(self (parameter body))` as callable structure. With no
+waiting argument, that same identity is merely observable and its body is not
+entered. This demonstrates that an unapplied function can be carried as graph
+data, while leaving a general account of inert data and quotation open.
+
+This is therefore a reference evaluator, not a replacement for the primitive
+observer. It gives an executable description of behavior that a linker or a
+future graph-authored evaluator must express. A completed runtime graph must
+already contain its transitions so that its primitive observer can remain the
+right-only walk `next(pair) = pair.right`.
+
 ## Source and REPL
 
 A source file places its sequential bindings in one outer expression, as shown

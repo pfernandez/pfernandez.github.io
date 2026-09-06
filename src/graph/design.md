@@ -251,6 +251,23 @@ must not bind that one identity to two different arguments.
 
 ## Compilation layers
 
+The construction/observation boundary is a design invariant. Compilation may
+recognize source roles, resolve names, match arguments, allocate identities,
+and connect recurrence. A completed runtime graph must already contain the
+resulting transitions. Its primitive observer does not repeat any of that work:
+
+```text
+construction: source roles -> connected transition topology
+observation:  next(pair) = pair.right
+```
+
+Moving stacks, lexical environments, application recognition, or result
+construction into a host-language observer makes that host an evaluator. Such
+an evaluator can be a useful executable specification, but it has not
+simplified the machine by making its linker smaller; it has moved the semantic
+boundary. A future graph-authored evaluator may express the same work as static
+graph transitions while leaving the primitive observer unchanged.
+
 Compilation is deliberately separated into inspectable transformations:
 
 ```text

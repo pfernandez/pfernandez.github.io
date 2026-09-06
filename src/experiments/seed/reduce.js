@@ -1,5 +1,14 @@
 import { isFixed } from '../../graph/helpers.js'
 
+/**
+ * Reference evaluator for definitions that have not been materialized.
+ *
+ * It constructs stacks, lexical environments, and successive machine states
+ * in JavaScript. That makes application semantics inspectable, but it is not
+ * the primitive observer of a completed graph. The primitive observer follows
+ * an existing right edge and performs no application or binding logic.
+ */
+
 const pair = (left, right) => Object.freeze([left, right])
 const close = (environment, graph) => pair(environment, graph)
 const environment = closure => closure[0]
