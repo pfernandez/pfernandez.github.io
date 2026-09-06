@@ -84,6 +84,51 @@ remaining question is whether the inner observer that enters, selects, and
 resolves can also be authored as transitions. Contextual observation is not
 yet declared to be the final execution model.
 
+`machine.js` expands structured input matching into explicit
+`(environment (work focus))` frames. K requires three matching transitions and
+S requires five; resolving a parameter likewise visits one carried binding per
+transition. A repeated-input check still performs an internal environment
+search, so this is not a fully graph-authored matcher. Its main result is to
+make the cost of structured native inputs visible.
+
+## Pair-local reduction
+
+`combinators.lisp` and `reduce.js` test a local way to distinguish definitions
+from returned applications without a global definition table:
+
+1. `x = (x x)` is a fixed identity and the primitive identity function.
+2. `F = (F (input body))` is a definition enclosed by its own identity.
+3. Every remaining pair is an application.
+
+The reducer carries only a left-growing argument stack and a contextual term.
+An application places its right side on the stack and enters its left side. A
+fixed identity consumes one argument by returning it. A definition associates
+one input identity with one argument and enters its unchanged body. The S
+example therefore visits its authored `((x z) (y z))` body as an intermediate
+state before the chosen fixed arguments eventually reduce to `c`.
+
+A definition body may itself be another application. The reducer evaluates
+its left side, retains its right side on the argument stack, and continues
+without copying either expression. When the final identity is fixed, it is a
+period-one observation rather than a separate terminal category.
+
+An immediately applied self-enclosed definition has the ordinary structural
+meaning of `let`. This convention adds one pair to each definition, but the
+pair is not an external tag: its left edge is the definition's own identity.
+
+`combinators.lisp` expresses curried S and K by returning self-enclosed
+definitions that retain their observed environments. The unary convention
+removes structured input matching from the reducer: more arguments are simply
+more transitions. The reducer evaluates `S K K a` to the exact identity `a`.
+This is a focused composition check, not by itself a new proof of combinatory
+completeness.
+
+The same source also authors ordinary self-application. Its finite graph was
+built by strictly sequential bindings, yet its contextual observer continues
+indefinitely. A simultaneous knot is therefore necessary for some finite
+multi-identity pointer cycles, but not for recurrent computation. Repeated
+observer states can unfold temporally from an acyclic definition body.
+
 ## Source and REPL
 
 A source file places its sequential bindings in one outer expression, as shown

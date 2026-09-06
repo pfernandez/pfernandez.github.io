@@ -1,0 +1,50 @@
+; Curried definitions close over the environments in which they are returned.
+
+((Origin (Origin Origin))
+
+ (Ix (Ix Ix))
+ (I-spec (Ix Ix))
+ (I (I I-spec))
+
+ (Kx (Kx Kx))
+ (Ky (Ky Ky))
+ (K-inner-spec (Ky Kx))
+ (K-inner (K-inner K-inner-spec))
+ (K-spec (Kx K-inner))
+ (K (K K-spec))
+
+ (Sx (Sx Sx))
+ (Sy (Sy Sy))
+ (Sz (Sz Sz))
+ (Sx-z (Sx Sz))
+ (Sy-z (Sy Sz))
+ (S-body (Sx-z Sy-z))
+ (S-inner-spec (Sz S-body))
+ (S-inner (S-inner S-inner-spec))
+ (S-middle-spec (Sy S-inner))
+ (S-middle (S-middle S-middle-spec))
+ (S-spec (Sx S-middle))
+ (S (S S-spec))
+
+ (a (a a))
+ (b (b b))
+ (c (c c))
+ (I-a (I a))
+ (K-a (K a))
+ (K-a-b (K-a b))
+ (K-b (K b))
+ (K-b-a (K-b a))
+ (S-a (S a))
+ (S-a-b (S-a b))
+ (S-a-b-c (S-a-b c))
+ (S-K (S K))
+ (S-K-K (S-K K))
+ (S-K-K-a (S-K-K a))
+
+; Self-application recurs without a forward reference or a tied knot.
+
+ (Ox (Ox Ox))
+ (O-body (Ox Ox))
+ (O-spec (Ox O-body))
+ (O (O O-spec))
+ (Omega (O O)))
