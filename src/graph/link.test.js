@@ -9,6 +9,10 @@ const linked = (source, imports) => {
 }
 const name = (legend, graph) => legend.get(graph)?.name
 const capability = (legend, graph) => legend.get(graph)?.capability
+const frames = frame => frame[1] === frame
+  ? [frame[0]]
+  : [frame[0], ...frames(frame[1])]
+const inputs = call => frames(call[1][1])
 
 describe('link', () => {
   test('retains the authored and decomposed trees', () => {
@@ -126,7 +130,7 @@ describe('link', () => {
     `, { effect, props })
     const call = linkedCall.focus
     const { legend } = linkedCall
-    const event = call[1][1]
+    const event = inputs(call)[1]
 
     assert.equal(name(legend, event), 'onclick')
     assert.equal(capability(legend, event[0][0]), effect)
@@ -141,8 +145,11 @@ describe('link', () => {
       h2: headingFunction
     })
     if (result.error) throw result.error
-    const [render, heading] = result.graph
-    const [h2, title] = heading
+    const renderCall = result.focus
+    const render = renderCall[0]
+    const heading = renderCall[1][1][0]
+    const h2 = heading[0]
+    const title = heading[1][1][0]
 
     assert.equal(capability(result.legend, render), renderFunction)
     assert.equal(render[0], render)
@@ -151,6 +158,8 @@ describe('link', () => {
     assert.equal(h2[0], h2)
     assert.equal(h2[1], h2)
     assert.equal(name(result.legend, title), 'title')
+    assert.equal('results' in result, false)
+    assert.equal('selections' in result, false)
   })
 
   test('gives flat and right-nested programs the same focus', () => {
@@ -338,8 +347,8 @@ describe('link', () => {
         (I x)))
      (render (F a)))
     `, { render })
-    const F = graph[1][0]
-    const history = graph[1][1]
+    const F = graph[0][1][0]
+    const history = graph[0][1][1]
     const application = history[0]
     const sequence = application[1]
     const local = sequence[0]
@@ -349,7 +358,7 @@ describe('link', () => {
     assert.equal(name(legend, local), 'G')
     assert.equal(name(legend, returned[1]), 'a')
     assert.equal(capability(legend, focus[0]), render)
-    assert.equal(focus[1], returned[1])
+    assert.equal(focus[1][1][0], returned[1])
   })
 
   test('keeps application bindings local', () => {
@@ -486,21 +495,16 @@ describe('link', () => {
          (onclick (app A))))
      (app B))
     `, { button })
-    const body = initial[1]
-    const [stay, reset] = body[1]
+    const [stay, reset] = inputs(initial)
     const resetBody = reset[1]
-    const [resetStay, resetAgain] = resetBody[1]
+    const [resetStay, resetAgain] = inputs(resetBody)
 
-    assert.equal(capability(legend, body[0]), button)
-    assert.equal(name(legend, initial[0]), 'B')
-    assert.equal(stay[0], stay)
+    assert.equal(capability(legend, initial[0]), button)
     assert.equal(stay[1], initial)
     assert.equal(name(legend, reset[0]), 'A')
     assert.equal(capability(legend, resetBody[0]), button)
-    assert.equal(resetStay[0], resetStay)
-    assert.equal(resetStay[1], reset)
-    assert.equal(resetAgain[0], resetAgain)
-    assert.equal(resetAgain[1], reset)
+    assert.equal(resetStay[1][1], resetBody)
+    assert.equal(resetAgain[1][1], resetBody)
   })
 
   test('returns graph and focus together when linking fails', () => {

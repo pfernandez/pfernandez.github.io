@@ -9,15 +9,27 @@ test('decomposes sequences into right-nested pairs', () => {
 })
 
 test('treats flat and right-nested forms alike', () => {
-  assert.deepEqual(
-    decompose(parse('(a b c)')),
-    decompose(parse('(a (b c))')))
+  const flat = decompose(parse('(a b c)'))
+  const nested = decompose(parse('(a ((b c)))'))
+
+  assert.deepEqual(flat, nested)
+  assert.equal(flat[1].sequence, true)
+  assert.equal(nested[1].sequence, true)
 })
 
 test('preserves left nesting', () => {
-  assert.deepEqual(
-    decompose(parse('((a b) c)')),
-    [['a', 'b'], 'c'])
+  const pairs = decompose(parse('((a b) c)'))
+
+  assert.deepEqual(pairs, [['a', 'b'], 'c'])
+  assert.equal(pairs[0].sequence, undefined)
+  assert.equal(pairs.sequence, undefined)
+})
+
+test('marks only pairs reached by proceeding right as sequences', () => {
+  const pairs = decompose(parse('(a b c)'))
+
+  assert.equal(pairs.sequence, undefined)
+  assert.equal(pairs[1].sequence, true)
 })
 
 test('collapses singleton grouping', () => {

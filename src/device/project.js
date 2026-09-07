@@ -6,23 +6,17 @@ const fixed = pair => left(pair) === pair && right(pair) === pair
 export const project = ({
   source,
   focus,
-  result,
-  results,
-  selections,
   legend
 }) => {
   const active = new Set()
   const entry = pair => legend.get(pair)
   const symbol = pair => entry(pair)?.capability ?? entry(pair)?.name
-  const isCall = pair => typeof entry(left(pair))?.capability === 'function'
+  // Materialization encloses every device input in an anonymous left-fixed
+  // pair. No ordinary sibling sequence receives this wrapper.
+  const isCall = pair => !legend.has(right(pair))
+    && left(right(pair)) === right(pair)
 
   const evaluate = pair => {
-    // Construction remains in Root while its authored result crosses the
-    // device boundary.
-    const selected = !legend.has(pair)
-      && (selections?.get(pair) ?? results?.get(pair))
-    if (selected && selected !== pair) return evaluate(selected)
-
     // Device projection currently replaces a recurring identity with its name;
     // another adapter could instead preserve the shared reference.
     if (active.has(pair)) return symbol(pair)
@@ -39,13 +33,6 @@ export const project = ({
 
       if (isCall(pair)) return invoke(pair)
 
-      if (isCall(left(pair))) {
-        const returned = evaluate(left(pair))
-        if (typeof returned !== 'function')
-          throw new TypeError('Capability result is not callable')
-        return returned(...list(right(pair)).map(evaluate))
-      }
-
       return pair.map(evaluate)
     } finally {
       active.delete(pair)
@@ -53,24 +40,30 @@ export const project = ({
   }
 
   const invoke = pair => {
-    const fn = entry(left(pair))?.capability
-    const argument = right(pair)
+    const capability = entry(left(pair))?.capability
+    const fn = capability ?? evaluate(left(pair))
+    if (typeof fn !== 'function')
+      throw new TypeError('Capability result is not callable')
+
+    const argumentGraph = right(right(pair))
+    const inputs = fn.raw ? [argumentGraph] : list(argumentGraph)
+    const argument = inputs[0]
+    if (!capability) return fn(...inputs.map(evaluate))
+
     return fn({
       argument,
-      args: (node = argument) => list(node),
+      args: () => inputs,
       evaluate,
       legend,
       source,
-      values: (node = argument) => list(node).map(evaluate)
+      values: () => inputs.map(evaluate)
     })
   }
 
-  const list = pair =>
-    legend.has(pair) || isCall(pair) || results?.has(pair)
-      ? [pair]
-      : [left(pair), ...list(right(pair))]
+  // Each input is a frame's left observation. The last frame returns to itself.
+  const list = frame => right(frame) === frame
+    ? [left(frame)]
+    : [left(frame), ...list(right(frame))]
 
-  // The source-selected result is the host entrypoint when one is exposed;
-  // otherwise the host begins at the complete final focus.
-  return evaluate(result ?? focus)
+  return evaluate(focus)
 }

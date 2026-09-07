@@ -274,13 +274,17 @@ Compilation is deliberately separated into inspectable transformations:
 source -> parse -> AST -> decompose -> pairs
        -> connect -> connected identities
        -> compose -> application graph
+       -> materialize -> device graph
        -> finalize -> frozen Root
 ```
 
 Each layer has one kind of knowledge:
 
 - `parse(source)` recognizes source text and preserves authored sequences.
-- `decompose(ast)` lowers every sequence to pairs without resolving names.
+- `decompose(ast)` lowers every sequence to pairs without resolving names. A
+  temporary, non-enumerable marker distinguishes a pair reached by proceeding
+  right from explicitly left-nested source. `connect` consumes that marker;
+  it is not part of the connected or runtime graph.
 - `connect(pairs, imports)` returns a connected artifact that replaces
   spellings with lexically visible
   identities. It records definitions, inputs, applications, and ownership in
@@ -294,8 +298,16 @@ Each layer has one kind of knowledge:
   recurring configurations. Non-callable results do not absorb following
   siblings. Its `results` table identifies completed applications, while
   `selections` records which value a retained construction sequence exposes.
-  The connected input remains unchanged.
-- `finalize(composed)` closes every remaining one-edge construction frontier
+  It also records each device call's argument root. These tables are
+  construction facts only. The connected input remains unchanged.
+- `materialize(composed)` follows those construction-time selections once and
+  turns device arguments into graph structure. Each argument occupies the left
+  side of a recurrent frame. A self-naming left wrapper separates those frames
+  from the callable identity, so returned-function application cannot be
+  confused with an ordinary sibling sequence. The complete composed graph is
+  retained on Root's left and its device-ready observation is on Root's right.
+  No result-selection table crosses the runtime boundary.
+- `finalize(materialized)` closes every remaining one-edge construction frontier
   into a fixed atom and freezes the reachable Root.
 - `link(program, imports)` only coordinates those layers and reports errors.
 
@@ -308,9 +320,10 @@ temporary `[self]` frontiers and compiler tables that have no runtime
 representation.
 
 Separating connection from composition also gives names a clean lifetime.
-Only `connect` interprets source strings. `compose` works with identities and
-its tables, while the device and serializer consult the legend without adding
-names to graph cells.
+Only `connect` interprets source strings. `compose` and `materialize` work with
+identities and compiler tables. The runtime projector receives only Root,
+focus, source, and legend; it consults no result or selection map. The device
+and serializer consult the legend without adding names to graph cells.
 
 The serializer may render a selected graph within its complete Root. Identities
 encountered earlier in that context appear by name instead of being expanded

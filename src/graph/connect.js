@@ -20,6 +20,7 @@ export const connect = (pairs, imports = {}) => {
   const namedValues = new Set()
   const parameters = new Set()
   const root = Symbol()
+  const sequences = new Set()
 
   const identify = (graph, name, capability) => {
     const entry = { name }
@@ -198,6 +199,7 @@ export const connect = (pairs, imports = {}) => {
     const after = next(right, before.scope)
     graph[0] = before.graph
     graph[1] = after.graph
+    if (expression.sequence) sequences.add(graph)
     return context(graph, after.scope)
   }
 
@@ -210,6 +212,7 @@ export const connect = (pairs, imports = {}) => {
     namedValues,
     owner,
     root,
+    sequences,
     values
   }
 }

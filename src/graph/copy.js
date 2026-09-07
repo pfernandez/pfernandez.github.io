@@ -30,6 +30,7 @@ export const copyConnected = connected => {
     calls: set(connected.calls),
     fills: set(connected.fills),
     namedValues: set(connected.namedValues),
+    sequences: set(connected.sequences),
     values: set(connected.values),
     legend: map(connected.legend),
     owner: new Map([...connected.owner].map(([key, value]) =>
@@ -56,6 +57,7 @@ export const copyBody = (definition, bindings, image) => {
     legend,
     namedValues,
     owner,
+    sequences,
     values
   } = image
   const copies = new Map(bindings)
@@ -92,6 +94,7 @@ export const copyBody = (definition, bindings, image) => {
     if (calls.has(source)) calls.add(target)
     if (fills.has(source)) fills.add(target)
     if (namedValues.has(source)) namedValues.add(target)
+    if (sequences.has(source)) sequences.add(target)
     if (values.has(source)) values.add(target)
     return target
   }

@@ -132,6 +132,17 @@ test('passes a completed application as one selected argument', () => {
     ['effect:A', 'B'])
 })
 
+test('passes a pair-valued result as one device argument', () => {
+  const collect = ({ values }) => values()
+
+  assert.deepEqual(
+    view(`
+      ((pair x (x x))
+       (collect (pair A)))
+    `, { collect }),
+    [['A', 'A']])
+})
+
 test('rejects applying a returned value that is not a function', () => {
   assert.throws(
     () => view('((text Hello) World)'),

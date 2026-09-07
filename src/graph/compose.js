@@ -51,9 +51,13 @@ export const compose = connected => {
     legend,
     namedValues,
     owner,
+    sequences,
     values
   } = image
   const materialized = new Map()
+  // Device argument boundaries exist only until materialization turns them
+  // into recurrent argument frames.
+  const inputs = new Map()
   // Results make completed applications atomic when passed as arguments.
   const results = new Map()
   // Selections preserve construction history while exposing its final value.
@@ -71,6 +75,8 @@ export const compose = connected => {
   const value = state => exposed(output(state)) ?? output(state)
   const callable = graph =>
     definitions.has(graph) || legend.get(graph)?.capability
+  const remember = (application, state) =>
+    inputs.set(application, state.graph)
   const suspended = graph => !legend.has(graph)
     && definitions.has(graph?.[0])
     && !results.has(graph)
@@ -104,6 +110,7 @@ export const compose = connected => {
       const argument = walk(right, states, ownedBy, chain)
       graph[0] = left
       graph[1] = value(argument)
+      if (legend.get(left)?.capability) remember(graph, argument)
       const applied = definitions.has(left) || suspended(left)
         ? instantiate(graph, states)
         : context(graph)
@@ -155,8 +162,12 @@ export const compose = connected => {
     // A right state applies a value returned by a foreign call on its left.
     // The host result remains unknown until projection, so retain this pair as
     // the observable application.
-    if (calls.has(left) && legend.get(left[0])?.capability)
+    if (!sequences.has(expression)
+      && calls.has(left)
+      && legend.get(left[0])?.capability) {
+      remember(graph, following)
       return context(graph)
+    }
 
     // Definitions and named values extend history while exposing the next
     // sibling. Their own results do not continue into that sibling.
@@ -232,6 +243,7 @@ export const compose = connected => {
   return {
     focus: composed.focus,
     graph: composed.graph,
+    inputs,
     legend,
     result: composed.result,
     results,

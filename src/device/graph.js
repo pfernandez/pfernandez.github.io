@@ -14,3 +14,6 @@ export const graph = {
       scheme: evaluate(right(argument))
     })
 }
+
+// Serialization observes graph identity itself rather than its projected value.
+graph.serialize.raw = true

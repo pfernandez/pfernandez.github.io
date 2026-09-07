@@ -2,6 +2,7 @@ import { compose } from './compose.js'
 import { connect } from './connect.js'
 import { decompose } from './decompose.js'
 import { finalize } from './finalize.js'
+import { materialize } from './materialize.js'
 import { parse } from './parse.js'
 
 /**
@@ -9,7 +10,8 @@ import { parse } from './parse.js'
  *
  * Parsing retains authored sequences, decomposition lowers them to pairs,
  * connection replaces spellings with lexical identities, composition builds
- * application results, and finalization closes and freezes the graph.
+ * application results, materialization exposes device inputs as frames, and
+ * finalization closes and freezes the graph.
  */
 export const link = (program, imports = {}) => {
   let source
@@ -20,7 +22,7 @@ export const link = (program, imports = {}) => {
     const pairs = decompose(ast)
     const connected = connect(pairs, imports)
     const composed = compose(connected)
-    const finalized = finalize(composed)
+    const finalized = finalize(materialize(composed))
 
     return {
       source,
@@ -30,8 +32,6 @@ export const link = (program, imports = {}) => {
       graph: finalized.graph,
       focus: finalized.focus,
       result: finalized.result,
-      results: finalized.results,
-      selections: finalized.selections,
       legend: finalized.legend
     }
   } catch (error) {
@@ -41,8 +41,6 @@ export const link = (program, imports = {}) => {
       graph,
       focus: graph,
       result: undefined,
-      results: new Map(),
-      selections: new Map(),
       legend: new Map(),
       error
     }

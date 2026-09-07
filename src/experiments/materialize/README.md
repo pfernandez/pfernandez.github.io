@@ -30,9 +30,8 @@ or application.
 
 The JavaScript transition functions in the tests stand in for link-time
 construction. They are not proposed runtime capabilities or a graph-authored
-evaluator. The experiment proves a target topology; integrating it with source
-requires the production linker to emit the same separation between retained
-history and directly consumed values.
+evaluator. This experiment established the target topology now used by the
+production linker's separate `materialize` stage.
 
 `link.js` performs that complete sequence for the finite unary source subset.
 It connects ordinary source through the seed compiler, runs the contextual
@@ -41,8 +40,8 @@ static recurrent observer graph. Its returned runtime artifact contains only
 `graph`, `focus`, and `legend`; the runtime observer needs no evaluator state,
 `results`, or `selections`.
 
-This does not yet replace production composition. Structured inputs, named
-application results, and devices remain outside the subset.
+This still does not replace production composition. Its thin source subset is
+kept as the smaller proof from which the production materializer was derived.
 
 Recurring reduction is handled during linking. Program identities compare by
 reference; temporary stacks, environments, and closures compare by pair
