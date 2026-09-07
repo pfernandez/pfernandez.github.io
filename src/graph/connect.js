@@ -15,7 +15,6 @@ export const connect = (pairs, imports = {}) => {
   const calls = new Set()
   const legend = new Map()
   const owner = new Map()
-  const values = new Set()
   const fills = new Set()
   const namedValues = new Set()
   const parameters = new Set()
@@ -122,7 +121,6 @@ export const connect = (pairs, imports = {}) => {
       graph[0] = visible
       graph[1] = argument.graph
       calls.add(graph)
-      values.add(argument.graph)
       return context(graph, scope)
     }
 
@@ -156,7 +154,7 @@ export const connect = (pairs, imports = {}) => {
       identify(graph, left)
       const local = extend(scope, left, graph)
       const frame = { scope: local, parameters: new Set() }
-      definitions.set(graph, { parameters: frame.parameters })
+      definitions.set(graph, frame.parameters)
 
       const input = next(right[0], local, { frame, ownedBy: graph })
       const body = next(right[1], input.scope, {
@@ -165,11 +163,6 @@ export const connect = (pairs, imports = {}) => {
       })
       graph[0] = input.graph
       graph[1] = body.graph
-      definitions.set(graph, {
-        input: input.graph,
-        body: body.graph,
-        parameters: frame.parameters
-      })
       return context(graph, extend(scope, left, graph))
     }
 
@@ -212,7 +205,6 @@ export const connect = (pairs, imports = {}) => {
     namedValues,
     owner,
     root,
-    sequences,
-    values
+    sequences
   }
 }

@@ -10,7 +10,7 @@ const composed = (source, imports) =>
 
 test('builds a fresh graph without changing connected identities', () => {
   const connected = connect(decompose(parse('((I x x) (I a))')))
-  const input = connected.definitions.get(connected.graph[0]).input
+  const input = connected.graph[0][0]
   const argument = connected.graph[1][1]
   const composed = compose(connected)
 

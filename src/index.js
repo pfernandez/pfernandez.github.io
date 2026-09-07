@@ -1,10 +1,9 @@
 import './style.css'
-import { program } from './device/files.js'
-import { capabilities, project } from './device/index.js'
-import { link } from './graph/index.js'
+import { elements, render } from '@pfern/elements'
+import source from './experiments/link/dashboard.lisp?raw'
+import { link } from './experiments/link/link.js'
+import { project } from './experiments/link/project.js'
+import { decompose } from './graph/decompose.js'
+import { parse } from './graph/parse.js'
 
-const graph = link(program(), capabilities())
-
-if (graph.error) throw graph.error
-
-project(graph)
+project(link(decompose(parse(source)), { render, ...elements }))

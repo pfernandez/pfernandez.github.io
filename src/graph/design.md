@@ -290,7 +290,9 @@ Each layer has one kind of knowledge:
   identities. It records definitions, inputs, applications, and ownership in
   identity-keyed compiler tables. It also distinguishes named application
   values from ordinary calls and records names and capabilities in the legend,
-  but applies nothing.
+  but applies nothing. Definition inputs and bodies remain the definition's
+  own left and right edges; its table entry retains only the parameter
+  identities that structured matching still needs.
 - `compose(connected)` copies that artifact, matches argument identities,
   copies definition bodies through one explicit allocation boundary, exposes
   results, completes suspended applications, begins new applications from
@@ -329,6 +331,36 @@ The serializer may render a selected graph within its complete Root. Identities
 encountered earlier in that context appear by name instead of being expanded
 again inside the selection. This changes presentation only; it neither selects
 a focus nor adds information to the graph.
+
+### Construction metadata audit
+
+Compiler tables do not all have the same status:
+
+- Lexical scope, `owner`, and the parameter sets are temporary construction
+  state. They let nested definitions be copied with their private identities
+  while sharing identities inherited from enclosing scopes.
+- `calls`, `sequences`, `fills`, and `namedValues` preserve distinctions made
+  by the source walk that are not always recoverable from the connected pair
+  alone. In particular, a definition followed by a sibling and that same
+  definition applied to an argument can have the same local pair shape after
+  a naming prefix has disappeared.
+- `results`, `selections`, and device `inputs` describe values exposed by
+  completed construction. `materialize` consumes them and writes the needed
+  distinctions into recurrent pair structure; they do not cross the runtime
+  boundary.
+- The legend is edge metadata for authors and devices, not machine state.
+  The runtime graph does not use spellings to determine its transitions.
+
+One former table, `values`, only repeated traversal context: it marked the
+right side of a call so composition would not chain across that boundary.
+Composition now passes that local rule directly into its recursive walk.
+
+This audit identifies a possible simplification without assuming its answer.
+If named source boundaries become explicit self-references, some distinctions
+in the second and third groups may become locally readable topology. Retaining
+every prefix would not be equivalent: an alias `a = (b c)` and a recurrent
+container `a = (a (b c))` are different graphs. Any such change must say which
+of those structures the author requested.
 
 ## Program assembly
 

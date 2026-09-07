@@ -51,8 +51,7 @@ export const compose = connected => {
     legend,
     namedValues,
     owner,
-    sequences,
-    values
+    sequences
   } = image
   const materialized = new Map()
   // Device argument boundaries exist only until materialization turns them
@@ -107,7 +106,7 @@ export const compose = connected => {
 
     // A connected callable consumes the value exposed by its argument.
     if (calls.has(expression) && applicable(left)) {
-      const argument = walk(right, states, ownedBy, chain)
+      const argument = walk(right, states, ownedBy, false)
       graph[0] = left
       graph[1] = value(argument)
       if (legend.get(left)?.capability) remember(graph, argument)
@@ -156,7 +155,7 @@ export const compose = connected => {
     graph[0] = previous.graph
     graph[1] = right === expression ? graph : following.graph
     // A named value is one identity even when its children are pairs.
-    if (legend.has(expression) || values.has(expression))
+    if (legend.has(expression))
       return context(graph)
 
     // A right state applies a value returned by a foreign call on its left.
@@ -212,11 +211,11 @@ export const compose = connected => {
       graph[1] = args
     }
 
-    const defined = definitions.get(definition)
-    if (!defined) return context(graph)
+    const parameters = definitions.get(definition)
+    if (!parameters) return context(graph)
 
     const bindings = match(
-      defined.input, args, defined.parameters)
+      definition[0], args, parameters)
     if (!bindings) return context(graph)
 
     const identity = bindings.filter(([input]) =>

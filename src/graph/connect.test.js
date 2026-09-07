@@ -14,7 +14,7 @@ test('connects lexical identities without applying them', () => {
   `)
   const [I, application] = graph
 
-  assert.equal(definitions.get(I).input, I[0])
+  assert.equal(definitions.has(I), true)
   assert.equal(I[0][0], I[0])
   assert.equal(I[0].length, 1)
   assert.equal(application[0], I)

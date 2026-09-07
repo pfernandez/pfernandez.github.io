@@ -31,16 +31,11 @@ export const copyConnected = connected => {
     fills: set(connected.fills),
     namedValues: set(connected.namedValues),
     sequences: set(connected.sequences),
-    values: set(connected.values),
     legend: map(connected.legend),
     owner: new Map([...connected.owner].map(([key, value]) =>
       [identity(key), identity(value)])),
     definitions: new Map([...connected.definitions]
-      .map(([key, value]) => [identity(key), {
-        input: identity(value.input),
-        body: identity(value.body),
-        parameters: set(value.parameters)
-      }]))
+      .map(([key, parameters]) => [identity(key), set(parameters)]))
   }
 }
 
@@ -57,8 +52,7 @@ export const copyBody = (definition, bindings, image) => {
     legend,
     namedValues,
     owner,
-    sequences,
-    values
+    sequences
   } = image
   const copies = new Map(bindings)
 
@@ -74,18 +68,12 @@ export const copyBody = (definition, bindings, image) => {
     const entry = legend.get(source)
     if (entry) legend.set(target, entry)
 
-    const nested = definitions.get(source)
-    if (nested) {
-      const input = clone(nested.input, source, target)
-      const body = clone(nested.body, source, target)
-      target[0] = input
-      target[1] = body
-      definitions.set(target, {
-        input,
-        body,
-        parameters: new Set([...nested.parameters]
-          .map(parameter => copies.get(parameter) ?? parameter))
-      })
+    const parameters = definitions.get(source)
+    if (parameters) {
+      target[0] = clone(source[0], source, target)
+      target[1] = clone(source[1], source, target)
+      definitions.set(target, new Set([...parameters]
+        .map(parameter => copies.get(parameter) ?? parameter)))
     } else {
       target[0] = clone(source[0], sourceOwner, targetOwner)
       target[1] = clone(source[1], sourceOwner, targetOwner)
@@ -95,12 +83,11 @@ export const copyBody = (definition, bindings, image) => {
     if (fills.has(source)) fills.add(target)
     if (namedValues.has(source)) namedValues.add(target)
     if (sequences.has(source)) sequences.add(target)
-    if (values.has(source)) values.add(target)
     return target
   }
 
   return clone(
-    definitions.get(definition).body,
+    definition[1],
     definition,
     definition
   )
