@@ -431,6 +431,40 @@ A self-edge is a period-one trajectory, not termination. Longer cycles are
 longer repeating trajectories. Stopping, yielding, sampling, or displaying a
 focus belongs to an observer or its environment rather than to pair semantics.
 
+### Materialized observer frames
+
+The static materialization experiment tests a normal form that keeps an
+observed pair separate from the observer's temporal edge:
+
+```text
+observer frame = (observation next-frame)
+observed pair  = (left right)
+```
+
+These are not different node types. Both are ordinary pairs; their roles come
+from the current observer plane. The primitive transition remains exactly
+`next(frame) = frame.right`, while a device or higher observer can inspect the
+pair on `frame.left` without entering that pair's own right edge.
+
+This separation lets an application retain its construction as an earlier
+observation while a later application points directly to the exact result
+identity. A pair-valued result therefore remains one value. After a finite
+construction, the final frame can recur to itself. If a contextual
+configuration repeats, its last constructed frame can instead point to the
+earlier equivalent frame, producing a finite static orbit.
+
+The experiment links a unary functional subset, materializes finite and
+recurrent reductions before runtime, and passes one raw graph identity to a
+device capability. Its runtime artifact needs only Root, an initial focus, and
+the edge legend. It does not need runtime stacks, environments, `results`, or
+`selections`.
+
+This is not yet production behavior. Structured inputs, named application
+values, and the current variadic device interface still rely on compiler
+knowledge that the experiment omits. The normal form is useful only if those
+roles can be compiled into the same topology without moving evaluation into
+the runtime observer.
+
 An observer may retain a value on its left while returning through its right:
 
 ```text
