@@ -10,13 +10,13 @@ const sequence = graphs => graphs.length === 1
   : [graphs[0], sequence(graphs.slice(1))]
 
 /** Connect a sequence of pair-decomposed forms without applying them. */
-export const connect = forms => {
+export const connect = (forms, imports = {}) => {
   const legend = new Map()
 
-  const atom = name => {
+  const atom = (name, capability) => {
     const identity = []
     identity[0] = identity[1] = identity
-    legend.set(identity, { name })
+    legend.set(identity, capability ? { name, capability } : { name })
     return identity
   }
 
@@ -59,7 +59,10 @@ export const connect = forms => {
     return { graph: [before.graph, after.graph], scope: after.scope }
   }
 
-  let scope = new Map()
+  let scope = new Map(Object.entries(imports).map(([name, capability]) => {
+    const identity = atom(name, capability)
+    return [name, identity]
+  }))
   const graphs = forms.map(form => {
     const connected = walk(form, scope)
     scope = connected.scope
@@ -81,10 +84,10 @@ const freeze = (graph, seen = new Set()) => {
 }
 
 /** Parse, pair-decompose, connect, and freeze the functional subset. */
-export const compile = source => {
+export const compile = (source, imports) => {
   const ast = parse(source)
   const forms = ast.every?.(Array.isArray) ? ast : [ast]
-  const connected = connect(forms.map(decompose))
+  const connected = connect(forms.map(decompose), imports)
   freeze(connected.graph)
   return connected
 }

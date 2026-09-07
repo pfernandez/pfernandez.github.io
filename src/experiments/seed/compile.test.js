@@ -89,3 +89,11 @@ test('observes an unapplied definition without entering its body', () => {
   assert.equal(pending(state), false)
   assert.equal(focus(state), I)
 })
+
+test('connects an imported capability as an existing identity', () => {
+  const effect = value => value
+  const { focus, legend } = compile('(effect argument)', { effect })
+
+  assert.equal(legend.get(focus[0]).capability, effect)
+  assert.equal(legend.get(focus[1]).name, 'argument')
+})
