@@ -41,6 +41,8 @@ const project = ({ graph, legend }) => {
   const visit = node => {
     const known = legend.get(node)
     if (known) return known.capability ?? known.name
+    // An anonymous left-self pair holds its right side until it is called.
+    if (node[0] === node) return () => visit(node[1])
 
     const pair = node.map(visit)
     return typeof pair[0] === 'function' ? pair[0](pair[1]) : pair

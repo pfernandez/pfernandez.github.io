@@ -36,6 +36,10 @@ test('collapses singleton grouping', () => {
   assert.equal(decompose(parse('(x)')), 'x')
 })
 
+test('preserves authored self references', () => {
+  assert.deepEqual(decompose(parse('(() x)')), [[], 'x'])
+})
+
 test('leaves the authored tree unchanged', () => {
   const ast = parse('(a b c)')
 

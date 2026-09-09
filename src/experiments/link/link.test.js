@@ -34,3 +34,16 @@ test('connects imported functions as ordinary shared identities', () => {
   assert.equal(graph[0][0], graph[0])
   assert.equal(graph[0][1], graph[0])
 })
+
+test('() refers to its enclosing pair', () => {
+  const alert = () => undefined
+  const { graph, legend } = compile(
+    '(onclick (() (alert Hello)))',
+    { onclick: 'onclick', alert })
+  const continuation = graph[1]
+
+  assert.equal(continuation[0], continuation)
+  assert.equal(legend.has(continuation), false)
+  assert.equal(legend.get(continuation[1][0]).capability, alert)
+  assert.equal(legend.get(continuation[1][1]).name, 'Hello')
+})

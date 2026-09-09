@@ -2,4 +2,4 @@
   (html
     (body
       (button
-        (onclick (alert Hello)) Submit))))
+        (onclick (() (alert Hello))) Submit))))

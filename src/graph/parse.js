@@ -31,7 +31,6 @@ export const parse = source => {
       items.push(readForm())
     if (index >= tokens.length) err('Missing )', opener)
     index += 1
-    if (!items.length) err('Unexpected ()', opener)
     return items
   }
 
