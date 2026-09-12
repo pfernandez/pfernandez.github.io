@@ -61,3 +61,18 @@ test('a deferred frame can carry a named continuation', () => {
   assert.equal(continuation[0], continuation)
   assert.equal(continuation[1], hello)
 })
+
+test('a deferred entry can carry an argument into a named continuation', () => {
+  const alert = () => undefined
+  const { graph, legend } = compile(
+    '((hello alert) (onclick (() ((() hello) Hello))))',
+    { onclick: 'onclick', alert })
+  const hello = graph[0]
+  const deferred = graph[1][1]
+  const application = deferred[1]
+  const entry = application[0]
+
+  assert.equal(entry[0], entry)
+  assert.equal(entry[1], hello)
+  assert.equal(legend.get(application[1]).name, 'Hello')
+})

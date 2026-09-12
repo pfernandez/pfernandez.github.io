@@ -1,8 +1,7 @@
-((hello
-   (alert Hello))
+((hello alert)
 
  (render
    (html
      (body
        (button
-         (onclick (() hello)) Submit)))))
+         (onclick (() ((() hello) Hello))) Submit)))))
