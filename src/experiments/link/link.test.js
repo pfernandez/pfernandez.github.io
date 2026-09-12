@@ -76,3 +76,12 @@ test('a deferred entry can carry an argument into a named continuation', () => {
   assert.equal(entry[1], hello)
   assert.equal(legend.get(application[1]).name, 'Hello')
 })
+
+test('a nested continuation can return to its enclosing identity', () => {
+  const { graph: A, legend } = compile('(A (() (B (() A))))')
+  const B = A[1][1]
+
+  assert.equal(legend.get(A).name, 'A')
+  assert.equal(legend.get(B).name, 'B')
+  assert.equal(B[1][1], A)
+})

@@ -1,7 +1,12 @@
-((hello alert)
+((A
+   (div
+     (p A)
+     (button
+       (onclick
+         (() (B (div (p B) (button (onclick (() A)) Next)))))
+       Next)))
 
  (render
    (html
      (body
-       (button
-         (onclick (() ((() hello) Hello))) Submit)))))
+       ((component (() A)) A)))))

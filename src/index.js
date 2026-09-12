@@ -1,5 +1,5 @@
 import './style.css'
-import { elements, render } from '@pfern/elements'
+import { component, elements, render } from '@pfern/elements'
 import source from './experiments/link/dashboard.lisp?raw'
 import { link } from './experiments/link/link.js'
 import { decompose } from './graph/decompose.js'
@@ -29,7 +29,7 @@ const adapt = fn => value => {
 }
 
 const imports = {
-  alert: window.alert.bind(window),
+  component: adapt(component),
   render,
   onclick: 'onclick',
   ...Object.fromEntries(
