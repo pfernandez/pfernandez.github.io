@@ -47,3 +47,17 @@ test('() refers to its enclosing pair', () => {
   assert.equal(legend.get(continuation[1][0]).capability, alert)
   assert.equal(legend.get(continuation[1][1]).name, 'Hello')
 })
+
+test('a deferred frame can carry a named continuation', () => {
+  const alert = () => undefined
+  const { graph, legend } = compile(
+    '((hello (alert Hello)) (onclick (() hello)))',
+    { onclick: 'onclick', alert })
+  const hello = graph[0]
+  const continuation = graph[1][1]
+
+  assert.equal(hello[0], hello)
+  assert.equal(legend.get(hello).name, 'hello')
+  assert.equal(continuation[0], continuation)
+  assert.equal(continuation[1], hello)
+})

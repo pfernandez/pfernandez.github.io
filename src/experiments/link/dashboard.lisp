@@ -1,5 +1,8 @@
-(render
-  (html
-    (body
-      (button
-        (onclick (() (alert Hello))) Submit))))
+((hello
+   (alert Hello))
+
+ (render
+   (html
+     (body
+       (button
+         (onclick (() hello)) Submit)))))
