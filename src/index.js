@@ -33,7 +33,9 @@ const project = ({ graph, legend }) => {
 
   const lookup = (node, legend) => {
     const entry = legend.get(node)
-    return entry?.value ?? entry?.name
+    return entry && Object.hasOwn(entry, 'value')
+      ? entry.value
+      : entry?.name
   }
 
   const next = node => isContinuation(node) ? node[1] : node
@@ -46,7 +48,7 @@ const project = ({ graph, legend }) => {
 
   const visit = node => {
     const known = lookup(node, legend)
-    if (known) return known
+    if (known !== undefined) return known
 
     if (isContinuation(node)) return suspend(node[1], visit)
 

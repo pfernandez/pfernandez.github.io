@@ -29,7 +29,7 @@ test('connects imported functions as ordinary shared identities', () => {
   const show = () => undefined
   const { graph, legend } = compile('(show value)', { show })
 
-  assert.equal(legend.get(graph[0]).capability, show)
+  assert.equal(legend.get(graph[0]).value, show)
   assert.equal(legend.get(graph[1]).name, 'value')
   assert.equal(graph[0][0], graph[0])
   assert.equal(graph[0][1], graph[0])
@@ -44,7 +44,7 @@ test('() refers to its enclosing pair', () => {
 
   assert.equal(continuation[0], continuation)
   assert.equal(legend.has(continuation), false)
-  assert.equal(legend.get(continuation[1][0]).capability, alert)
+  assert.equal(legend.get(continuation[1][0]).value, alert)
   assert.equal(legend.get(continuation[1][1]).name, 'Hello')
 })
 
@@ -84,4 +84,15 @@ test('a nested continuation can return to its enclosing identity', () => {
   assert.equal(legend.get(A).name, 'A')
   assert.equal(legend.get(B).name, 'B')
   assert.equal(B[1][1], A)
+})
+
+test('quoted text is an unnamed atom with an immutable value', () => {
+  const { graph, legend } = compile('(p "Hello world")', { p: value => value })
+  const text = graph[1]
+
+  assert.equal(text[0], text)
+  assert.equal(text[1], text)
+  assert.deepEqual(legend.get(text), { value: 'Hello world' })
+  assert.equal(Object.isFrozen(legend.get(text)), true)
+  assert.equal(legend.set, undefined)
 })

@@ -18,3 +18,15 @@ test('preserves authored self references', () => {
   assert.deepEqual(parse('()'), [])
   assert.deepEqual(parse('(() ())'), [[], []])
 })
+
+test('distinguishes quoted text from names', () => {
+  assert.deepEqual(
+    parse('(p "Hello (world); \\"quoted\\"")'),
+    ['p', { value: 'Hello (world); "quoted"' }])
+  assert.deepEqual(parse('""'), { value: '' })
+})
+
+test('rejects invalid quoted text', () => {
+  assert.throws(() => parse('"unfinished'), /Missing "/)
+  assert.throws(() => parse('"bad \\q"'), /Invalid string/)
+})
