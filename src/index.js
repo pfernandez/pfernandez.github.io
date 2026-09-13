@@ -33,7 +33,7 @@ const project = ({ graph, legend }) => {
 
   const lookup = (node, legend) => {
     const entry = legend.get(node)
-    return entry?.capability ?? entry?.name
+    return entry?.value ?? entry?.name
   }
 
   const next = node => isContinuation(node) ? node[1] : node

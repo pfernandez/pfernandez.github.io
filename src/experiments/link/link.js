@@ -1,25 +1,24 @@
 const isSymbol = value => typeof value === 'string'
 
-const extend = (scope, name, graph) =>
-  new Map(scope).set(name, graph)
+const extend = (scope, name, graph) => new Map(scope).set(name, graph)
 
 /** Replace authored names with identities, without evaluating the graph. */
 export const link = (pairs, imports = {}) => {
   const legend = new Map()
 
-  const identify = (graph, name, capability) => {
-    legend.set(graph, capability ? { name, capability } : { name })
+  const identify = (graph, name, value) => {
+    legend.set(graph, value ? { name, value } : { name })
     return graph
   }
 
-  const atom = (name, capability) => {
-    const graph = identify([], name, capability)
+  const atom = (name, value) => {
+    const graph = identify([], name, value)
     graph[0] = graph[1] = graph
     return graph
   }
 
   const initial = new Map(Object.entries(imports)
-    .map(([name, capability]) => [name, atom(name, capability)]))
+    .map(([name, value]) => [name, atom(name, value)]))
 
   const walk = (expression, scope = initial, enclosing) => {
     if (isSymbol(expression)) {

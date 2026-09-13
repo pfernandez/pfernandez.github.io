@@ -1,6 +1,6 @@
 ((A
    (div
-     (p State_A)
+     (p State A)
      (button
        (onclick
          (() (B (div (p State_B) (button (onclick (() A)) Next)))))
