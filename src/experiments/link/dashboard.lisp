@@ -1,9 +1,9 @@
 ((A
    (div
-     (p A)
+     (p State_A)
      (button
        (onclick
-         (() (B (div (p B) (button (onclick (() A)) Next)))))
+         (() (B (div (p State_B) (button (onclick (() A)) Next)))))
        Next)))
 
  (render

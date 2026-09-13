@@ -5,56 +5,58 @@ import { link } from './experiments/link/link.js'
 import { decompose } from './graph/decompose.js'
 import { parse } from './graph/parse.js'
 
-const isElement = array =>
-  typeof array[0] === 'string'
-    && typeof array[1] === 'object'
-    && array[1] !== null
-    && !Array.isArray(array[1])
+const isArray = Array.isArray
+const isPair = x => isArray(x) && x.length === 2
 
-const isEntry = value =>
-  Array.isArray(value)
-    && value.length === 2
-    && typeof value[0] === 'string'
-    && !isElement(value)
+const dom = el => {
+  const { entries, fromEntries } = Object
 
-const adapt = fn => value => {
-  const args = Array.isArray(value) && !isElement(value)
-    ? value
-    : [value]
-  const [first, ...rest] = args
+  const isNamed = x => isPair(x) && typeof x[0] === 'string'
+  const isObject = x => typeof x === 'object' && x !== null && !isArray(x)
+  const isVdom = x => isArray(x) && isObject(x[1])
+  const isProperty = x => isNamed(x) && !isVdom(x)
 
-  return isEntry(first)
-    ? fn(Object.fromEntries([first]), ...rest)
-    : fn(first, ...rest)
-}
+  const args = x =>
+    isPair(x) && !isVdom(x) && !isProperty(x) ? [x[0], ...args(x[1])] : [x]
 
-const imports = {
-  component: adapt(component),
-  render,
-  onclick: 'onclick',
-  ...Object.fromEntries(
-    Object.entries(elements).map(([name, fn]) =>
-      [name, adapt(fn)]))
+  const adapt = fn => x => {
+    const [first, ...rest] = args(x)
+    return fn(isProperty(first) ? fromEntries([first]) : first, ...rest)
+  }
+
+  return fromEntries(entries(el).map(([name, fn]) => [name, adapt(fn)]))
 }
 
 const project = ({ graph, legend }) => {
-  const enter = node => visit(node[0] === node ? node[1] : node)
+  const isFunction = x => typeof x === 'function'
+  const isContinuation = x => isPair(x) && x[0] === x
 
-  const visit = node => {
-    const known = legend.get(node)
-    if (known) return known.capability ?? known.name
+  const lookup = (node, legend) => {
+    const entry = legend.get(node)
+    return entry?.capability ?? entry?.name
+  }
 
-    // A left-self pair waits, then passes its arguments to what it enters.
-    if (node[0] === node) return (...args) => {
-      const result = enter(node[1])
-      return typeof result === 'function' ? result(...args) : result
+  const next = node => isContinuation(node) ? node[1] : node
+
+  const suspend = (node, visit) =>
+    argument => {
+      const result = visit(next(node))
+      return isFunction(result) ? result(argument) : result
     }
 
+  const visit = node => {
+    const known = lookup(node, legend)
+    if (known) return known
+
+    if (isContinuation(node)) return suspend(node[1], visit)
+
     const pair = node.map(visit)
-    return typeof pair[0] === 'function' ? pair[0](pair[1]) : pair
+    return isFunction(pair[0]) ? pair[0](pair[1]) : pair
   }
 
   return visit(graph)
 }
+
+const imports = { component, render, onclick: 'onclick', ...dom(elements) }
 
 project(link(decompose(parse(source)), imports))

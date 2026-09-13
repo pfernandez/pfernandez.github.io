@@ -39,5 +39,6 @@ export const parse = source => {
 
   if (forms.length === 0) err('Missing expression')
   if (forms.length > 1) err('Expected one expression')
+
   return forms[0]
 }
