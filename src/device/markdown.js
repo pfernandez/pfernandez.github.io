@@ -1,4 +1,4 @@
-import { component, div } from '@pfern/elements'
+import { div, observe } from '@pfern/elements'
 import MarkdownIt from 'markdown-it'
 
 /**
@@ -344,7 +344,7 @@ const runScripts = async token => {
 }
 
 export const createMarkdown = () => {
-  const markdown = component((string, { basePath = null } = {}) => {
+  const markdown = observe((string, { basePath = null } = {}) => {
     const token = ++renderSeq
     const extracted = extractScriptsFromMarkdown(string)
     const html = md.render(extracted.text)

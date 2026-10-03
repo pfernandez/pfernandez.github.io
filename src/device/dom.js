@@ -1,6 +1,6 @@
 import {
-  component as createComponent,
   elements,
+  observe as createComponent,
   render
 } from '@pfern/elements'
 import { markdown } from './markdown.js'

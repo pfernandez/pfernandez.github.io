@@ -1,9 +1,17 @@
 import './style.css'
-import { component, elements, render } from '@pfern/elements'
+import { elements, observe as component, render } from '@pfern/elements'
+import { program } from './device/files.js'
+import {
+  capabilities,
+  project as projectFull
+} from './device/index.js'
 import source from './experiments/link/dashboard.lisp?raw'
-import { link } from './experiments/link/link.js'
-import { decompose } from './graph/decompose.js'
-import { parse } from './graph/parse.js'
+import { link as linkExperiment } from './experiments/link/link.js'
+import {
+  decompose,
+  link as linkFull,
+  parse
+} from './graph/index.js'
 
 const isArray = Array.isArray
 const isPair = x => isArray(x) && x.length === 2
@@ -27,7 +35,7 @@ const dom = el => {
   return fromEntries(entries(el).map(([name, fn]) => [name, adapt(fn)]))
 }
 
-const project = ({ graph, legend }) => {
+const projectExperiment = ({ graph, legend }) => {
   const isFunction = x => typeof x === 'function'
   const isContinuation = x => isPair(x) && x[0] === x
 
@@ -61,4 +69,17 @@ const project = ({ graph, legend }) => {
 
 const imports = { component, render, onclick: 'onclick', ...dom(elements) }
 
-project(link(decompose(parse(source)), imports))
+const experiment = () => projectExperiment(
+  linkExperiment(decompose(parse(source)), imports)
+)
+
+const full = () => {
+  const graph = linkFull(program(), capabilities())
+
+  if (graph.error) throw graph.error
+  projectFull(graph)
+}
+
+let run = experiment
+run = full // Comment out this line to run the experiment.
+run()
