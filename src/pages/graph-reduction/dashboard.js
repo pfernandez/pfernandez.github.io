@@ -2,7 +2,7 @@
  * Retained as a migration reference. The running site uses dashboard.lisp;
  * this module is not imported by the application.
  */
-import { button, component, div, h2, label, select as menu, option, p, pre,
+import { button, div, h2, label, select as menu, observe, option, p, pre,
          textarea } from '@pfern/elements'
 import { link, schemeNames, schemes, serialize } from '../../graph/index.js'
 import lisp from './dashboard.lisp?raw'
@@ -18,7 +18,7 @@ const infer = (
     previous = history[time - 1],
     stable = error || focus[1] === focus }) => ({ time, previous, stable })
 
-const dashboard = component(
+const dashboard = observe(
   (state = initialState) => {
     const { focus, source, history, error, scheme } = state
     const { time, previous, stable } = infer(state)

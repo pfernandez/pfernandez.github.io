@@ -1,6 +1,6 @@
 import {
   elements,
-  observe as createComponent,
+  observe,
   render
 } from '@pfern/elements'
 import { markdown } from './markdown.js'
@@ -34,8 +34,7 @@ const domCapabilities = functions => {
 /** Adapt Elements functions to the uniform graph-capability interface. */
 export const dom = domCapabilities({
   ...elements,
-  component: observation =>
-    createComponent(() => observation)(),
+  observe: observation => observe(() => observation)(),
   markdown,
   render
 })

@@ -9,4 +9,4 @@
  (render
    (html
      (body
-       ((component (() A)) A)))))
+       ((observe (() A)) A)))))

@@ -1,5 +1,5 @@
 import './style.css'
-import { elements, observe as component, render } from '@pfern/elements'
+import { elements, observe, render } from '@pfern/elements'
 import { program } from './device/files.js'
 import {
   capabilities,
@@ -67,7 +67,7 @@ const projectExperiment = ({ graph, legend }) => {
   return visit(graph)
 }
 
-const imports = { component, render, onclick: 'onclick', ...dom(elements) }
+const imports = { observe, render, onclick: 'onclick', ...dom(elements) }
 
 const experiment = () => projectExperiment(
   linkExperiment(decompose(parse(source)), imports)

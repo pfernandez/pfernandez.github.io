@@ -233,10 +233,10 @@ test('switches between preauthored page identities without relinking', () => {
 
 test('renders the value after a private definition sequence', () => {
   const rendered = view(`
-    ((observe message
+    ((transition message
        ((identity x x)
         (div message)))
-     (component (observe Hello)))
+     (observe (transition Hello)))
   `)
 
   assert.deepEqual(rendered, ['div', {}, 'Hello'])
@@ -245,17 +245,17 @@ test('renders the value after a private definition sequence', () => {
 test('recurs through one uniform observer state', () => {
   let rendered = view(`
     ((root (origin first second)
-       ((observe ((history focus) next)
+       ((transition ((history focus) next)
           (div
             (button
               (props
                 (onclick
-                  (continue (observe ((focus next) history)))))
+                  (continue (transition ((focus next) history)))))
               Next)
             (serialize history ink)
             (serialize focus ink)))
-        (observe ((origin first) second))))
-     (component (root (C A B))))
+        (transition ((origin first) second))))
+     (observe (root (C A B))))
   `)
 
   assert.equal(rendered[0], 'div')
@@ -324,7 +324,7 @@ test('carries a completed application identity through an event', () => {
              (onclick (continue (after (before message)))))
            Next)
          (p message)))
-     (component (before Before)))
+     (observe (before Before)))
   `)
   const advanced = button(initial, 'Next')[1].onclick()
   const restored = button(advanced, 'Undo')[1].onclick()

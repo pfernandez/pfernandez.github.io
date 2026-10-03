@@ -26,7 +26,7 @@ index.html
    └─ link(program, capabilities)
       └─ project(graph)
          └─ Lisp Root
-            └─ render(html(head, body(component(dashboard))))
+            └─ render(html(head, body(observe(dashboard))))
 ```
 
 The previous JavaScript page shell, generic loaders, and keep-alive cache have
@@ -47,7 +47,7 @@ index.html
          └─ body
             └─ site observer
                ├─ authored navigation
-               └─ authored pages and components
+               └─ authored pages and views
 ```
 
 The host now does approximately this and should remain this small:
@@ -89,7 +89,7 @@ contents. The authored `pages.lisp` file includes each page at its causal
 position and carries a `site` definition containing the title, routes, labels,
 and source paths. The definition is visible to later source while identities
 introduced inside its body remain local. Root includes that real library before
-its shared page component. The assembled value also retains the original files
+its shared page view. The assembled value also retains the original files
 and their combined authored text for the `source` capability.
 
 The browser assembler and build-time prerenderer both read the same `site`
@@ -607,7 +607,7 @@ Prefer                         Avoid
 pathname                       selectCurrentPage
 navigate                       activateDashboard
 load                           resolveSiteContent
-component                      manageApplicationState
+observe                        manageApplicationState
 ```
 
 JavaScript may remain responsible for irreducible browser operations such as
@@ -623,20 +623,20 @@ authored composition over smaller device primitives. The final system need not
 contain zero JavaScript; it should contain no JavaScript semantic authority that
 the graph can express itself.
 
-## `component` and events
+## `observe` and events
 
-`component` is an ordinary function from the graph's perspective. It receives
-an authored observation and returns that VDOM marked as an Elements
-reconciliation boundary. It has no graph node, linker rule, evaluator branch,
-or calling syntax of its own.
+`observe` is an ordinary function from the graph's perspective. It receives an
+authored observation and returns that VDOM with an Elements observer identity.
+The identity establishes a reconciliation boundary. It has no linker rule,
+evaluator branch, or calling syntax of its own.
 
-Elements.js implements `component` as a JavaScript function that creates
-another function. One small device function translates that foreign calling
-convention into `observation -> boundary-marked observation`. It then passes
-through the same capability wrapper as every element, Markdown, and `render`;
-there is no special `component` branch in the adapter. No JavaScript function
-escapes into the graph or page loader. General returned-function values remain
-an open language question, but `component` does not require them.
+Elements.js implements `observe` as a function from a view to an observer. One
+small device function supplies a constant view, calls the resulting observer,
+and therefore translates that foreign convention into `observation -> observed
+observation`. It passes through the same capability wrapper as every element,
+Markdown, and `render`; there is no special projector branch. No JavaScript
+function escapes into the graph or page loader. General returned-function
+values remain an open language question, but `observe` does not require them.
 
 Event properties use the same ordinary properties boundary as every other DOM
 value. The source explicitly turns an authored observation into a host-callable
@@ -651,11 +651,11 @@ continuation:
 
 `continue` preserves the already-linked observation and evaluates it only when
 the browser calls the resulting function. Neither `device/dom.js` nor
-Elements.js recognizes `on*` names or knows how to advance the graph. Elements
-only invokes the function and treats returned VDOM as the next component
-observation. A fixed action has the form `(action self)`; its recurring right
-edge preserves the continuation while its left edge is the observation to
-perform.
+Elements.js recognizes graph names or knows how to advance the graph. Elements
+only invokes the event function. A returned observed VDOM selects its own
+observer; a returned plain VDOM updates the event's closest observer boundary.
+A fixed action has the form `(action self)`; its recurring right edge preserves
+the continuation while its left edge is the observation to perform.
 
 The authored `props` call turns any sequence of entry pairs into an ordinary
 JavaScript properties object. It has no list of HTML attributes, so custom,
@@ -667,12 +667,11 @@ construction history between property entries. `props` projects only authored,
 named entry pairs, so that history remains in the graph without becoming a
 JavaScript property.
 
-The document Root contains a component around the site page, and the authored
-page contains another around its selected child. A navigation event updates the
-site page boundary; a dashboard event updates the child boundary. This keeps
-events local because Elements does not treat the special `html`, `head`, or
-`body` nodes as local component roots. Those boundaries are Elements
-constraints, not graph-language rules.
+The document Root observes the site page, and the authored page observes its
+selected child. A navigation event updates the site page boundary; a dashboard
+event updates the child boundary. This keeps events local because Elements does
+not treat the special `html`, `head`, or `body` nodes as observer boundaries.
+Those boundaries are Elements constraints, not graph-language rules.
 
 ## Migration plan
 
@@ -686,7 +685,7 @@ static graph makes that machinery unnecessary.
       `html/head/body` observation.
 - [x] Reduce `src/index.js` to assembling source, linking once, and projecting
       the graph into capabilities. Root authors the call to `render`.
-- [x] Use one dashboard component until ordinary nested component calls are
+- [x] Use one dashboard observer until ordinary nested observer calls are
       established.
 
 ### 2. Move the static site structure into Root
@@ -703,8 +702,8 @@ static graph makes that machinery unnecessary.
 
 - [x] Demonstrate a returned function being called with graph-authored
       arguments without evaluator knowledge of its name.
-- [x] Treat `component` exactly like every other imported function.
-- [x] Demonstrate more than one graph-authored component boundary.
+- [x] Treat `observe` exactly like every other imported function.
+- [x] Demonstrate more than one graph-authored observer boundary.
 - [x] Express event continuation explicitly in Lisp and remove `on*` knowledge
       and graph-shaped property inference from the DOM and Elements adapters.
 

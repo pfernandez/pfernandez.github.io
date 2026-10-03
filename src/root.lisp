@@ -6,7 +6,7 @@
      (head
        (title (text pfernandez.github.io)))
      (body
-       (component content))))
+       (observe content))))
  (first (focus next) focus)
  (start state
    (render
@@ -20,12 +20,12 @@
 ;
 ; 1. An included dashboard contains a private recursive observer. Root receives
 ; the dashboard's exposed value. Dashboard retains initial identities while
-; observe carries frames.
+; transition carries frames.
 ;
 ; ((dashboard state
-;    ((observe frame
-;       (... (observe next)))
-;     (observe state)))
+;    ((transition frame
+;       (... (transition next)))
+;     (transition state)))
 ;  (root initial
 ;    ((document content (... content))
 ;     (document (dashboard initial))))
@@ -35,20 +35,20 @@
 ; the origin, current state, and appearance. This needs an initial pair identity
 ; that can be supplied twice without constructing two distinct copies.
 ;
-; ((observe ((origin (x y z)) appearance)
+; ((transition ((origin (x y z)) appearance)
 ;    ((rotate (x y z) (y z x))
 ;     (...
-;       (observe ((origin (rotate (x y z))) appearance))
-;       (observe ((origin origin) appearance)))))
-;  (component (observe ((initial initial) ink))))
+;       (transition ((origin (rotate (x y z))) appearance))
+;       (transition ((origin origin) appearance)))))
+;  (observe (transition ((initial initial) ink))))
 ;
 ; 3. A two-stage observe selected by explicit boot and run forms. This most
 ; directly expresses one observer bootstrapping and continuing itself, but it
 ; requires multiple clauses or pattern dispatch that the language does not yet
 ; define.
 ;
-; ((observe (boot initial)
-;    (... (observe (run ((identity (rotate initial)) ink)))))
-;  (observe (run state)
-;    (... (observe (run next))))
-;  (component (observe (boot (C A B)))))
+; ((transition (boot initial)
+;    (... (transition (run ((identity (rotate initial)) ink)))))
+;  (transition (run state)
+;    (... (transition (run next))))
+;  (observe (transition (boot (C A B)))))

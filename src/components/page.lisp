@@ -33,4 +33,4 @@
                    (text Machine))))))))
 
      (div (props (id content))
-       (component child)))))
+       (observe child)))))

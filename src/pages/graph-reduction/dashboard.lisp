@@ -1,5 +1,5 @@
 ((dashboard ((origin first second) initialAppearance)
-   ((observe (((history focus) next) appearance)
+   ((transition (((history focus) next) appearance)
       (div (props (class dashboard-view))
         (div (props (class panel))
           (h2 (text Graph Reduction))
@@ -17,25 +17,25 @@
                   (props
                     (onclick
                       (continue
-                        (observe (((history focus) next) ink)))))
+                        (transition (((history focus) next) ink)))))
                   Ink)
                 (button
                   (props
                     (onclick
                       (continue
-                        (observe (((history focus) next) pastel)))))
+                        (transition (((history focus) next) pastel)))))
                   Pastel)
                 (button
                   (props
                     (onclick
                       (continue
-                        (observe (((history focus) next) color)))))
+                        (transition (((history focus) next) color)))))
                   Color)
                 (button
                   (props
                     (onclick
                       (continue
-                        (observe (((history focus) next) plain)))))
+                        (transition (((history focus) next) plain)))))
                   Plain)))))
 
         (div (props (class (text panel scene)))
@@ -51,14 +51,14 @@
               (props
                 (onclick
                   (continue
-                    (observe (((focus next) history) appearance)))))
+                    (transition (((focus next) history) appearance)))))
               (text Next))
             (button (props (disabled true)) (text Undo))
             (button
               (props
                 (onclick
                   (continue
-                    (observe (((origin first) second) appearance)))))
+                    (transition (((origin first) second) appearance)))))
               (text Reset)))
 
           (label (props (class (text row output)))
@@ -68,4 +68,4 @@
           (label (props (class (text row output)))
             (text Result)
             (serialize focus appearance)))))
-    (observe (((origin first) second) initialAppearance)))))
+    (transition (((origin first) second) initialAppearance)))))
