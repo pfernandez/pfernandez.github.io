@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prerender.js",
+    "cli:link": "node src/experiments/link/cli.js",
     "preview": "vite preview",
     "repl": "node src/repl/index.js",
     "repl:seed": "node src/experiments/seed/repl.js",
