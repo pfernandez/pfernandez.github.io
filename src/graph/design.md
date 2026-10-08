@@ -302,6 +302,10 @@ Each layer has one kind of knowledge:
   `selections` records which value a retained construction sequence exposes.
   It also records each device call's argument root. These tables are
   construction facts only. The connected input remains unchanged.
+  Within an application, `copyBody` allocates each local compound identity
+  once. Composition updates those cells in place and reserves named local
+  cells before descending into their edges, preserving sharing and cycles
+  while keeping distinct application configurations separate.
 - `materialize(composed)` follows those construction-time selections once and
   turns device arguments into graph structure. Each argument occupies the left
   side of a recurrent frame. A self-naming left wrapper separates those frames

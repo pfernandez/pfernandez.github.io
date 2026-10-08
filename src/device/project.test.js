@@ -143,6 +143,25 @@ test('passes a pair-valued result as one device argument', () => {
     [['A', 'A']])
 })
 
+test('preserves device arguments when a local application is shared', () => {
+  const calls = []
+  const rendered = view(`
+    ((pair (x y) (x y))
+     (F z (collect ((t (effect (pair (z z)))) t)))
+     (F A))
+  `, {
+    collect: ({ values }) => values(),
+    effect: ({ values }) => {
+      const args = values()
+      calls.push(args)
+      return args.length
+    }
+  })
+
+  assert.deepEqual(calls, [[['A', 'A']], [['A', 'A']]])
+  assert.deepEqual(rendered, [['t', 1], ['t', 1]])
+})
+
 test('rejects applying a returned value that is not a function', () => {
   assert.throws(
     () => view('((text Hello) World)'),

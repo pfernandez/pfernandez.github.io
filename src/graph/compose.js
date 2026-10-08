@@ -88,7 +88,9 @@ export const compose = connected => {
     chain = true
   ) => {
     const known = materialized.get(expression)
-    if (known) return context(exposed(known) ?? known)
+    if (known) return namedValues.has(expression)
+      ? context(exposed(known) ?? known)
+      : context(known, known, exposed(known))
 
     if (isOpen(expression)
       || isFixed(expression)
@@ -96,11 +98,16 @@ export const compose = connected => {
       || owner.get(expression) !== ownedBy)
       return context(expression)
 
-    const graph = []
+    // copyBody has already allocated each local identity for this application.
+    // Compose those cells in place so repeated references remain shared.
+    const graph = ownedBy === image.root ? [] : expression
     const entry = legend.get(expression)
     if (entry) legend.set(graph, entry)
     if (namedValues.has(expression)) namedValues.add(graph)
     owner.set(graph, ownedBy)
+    // Remember named local cells before descending into their edges.
+    if (ownedBy !== image.root && entry)
+      materialized.set(expression, graph)
     const left = expression[0]
     const right = expression[1]
 

@@ -73,6 +73,55 @@ test('reuses a named application inside an instantiated body', () => {
   assert.equal(result[1], args)
 })
 
+test('preserves a local pair shared within an instantiated body', () => {
+  const { focus, result, graph, legend } = composed(`
+    ((pair (x y) (x y))
+     (F z (pair ((t z z) t)))
+     (F A))
+  `)
+  const t = result[0]
+  const definition = graph[1][0]
+  const template = definition[1][1][0]
+
+  assert.equal(result[1], t)
+  assert.equal(legend.get(t).name, 't')
+  assert.equal(t[0], focus[0])
+  assert.equal(t[1], focus[0])
+  assert.notEqual(t, template)
+  assert.equal(template[0], definition[0])
+  assert.equal(template[1], definition[0])
+})
+
+test('keeps local pair identities separate between distinct applications', () => {
+  const { result } = composed(`
+    ((pair (x y) (x y))
+     (F z (pair ((t z z) t)))
+     (first (F A))
+     (second (F B))
+     (pair (first second)))
+  `)
+  const [first, second] = result
+
+  assert.equal(first[0], first[1])
+  assert.equal(second[0], second[1])
+  assert.notEqual(first[0], second[0])
+  assert.notEqual(first[0][0], second[0][0])
+})
+
+test('composes a recurrent local pair without revisiting its body', () => {
+  const { focus, result } = composed(`
+    ((pair (x y) (x y))
+     (F z (pair ((t z (t z)) t)))
+     (F A))
+  `)
+  const t = result[0]
+
+  assert.equal(result[1], t)
+  assert.equal(t[0], focus[0])
+  assert.equal(t[1][0], t)
+  assert.equal(t[1][1], focus[0])
+})
+
 test('retains application of a foreign result for projection', () => {
   const make = () => {}
   const { focus, legend } = composed('((make x) y)', { make })
